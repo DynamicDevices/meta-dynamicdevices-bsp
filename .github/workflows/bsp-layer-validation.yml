@@ -216,10 +216,11 @@ jobs:
         echo "Testing basic recipe parsing..."
         bitbake -p || echo "Parse test completed"
         
-        # Run the layer check
+        # Run the layer check (only check current layer, not dependencies)
         echo "Running yocto-check-layer..."
         python3 ../build/layers/openembedded-core/scripts/yocto-check-layer \
           --layer .. \
+          --no-auto-dependencies \
           --output-log ../bsp-layer-check-${{ matrix.yocto_branch }}.log \
           || echo "yocto-check-layer completed with issues"
 
