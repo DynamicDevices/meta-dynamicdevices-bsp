@@ -5,7 +5,7 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![License: Commercial](https://img.shields.io/badge/License-Commercial-green.svg)](mailto:licensing@dynamicdevices.co.uk)
 [![Yocto Compatible](https://img.shields.io/badge/Yocto-scarthgap%20|%20kirkstone-orange.svg)](https://www.yoctoproject.org/)
-[![YP Compatible](https://img.shields.io/badge/YP%20Compatible-BSP%20Layer%20✓-brightgreen)](https://docs.yoctoproject.org/test-manual/yocto-project-compatible.html)
+[![YP Compliance Ready](https://img.shields.io/badge/YP%20Compliance-BSP%20Ready-blue)](https://docs.yoctoproject.org/test-manual/yocto-project-compatible.html)
 [![Layer Validation](https://github.com/DynamicDevices/meta-dynamicdevices/actions/workflows/yocto-layer-validation.yml/badge.svg)](https://github.com/DynamicDevices/meta-dynamicdevices/actions/workflows/yocto-layer-validation.yml)
 
 Board Support Package (BSP) layer for Dynamic Devices Edge Computing platforms.
