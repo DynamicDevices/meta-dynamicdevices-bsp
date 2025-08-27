@@ -219,9 +219,9 @@ jobs:
         # Run the layer check
         echo "Running yocto-check-layer..."
         python3 ../build/layers/openembedded-core/scripts/yocto-check-layer \
-          --layer .. \
-          --output-log ../bsp-layer-check-${{ matrix.yocto_branch }}.log \
-          || echo "yocto-check-layer completed with issues"
+          .. \
+          --no-auto-dependency \
+          --output-log ../bsp-layer-check-${{ matrix.yocto_branch }}.log
 
     - name: Analyze BSP Layer Check Results
       run: |
