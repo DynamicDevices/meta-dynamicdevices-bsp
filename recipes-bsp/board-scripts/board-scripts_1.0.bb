@@ -1,3 +1,6 @@
+SUMMARY = "Board testing and configuration scripts"
+DESCRIPTION = "Collection of shell scripts for board testing, configuration, and production validation"
+
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
 LICENSE = "GPL-3.0-only"
@@ -41,4 +44,4 @@ do_install:append:imx8mm-jaguar-sentai() {
 RDEPENDS:${PN} = "bash"
 
 # Additional dependencies for specific machines
-RDEPENDS:${PN}:imx8mm-jaguar-sentai += "dtmf2num"
+RDEPENDS:${PN}:imx8mm-jaguar-sentai = "bash dtmf2num"
