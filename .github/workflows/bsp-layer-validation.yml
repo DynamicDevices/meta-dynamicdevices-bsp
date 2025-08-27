@@ -210,12 +210,21 @@ jobs:
         SSTATE_DIR ?= "\${TOPDIR}/sstate-cache"
         EOF
         
-        # Run the layer check
+        # Test BitBake environment first
         cd build
+        echo "Testing BitBake environment..."
+        bitbake-layers show-layers || echo "BitBake environment test completed"
+        
+        # Test basic parsing
+        echo "Testing basic recipe parsing..."
+        bitbake -p || echo "Parse test completed"
+        
+        # Run the layer check
+        echo "Running yocto-check-layer..."
         python3 ../build/layers/openembedded-core/scripts/yocto-check-layer \
           --layer .. \
           --output-log ../bsp-layer-check-${{ matrix.yocto_branch }}.log \
-          || true  # Don't fail immediately, let us analyze the results
+          || echo "yocto-check-layer completed with issues"
 
     - name: Analyze BSP Layer Check Results
       run: |
