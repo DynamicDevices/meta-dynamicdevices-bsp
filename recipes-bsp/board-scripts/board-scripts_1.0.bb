@@ -37,4 +37,8 @@ do_install:append:imx8mm-jaguar-sentai() {
     install -m 0755 ${WORKDIR}/*.wav ${D}${datadir}/${PN}
 }
 
-RDEPENDS:${PN}:imx8mm-jaguar-sentai = "dtmf2num"
+# Runtime dependencies for all machines (board-info.sh and production-test.sh use bash)
+RDEPENDS:${PN} = "bash"
+
+# Additional dependencies for specific machines
+RDEPENDS:${PN}:imx8mm-jaguar-sentai += "dtmf2num"
