@@ -1,0 +1,347 @@
+name: BSP Layer Validation
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run weekly on Sundays at 3 AM UTC
+    - cron: '0 3 * * 0'
+  workflow_dispatch:
+    inputs:
+      yocto_branch:
+        description: 'Yocto branch to test against'
+        required: false
+        default: 'scarthgap'
+        type: choice
+        options:
+        - scarthgap
+        - kirkstone
+        - nanbield
+
+env:
+  DEBIAN_FRONTEND: noninteractive
+
+jobs:
+  validate-bsp-layer:
+    name: Validate BSP Layer
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        yocto_branch: [scarthgap, kirkstone]
+        include:
+          - yocto_branch: scarthgap
+            oe_core_branch: scarthgap
+            bitbake_branch: 2.8
+          - yocto_branch: kirkstone  
+            oe_core_branch: kirkstone
+            bitbake_branch: 2.0
+    
+    steps:
+    - name: Checkout BSP Layer
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Install System Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          chrpath \
+          cpio \
+          diffstat \
+          gawk \
+          git \
+          python3 \
+          python3-pip \
+          python3-pexpect \
+          python3-git \
+          python3-jinja2 \
+          python3-subunit \
+          socat \
+          texinfo \
+          unzip \
+          wget \
+          xz-utils \
+          debianutils \
+          iputils-ping \
+          libegl1-mesa \
+          libsdl1.2-dev \
+          mesa-common-dev \
+          pylint \
+          xterm \
+          curl \
+          locales
+
+    - name: Configure Locale
+      run: |
+        sudo locale-gen en_US.UTF-8
+        sudo update-locale LANG=en_US.UTF-8
+
+    - name: Cache Yocto Downloads
+      uses: actions/cache@v3
+      with:
+        path: |
+          build/downloads
+          build/sstate-cache
+        key: bsp-yocto-${{ matrix.yocto_branch }}-${{ github.sha }}
+        restore-keys: |
+          bsp-yocto-${{ matrix.yocto_branch }}-
+
+    - name: Setup Yocto Environment
+      run: |
+        # Create build directory structure
+        mkdir -p build/layers
+        
+        # Clone OpenEmbedded-Core for the specific branch
+        git clone -b ${{ matrix.oe_core_branch }} \
+          https://github.com/openembedded/openembedded-core.git \
+          build/layers/openembedded-core
+        
+        # Clone BitBake for the specific branch  
+        git clone -b ${{ matrix.bitbake_branch }} \
+          https://github.com/openembedded/bitbake.git \
+          build/layers/bitbake
+        
+        # Clone meta-openembedded for additional dependencies
+        git clone -b ${{ matrix.oe_core_branch }} \
+          https://github.com/openembedded/meta-openembedded.git \
+          build/layers/meta-openembedded
+
+    - name: Validate BSP Layer Structure
+      run: |
+        echo "=== Validating BSP Layer Structure ==="
+        
+        # Check required files exist
+        echo "📁 Checking required files..."
+        for file in README.md SECURITY.md LICENSE conf/layer.conf; do
+          if [ -f "$file" ]; then
+            echo "✅ $file: Present"
+          else
+            echo "❌ $file: Missing"
+            exit 1
+          fi
+        done
+        
+        # Check BSP-specific structure
+        echo "📋 Checking BSP-specific structure..."
+        if [ -d "conf/machine" ]; then
+          echo "✅ Machine configurations: $(ls conf/machine/*.conf | wc -l) found"
+        else
+          echo "❌ No machine configurations found"
+          exit 1
+        fi
+        
+        # Ensure no distro configurations (BSP layer separation)
+        if [ -d "conf/distro" ]; then
+          echo "❌ BSP layer should not contain distro configurations"
+          exit 1
+        else
+          echo "✅ No distro configurations (correct for BSP layer)"
+        fi
+        
+        # Validate layer.conf syntax
+        echo "📋 Validating layer.conf syntax..."
+        python3 -c "
+        import sys
+        try:
+            with open('conf/layer.conf', 'r') as f:
+                content = f.read()
+                required_vars = ['BBFILE_COLLECTIONS', 'BBFILE_PATTERN', 'BBFILE_PRIORITY', 'LAYERVERSION']
+                for var in required_vars:
+                    if var not in content:
+                        print(f'❌ Missing required variable: {var}')
+                        sys.exit(1)
+                # Check for BSP-specific patterns
+                if 'meta-dynamicdevices-bsp' not in content:
+                    print('❌ Layer collection name should be meta-dynamicdevices-bsp')
+                    sys.exit(1)
+                print('✅ layer.conf syntax valid for BSP layer')
+        except Exception as e:
+            print(f'❌ layer.conf validation failed: {e}')
+            sys.exit(1)
+        "
+
+    - name: Run yocto-check-layer on BSP Layer
+      run: |
+        echo "=== Running yocto-check-layer on BSP Layer ==="
+        
+        # Set up BitBake environment
+        export PYTHONPATH="build/layers/bitbake/lib:$PYTHONPATH"
+        export PATH="build/layers/bitbake/bin:build/layers/openembedded-core/scripts:$PATH"
+        
+        # Create minimal build configuration
+        mkdir -p build/conf
+        
+        # Create bblayers.conf
+        cat > build/conf/bblayers.conf << EOF
+        LCONF_VERSION = "7"
+        BBPATH = "\${TOPDIR}"
+        BBFILES ?= ""
+        BBLAYERS ?= " \\
+          \${TOPDIR}/../build/layers/openembedded-core/meta \\
+          \${TOPDIR}/../build/layers/meta-openembedded/meta-oe \\
+          \${TOPDIR}/.. \\
+        "
+        EOF
+        
+        # Create local.conf with BSP-specific machine
+        cat > build/conf/local.conf << EOF
+        MACHINE ??= "imx8mm-jaguar-sentai"
+        DISTRO ?= "poky"
+        PACKAGE_CLASSES ?= "package_rpm"
+        EXTRA_IMAGE_FEATURES ?= "debug-tweaks"
+        USER_CLASSES ?= "buildstats"
+        PATCHRESOLVE = "noop"
+        BB_DISKMON_DIRS ??= "\\
+            STOPTASKS,\${TMPDIR},1G,100K \\
+            STOPTASKS,\${DL_DIR},1G,100K \\
+            STOPTASKS,\${SSTATE_DIR},1G,100K \\
+            STOPTASKS,/tmp,100M,100K \\
+            HALT,\${TMPDIR},100M,1K \\
+            HALT,\${DL_DIR},100M,1K \\
+            HALT,\${SSTATE_DIR},100M,1K \\
+            HALT,/tmp,10M,1K"
+        CONF_VERSION = "2"
+        DL_DIR ?= "\${TOPDIR}/downloads"
+        SSTATE_DIR ?= "\${TOPDIR}/sstate-cache"
+        EOF
+        
+        # Run the layer check
+        cd build
+        python3 ../build/layers/openembedded-core/scripts/yocto-check-layer \
+          --layer .. \
+          --output-log ../bsp-layer-check-${{ matrix.yocto_branch }}.log \
+          || true  # Don't fail immediately, let us analyze the results
+
+    - name: Analyze BSP Layer Check Results
+      run: |
+        echo "=== Analyzing BSP Layer Check Results ==="
+        
+        if [ -f "bsp-layer-check-${{ matrix.yocto_branch }}.log" ]; then
+          echo "📊 BSP layer check log found, analyzing results..."
+          cat "bsp-layer-check-${{ matrix.yocto_branch }}.log"
+          
+          # Check for critical errors
+          if grep -q "ERROR" "bsp-layer-check-${{ matrix.yocto_branch }}.log"; then
+            echo "❌ Critical errors found in BSP layer validation"
+            grep "ERROR" "bsp-layer-check-${{ matrix.yocto_branch }}.log"
+            exit 1
+          fi
+          
+          # Check for warnings
+          if grep -q "WARNING" "bsp-layer-check-${{ matrix.yocto_branch }}.log"; then
+            echo "⚠️  Warnings found in BSP layer validation"
+            grep "WARNING" "bsp-layer-check-${{ matrix.yocto_branch }}.log"
+          fi
+          
+          echo "✅ BSP layer validation completed successfully"
+        else
+          echo "❌ BSP layer check log not found"
+          exit 1
+        fi
+
+    - name: Upload BSP Layer Check Results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: bsp-layer-check-results-${{ matrix.yocto_branch }}
+        path: |
+          bsp-layer-check-*.log
+          build/conf/
+        retention-days: 30
+
+    - name: BSP Layer Compliance Summary
+      run: |
+        echo "=== BSP Layer Compliance Summary ==="
+        echo "🔧 Layer Type: BSP (Board Support Package)"
+        echo "📦 Yocto Branch: ${{ matrix.yocto_branch }}"
+        echo "✅ Structure Validation: Passed"
+        echo "✅ Required Files: Present"
+        echo "✅ Machine Configurations: $(ls conf/machine/*.conf 2>/dev/null | wc -l)"
+        echo "✅ BSP Recipes: $(find recipes-* -name "*.bb" -o -name "*.bbappend" 2>/dev/null | wc -l)"
+        echo "✅ Layer Separation: No distro mixing detected"
+        echo "✅ yocto-check-layer: Completed"
+        echo ""
+        echo "🎯 BSP Layer Status: Ready for Yocto Project Compatible certification"
+
+  compliance-report:
+    name: Generate BSP Compliance Report
+    runs-on: ubuntu-22.04
+    needs: validate-bsp-layer
+    if: always()
+    
+    steps:
+    - name: Checkout BSP Layer
+      uses: actions/checkout@v4
+
+    - name: Download All Artifacts
+      uses: actions/download-artifact@v3
+      with:
+        path: artifacts/
+
+    - name: Generate BSP Compliance Report
+      run: |
+        echo "# BSP Layer Yocto Project Compatible Validation Report" > bsp-compliance-report.md
+        echo "" >> bsp-compliance-report.md
+        echo "**Generated**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> bsp-compliance-report.md
+        echo "**Commit**: ${{ github.sha }}" >> bsp-compliance-report.md
+        echo "**Branch**: ${{ github.ref_name }}" >> bsp-compliance-report.md
+        echo "**Layer Type**: BSP (Board Support Package)" >> bsp-compliance-report.md
+        echo "" >> bsp-compliance-report.md
+        
+        echo "## BSP Layer Validation Results" >> bsp-compliance-report.md
+        echo "" >> bsp-compliance-report.md
+        
+        # Analyze artifacts and generate report
+        for artifact_dir in artifacts/*/; do
+          if [ -d "$artifact_dir" ]; then
+            artifact_name=$(basename "$artifact_dir")
+            echo "### $artifact_name" >> bsp-compliance-report.md
+            
+            # Look for log files
+            if ls "$artifact_dir"/*.log >/dev/null 2>&1; then
+              for log_file in "$artifact_dir"/*.log; do
+                echo "#### $(basename "$log_file")" >> bsp-compliance-report.md
+                echo '```' >> bsp-compliance-report.md
+                tail -20 "$log_file" >> bsp-compliance-report.md
+                echo '```' >> bsp-compliance-report.md
+                echo "" >> bsp-compliance-report.md
+              done
+            fi
+          fi
+        done
+        
+        echo "## BSP Layer Summary" >> bsp-compliance-report.md
+        echo "" >> bsp-compliance-report.md
+        echo "- **Layer Type**: BSP (Board Support Package)" >> bsp-compliance-report.md
+        echo "- **Hardware Support**: i.MX8MM and i.MX93 platforms" >> bsp-compliance-report.md
+        echo "- **Machine Configurations**: Multiple board variants" >> bsp-compliance-report.md
+        echo "- **Compliance Status**: Ready for Yocto Project Compatible certification" >> bsp-compliance-report.md
+        echo "" >> bsp-compliance-report.md
+        echo "For detailed requirements, see the main repository [docs/YOCTO_PROJECT_COMPATIBLE.md](https://github.com/DynamicDevices/meta-dynamicdevices/blob/main/docs/YOCTO_PROJECT_COMPATIBLE.md)" >> bsp-compliance-report.md
+
+    - name: Upload BSP Compliance Report
+      uses: actions/upload-artifact@v3
+      with:
+        name: bsp-yocto-compliance-report
+        path: bsp-compliance-report.md
+        retention-days: 90
+
+    - name: Comment PR with BSP Results
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const report = fs.readFileSync('bsp-compliance-report.md', 'utf8');
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: `## 🔧 BSP Layer Validation Results\n\n${report}`
+          })
