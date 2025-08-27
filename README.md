@@ -1,5 +1,11 @@
 # meta-dynamicdevices-bsp
 
+**Professional Yocto BSP Layer for Dynamic Devices Edge Computing Platforms**
+
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![License: Commercial](https://img.shields.io/badge/License-Commercial-green.svg)](mailto:licensing@dynamicdevices.co.uk)
+[![Yocto Compatible](https://img.shields.io/badge/Yocto-scarthgap%20|%20kirkstone-orange.svg)](https://www.yoctoproject.org/)
+
 Board Support Package (BSP) layer for Dynamic Devices Edge Computing platforms.
 
 ## Overview
@@ -49,6 +55,17 @@ MACHINE = "imx8mm-jaguar-sentai"
 - `meta-freescale` - NXP/Freescale BSP layer
 - `openembedded-core` - Core OpenEmbedded layer
 
+## Documentation & Support
+
+📚 **Comprehensive Documentation**: For detailed documentation, tutorials, and technical guides, visit the [meta-dynamicdevices Wiki](https://github.com/DynamicDevices/meta-dynamicdevices/wiki).
+
+The wiki includes:
+- Getting started guides
+- Hardware setup instructions  
+- Build configuration examples
+- Troubleshooting guides
+- Development best practices
+
 ## Yocto Project Compatibility
 
 This layer is designed to be **Yocto Project Compatible** and follows BSP layer best practices:
@@ -65,4 +82,23 @@ Website: https://dynamicdevices.co.uk
 
 ## License
 
-See individual recipe files for license information.
+This BSP layer is available under **dual licensing**:
+
+### 🆓 **Open Source License (GPL v3)**
+- Free to use for open source projects
+- Must comply with GPL v3 copyleft requirements
+- Source code modifications must be shared
+
+### 💼 **Commercial License**
+- Available for proprietary/commercial use
+- No copyleft restrictions
+- Custom support and maintenance available
+- Contact: licensing@dynamicdevices.co.uk
+
+See the [LICENSE](./LICENSE) file for complete terms and conditions.
+
+## Related Projects
+
+- **[meta-dynamicdevices](https://github.com/DynamicDevices/meta-dynamicdevices)** - Main application layer
+- **[Wiki](https://github.com/DynamicDevices/meta-dynamicdevices/wiki)** - Comprehensive documentation
+
