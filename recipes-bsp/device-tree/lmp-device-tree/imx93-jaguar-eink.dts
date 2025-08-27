@@ -18,9 +18,11 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include "freescale/imx93.dtsi"
 
+/* EdgeLock Enclave not used on E-Ink board
 &ele_fw2 {
 	memory-region = <&ele_reserved>;
 };
+*/
 
 / {
 	model = "i.MX93 Jaguar E-Ink board";
@@ -49,6 +51,7 @@
 			reg = <0x0 0xC0000000 0x0 0x10000000>;
 		};
 
+		/* Memory regions for EdgeLock Enclave and Cortex-M33 - not used on E-Ink board
 		ele_reserved: ele-reserved@A4120000 {
 			compatible = "shared-dma-pool";
 			reg = <0x0 0xA4120000 0x0 0x100000>;
@@ -90,6 +93,7 @@
 			reg = <0 0xa4021000 0 0x100000>;
 			no-map;
 		};
+		*/
 	};
 
 	/* WiFi SDIO power sequence */
@@ -126,6 +130,7 @@
 	}; */
 };
 
+/* Cortex-M33 not used on E-Ink board
 &cm33 {
 	mbox-names = "tx", "rx", "rxdb";
 	mboxes = <&mu1 0 1>,
@@ -136,6 +141,7 @@
 	fsl,startup-delay-ms = <500>;
 	status = "okay";
 };
+*/
 
 &mu1 {
 	status = "okay";
