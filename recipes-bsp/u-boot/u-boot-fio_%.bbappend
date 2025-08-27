@@ -30,7 +30,6 @@ SRC_URI:append:imx93-jaguar-eink = " \
     file://custom-dtb.cfg \
     file://enable-i2c.cfg \
     file://enable-spi.cfg \
-    file://fast-boot.cfg \
 "
 
 # TODO: Add u-boot DTB customisation patch
