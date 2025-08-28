@@ -13,15 +13,23 @@ These changes maintain backward compatibility with older kernels using version c
 Upstream-Status: Pending
 Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 ---
- tas2563-regmap.c | 8 ++++++++
- tiload.c         | 7 +++++++
- 2 files changed, 15 insertions(+)
+ tas2563-regmap.c | 9 +++++++++
+ tiload.c         | 8 ++++++++
+ 2 files changed, 17 insertions(+)
 
 diff --git a/tas2563-regmap.c b/tas2563-regmap.c
 index 1234567..abcdefg 100644
 --- a/tas2563-regmap.c
 +++ b/tas2563-regmap.c
-@@ -632,8 +632,12 @@ static struct tas2563_priv *g_tas2563;
+@@ -25,6 +25,7 @@
+ #include <linux/module.h>
+ #include <linux/moduleparam.h>
+ #include <linux/init.h>
++#include <linux/version.h>
+ #include <linux/delay.h>
+ #include <linux/pm.h>
+ #include <linux/i2c.h>
+@@ -632,8 +633,12 @@ static struct tas2563_priv *g_tas2563;
  * platform dependent
  * should implement hardware reset functionality
  */
@@ -38,7 +46,15 @@ diff --git a/tiload.c b/tiload.c
 index 1234567..abcdefg 100644
 --- a/tiload.c
 +++ b/tiload.c
-@@ -385,7 +385,14 @@ static int tiload_driver_init(void)
+@@ -23,6 +23,7 @@
+ #include <linux/module.h>
+ #include <linux/moduleparam.h>
+ #include <linux/init.h>
++#include <linux/version.h>
+ #include <linux/kernel.h>
+ #include <linux/fs.h>
+ #include <linux/types.h>
+@@ -385,7 +386,14 @@ static int tiload_driver_init(void)
  		dev_err(pTAS2563->dev, "cannot allocate major number %d\n", tiload_major);
  		return result;
  	}
