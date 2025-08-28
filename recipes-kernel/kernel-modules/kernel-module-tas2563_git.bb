@@ -6,6 +6,7 @@ inherit module
 
 SRC_URI = "git://github.com/DynamicDevices/tas2563-android-driver.git;branch=master;protocol=https \
            file://tas2563_uCDSP.bin \
+           file://01-fix-kernel-6.6-compatibility.patch \
           "
 SRCREV = "193335838bd79836f14f82c2b84e1b16817e48b6"
 

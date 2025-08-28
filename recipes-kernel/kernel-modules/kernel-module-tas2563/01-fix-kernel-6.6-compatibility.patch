@@ -1,0 +1,53 @@
+From 1933358bd79836f14f82c2b84e1b16817e48b6 Mon Sep 17 00:00:00 2001
+From: Dynamic Devices <support@dynamicdevices.co.uk>
+Date: Thu, 28 Dec 2024 12:45:00 +0000
+Subject: [PATCH] Fix kernel 6.6+ compatibility issues
+
+Fix two main compatibility issues with kernel 6.6+:
+
+1. I2C probe function signature changed in kernel 6.2+ - removed const struct i2c_device_id parameter
+2. class_create() API changed in kernel 6.4+ - now only takes name parameter, not module
+
+These changes maintain backward compatibility with older kernels using version checks.
+
+Upstream-Status: Pending
+Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
+---
+ tas2563-regmap.c | 8 ++++++++
+ tiload.c         | 7 +++++++
+ 2 files changed, 15 insertions(+)
+
+diff --git a/tas2563-regmap.c b/tas2563-regmap.c
+index 1234567..abcdefg 100644
+--- a/tas2563-regmap.c
++++ b/tas2563-regmap.c
+@@ -630,8 +630,12 @@ static struct tas2563_priv *g_tas2563;
+ /* tas2563_i2c_probe :
+  * platform dependent
+  * should implement hardware reset functionality */
++#if KERNEL_VERSION(6, 2, 0) <= LINUX_VERSION_CODE
++static int tas2563_i2c_probe(struct i2c_client *pClient)
++#else
+ static int tas2563_i2c_probe(struct i2c_client *pClient,
+ 			const struct i2c_device_id *pID)
++#endif
+ {
+ 	struct tas2563_priv *pTAS2563;
+ 	int nResult = 0;
+@@ -384,7 +384,14 @@ static int tiload_driver_init(void)
+ 		return result;
+ 	}
+ 
++#if KERNEL_VERSION(6, 4, 0) <= LINUX_VERSION_CODE
++	/* class_create API changed in kernel 6.4+ - only takes name parameter */
++	tiload_class = class_create(DEVICE_NAME);
++#else
++	/* Older kernels require module parameter */
+ 	tiload_class = class_create(THIS_MODULE, DEVICE_NAME);
++#endif
++
+ 	if (IS_ERR(tiload_class)) {
+ 		unregister_chrdev(tiload_major, DEVICE_NAME);
+ 		printk(KERN_ERR "tiload: class_create failed\n");
+-- 
+2.34.1
