@@ -32,11 +32,17 @@ SRC_URI:append:imx8mm-jaguar-phasora = "\
 "
 SRC_URI:append:imx93-jaguar-eink = "\
     file://99-ignore-uap.conf \
+    file://wifi_mod_para.conf \
 "
 
 do_install:append() {
     install -d ${D}${sysconfdir}/NetworkManager/conf.d
     install -D -m 0644 ${WORKDIR}/99-ignore-uap.conf ${D}${sysconfdir}/NetworkManager/conf.d/99-ignore-uap.conf
+}
+
+do_install:append:imx93-jaguar-eink() {
+    # Install custom WiFi module parameters for IW612
+    install -D -m 0644 ${WORKDIR}/wifi_mod_para.conf ${D}${nonarch_base_libdir}/firmware/nxp/wifi_mod_para.conf
 }
 
 FILES:${PN} += "${sysconfdir}/NetworkManager/conf.d/99-ignore-uap.conf"
