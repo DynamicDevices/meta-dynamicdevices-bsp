@@ -21,23 +21,27 @@ diff --git a/tas2563-regmap.c b/tas2563-regmap.c
 index 1234567..abcdefg 100644
 --- a/tas2563-regmap.c
 +++ b/tas2563-regmap.c
-@@ -630,8 +630,12 @@ static struct tas2563_priv *g_tas2563;
- /* tas2563_i2c_probe :
-  * platform dependent
-  * should implement hardware reset functionality */
+@@ -632,8 +632,12 @@ static struct tas2563_priv *g_tas2563;
+ * platform dependent
+ * should implement hardware reset functionality
+ */
 +#if KERNEL_VERSION(6, 2, 0) <= LINUX_VERSION_CODE
 +static int tas2563_i2c_probe(struct i2c_client *pClient)
 +#else
  static int tas2563_i2c_probe(struct i2c_client *pClient,
- 			const struct i2c_device_id *pID)
+ 	const struct i2c_device_id *pID)
 +#endif
  {
  	struct tas2563_priv *pTAS2563;
  	int nResult = 0;
-@@ -384,7 +384,14 @@ static int tiload_driver_init(void)
+diff --git a/tiload.c b/tiload.c
+index 1234567..abcdefg 100644
+--- a/tiload.c
++++ b/tiload.c
+@@ -385,7 +385,14 @@ static int tiload_driver_init(void)
+ 		dev_err(pTAS2563->dev, "cannot allocate major number %d\n", tiload_major);
  		return result;
  	}
- 
 +#if KERNEL_VERSION(6, 4, 0) <= LINUX_VERSION_CODE
 +	/* class_create API changed in kernel 6.4+ - only takes name parameter */
 +	tiload_class = class_create(DEVICE_NAME);
@@ -46,8 +50,8 @@ index 1234567..abcdefg 100644
  	tiload_class = class_create(THIS_MODULE, DEVICE_NAME);
 +#endif
 +
- 	if (IS_ERR(tiload_class)) {
- 		unregister_chrdev(tiload_major, DEVICE_NAME);
- 		printk(KERN_ERR "tiload: class_create failed\n");
+ 	tiload_major = MAJOR(dev);
+ 	dev_dbg(pTAS2563->dev, "allocated Major Number: %d\n", tiload_major);
+ 
 -- 
 2.34.1
