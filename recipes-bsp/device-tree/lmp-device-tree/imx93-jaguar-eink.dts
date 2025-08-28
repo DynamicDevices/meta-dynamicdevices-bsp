@@ -18,10 +18,7 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include "freescale/imx93.dtsi"
 
-/* EdgeLock Enclave explicitly disabled on E-Ink board */
-&ele_fw2 {
-	status = "disabled";
-};
+/* EdgeLock Enclave not available on E-Ink board - handled via kernel config */
 
 / {
 	model = "i.MX93 Jaguar E-Ink board";
@@ -89,10 +86,7 @@
 	}; */
 };
 
-/* Cortex-M33 explicitly disabled on E-Ink board */
-&cm33 {
-	status = "disabled";
-};
+/* Cortex-M33 not used on E-Ink board - handled via kernel config */
 
 &mu1 {
 	status = "okay";
