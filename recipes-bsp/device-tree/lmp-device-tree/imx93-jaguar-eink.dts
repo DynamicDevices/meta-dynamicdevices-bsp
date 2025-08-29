@@ -58,6 +58,7 @@
 		pinctrl-names = "default";
 		reset-gpios = <&gpio4 26 GPIO_ACTIVE_LOW>; /* WLAN_RST */
 		post-power-on-delay-ms = <200>;
+		power-off-delay-us = <10000>; /* 10ms delay before power off */
 	};
 
 	/* Regulators */
@@ -66,8 +67,8 @@
 		regulator-name = "VSD_3V3";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
-		gpio = <&gpio4 26 GPIO_ACTIVE_HIGH>;
-		enable-active-high;
+		/* WiFi power is controlled by MCXC143VFM, not directly by i.MX93 GPIO */
+		regulator-always-on;
 		startup-delay-us = <100>;
 	};
 
