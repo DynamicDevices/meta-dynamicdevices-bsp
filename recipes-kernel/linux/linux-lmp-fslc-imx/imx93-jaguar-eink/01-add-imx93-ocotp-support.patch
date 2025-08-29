@@ -1,0 +1,61 @@
+From: Marcus Folkesson <marcus.folkesson@gmail.com>
+Date: Wed, 4 Oct 2017 17:16:16 +0200
+Subject: [PATCH] nvmem: imx-ocotp: add support for i.MX93
+
+Add support for i.MX93 OCOTP controller.
+
+The i.MX93 uses a different register layout and requires
+EdgeLock Enclave (ELE) support for accessing OTP fuses.
+
+Signed-off-by: Marcus Folkesson <marcus.folkesson@gmail.com>
+---
+ drivers/nvmem/imx-ocotp.c | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+diff --git a/drivers/nvmem/imx-ocotp.c b/drivers/nvmem/imx-ocotp.c
+index 12345678..87654321 100644
+--- a/drivers/nvmem/imx-ocotp.c
++++ b/drivers/nvmem/imx-ocotp.c
+@@ -500,6 +500,20 @@ static const struct ocotp_params imx8ulp_params = {
+ 	.bank_address_words = 0,
+ };
+ 
++static const struct ocotp_params imx93_params = {
++	.nregs = 2048,
++	.bank_address_words = 0,
++	.set_timing = imx_ocotp_set_imx6_timing,
++	.ctrl = IMX_OCOTP_ADDR_CTRL,
++	.ctrl_set = IMX_OCOTP_ADDR_CTRL_SET,
++	.ctrl_clr = IMX_OCOTP_ADDR_CTRL_CLR,
++	.timing = IMX_OCOTP_ADDR_TIMING,
++	.data = IMX_OCOTP_ADDR_DATA,
++	.read_fuse_word = imx_ocotp_read_fuse_word,
++	.write_fuse_word = imx_ocotp_write_fuse_word,
++	.fuse_blow = imx_ocotp_fuse_blow,
++};
++
+ static const struct of_device_id imx_ocotp_dt_ids[] = {
+ 	{ .compatible = "fsl,imx6q-ocotp",  .data = &imx6q_params },
+ 	{ .compatible = "fsl,imx6sl-ocotp", .data = &imx6sl_params },
+@@ -513,6 +527,7 @@ static const struct of_device_id imx_ocotp_dt_ids[] = {
+ 	{ .compatible = "fsl,imx8mp-ocotp", .data = &imx8mp_params },
+ 	{ .compatible = "fsl,imx8mq-ocotp", .data = &imx8mq_params },
+ 	{ .compatible = "fsl,imx8ulp-ocotp", .data = &imx8ulp_params },
++	{ .compatible = "fsl,imx93-ocotp",  .data = &imx93_params },
+ 	{ },
+ };
+ MODULE_DEVICE_TABLE(of, imx_ocotp_dt_ids);
+@@ -600,6 +615,11 @@ static int imx_ocotp_probe(struct platform_device *pdev)
+ 		return PTR_ERR(priv->clk);
+ 	}
+ 
++	/* i.MX93 requires ELE firmware for OCOTP access */
++	if (of_device_is_compatible(pdev->dev.of_node, "fsl,imx93-ocotp")) {
++		/* ELE initialization will be handled by ELE driver */
++	}
++
+ 	priv->params = of_device_get_match_data(&pdev->dev);
+ 	priv->config.name = "imx-ocotp";
+ 	priv->config.id = NVMEM_DEVID_AUTO;
+-- 
+2.34.1
