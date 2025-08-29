@@ -1,8 +1,11 @@
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
-SRC_URI += "\
-  file://iwlwifi-ty-a0-gf-a0-59.ucode \
-"
+# Only add Intel WiFi firmware for Dynamic Devices machines that need it
+SRC_URI:append:imx8mm-jaguar-sentai = " file://iwlwifi-ty-a0-gf-a0-59.ucode"
+SRC_URI:append:imx8mm-jaguar-inst = " file://iwlwifi-ty-a0-gf-a0-59.ucode"
+SRC_URI:append:imx8mm-jaguar-handheld = " file://iwlwifi-ty-a0-gf-a0-59.ucode"
+SRC_URI:append:imx8mm-jaguar-phasora = " file://iwlwifi-ty-a0-gf-a0-59.ucode"
+SRC_URI:append:imx93-jaguar-eink = " file://iwlwifi-ty-a0-gf-a0-59.ucode"
 
 do_install:append() {
     install -d ${D}/${nonarch_base_libdir}/firmware
