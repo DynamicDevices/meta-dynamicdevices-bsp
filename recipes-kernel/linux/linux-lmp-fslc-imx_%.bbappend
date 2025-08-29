@@ -100,6 +100,7 @@ SRC_URI:append:imx93-jaguar-eink = " \
 		file://enable_power_management.cfg \
 		file://enable_wifi_power_management.cfg \
 		file://enable_fast_boot.cfg \
+		file://enable_ocotp_nvmem.cfg \
 "
 
 # NOTE: This DTB file is created as a default for use with local development
