@@ -32,6 +32,7 @@ SRC_URI:append:imx93-jaguar-eink = " \
     file://enable-i2c.cfg \
     file://enable-spi.cfg \
     file://disable-fiovb.cfg \
+    file://disable-unused-peripherals.cfg \
     ${@bb.utils.contains('ENABLE_BOOT_PROFILING', '1', 'file://enable_boot_profiling.cfg', '', d)} \
 "
 
