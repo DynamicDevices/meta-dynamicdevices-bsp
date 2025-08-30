@@ -17,6 +17,7 @@ SRC_URI:append:imx8mm-jaguar-sentai = " \
 		file://04-enable-usb-gadgets.cfg \
 		file://05-patch-led-defaults.patch \
         file://06-enable-tas256x_2781.cfg \
+        ${@bb.utils.contains('ENABLE_BOOT_PROFILING', '1', 'file://enable_boot_profiling.cfg', '', d)} \
 "
 
 # NOTE: This DTB file is created as a default for use with local development
@@ -101,7 +102,7 @@ SRC_URI:append:imx93-jaguar-eink = " \
 		file://enable_wifi_power_management.cfg \
 		file://enable_fast_boot.cfg \
 		file://enable_ocotp_nvmem.cfg \
-		file://01-add-imx93-ocotp-support.patch \
+		${@bb.utils.contains('ENABLE_BOOT_PROFILING', '1', 'file://enable_boot_profiling.cfg', '', d)} \
 "
 
 # NOTE: This DTB file is created as a default for use with local development
