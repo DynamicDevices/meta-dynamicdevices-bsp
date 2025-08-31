@@ -89,6 +89,11 @@
 
 /* Cortex-M33 not used on E-Ink board - handled via kernel config */
 
+/* Disable EdgeLock Enclave Message Unit - not used on E-Ink board */
+&ele_mu {
+	status = "disabled";
+};
+
 &mu1 {
 	status = "okay";
 };
