@@ -16,7 +16,7 @@ do_install:append:imx8mm-jaguar-sentai() {
     install -m 0644 ${WORKDIR}/asound-tas2563-mics.conf ${D}${datadir}/alsa/asound-tas2563-mics.conf
 }
 
-do_install:append() {
+do_install:append:imx8mm-jaguar-sentai() {
     # Remove ALSA state directory to prevent state file creation
     rm -rf ${D}${localstatedir}/lib/alsa
 }

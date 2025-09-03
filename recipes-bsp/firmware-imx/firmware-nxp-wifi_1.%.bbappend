@@ -35,12 +35,30 @@ SRC_URI:append:imx93-jaguar-eink = "\
     file://wifi_mod_para.conf \
 "
 
-do_install:append() {
+do_install:append:imx8mm-jaguar-sentai() {
+    install -d ${D}${sysconfdir}/NetworkManager/conf.d
+    install -D -m 0644 ${WORKDIR}/99-ignore-uap.conf ${D}${sysconfdir}/NetworkManager/conf.d/99-ignore-uap.conf
+}
+
+do_install:append:imx8mm-jaguar-inst() {
+    install -d ${D}${sysconfdir}/NetworkManager/conf.d
+    install -D -m 0644 ${WORKDIR}/99-ignore-uap.conf ${D}${sysconfdir}/NetworkManager/conf.d/99-ignore-uap.conf
+}
+
+do_install:append:imx8mm-jaguar-handheld() {
+    install -d ${D}${sysconfdir}/NetworkManager/conf.d
+    install -D -m 0644 ${WORKDIR}/99-ignore-uap.conf ${D}${sysconfdir}/NetworkManager/conf.d/99-ignore-uap.conf
+}
+
+do_install:append:imx8mm-jaguar-phasora() {
     install -d ${D}${sysconfdir}/NetworkManager/conf.d
     install -D -m 0644 ${WORKDIR}/99-ignore-uap.conf ${D}${sysconfdir}/NetworkManager/conf.d/99-ignore-uap.conf
 }
 
 do_install:append:imx93-jaguar-eink() {
+    install -d ${D}${sysconfdir}/NetworkManager/conf.d
+    install -D -m 0644 ${WORKDIR}/99-ignore-uap.conf ${D}${sysconfdir}/NetworkManager/conf.d/99-ignore-uap.conf
+    
     # Install custom WiFi module parameters for IW612
     install -D -m 0644 ${WORKDIR}/wifi_mod_para.conf ${D}${nonarch_base_libdir}/firmware/nxp/wifi_mod_para.conf
     
