@@ -20,7 +20,6 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 # Only apply NetworkManager configuration for Dynamic Devices machines
 SRC_URI:append:imx8mm-jaguar-sentai = "\
     file://99-ignore-uap.conf \
-    file://wifi_mod_para.conf \
 "
 SRC_URI:append:imx8mm-jaguar-inst = "\
     file://99-ignore-uap.conf \
@@ -39,21 +38,6 @@ SRC_URI:append:imx93-jaguar-eink = "\
 do_install:append:imx8mm-jaguar-sentai() {
     install -d ${D}${sysconfdir}/NetworkManager/conf.d
     install -D -m 0644 ${WORKDIR}/99-ignore-uap.conf ${D}${sysconfdir}/NetworkManager/conf.d/99-ignore-uap.conf
-    
-    # Install custom WiFi module parameters for IW612 (same as E-ink board)
-    install -D -m 0644 ${WORKDIR}/wifi_mod_para.conf ${D}${nonarch_base_libdir}/firmware/nxp/wifi_mod_para.conf
-    
-    # Configure firmware type based on build configuration
-    # Use secure firmware (.se) for production, regular (.bin) for development
-    if [ "${NXP_WIFI_SECURE_FIRMWARE}" = "1" ]; then
-        # More robust sed command that handles whitespace and line endings
-        sed -i '/SDIW612 = {/,/^}/ s|fw_name=nxp/sduart_nw61x_v1\.bin|fw_name=nxp/sduart_nw61x_v1.bin.se|g' ${D}${nonarch_base_libdir}/firmware/nxp/wifi_mod_para.conf
-        bbwarn "Using secure NXP WiFi firmware (.se files) - ensure secure boot is configured"
-    else
-        # Ensure we use standard firmware for development builds
-        sed -i '/SDIW612 = {/,/^}/ s|fw_name=nxp/sduart_nw61x_v1\.bin\.se|fw_name=nxp/sduart_nw61x_v1.bin|g' ${D}${nonarch_base_libdir}/firmware/nxp/wifi_mod_para.conf
-        bbwarn "Using standard NXP WiFi firmware (.bin files) - suitable for development"
-    fi
 }
 
 do_install:append:imx8mm-jaguar-inst() {
