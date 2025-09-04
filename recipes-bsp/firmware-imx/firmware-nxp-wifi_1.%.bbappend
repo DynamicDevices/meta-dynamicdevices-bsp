@@ -20,6 +20,7 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 # Only apply NetworkManager configuration for Dynamic Devices machines
 SRC_URI:append:imx8mm-jaguar-sentai = "\
     file://99-ignore-uap.conf \
+    file://wifi_mod_para.conf \
 "
 SRC_URI:append:imx8mm-jaguar-inst = "\
     file://99-ignore-uap.conf \
@@ -38,6 +39,9 @@ SRC_URI:append:imx93-jaguar-eink = "\
 do_install:append:imx8mm-jaguar-sentai() {
     install -d ${D}${sysconfdir}/NetworkManager/conf.d
     install -D -m 0644 ${WORKDIR}/99-ignore-uap.conf ${D}${sysconfdir}/NetworkManager/conf.d/99-ignore-uap.conf
+    
+    # Install custom WiFi module parameters for sentai (same as eink)
+    install -D -m 0644 ${WORKDIR}/wifi_mod_para.conf ${D}${nonarch_base_libdir}/firmware/nxp/wifi_mod_para.conf
 }
 
 do_install:append:imx8mm-jaguar-inst() {
