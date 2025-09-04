@@ -288,7 +288,7 @@
                 compatible = "ti,tas2563";
                 reg = <0x4C>;
                 ti,channels = <1>; /* channel number */
-                ti,reset-gpio = <&gpio5 4 GPIO_ACTIVE_HIGH>;  /* Enable reset control */
+//              ti,reset-gpio = <&gpio5 4 GPIO_ACTIVE_HIGH>;
                 ti,irq-gpio = <&gpio5 5 GPIO_ACTIVE_LOW>;
                 ti,asi-format = <0>; /* 0, i2S; 1, DSP;  */
                 ti,left-slot = <0>; /* <left slot number> */
@@ -298,7 +298,6 @@
                 ti,echo-ref = <2>;
                 ti,bypass-tmax = <1>; /* 0, not bypass; 1, bypass */
                 ti,i2s-bits = <32>;
-                ti,bypass-calibration = <1>; /* Skip calibration - not currently supported */
                 status = "okay";
         };
 };
