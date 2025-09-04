@@ -41,6 +41,7 @@
                         sound-dai = <&tas2563>;
                         clocks = <&clk IMX8MM_CLK_SAI3_ROOT>;
                 };
+                status = "disabled";  /* Temporarily disabled for WiFi/Bluetooth debugging */
         };
 
 	sound-wm8524 {
@@ -298,7 +299,7 @@
                 ti,echo-ref = <2>;
                 ti,bypass-tmax = <1>; /* 0, not bypass; 1, bypass */
                 ti,i2s-bits = <32>;
-                status = "okay";
+                status = "disabled";  /* Temporarily disabled for WiFi/Bluetooth debugging */
         };
 };
 
