@@ -1,0 +1,120 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Device Tree Overlay for TAS2563/TAS2781 Integrated Smart Amplifier
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2835";
+
+	fragment@0 {
+		target = <&i2s_clk_producer>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@1 {
+		target-path="/";
+		__overlay__ {
+			tas2781_mclk: tas2781_mclk {
+				compatible = "fixed-clock";
+				#clock-cells = <0>;
+				clock-frequency = <12288000>;
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&i2c1>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+			clock-frequency = <400000>;
+			
+			/* TAS2563 configuration */
+			tas2563: tas2563@4c {
+				compatible = "ti,tas2563";
+				reg = <0x4c>, <0x4d>; /* Stereo: left and right channels */
+				#sound-dai-cells = <0>;
+				reset-gpios = <&gpio 24 1>;
+				interrupt-parent = <&gpio>;
+				interrupts = <25 8>; /* IRQ_TYPE_LEVEL_LOW */
+				ti,global-addr-enable;
+				status = "disabled"; /* Enable via overlay parameter */
+			};
+			
+			/* TAS2781 configuration */
+			tas2781: tas2781@38 {
+				compatible = "ti,tas2781";
+				reg = <0x38>, <0x39>; /* Stereo: left and right channels */
+				#sound-dai-cells = <0>;
+				reset-gpios = <&gpio 24 1>;
+				interrupt-parent = <&gpio>;
+				interrupts = <25 8>; /* IRQ_TYPE_LEVEL_LOW */
+				ti,global-addr-enable;
+				status = "disabled"; /* Enable via overlay parameter */
+			};
+		};
+	};
+
+	fragment@3 {
+		target = <&sound>;
+		tas2563_overlay: __overlay__ {
+			compatible = "simple-audio-card";
+			simple-audio-card,format = "i2s";
+			simple-audio-card,name = "TAS2563 Audio";
+			status = "disabled";
+
+			simple-audio-card,bitclock-master = <&dailink0_master>;
+			simple-audio-card,frame-master = <&dailink0_master>;
+
+			dailink0_master: simple-audio-card,cpu {
+				sound-dai = <&i2s_clk_producer>;
+			};
+			
+			simple-audio-card,codec {
+				sound-dai = <&tas2563>;
+			};
+		};
+	};
+
+	fragment@4 {
+		target = <&sound>;
+		tas2781_overlay: __overlay__ {
+			compatible = "simple-audio-card";
+			simple-audio-card,format = "i2s";
+			simple-audio-card,name = "TAS2781 Audio";
+			status = "disabled";
+
+			simple-audio-card,bitclock-master = <&dailink1_master>;
+			simple-audio-card,frame-master = <&dailink1_master>;
+
+			dailink1_master: simple-audio-card,cpu {
+				sound-dai = <&i2s_clk_producer>;
+			};
+			
+			simple-audio-card,codec {
+				sound-dai = <&tas2781>;
+			};
+		};
+	};
+
+	__overrides__ {
+		/* Chip selection - only one should be enabled */
+		tas2563 = <&tas2563>,"status=okay",<&tas2563_overlay>,"status=okay";
+		tas2781 = <&tas2781>,"status=okay",<&tas2781_overlay>,"status=okay";
+		
+		/* Audio card name override */
+		alsaname2563 = <&tas2563_overlay>,"simple-audio-card,name";
+		alsaname2781 = <&tas2781_overlay>,"simple-audio-card,name";
+		
+		/* I2C address overrides for multi-device configurations */
+		tas2563_addr = <&tas2563>,"reg:0";
+		tas2781_addr = <&tas2781>,"reg:0";
+		
+		/* GPIO overrides */
+		reset_gpio = <&tas2563>,"reset-gpios:4",<&tas2781>,"reset-gpios:4";
+		irq_gpio = <&tas2563>,"interrupts:0",<&tas2781>,"interrupts:0";
+	};
+};
