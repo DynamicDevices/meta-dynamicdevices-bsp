@@ -6,6 +6,7 @@ SRC_URI:append:imx8mm-jaguar-sentai = " \
     file://custom-dtb.cfg \
     file://01-customise-dtb.patch \
     file://enable-i2c.cfg \
+    file://disable-se050-debug.cfg \
     ${@bb.utils.contains('ENABLE_BOOT_PROFILING', '1', 'file://enable_boot_profiling.cfg', '', d)} \
 "
 
