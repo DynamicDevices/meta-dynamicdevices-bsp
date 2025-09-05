@@ -20,7 +20,7 @@
 
 	sound-tas2563 {
                 compatible = "simple-audio-card";
-                simple-audio-card,name = "tas2563-audio";
+                simple-audio-card,name = "tas2563audio";
                 simple-audio-card,format = "i2s";
                 simple-audio-card,frame-master = <&cpudai2>;
                 simple-audio-card,bitclock-master = <&cpudai2>;
@@ -530,4 +530,16 @@
 &usbotg2 {
 	dr_mode = "host";
         status = "okay";
+};
+
+// SAI3 for TAS2563 audio
+&sai3 {
+	#sound-dai-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sai3>;
+	assigned-clocks = <&clk IMX8MM_CLK_SAI3>;
+	assigned-clock-parents = <&clk IMX8MM_AUDIO_PLL1_OUT>;
+	assigned-clock-rates = <24576000>;
+	fsl,sai-mclk-direction-output;
+	status = "okay";
 };
