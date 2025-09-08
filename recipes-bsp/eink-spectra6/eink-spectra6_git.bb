@@ -1,7 +1,9 @@
 SUMMARY = "Spectra 6 E-Ink Display Userspace Library and Test Tools"
 DESCRIPTION = "Userspace library and test applications for the Spectra 6 EL133UF1 E-Ink display. \
-Provides SPI communication interface, display control functions, and test utilities for \
-13.3-inch E-Ink displays with 6-color Spectra technology."
+Provides SPI communication interface, display control functions, and comprehensive test utilities for \
+13.3-inch E-Ink displays with 6-color Spectra technology. Features enhanced controller validation \
+with multiple register testing (STATUS, REVISION, VCOM, temperature sensor), resolution verification, \
+and detailed debugging capabilities for hardware verification and troubleshooting."
 HOMEPAGE = "https://github.com/DynamicDevices/eink-spectra6"
 SECTION = "libs"
 AUTHOR = "Dynamic Devices Ltd"
@@ -53,6 +55,27 @@ EXTRA_OECMAKE = " \
 # CMake configuration is handled automatically by the cmake class
 
 do_install:append() {
+    # Install documentation files
+    install -d ${D}${datadir}/doc/${PN}
+    if [ -f "${S}/README.md" ]; then
+        install -m 644 ${S}/README.md ${D}${datadir}/doc/${PN}/
+    fi
+    if [ -f "${S}/VALIDATION_ENHANCEMENTS.md" ]; then
+        install -m 644 ${S}/VALIDATION_ENHANCEMENTS.md ${D}${datadir}/doc/${PN}/
+    fi
+    if [ -f "${S}/BOARD_CONFIGURATION.md" ]; then
+        install -m 644 ${S}/BOARD_CONFIGURATION.md ${D}${datadir}/doc/${PN}/
+    fi
+    if [ -f "${S}/GETTING_STARTED.md" ]; then
+        install -m 644 ${S}/GETTING_STARTED.md ${D}${datadir}/doc/${PN}/
+    fi
+    if [ -f "${S}/PROJECT_CONTEXT.md" ]; then
+        install -m 644 ${S}/PROJECT_CONTEXT.md ${D}${datadir}/doc/${PN}/
+    fi
+    if [ -d "${S}/docs" ]; then
+        cp -r ${S}/docs/* ${D}${datadir}/doc/${PN}/
+    fi
+    
     # Install any additional files like examples, configs, or systemd services
     if [ -d "${S}/examples" ]; then
         install -d ${D}${datadir}/${PN}/examples
