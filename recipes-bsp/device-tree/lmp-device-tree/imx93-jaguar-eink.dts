@@ -217,11 +217,11 @@
 	};
 };
 
-/* Bluetooth UART - ublox MAYA W2 - LPUART5 is at 42590000 on iMX93 */
-&lpuart4 {
+/* Bluetooth UART - ublox MAYA W2 - LPUART5 */
+&lpuart5 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_lpuart5>;  /* Still using LPUART5 pin config (DAP pins) */
-	fsl,uart-has-rtscts;  /* Enable RTS/CTS hardware flow control */
+	pinctrl-0 = <&pinctrl_lpuart5>;
+	fsl,uart-has-rtscts;
 	status = "okay";
 
 	bluetooth {
