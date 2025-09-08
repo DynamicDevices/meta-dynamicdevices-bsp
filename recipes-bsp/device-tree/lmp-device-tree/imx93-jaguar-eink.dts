@@ -286,11 +286,11 @@
  * and development while preserving the ability to load custom E-Ink drivers.
  */
 
-/* QSPI Interface for E-Ink Display - Spectra 6 EL133UF1 (Primary Option) */
+/* QSPI Interface for E-Ink Display - DISABLED for standard SPI testing */
 &flexspi1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_flexspi1>;
-	status = "okay";
+	status = "disabled"; /* Disabled to use LPSPI1 instead */
 
 	eink_display: flash@0 {
 		compatible = "spidev";
@@ -310,17 +310,17 @@
 		/* Power supply for E-Ink display */
 		vdd-supply = <&reg_eink_vdd>;
 		
-		status = "okay";
+		status = "disabled"; /* Disabled to use LPSPI1 instead */
 	};
 };
 
-/* Regular SPI Interface for E-Ink Display - Backup/Alternative Option */
+/* Standard SPI Interface for E-Ink Display - PRIMARY for testing */
 &lpspi1 {
 	#address-cells = <1>;
 	#size-cells = <0>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpspi1>;
-	status = "okay"; /* Enabled by default for testing flexibility */
+	status = "okay"; /* Primary interface for standard SPI testing */
 
 	eink_display_spi: eink@0 {
 		compatible = "spidev";
@@ -329,7 +329,7 @@
 		spi-cpha;
 		spi-cpol;
 		
-		/* GPIO control pins for E-Ink display (shared with QSPI) */
+		/* GPIO control pins for E-Ink display */
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_eink_gpio>;
 		reset-gpios = <&gpio2 14 GPIO_ACTIVE_LOW>;   /* RES_DIS# - Reset pin (Active-Low) */
@@ -337,7 +337,7 @@
 		dc-gpios = <&gpio2 15 GPIO_ACTIVE_HIGH>;     /* D/C#_DIS - Data/Command (LO=Cmd, HI=Data) */
 		lr-select-gpios = <&gpio2 16 GPIO_ACTIVE_HIGH>; /* L#R_SEL_DIS - Left/Right Select (LO=Left, HI=Right) */
 		
-		/* Power supply for E-Ink display (shared with QSPI) */
+		/* Power supply for E-Ink display */
 		vdd-supply = <&reg_eink_vdd>;
 		
 		status = "okay";
