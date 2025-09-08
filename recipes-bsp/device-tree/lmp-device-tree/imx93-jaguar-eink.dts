@@ -224,7 +224,6 @@
 			MX93_PAD_GPIO_IO15__GPIO2_IO15		0x31e  /* D/C#_DIS - Data/Command (LO=Cmd, HI=Data) */
 			MX93_PAD_GPIO_IO16__GPIO2_IO16		0x31e  /* L#R_SEL_DIS - Left/Right Select (LO=Left, HI=Right) */
 			MX93_PAD_GPIO_IO17__GPIO2_IO17		0x31e  /* BUSY_DIS# - Busy Status (LO=Busy, Input) */
-			MX93_PAD_GPIO_IO11__GPIO2_IO11		0x31e  /* POWER_EN - Display Power Enable */
 		>;
 	};
 };
