@@ -140,7 +140,7 @@
 };
 
 /* Cortex-M33 support enabled for E-Ink board */
-&imx93_cm33 {
+&cm33 {
 	mbox-names = "tx", "rx", "rxdb";
 	mboxes = <&mu1 0 1
 		  &mu1 1 1
