@@ -1,0 +1,2 @@
+# Keep mlan0 interface down by default - secondary WiFi interface not needed
+SUBSYSTEM=="net", ACTION=="add", KERNEL=="mlan0", RUN+="/sbin/ip link set dev mlan0 down"

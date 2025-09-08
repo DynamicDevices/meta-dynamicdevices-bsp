@@ -32,20 +32,22 @@ do_install:append:imx8mm-jaguar-sentai() {
 
 FILES:${PN}:imx8mm-jaguar-sentai += "${systemd_unitdir}/system/*.service ${bindir}/*.sh ${sysconfdir}/NetworkManager/conf.d/99-ignore-uap.conf"
 
-# Add UAP ignore configuration and udev rule for imx93-jaguar-eink
-SRC_URI:append:imx93-jaguar-eink = " file://99-ignore-uap.conf file://70-wifi-interface-rename.rules"
+# Add WiFi interface management configurations and udev rules for imx93-jaguar-eink
+SRC_URI:append:imx93-jaguar-eink = " file://99-ignore-secondary-wifi.conf file://70-wifi-interface-rename.rules file://71-wifi-mlan0-down.rules"
 
 # WiFi module parameters (debug only) are configured in the machine configuration
 
 do_install:append:imx93-jaguar-eink() {
+    # Install NetworkManager configuration to ignore secondary WiFi interfaces
     install -d ${D}${sysconfdir}/NetworkManager/conf.d
-    install -D -m 0644 ${WORKDIR}/99-ignore-uap.conf ${D}${sysconfdir}/NetworkManager/conf.d/99-ignore-uap.conf
+    install -D -m 0644 ${WORKDIR}/99-ignore-secondary-wifi.conf ${D}${sysconfdir}/NetworkManager/conf.d/99-ignore-secondary-wifi.conf
     
-    # Install udev rule for interface renaming
+    # Install udev rules for interface management
     install -d ${D}${sysconfdir}/udev/rules.d
     install -D -m 0644 ${WORKDIR}/70-wifi-interface-rename.rules ${D}${sysconfdir}/udev/rules.d/70-wifi-interface-rename.rules
+    install -D -m 0644 ${WORKDIR}/71-wifi-mlan0-down.rules ${D}${sysconfdir}/udev/rules.d/71-wifi-mlan0-down.rules
 }
 
-FILES:${PN}:imx93-jaguar-eink += "${sysconfdir}/NetworkManager/conf.d/99-ignore-uap.conf ${sysconfdir}/udev/rules.d/70-wifi-interface-rename.rules"
+FILES:${PN}:imx93-jaguar-eink += "${sysconfdir}/NetworkManager/conf.d/99-ignore-secondary-wifi.conf ${sysconfdir}/udev/rules.d/70-wifi-interface-rename.rules ${sysconfdir}/udev/rules.d/71-wifi-mlan0-down.rules"
 
 # Debug messages are now disabled via drvdbg=0 module parameter

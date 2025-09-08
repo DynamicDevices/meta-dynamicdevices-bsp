@@ -101,6 +101,7 @@ SRC_URI:append:imx93-jaguar-eink = " \
 		file://enable_power_management.cfg \
 		file://enable_wifi_power_management.cfg \
 		file://enable_ocotp_nvmem.cfg \
+		file://enable_m33_support.cfg \
 		${@bb.utils.contains('ENABLE_BOOT_PROFILING', '1', 'file://enable_boot_profiling.cfg', '', d)} \
 "
 
