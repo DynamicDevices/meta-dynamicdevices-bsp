@@ -206,6 +206,17 @@
 		>;
 	};
 
+	/* SPI3 pin configuration for 802.15.4 - ublox MAYA W2 module */
+	pinctrl_lpspi3: lpspi3grp {
+		fsl,pins = <
+			MX93_PAD_GPIO_IO09__LPSPI3_SIN		0x31e  /* MOSI - SPI3_MOSI */
+			MX93_PAD_GPIO_IO10__LPSPI3_SOUT		0x31e  /* MISO - SPI3_MISO */
+			MX93_PAD_GPIO_IO11__LPSPI3_SCK		0x31e  /* SCK - SPI3_SCLK */
+			MX93_PAD_GPIO_IO08__LPSPI3_PCS0		0x31e  /* CS0 - SPI3_SS0 */
+			MX93_PAD_ENET2_RD3__GPIO4_IO27		0x31e  /* ZB_INT - 802.15.4 Interrupt */
+		>;
+	};
+
 	/* E-Ink display GPIO pins */
 	pinctrl_eink_gpio: eink_gpio_grp {
 		fsl,pins = <
@@ -339,6 +350,40 @@
 		
 		/* Power supply for E-Ink display */
 		vdd-supply = <&reg_eink_vdd>;
+		
+		status = "okay";
+	};
+};
+
+/*
+ * 802.15.4 SPI Interface - ublox MAYA W2 module (IW612 chipset)
+ * 
+ * LPSPI3 Configuration:
+ *   - Device: /dev/spidev2.0
+ *   - Speed: Up to 12 MHz
+ *   - Standard SPI mode
+ *   - Uses GPIO pins (GPIO_IO08-11) for SPI signals
+ *   - Interrupt: GPIO4_IO27 (ENET2_RD3)
+ *   - Reset: Shared with Bluetooth (GPIO4_IO24, controlled by MCXC143VFM)
+ */
+&lpspi3 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpspi3>;
+	status = "okay";
+
+	zigbee_802154: zigbee@0 {
+		compatible = "rohm,dh2228fv";
+		reg = <0>;
+		spi-max-frequency = <12000000>; /* 12 MHz for 802.15.4 communication */
+		
+		/* Interrupt pin for 802.15.4 */
+		interrupt-parent = <&gpio4>;
+		interrupts = <27 IRQ_TYPE_LEVEL_LOW>; /* GPIO4_IO27 - ZB_INT */
+		
+		/* Reset is shared with Bluetooth, controlled by MCXC143VFM power controller */
+		/* reset-gpios = <&gpio4 24 GPIO_ACTIVE_LOW>; // BT_RST - shared reset */
 		
 		status = "okay";
 	};
