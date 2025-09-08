@@ -271,17 +271,18 @@
  *   - Speed: Up to 80 MHz
  *   - 4-bit data width (quad mode)
  *   - Uses SD3 pins (SD3_CLK, SD3_CMD, SD3_DATA0-3)
- *   - Compatible: "spectra6,el133uf1-qspi"
+ *   - Compatible: "spectra6,el133uf1-qspi", "spidev" (fallback for testing)
  * 
  * LPSPI1 (Regular SPI) - Backup/Alternative Option:
  *   - Device: /dev/spidev1.0  
  *   - Speed: Up to 10 MHz (conservative)
  *   - 1-bit data width (standard SPI)
  *   - Uses SAI1 pins (SAI1_TXC, SAI1_RXD0, SAI1_TXD0, SAI1_TXFS)
- *   - Compatible: "spectra6,el133uf1-spi"
+ *   - Compatible: "spectra6,el133uf1-spi", "spidev" (fallback for testing)
  * 
  * Both interfaces share the same GPIO control pins (reset, busy, dc) and power supply.
- * Your userspace application can choose which interface to use based on requirements.
+ * The spidev fallback compatible string enables /dev/spidev* devices for testing
+ * and development while preserving the ability to load custom E-Ink drivers.
  */
 
 /* QSPI Interface for E-Ink Display - Spectra 6 EL133UF1 (Primary Option) */
@@ -291,7 +292,7 @@
 	status = "okay";
 
 	eink_display: flash@0 {
-		compatible = "spectra6,el133uf1-qspi";
+		compatible = "spectra6,el133uf1-qspi", "spidev";
 		reg = <0>;
 		spi-max-frequency = <80000000>; /* 80 MHz - QSPI can handle higher speeds */
 		spi-tx-bus-width = <4>; /* Quad SPI - 4 data lines for TX */
@@ -320,7 +321,7 @@
 	status = "okay"; /* Enabled by default for testing flexibility */
 
 	eink_display_spi: eink@0 {
-		compatible = "spectra6,el133uf1-spi";
+		compatible = "spectra6,el133uf1-spi", "spidev";
 		reg = <0>;
 		spi-max-frequency = <10000000>; /* 10 MHz - conservative for regular SPI */
 		spi-cpha;
