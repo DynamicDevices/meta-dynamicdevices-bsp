@@ -72,6 +72,18 @@
 		startup-delay-us = <100>;
 	};
 
+	/* E-Ink Display Power Regulator */
+	reg_eink_vdd: regulator-eink-vdd {
+		compatible = "regulator-fixed";
+		regulator-name = "EINK_VDD";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&gpio2 11 GPIO_ACTIVE_HIGH>; /* E-Ink power enable - GPIO2_11 */
+		enable-active-high;
+		startup-delay-us = <1000>;
+		regulator-boot-on;
+	};
+
 	/* GPIO keys - temporarily disabled to debug shutdown issue */
 	/* gpio-keys {
 		compatible = "gpio-keys";
@@ -89,9 +101,9 @@
 
 /* Cortex-M33 not used on E-Ink board - handled via kernel config */
 
-/* Disable EdgeLock Enclave Message Unit - not used on E-Ink board */
-&ele_mu {
-	status = "disabled";
+/* EdgeLock Enclave Message Unit - required for secure functionality */
+&s4muap {
+	status = "okay";
 };
 
 &mu1 {
@@ -121,6 +133,38 @@
 	pinctrl_bluetooth_gpio: bluetooth_gpio_grp {
 		fsl,pins = <
 			MX93_PAD_ENET2_RD0__GPIO4_IO24		0x31e  /* BT_RST - Active Low, controlled by MCXC143VFM */
+		>;
+	};
+
+	/* FlexSPI1 (QSPI) pin configuration for E-Ink display - Primary Option */
+	pinctrl_flexspi1: flexspi1grp {
+		fsl,pins = <
+			MX93_PAD_SD3_CLK__FLEXSPI1_A_SCLK	0x31e  /* QSPI Clock */
+			MX93_PAD_SD3_CMD__FLEXSPI1_A_SS0_B	0x31e  /* QSPI CS0 */
+			MX93_PAD_SD3_DATA0__FLEXSPI1_A_DATA00	0x31e  /* QSPI Data 0 */
+			MX93_PAD_SD3_DATA1__FLEXSPI1_A_DATA01	0x31e  /* QSPI Data 1 */
+			MX93_PAD_SD3_DATA2__FLEXSPI1_A_DATA02	0x31e  /* QSPI Data 2 */
+			MX93_PAD_SD3_DATA3__FLEXSPI1_A_DATA03	0x31e  /* QSPI Data 3 */
+		>;
+	};
+
+	/* SPI1 pin configuration for E-Ink display - Backup Option */
+	pinctrl_lpspi1: lpspi1grp {
+		fsl,pins = <
+			MX93_PAD_SAI1_TXC__LPSPI1_SIN		0x31e  /* MISO */
+			MX93_PAD_SAI1_RXD0__LPSPI1_SOUT		0x31e  /* MOSI */
+			MX93_PAD_SAI1_TXD0__LPSPI1_SCK		0x31e  /* SCK */
+			MX93_PAD_SAI1_TXFS__LPSPI1_PCS0		0x31e  /* CS0 */
+		>;
+	};
+
+	/* E-Ink display GPIO pins */
+	pinctrl_eink_gpio: eink_gpio_grp {
+		fsl,pins = <
+			MX93_PAD_GPIO_IO08__GPIO2_IO08		0x31e  /* RESET - GPIO2_8 */
+			MX93_PAD_GPIO_IO09__GPIO2_IO09		0x31e  /* BUSY - GPIO2_9 */
+			MX93_PAD_GPIO_IO10__GPIO2_IO10		0x31e  /* DC - GPIO2_10 */
+			MX93_PAD_GPIO_IO11__GPIO2_IO11		0x31e  /* POWER_EN - GPIO2_11 */
 		>;
 	};
 };
@@ -169,9 +213,83 @@
 	status = "okay";
 };
 
-/* SPI Interface disabled - no longer needed */
-&lpspi3 {
-	status = "disabled";
+/*
+ * E-Ink Display SPI Configuration - Spectra 6 EL133UF1
+ * 
+ * Both QSPI and regular SPI interfaces are enabled by default for maximum flexibility:
+ * 
+ * FlexSPI1 (QSPI) - Primary Option:
+ *   - Device: /dev/spidev0.0
+ *   - Speed: Up to 80 MHz
+ *   - 4-bit data width (quad mode)
+ *   - Uses SD3 pins (SD3_CLK, SD3_CMD, SD3_DATA0-3)
+ *   - Compatible: "spectra6,el133uf1-qspi"
+ * 
+ * LPSPI1 (Regular SPI) - Backup/Alternative Option:
+ *   - Device: /dev/spidev1.0  
+ *   - Speed: Up to 10 MHz (conservative)
+ *   - 1-bit data width (standard SPI)
+ *   - Uses SAI1 pins (SAI1_TXC, SAI1_RXD0, SAI1_TXD0, SAI1_TXFS)
+ *   - Compatible: "spectra6,el133uf1-spi"
+ * 
+ * Both interfaces share the same GPIO control pins (reset, busy, dc) and power supply.
+ * Your userspace application can choose which interface to use based on requirements.
+ */
+
+/* QSPI Interface for E-Ink Display - Spectra 6 EL133UF1 (Primary Option) */
+&flexspi1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_flexspi1>;
+	status = "okay";
+
+	eink_display: flash@0 {
+		compatible = "spectra6,el133uf1-qspi";
+		reg = <0>;
+		spi-max-frequency = <80000000>; /* 80 MHz - QSPI can handle higher speeds */
+		spi-tx-bus-width = <4>; /* Quad SPI - 4 data lines for TX */
+		spi-rx-bus-width = <4>; /* Quad SPI - 4 data lines for RX */
+		
+		/* GPIO control pins for E-Ink display */
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_eink_gpio>;
+		reset-gpios = <&gpio2 8 GPIO_ACTIVE_LOW>;   /* Reset pin - GPIO2_8 */
+		busy-gpios = <&gpio2 9 GPIO_ACTIVE_HIGH>;   /* Busy status pin - GPIO2_9 */
+		dc-gpios = <&gpio2 10 GPIO_ACTIVE_HIGH>;    /* Data/Command pin - GPIO2_10 */
+		
+		/* Power supply for E-Ink display */
+		vdd-supply = <&reg_eink_vdd>;
+		
+		status = "okay";
+	};
+};
+
+/* Regular SPI Interface for E-Ink Display - Backup/Alternative Option */
+&lpspi1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpspi1>;
+	status = "okay"; /* Enabled by default for testing flexibility */
+
+	eink_display_spi: eink@0 {
+		compatible = "spectra6,el133uf1-spi";
+		reg = <0>;
+		spi-max-frequency = <10000000>; /* 10 MHz - conservative for regular SPI */
+		spi-cpha;
+		spi-cpol;
+		
+		/* GPIO control pins for E-Ink display (shared with QSPI) */
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_eink_gpio>;
+		reset-gpios = <&gpio2 8 GPIO_ACTIVE_LOW>;   /* Reset pin - GPIO2_8 */
+		busy-gpios = <&gpio2 9 GPIO_ACTIVE_HIGH>;   /* Busy status pin - GPIO2_9 */
+		dc-gpios = <&gpio2 10 GPIO_ACTIVE_HIGH>;    /* Data/Command pin - GPIO2_10 */
+		
+		/* Power supply for E-Ink display (shared with QSPI) */
+		vdd-supply = <&reg_eink_vdd>;
+		
+		status = "okay";
+	};
 };
 
 &wdog3 {

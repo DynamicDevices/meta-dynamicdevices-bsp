@@ -25,30 +25,7 @@
                 simple-audio-card,frame-master = <&cpudai2>;
                 simple-audio-card,bitclock-master = <&cpudai2>;
 
-                // Playback stream (i.MX8MM -> TAS2563 SDIN)
                 cpudai2: simple-audio-card,cpu {
-                        sound-dai = <&sai3>;
-                        dai-tdm-slot-num = <2>;
-                        dai-tdm-slot-width = <32>;
-                };
-
-                simple-audio-card,codec {
-                        sound-dai = <&tas2563>;
-                        clocks = <&clk IMX8MM_CLK_SAI3_ROOT>;
-                };
-        };
-
-        // TAS2563 Echo Reference capture (SDOUT -> i.MX8MM)
-        sound-tas2563-eref {
-                compatible = "simple-audio-card";
-                simple-audio-card,name = "TAS2563 Echo Reference";
-                simple-audio-card,format = "i2s";
-                simple-audio-card,capture-only;
-                simple-audio-card,frame-master = <&eref_cpu>;
-                simple-audio-card,bitclock-master = <&eref_cpu>;
-
-                // Capture stream (TAS2563 SDOUT -> i.MX8MM via SAI3)
-                eref_cpu: simple-audio-card,cpu {
                         sound-dai = <&sai3>;
                         dai-tdm-slot-num = <2>;
                         dai-tdm-slot-width = <32>;

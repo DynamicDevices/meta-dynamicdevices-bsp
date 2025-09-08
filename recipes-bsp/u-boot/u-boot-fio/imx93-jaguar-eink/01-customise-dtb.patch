@@ -1,13 +1,11 @@
-diff --git a/board/freescale/imx93_11x11_evk/imx93_11x11_evk.c b/board/freescale/imx93_11x11_evk/imx93_11x11_evk.c
+diff --git a/board/freescale/imx93_evk/imx93_evk.c b/board/freescale/imx93_evk/imx93_evk.c
 index 1b183b25287..5104a1d7cc9 100644
---- a/board/freescale/imx93_11x11_evk/imx93_11x11_evk.c
-+++ b/board/freescale/imx93_11x11_evk/imx93_11x11_evk.c
-@@ -330,7 +330,7 @@ static void set_fdt_file(void)
- 	is_bd71837 = !ret && ((is_bd71837 & 0xf0) == 0xa0);
- 
- 	if (!is_bd71837)
--		env_set("fdt_file", "imx93-11x11-evk.dtb");
-+		env_set("fdt_file", "imx93-jaguar-eink.dtb");
- 	else
- 		env_set("fdt_file", "imx93-11x11-evk.dtb");
+--- a/board/freescale/imx93_evk/imx93_evk.c
++++ b/board/freescale/imx93_evk/imx93_evk.c
+@@ -332,6 +332,7 @@ int board_late_init(void)
+ 	env_set("board_name", "11X11_EVK");
+ 	env_set("board_rev", "iMX93");
+ #endif
++	env_set("fdt_file", "imx93-jaguar-eink.dtb");
+ 	return 0;
  }

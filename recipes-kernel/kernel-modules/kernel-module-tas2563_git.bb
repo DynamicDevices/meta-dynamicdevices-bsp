@@ -22,4 +22,4 @@ do_install:append() {
 
 FILES:${PN} += "${nonarch_base_libdir}/firmware/tas2563_uCDSP.bin"
 
-KERNEL_MODULE_AUTOLOAD:append = "snd-soc-tas2563"
+# KERNEL_MODULE_AUTOLOAD:append = "snd-soc-tas2563"  # Disabled - using TAS2781 driver instead

@@ -8,7 +8,8 @@ setenv devnum 0
 setenv bootpart 1
 setenv rootpart 2
 
-# Boot image files
+# Boot image files - explicitly set fdt_file for reliable boot
+setenv fdt_file imx93-jaguar-eink.dtb
 setenv fdt_file_final imx93-jaguar-eink.dtb
 setenv fit_addr ${initrd_addr}
 

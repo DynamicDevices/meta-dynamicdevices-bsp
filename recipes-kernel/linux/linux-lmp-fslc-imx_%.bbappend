@@ -95,12 +95,11 @@ SRC_URI:append:imx93-jaguar-eink = " \
 		file://enable_lte_modem.cfg \
 		file://enable_spi.cfg \
 		file://disable_all_sound.cfg \
-		file://disable_unused_drivers.cfg \
 		file://disable_imx56_video.cfg \
+		file://disable_camera_hdmi.cfg \
 		file://fix_soc_imx9.cfg \
 		file://enable_power_management.cfg \
 		file://enable_wifi_power_management.cfg \
-		file://enable_debug_boot.cfg \
 		file://enable_ocotp_nvmem.cfg \
 		${@bb.utils.contains('ENABLE_BOOT_PROFILING', '1', 'file://enable_boot_profiling.cfg', '', d)} \
 "
