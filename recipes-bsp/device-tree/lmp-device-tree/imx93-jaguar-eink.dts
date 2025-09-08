@@ -209,10 +209,11 @@
 	/* E-Ink display GPIO pins */
 	pinctrl_eink_gpio: eink_gpio_grp {
 		fsl,pins = <
-			MX93_PAD_GPIO_IO08__GPIO2_IO08		0x31e  /* RESET - GPIO2_8 */
-			MX93_PAD_GPIO_IO09__GPIO2_IO09		0x31e  /* BUSY - GPIO2_9 */
-			MX93_PAD_GPIO_IO10__GPIO2_IO10		0x31e  /* DC - GPIO2_10 */
-			MX93_PAD_GPIO_IO11__GPIO2_IO11		0x31e  /* POWER_EN - GPIO2_11 */
+			MX93_PAD_GPIO_IO14__GPIO2_IO14		0x31e  /* RES_DIS# - Reset (Active-Low) */
+			MX93_PAD_GPIO_IO15__GPIO2_IO15		0x31e  /* D/C#_DIS - Data/Command (LO=Cmd, HI=Data) */
+			MX93_PAD_GPIO_IO16__GPIO2_IO16		0x31e  /* L#R_SEL_DIS - Left/Right Select (LO=Left, HI=Right) */
+			MX93_PAD_GPIO_IO17__GPIO2_IO17		0x31e  /* BUSY_DIS# - Busy Status (LO=Busy, Input) */
+			MX93_PAD_GPIO_IO11__GPIO2_IO11		0x31e  /* POWER_EN - Display Power Enable */
 		>;
 	};
 };
@@ -292,7 +293,7 @@
 	status = "okay";
 
 	eink_display: flash@0 {
-		compatible = "spectra6,el133uf1-qspi", "spidev";
+		compatible = "spidev";
 		reg = <0>;
 		spi-max-frequency = <80000000>; /* 80 MHz - QSPI can handle higher speeds */
 		spi-tx-bus-width = <4>; /* Quad SPI - 4 data lines for TX */
@@ -301,9 +302,10 @@
 		/* GPIO control pins for E-Ink display */
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_eink_gpio>;
-		reset-gpios = <&gpio2 8 GPIO_ACTIVE_LOW>;   /* Reset pin - GPIO2_8 */
-		busy-gpios = <&gpio2 9 GPIO_ACTIVE_HIGH>;   /* Busy status pin - GPIO2_9 */
-		dc-gpios = <&gpio2 10 GPIO_ACTIVE_HIGH>;    /* Data/Command pin - GPIO2_10 */
+		reset-gpios = <&gpio2 14 GPIO_ACTIVE_LOW>;   /* RES_DIS# - Reset pin (Active-Low) */
+		busy-gpios = <&gpio2 17 GPIO_ACTIVE_LOW>;    /* BUSY_DIS# - Busy status (LO=Busy, Input) */
+		dc-gpios = <&gpio2 15 GPIO_ACTIVE_HIGH>;     /* D/C#_DIS - Data/Command (LO=Cmd, HI=Data) */
+		lr-select-gpios = <&gpio2 16 GPIO_ACTIVE_HIGH>; /* L#R_SEL_DIS - Left/Right Select (LO=Left, HI=Right) */
 		
 		/* Power supply for E-Ink display */
 		vdd-supply = <&reg_eink_vdd>;
@@ -321,7 +323,7 @@
 	status = "okay"; /* Enabled by default for testing flexibility */
 
 	eink_display_spi: eink@0 {
-		compatible = "spectra6,el133uf1-spi", "spidev";
+		compatible = "spidev";
 		reg = <0>;
 		spi-max-frequency = <10000000>; /* 10 MHz - conservative for regular SPI */
 		spi-cpha;
@@ -330,9 +332,10 @@
 		/* GPIO control pins for E-Ink display (shared with QSPI) */
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_eink_gpio>;
-		reset-gpios = <&gpio2 8 GPIO_ACTIVE_LOW>;   /* Reset pin - GPIO2_8 */
-		busy-gpios = <&gpio2 9 GPIO_ACTIVE_HIGH>;   /* Busy status pin - GPIO2_9 */
-		dc-gpios = <&gpio2 10 GPIO_ACTIVE_HIGH>;    /* Data/Command pin - GPIO2_10 */
+		reset-gpios = <&gpio2 14 GPIO_ACTIVE_LOW>;   /* RES_DIS# - Reset pin (Active-Low) */
+		busy-gpios = <&gpio2 17 GPIO_ACTIVE_LOW>;    /* BUSY_DIS# - Busy status (LO=Busy, Input) */
+		dc-gpios = <&gpio2 15 GPIO_ACTIVE_HIGH>;     /* D/C#_DIS - Data/Command (LO=Cmd, HI=Data) */
+		lr-select-gpios = <&gpio2 16 GPIO_ACTIVE_HIGH>; /* L#R_SEL_DIS - Left/Right Select (LO=Left, HI=Right) */
 		
 		/* Power supply for E-Ink display (shared with QSPI) */
 		vdd-supply = <&reg_eink_vdd>;
