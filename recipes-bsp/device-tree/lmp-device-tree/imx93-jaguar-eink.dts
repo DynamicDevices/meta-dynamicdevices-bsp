@@ -286,14 +286,14 @@
  * and development while preserving the ability to load custom E-Ink drivers.
  */
 
-/* QSPI Interface for E-Ink Display - DISABLED for standard SPI testing */
+/* QSPI Interface for E-Ink Display - DISABLED (FlexSPI doesn't support spidev) */
 &flexspi1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_flexspi1>;
-	status = "disabled"; /* Disabled to use LPSPI1 instead */
+	status = "disabled"; /* FlexSPI uses MTD subsystem, not spidev */
 
 	eink_display: flash@0 {
-		compatible = "spidev";
+		compatible = "rohm,dh2228fv";
 		reg = <0>;
 		spi-max-frequency = <80000000>; /* 80 MHz - QSPI can handle higher speeds */
 		spi-tx-bus-width = <4>; /* Quad SPI - 4 data lines for TX */
@@ -310,7 +310,7 @@
 		/* Power supply for E-Ink display */
 		vdd-supply = <&reg_eink_vdd>;
 		
-		status = "disabled"; /* Disabled to use LPSPI1 instead */
+		status = "disabled"; /* FlexSPI uses MTD subsystem, not spidev */
 	};
 };
 
@@ -323,7 +323,7 @@
 	status = "okay"; /* Primary interface for standard SPI testing */
 
 	eink_display_spi: eink@0 {
-		compatible = "spidev";
+		compatible = "rohm,dh2228fv";
 		reg = <0>;
 		spi-max-frequency = <10000000>; /* 10 MHz - conservative for regular SPI */
 		spi-cpha;
