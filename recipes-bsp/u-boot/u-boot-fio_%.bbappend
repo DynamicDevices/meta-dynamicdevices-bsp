@@ -36,6 +36,7 @@ SRC_URI:append:imx93-jaguar-eink = " \
     file://enable-fiovb.cfg \
     file://disable-unused-peripherals.cfg \
     file://enable-ele-secure.cfg \
+    ${@bb.utils.contains('DEV_MODE', '1', 'file://enable-ele-debug-commands.cfg', '', d)} \
     file://enable-cm33.cfg \
     ${@bb.utils.contains('ENABLE_BOOT_PROFILING', '1', 'file://enable_boot_profiling.cfg', '', d)} \
 "
