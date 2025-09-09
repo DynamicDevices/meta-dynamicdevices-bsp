@@ -4,8 +4,8 @@ inherit lmp-signing-override
 
 # Disable SE050 for mfgtools builds to prevent initialization errors during programming
 # SE050 is only needed for production runtime, not for UUU programming operations
-# Apply to all Dynamic Devices i.MX93 machines that use SE050
-SRC_URI:append:imx93-jaguar-eink = " file://disable-se050.cfg"
+# Apply to mfgtool distro builds (both imx8mm-jaguar-sentai and imx93-jaguar-eink)
+SRC_URI:append:lmp-mfgtool = " file://disable-se050.cfg"
 
 # Override OP-TEE binary for mfgtool builds to use the mfgtool-specific OP-TEE
 # The regular OP-TEE binary has SE050 enabled, but mfgtool needs SE050 disabled
