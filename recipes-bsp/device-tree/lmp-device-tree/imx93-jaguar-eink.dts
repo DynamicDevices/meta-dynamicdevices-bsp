@@ -124,19 +124,6 @@
 		regulator-boot-on;
 	};
 
-	/* GPIO keys - temporarily disabled to debug shutdown issue */
-	/* gpio-keys {
-		compatible = "gpio-keys";
-		autorepeat;
-
-		power {
-			label = "Power Button";
-			gpios = <&gpio3 11 GPIO_ACTIVE_LOW>;
-			linux,code = <KEY_POWER>;
-			wakeup-source;
-			debounce-interval = <10>;
-		};
-	}; */
 };
 
 /* Cortex-M33 support enabled for E-Ink board */
