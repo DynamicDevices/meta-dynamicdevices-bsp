@@ -16,13 +16,10 @@ setenv fit_addr ${initrd_addr}
 # Boot firmware updates
 
 # Offsets are in blocks (512KB each)
-# Significantly increased partition spacing for larger U-Boot ITB with ELE debugging commands (1.7MB)
-# bootloader_s moved from 0x1042 to 0x2000 to give bootloader2 6MB of space (plenty for 1.7MB + overhead)
-# bootloader2_s moved from 0x1300 to 0x3000 to accommodate larger bootloader_s
 setenv bootloader 0x42
 setenv bootloader2 0x300
-setenv bootloader_s 0x2000
-setenv bootloader2_s 0x3000
+setenv bootloader_s 0x1042
+setenv bootloader2_s 0x1300
 
 setenv bootloader_image "imx-boot"
 setenv bootloader_s_image ${bootloader_image}
