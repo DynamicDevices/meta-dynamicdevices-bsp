@@ -9,6 +9,7 @@
 
 / {
         model = "i.MX8MM Jaguar INST board";
+        compatible = "fsl,imx8mm-jaguar-inst", "fsl,imx8mm-evk", "fsl,imx8mm";
 
 	// Regulators
 	reg_vddext_3v3: regulator-vddext {

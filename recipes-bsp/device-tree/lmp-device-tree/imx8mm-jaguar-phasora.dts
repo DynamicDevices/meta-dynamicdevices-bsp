@@ -9,7 +9,7 @@
 
 / {
 	model = "i.MX8MM Jaguar Phasora board";
-	compatible = "fsl,imx8mm-evk", "fsl,imx8mm";
+	compatible = "fsl,imx8mm-jaguar-phasora", "fsl,imx8mm-evk", "fsl,imx8mm";
 
 	reserved-memory {
 		#address-cells = <2>;
