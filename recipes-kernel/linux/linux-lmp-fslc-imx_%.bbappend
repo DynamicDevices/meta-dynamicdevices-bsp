@@ -8,6 +8,7 @@ SRC_URI:append:imx8mm-jaguar-sentai = " \
 		file://enable_stts22h.cfg \
 		file://enable_lis2dh.cfg \
 		file://enable_sht4x.cfg \
+		file://disable_video.cfg \
 		file://01-remove-wifi-warning.patch \
 		file://01-fix-evkb-duplicate-label.patch \
         file://01-fix-enable-lp50xx.patch \
