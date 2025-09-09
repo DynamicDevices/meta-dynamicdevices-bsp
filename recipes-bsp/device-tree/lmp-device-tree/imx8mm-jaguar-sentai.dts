@@ -500,7 +500,7 @@
 };
 
 &sai1 {
-	status = "okay"; /* Enable for PDM functionality on original hardware */
+	status = "disabled"; /* Disabled to avoid pin conflicts with TAS2563 audio */
 };
 
 // MICFIL for original hardware PDM microphones
