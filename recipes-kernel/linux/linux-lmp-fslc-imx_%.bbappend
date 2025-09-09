@@ -8,7 +8,6 @@ SRC_URI:append:imx8mm-jaguar-sentai = " \
 		file://enable_stts22h.cfg \
 		file://enable_lis2dh.cfg \
 		file://enable_sht4x.cfg \
-		file://imx8mm-jaguar-sentai.dts \
 		file://01-remove-wifi-warning.patch \
 		file://01-fix-evkb-duplicate-label.patch \
         file://01-fix-enable-lp50xx.patch \
@@ -20,13 +19,8 @@ SRC_URI:append:imx8mm-jaguar-sentai = " \
         ${@bb.utils.contains('ENABLE_BOOT_PROFILING', '1', 'file://enable_boot_profiling.cfg', '', d)} \
 "
 
-# NOTE: This DTB file is created as a default for use with local development
-#       when building lmp-base. It is NOT used by the lmp build or under CI
-#       which uses the DTS in lmp-device-tree
-do_configure:append:imx8mm-jaguar-sentai(){
- cp ${WORKDIR}/imx8mm-jaguar-sentai.dts ${S}/arch/arm64/boot/dts
- echo "dtb-y += imx8mm-jaguar-sentai.dtb" >> ${S}/arch/arm64/boot/dts/Makefile
-}
+# NOTE: Device tree is now provided by the BSP layer lmp-device-tree recipe
+#       This ensures consistent DTS across all build types (lmp, lmp-base, CI)
 
 SRC_URI:append:imx8mm-jaguar-inst = " \
 		file://enable_i2c-dev.cfg \
