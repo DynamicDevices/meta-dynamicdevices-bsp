@@ -51,6 +51,7 @@
 	sound-micfil {
 		compatible = "fsl,imx-audio-card";
 		model = "micfil-audio";
+		status = "okay"; /* Controlled by runtime detection */
 		pri-dai-link {
 			link-name = "micfil hifi";
 			format = "i2s";
@@ -58,7 +59,6 @@
 				sound-dai = <&micfil>;
 			};
 		};
-		status = "okay"; /* Controlled by runtime detection */
 	};
 
 	sound-wm8524 {
