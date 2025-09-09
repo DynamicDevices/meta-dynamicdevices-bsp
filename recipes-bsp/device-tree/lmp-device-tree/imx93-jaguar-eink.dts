@@ -97,8 +97,8 @@
 		compatible = "mmc-pwrseq-simple";
 		pinctrl-names = "default";
 		reset-gpios = <&gpio4 26 GPIO_ACTIVE_LOW>; /* WLAN_RST */
-		post-power-on-delay-ms = <200>;
-		power-off-delay-us = <10000>; /* 10ms delay before power off */
+		post-power-on-delay-ms = <500>; /* Increased for proper reset */
+		power-off-delay-us = <50000>; /* Increased to 50ms for proper reset */
 	};
 
 	/* Regulators */
