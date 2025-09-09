@@ -6,7 +6,17 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 LICENSE = "GPL-3.0-only"
 LIC_FILES_CHKSUM ?= "file://${COMMON_LICENSE_DIR}/GPL-3.0-only;md5=c79ff39f19dfec6d293b95dea7b07891"
 
-SRC_URI:append = " \
+# Base board scripts for all Dynamic Devices machines
+SRC_URI:append:imx8mm-jaguar-sentai = " \
+  file://board-info.sh \
+  file://test-leds-hb.sh \
+  file://test-leds-rc.sh \
+  file://set-fio-passwd.sh \
+  file://enable-firewall.sh \
+  file://record-audio.sh \
+"
+
+SRC_URI:append:imx93-jaguar-eink = " \
   file://board-info.sh \
   file://test-leds-hb.sh \
   file://test-leds-rc.sh \
