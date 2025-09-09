@@ -296,13 +296,9 @@
 		spi-tx-bus-width = <4>; /* Quad SPI - 4 data lines for TX */
 		spi-rx-bus-width = <4>; /* Quad SPI - 4 data lines for RX */
 		
-		/* GPIO control pins for E-Ink display */
+		/* GPIO control pins for E-Ink display - pinctrl only (allows userspace access) */
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_eink_gpio>;
-		reset-gpios = <&gpio2 14 GPIO_ACTIVE_LOW>;   /* RES_DIS# - Reset pin (Active-Low) */
-		busy-gpios = <&gpio2 17 GPIO_ACTIVE_LOW>;    /* BUSY_DIS# - Busy status (LO=Busy, Input) */
-		dc-gpios = <&gpio2 15 GPIO_ACTIVE_HIGH>;     /* D/C#_DIS - Data/Command (LO=Cmd, HI=Data) */
-		lr-select-gpios = <&gpio2 16 GPIO_ACTIVE_HIGH>; /* L#R_SEL_DIS - Left/Right Select (LO=Left, HI=Right) */
 		
 		/* Power supply for E-Ink display */
 		vdd-supply = <&reg_eink_vdd>;
@@ -326,13 +322,9 @@
 		spi-cpha;
 		spi-cpol;
 		
-		/* GPIO control pins for E-Ink display */
+		/* GPIO control pins for E-Ink display - pinctrl only (allows userspace access) */
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_eink_gpio>;
-		reset-gpios = <&gpio2 14 GPIO_ACTIVE_LOW>;   /* RES_DIS# - Reset pin (Active-Low) */
-		busy-gpios = <&gpio2 17 GPIO_ACTIVE_LOW>;    /* BUSY_DIS# - Busy status (LO=Busy, Input) */
-		dc-gpios = <&gpio2 15 GPIO_ACTIVE_HIGH>;     /* D/C#_DIS - Data/Command (LO=Cmd, HI=Data) */
-		lr-select-gpios = <&gpio2 16 GPIO_ACTIVE_HIGH>; /* L#R_SEL_DIS - Left/Right Select (LO=Left, HI=Right) */
 		
 		/* Power supply for E-Ink display */
 		vdd-supply = <&reg_eink_vdd>;
