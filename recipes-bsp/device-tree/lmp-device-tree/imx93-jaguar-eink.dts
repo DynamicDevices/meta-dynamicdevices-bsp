@@ -124,6 +124,22 @@
 		regulator-boot-on;
 	};
 
+	/* E-Ink Chip Select Routing Control */
+	eink_cs_routing: eink-cs-routing {
+		compatible = "gpio-controller";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_eink_cs_routing>;
+		
+		/* L#R_SEL_DIS GPIO control
+		 * LOW (0)  = Route CS to left controller (CS_M)
+		 * HIGH (1) = Route CS to right controller (CS_S)
+		 */
+		lr-sel-gpio = <&gpio2 16 GPIO_ACTIVE_HIGH>; /* GPIO2_IO16 */
+		
+		/* Default to left controller for initial testing */
+		lr-sel-default = <0>;
+	};
+
 };
 
 /* Cortex-M33 support enabled for E-Ink board */
@@ -211,6 +227,14 @@
 			MX93_PAD_GPIO_IO15__GPIO2_IO15		0x31e  /* D/C#_DIS - Data/Command (LO=Cmd, HI=Data) */
 			MX93_PAD_GPIO_IO16__GPIO2_IO16		0x31e  /* L#R_SEL_DIS - Left/Right Select (LO=Left, HI=Right) */
 			MX93_PAD_GPIO_IO17__GPIO2_IO17		0x31e  /* BUSY_DIS# - Busy Status (LO=Busy, Input) */
+			MX93_PAD_SAI1_TXFS__GPIO1_IO11		0x31e  /* SPI_CS0 - Primary chip select (GPIO control) */
+		>;
+	};
+
+	/* E-Ink chip select routing control */
+	pinctrl_eink_cs_routing: eink_cs_routing_grp {
+		fsl,pins = <
+			MX93_PAD_GPIO_IO16__GPIO2_IO16		0x31e  /* L#R_SEL_DIS - Chip Select Routing Control */
 		>;
 	};
 };
