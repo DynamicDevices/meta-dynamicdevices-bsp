@@ -516,7 +516,7 @@
 	status = "okay"; /* Both hardware variants - runtime managed */
 };
 
-// Enhanced SAI3 configuration for dual hardware support
+// Enhanced SAI3 configuration for bidirectional audio (Profile 8 echo reference)
 &sai3 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sai3>;
@@ -524,7 +524,8 @@
 	assigned-clock-parents = <&clk IMX8MM_AUDIO_PLL1_OUT>;
 	assigned-clock-rates = <12288000>;
 	fsl,sai-mclk-direction-output;
-	fsl,sai-synchronous-rx;  /* Enable receive for TAS2563 microphones */
+	fsl,sai-synchronous-rx;  /* RX uses TX clocks for synchronized operation */
+	#sound-dai-cells = <0>;
 	status = "okay";
 };
 
