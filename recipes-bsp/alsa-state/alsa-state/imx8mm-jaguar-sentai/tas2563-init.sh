@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 #
 # TAS2563 SmartAMP Initialization Script
@@ -120,7 +120,7 @@ show_status() {
 
 # Main function
 main() {
-    local mode="${1:-echo-removal}"
+    mode="${1:-echo-removal}"
     
     log_info "Initializing TAS2563 SmartAMP (mode: $mode)"
     
