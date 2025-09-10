@@ -32,9 +32,9 @@ check_audio_card() {
     return 0
 }
 
-# Function to set TAS2563 to music mode (default)
-set_music_mode() {
-    log_info "Setting TAS2563 to music mode (DSP enabled)"
+# Function to set TAS2563 to echo removal mode (default)
+set_echo_removal_mode() {
+    log_info "Setting TAS2563 to echo removal mode (Profile 8: PDM recording with echo ref)"
     
     # Enable DSP mode
     if ! amixer -c "$AUDIO_CARD" cset name="Program" 0 >/dev/null 2>&1; then
@@ -42,9 +42,9 @@ set_music_mode() {
         return 1
     fi
     
-    # Select default music profile (Profile 0)
-    if ! amixer -c "$AUDIO_CARD" cset name="TASDEVICE Profile id" 0 >/dev/null 2>&1; then
-        log_error "Failed to set Profile id"
+    # Select Profile 8: PDM recording with I2S, 48kHz, 32-bit, echo reference
+    if ! amixer -c "$AUDIO_CARD" cset name="TASDEVICE Profile id" 8 >/dev/null 2>&1; then
+        log_error "Failed to set Profile id to 8"
         return 1
     fi
     
@@ -54,7 +54,33 @@ set_music_mode() {
         return 1
     fi
     
-    log_info "TAS2563 configured for music mode successfully"
+    log_info "TAS2563 configured for echo removal mode (Profile 8) successfully"
+    return 0
+}
+
+# Function to set TAS2563 to music mode 
+set_music_mode() {
+    log_info "Setting TAS2563 to music mode (Profile 5: I2S auto-rate)"
+    
+    # Enable DSP mode
+    if ! amixer -c "$AUDIO_CARD" cset name="Program" 0 >/dev/null 2>&1; then
+        log_error "Failed to set Program control"
+        return 1
+    fi
+    
+    # Select Profile 5: Music I2S auto-rate 16-bit
+    if ! amixer -c "$AUDIO_CARD" cset name="TASDEVICE Profile id" 5 >/dev/null 2>&1; then
+        log_error "Failed to set Profile id to 5"
+        return 1
+    fi
+    
+    # Select default DSP configuration
+    if ! amixer -c "$AUDIO_CARD" cset name="Configuration" 0 >/dev/null 2>&1; then
+        log_error "Failed to set Configuration"
+        return 1
+    fi
+    
+    log_info "TAS2563 configured for music mode (Profile 5) successfully"
     return 0
 }
 
@@ -94,7 +120,7 @@ show_status() {
 
 # Main function
 main() {
-    local mode="${1:-music}"
+    local mode="${1:-echo-removal}"
     
     log_info "Initializing TAS2563 SmartAMP (mode: $mode)"
     
@@ -107,7 +133,10 @@ main() {
     sleep 1
     
     case "$mode" in
-        "music"|"default")
+        "echo-removal"|"default")
+            set_echo_removal_mode
+            ;;
+        "music")
             set_music_mode
             ;;
         "bypass")
@@ -117,10 +146,11 @@ main() {
             show_status
             ;;
         *)
-            echo "Usage: $0 [music|bypass|status]"
-            echo "  music   - Enable DSP mode with music profile (default)"
-            echo "  bypass  - Enable bypass mode for electrical testing"
-            echo "  status  - Show current TAS2563 configuration"
+            echo "Usage: $0 [echo-removal|music|bypass|status]"
+            echo "  echo-removal - Enable DSP mode with echo reference profile (default)"
+            echo "  music        - Enable DSP mode with music profile"
+            echo "  bypass       - Enable bypass mode for electrical testing"
+            echo "  status       - Show current TAS2563 configuration"
             exit 1
             ;;
     esac
