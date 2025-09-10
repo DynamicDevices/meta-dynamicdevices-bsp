@@ -22,7 +22,7 @@ do_configure() {
 do_install:append() {
   install -d ${D}${nonarch_base_libdir}/firmware
   # Install official TAS2563 regbin firmware (modified for single device) from Linux firmware repository
-  install -m 644 ${WORKDIR}/INT8866RCA2-single.bin ${D}${nonarch_base_libdir}/firmware/tas2563-1amp-reg.bin
+  install -m 644 ${WORKDIR}/tas2563-1amp-reg.bin ${D}${nonarch_base_libdir}/firmware/tas2563-1amp-reg.bin
   # Install official TAS2563 DSP firmware from Linux firmware repository  
   install -m 644 ${WORKDIR}/TAS2XXX3870.bin ${D}${nonarch_base_libdir}/firmware/tas2563-1amp-dsp.bin
 }
