@@ -238,12 +238,6 @@
 		>;
 	};
 
-	/* E-Ink chip select routing control */
-	pinctrl_eink_cs_routing: eink_cs_routing_grp {
-		fsl,pins = <
-			MX93_PAD_GPIO_IO16__GPIO2_IO16		0x31e  /* L#R_SEL_DIS - Chip Select Routing Control */
-		>;
-	};
 };
 
 /* Bluetooth UART - ublox MAYA W2 - LPUART5 */
