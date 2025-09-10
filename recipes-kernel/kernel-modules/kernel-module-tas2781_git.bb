@@ -7,12 +7,14 @@ LIC_FILES_CHKSUM = "file://tasdevice-codec.c;beginline=1;endline=14;md5=bf3ad780
 inherit module
 
 
-SRC_URI = "git://github.com/DynamicDevices/tas2781-linux-driver.git;branch=master;protocol=https \
+SRC_URI = "git://git.ti.com/tas2781-linux-drivers/tas2781-linux-driver.git;branch=master;protocol=https \
            file://tas2563-1amp-reg.bin \
            file://TAS2XXX3870.bin \
            file://01-fix-kernel-6.6-compatibility.patch \
+           file://02-yocto-build-compatibility.patch \
+           file://03-fix-irq-gpio-handling.patch \
           "
-SRCREV = "${AUTOREV}"
+SRCREV = "124282c12d471a53a2302881788c008fc2d3c364"
 
 S = "${WORKDIR}/git/src"
 
