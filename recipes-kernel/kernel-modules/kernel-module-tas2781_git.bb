@@ -8,7 +8,7 @@ inherit module
 
 
 SRC_URI = "git://github.com/DynamicDevices/tas2781-linux-driver.git;branch=master;protocol=https \
-           file://INT8866RCA2.bin \
+           file://INT8866RCA2-single.bin \
            file://TAS2XXX3870.bin \
            file://01-fix-kernel-6.6-compatibility.patch \
           "
@@ -21,8 +21,8 @@ do_configure() {
 
 do_install:append() {
   install -d ${D}${nonarch_base_libdir}/firmware
-  # Install official TAS2563 regbin firmware from Linux firmware repository
-  install -m 644 ${WORKDIR}/INT8866RCA2.bin ${D}${nonarch_base_libdir}/firmware/tas2563-1amp-reg.bin
+  # Install official TAS2563 regbin firmware (modified for single device) from Linux firmware repository
+  install -m 644 ${WORKDIR}/INT8866RCA2-single.bin ${D}${nonarch_base_libdir}/firmware/tas2563-1amp-reg.bin
   # Install official TAS2563 DSP firmware from Linux firmware repository  
   install -m 644 ${WORKDIR}/TAS2XXX3870.bin ${D}${nonarch_base_libdir}/firmware/tas2563-1amp-dsp.bin
 }
