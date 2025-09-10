@@ -193,10 +193,23 @@
 	};
 
 	/* E-Ink display GPIO pins
-	 * GPIO Base Addresses: GPIO1=608, GPIO2=512, GPIO3=544, GPIO4=576  
-	 * Control Signals:
-	 *   - SPI_CS0 (GPIO 528): Primary chip select (GPIO2_IO16)
-	 *   - SPI_CS1 (GPIO 619): Secondary chip select (GPIO1_IO11)
+	 * 
+	 * CRITICAL: i.MX93 GPIO CHIP MAPPING (NON-LOGICAL ORDER!)
+	 * =====================================================
+	 * gpiochip0: GPIOs 512-543 = GPIO2 (platform/43810000)
+	 * gpiochip1: GPIOs 544-575 = GPIO3 (platform/43820000)  
+	 * gpiochip2: GPIOs 576-607 = GPIO4 (platform/43830000)
+	 * gpiochip3: GPIOs 608-639 = GPIO1 (platform/47400000)
+	 *
+	 * GPIO Calculation Formula:
+	 * GPIO1_IOx = 608 + x  (gpiochip3)
+	 * GPIO2_IOx = 512 + x  (gpiochip0)
+	 * GPIO3_IOx = 544 + x  (gpiochip1)
+	 * GPIO4_IOx = 576 + x  (gpiochip2)
+	 *
+	 * E-Ink Control Signals:
+	 *   - SPI_CS0 (GPIO 528): GPIO2_IO16 = 512+16 = 528
+	 *   - SPI_CS1 (GPIO 619): GPIO1_IO11 = 608+11 = 619
 	 */
 	pinctrl_eink_gpio: eink_gpio_grp {
 		fsl,pins = <
