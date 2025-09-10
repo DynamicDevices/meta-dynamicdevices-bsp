@@ -6,8 +6,10 @@ LIC_FILES_CHKSUM = "file://tasdevice-codec.c;beginline=1;endline=14;md5=bf3ad780
 
 inherit module
 
+
 SRC_URI = "git://github.com/DynamicDevices/tas2781-linux-driver.git;branch=master;protocol=https \
-           file://48khzEchoSlot0.bin \
+           file://INT8866RCA2.bin \
+           file://TAS2XXX3870.bin \
            file://01-fix-kernel-6.6-compatibility.patch \
           "
 SRCREV = "${AUTOREV}"
@@ -19,12 +21,14 @@ do_configure() {
 
 do_install:append() {
   install -d ${D}${nonarch_base_libdir}/firmware
-  install -m 755 ${WORKDIR}/48khzEchoSlot0.bin ${D}${nonarch_base_libdir}/firmware/tas2563_uCDSP.bin
-  install -m 755 ${WORKDIR}/48khzEchoSlot0.bin ${D}${nonarch_base_libdir}/firmware/tas2563-1amp-reg.bin
+  # Install official TAS2563 regbin firmware from Linux firmware repository
+  install -m 644 ${WORKDIR}/INT8866RCA2.bin ${D}${nonarch_base_libdir}/firmware/tas2563-1amp-reg.bin
+  # Install official TAS2563 DSP firmware from Linux firmware repository  
+  install -m 644 ${WORKDIR}/TAS2XXX3870.bin ${D}${nonarch_base_libdir}/firmware/tas2563-1amp-dsp.bin
 }
 
 FILES:${PN} += "/lib/modules*" 
-FILES:${PN} += "${nonarch_base_libdir}/firmware/tas2563_uCDSP.bin" 
 FILES:${PN} += "${nonarch_base_libdir}/firmware/tas2563-1amp-reg.bin" 
+FILES:${PN} += "${nonarch_base_libdir}/firmware/tas2563-1amp-dsp.bin" 
 
 KERNEL_MODULE_AUTOLOAD:append = "snd-soc-tas2781"
