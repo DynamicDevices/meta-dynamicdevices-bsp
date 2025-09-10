@@ -28,16 +28,18 @@
                 simple-audio-card,format = "i2s";
                 simple-audio-card,frame-master = <&cpudai2>;
                 simple-audio-card,bitclock-master = <&cpudai2>;
-                //simple-audio-card,widgets =
-                //      "Line", "Left Line Out Jack",
-                //      "Line", "Right Line Out Jack";
-                //simple-audio-card,routing =
-                //      "Left Line Out Jack", "LINEVOUTL",
-                //      "Right Line Out Jack", "LINEVOUTR";
+                
+                // Enable bidirectional audio for echo reference
+                simple-audio-card,widgets =
+                        "Speaker", "Speaker",
+                        "Microphone", "Echo Reference";
+                simple-audio-card,routing =
+                        "Speaker", "ASI1 OUT",
+                        "Echo Reference", "ASI1 IN";
 
                 cpudai2: simple-audio-card,cpu {
                         sound-dai = <&sai3>;
-                        dai-tdm-slot-num = <2>;
+                        dai-tdm-slot-num = <4>;  /* Increase to 4 slots for Profile 8 */
                         dai-tdm-slot-width = <32>;
                 };
 
@@ -287,15 +289,15 @@
                 interrupt-parent = <&gpio5>;
                 interrupts = <5 IRQ_TYPE_LEVEL_LOW>;
                 
-                // I2S Configuration (common for both hardware variants)
+                // I2S Configuration optimized for Profile 8 (Echo Removal)
                 ti,asi-format = <0>; /* 0, i2S; 1, DSP;  */
-                ti,left-slot = <0>; /* <left slot number> */
-                ti,right-slot = <1>; /* <right slot number> */
-                ti,imon-slot-no = <0>; /* <current sense slot number> */
-                ti,vmon-slot-no = <2>; /* <current voltage slot number> */
-                ti,echo-ref = <2>;
-                ti,bypass-tmax = <1>; /* 0, not bypass; 1, bypass */
-                ti,i2s-bits = <32>;
+                ti,left-slot = <0>; /* TX slot 0 - left audio output */
+                ti,right-slot = <1>; /* TX slot 1 - right audio output */
+                ti,imon-slot-no = <2>; /* Current sense feedback */
+                ti,vmon-slot-no = <3>; /* Voltage sense feedback */
+                ti,echo-ref = <3>; /* Echo reference output slot for AEC */
+                ti,bypass-tmax = <0>; /* Enable thermal protection */
+                ti,i2s-bits = <32>; /* 32-bit I2S for Profile 8 */
                 
                 // PDM Microphone Configuration (for test hardware)
                 // Runtime configurable - will be enabled/disabled by userspace
