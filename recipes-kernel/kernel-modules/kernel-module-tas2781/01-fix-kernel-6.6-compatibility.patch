@@ -12,13 +12,13 @@ This patch enables the correct version checking for kernel 6.2+.
 Upstream-Status: Pending
 Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 ---
- src/tasdevice-core-i2c.c | 8 ++++----
+ tasdevice-core-i2c.c | 8 ++++----
  1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/src/tasdevice-core-i2c.c b/src/tasdevice-core-i2c.c
+diff --git a/tasdevice-core-i2c.c b/tasdevice-core-i2c.c
 index 1234567..abcdefg 100644
---- a/src/tasdevice-core-i2c.c
-+++ b/src/tasdevice-core-i2c.c
+--- a/tasdevice-core-i2c.c
++++ b/tasdevice-core-i2c.c
 @@ -147,12 +147,12 @@ static void tasdevice_i2c_remove(struct i2c_client *i2c)
  	return 0;
  }
