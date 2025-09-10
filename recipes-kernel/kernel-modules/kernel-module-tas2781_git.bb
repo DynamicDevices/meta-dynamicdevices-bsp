@@ -20,9 +20,11 @@ do_configure() {
 do_install:append() {
   install -d ${D}${nonarch_base_libdir}/firmware
   install -m 755 ${WORKDIR}/48khzEchoSlot0.bin ${D}${nonarch_base_libdir}/firmware/tas2563_uCDSP.bin
+  install -m 755 ${WORKDIR}/48khzEchoSlot0.bin ${D}${nonarch_base_libdir}/firmware/tas2563-1amp-reg.bin
 }
 
 FILES:${PN} += "/lib/modules*" 
 FILES:${PN} += "${nonarch_base_libdir}/firmware/tas2563_uCDSP.bin" 
+FILES:${PN} += "${nonarch_base_libdir}/firmware/tas2563-1amp-reg.bin" 
 
 KERNEL_MODULE_AUTOLOAD:append = "snd-soc-tas2781"
