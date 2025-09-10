@@ -8,7 +8,7 @@ inherit module
 
 
 SRC_URI = "git://github.com/DynamicDevices/tas2781-linux-driver.git;branch=master;protocol=https \
-           file://INT8866RCA2-single.bin \
+           file://tas2563-1amp-reg.bin \
            file://TAS2XXX3870.bin \
            file://01-fix-kernel-6.6-compatibility.patch \
           "
