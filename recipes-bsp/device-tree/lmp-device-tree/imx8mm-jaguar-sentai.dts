@@ -283,8 +283,9 @@
                 compatible = "ti,tas2563";
                 reg = <0x4C>;
                 ti,channels = <1>; /* channel number */
-                ti,reset-gpio = <&gpio5 4 GPIO_ACTIVE_HIGH>;  /* Enable reset control */
-                ti,irq-gpio = <&gpio5 5 GPIO_ACTIVE_LOW>;
+                reset-gpios = <&gpio5 4 GPIO_ACTIVE_HIGH>;  /* Enable reset control */
+                interrupt-parent = <&gpio5>;
+                interrupts = <5 IRQ_TYPE_LEVEL_LOW>;
                 
                 // I2S Configuration (common for both hardware variants)
                 ti,asi-format = <0>; /* 0, i2S; 1, DSP;  */
