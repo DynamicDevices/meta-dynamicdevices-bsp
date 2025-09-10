@@ -5,3 +5,4 @@
 ATF_MACHINE_NAME:lmp-mfgtool = "bl31-${ATF_PLATFORM}.bin"
 
 
+

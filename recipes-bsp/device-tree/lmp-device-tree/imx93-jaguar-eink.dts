@@ -367,6 +367,9 @@
 	};
 };
 
+/* GPIO pins are available for userspace control via your application */
+/* Pinctrl configurations above ensure proper pin muxing to GPIO function */
+
 &wdog3 {
 	status = "okay";
 	timeout-sec = <40>;
