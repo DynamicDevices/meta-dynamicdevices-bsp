@@ -112,33 +112,6 @@
 		startup-delay-us = <100>;
 	};
 
-	/* E-Ink Display Power Regulator */
-	reg_eink_vdd: regulator-eink-vdd {
-		compatible = "regulator-fixed";
-		regulator-name = "EINK_VDD";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-		gpio = <&gpio2 11 GPIO_ACTIVE_HIGH>; /* E-Ink power enable - GPIO2_11 */
-		enable-active-high;
-		startup-delay-us = <1000>;
-		regulator-boot-on;
-	};
-
-	/* E-Ink Chip Select Routing Control */
-	eink_cs_routing: eink-cs-routing {
-		compatible = "gpio-controller";
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_eink_cs_routing>;
-		
-		/* L#R_SEL_DIS GPIO control
-		 * LOW (0)  = Route CS to left controller (CS_M)
-		 * HIGH (1) = Route CS to right controller (CS_S)
-		 */
-		lr-sel-gpio = <&gpio2 16 GPIO_ACTIVE_HIGH>; /* GPIO2_IO16 */
-		
-		/* Default to left controller for initial testing */
-		lr-sel-default = <0>;
-	};
 
 };
 
@@ -323,8 +296,6 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_eink_gpio>;
 		
-		/* Power supply for E-Ink display */
-		vdd-supply = <&reg_eink_vdd>;
 		
 		status = "disabled"; /* FlexSPI uses MTD subsystem, not spidev */
 	};
@@ -349,8 +320,6 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_eink_gpio>;
 		
-		/* Power supply for E-Ink display */
-		vdd-supply = <&reg_eink_vdd>;
 		
 		status = "okay";
 	};
