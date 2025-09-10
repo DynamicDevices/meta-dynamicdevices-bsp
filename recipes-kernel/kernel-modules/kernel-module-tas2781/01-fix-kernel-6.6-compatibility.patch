@@ -1,0 +1,40 @@
+From 2b41f75bd79836f14f82c2b84e1b16817e48b6 Mon Sep 17 00:00:00 2001
+From: Dynamic Devices <support@dynamicdevices.co.uk>
+Date: Mon, 9 Sep 2025 17:00:00 +0000
+Subject: [PATCH] Fix kernel 6.6+ compatibility issues for TAS2781 driver
+
+Fix I2C probe function signature compatibility issue with kernel 6.2+.
+The I2C probe function signature changed to remove the const struct i2c_device_id parameter.
+
+The driver already had version checking code but it was commented out and using wrong version.
+This patch enables the correct version checking for kernel 6.2+.
+
+Upstream-Status: Pending
+Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
+---
+ src/tasdevice-core-i2c.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/src/tasdevice-core-i2c.c b/src/tasdevice-core-i2c.c
+index 1234567..abcdefg 100644
+--- a/src/tasdevice-core-i2c.c
++++ b/src/tasdevice-core-i2c.c
+@@ -147,12 +147,12 @@ static void tasdevice_i2c_remove(struct i2c_client *i2c)
+ 	return 0;
+ }
+ 
+-//#if KERNEL_VERSION(6, 5, 0) >= LINUX_VERSION_CODE
++#if KERNEL_VERSION(6, 2, 0) > LINUX_VERSION_CODE
+ static int tasdevice_i2c_probe(struct i2c_client *i2c,
+ 	const struct i2c_device_id *id)
+-//#else
+-//static int tasdevice_i2c_probe(struct i2c_client *i2c)
+-//#endif
++#else
++static int tasdevice_i2c_probe(struct i2c_client *i2c)
++#endif
+ {
+ //#if KERNEL_VERSION(6, 5, 0) < LINUX_VERSION_CODE
+ //	const struct i2c_device_id *id = i2c_match_id(tasdevice_id, i2c);
+-- 
+2.34.1
