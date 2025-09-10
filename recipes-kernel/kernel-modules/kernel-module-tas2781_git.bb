@@ -8,6 +8,7 @@ inherit module
 
 SRC_URI = "git://github.com/DynamicDevices/tas2781-linux-driver.git;branch=master;protocol=https \
            file://48khzEchoSlot0.bin \
+           file://01-fix-kernel-6.6-compatibility.patch \
           "
 SRCREV = "${AUTOREV}"
 
