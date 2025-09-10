@@ -1,6 +1,6 @@
 From 2b41f75bd79836f14f82c2b84e1b16817e48b6 Mon Sep 17 00:00:00 2001
 From: Dynamic Devices <support@dynamicdevices.co.uk>
-Date: Mon, 9 Sep 2025 17:00:00 +0000
+Date: Tue, 10 Sep 2025 09:30:00 +0000
 Subject: [PATCH] Fix kernel 6.6+ compatibility issues for TAS2781 driver
 
 Fix I2C probe function signature compatibility issue with kernel 6.2+.
@@ -12,14 +12,14 @@ This patch enables the correct version checking for kernel 6.2+ and fixes the ID
 Upstream-Status: Pending
 Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 ---
- tasdevice-core-i2c.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ tasdevice-core-i2c.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
 diff --git a/tasdevice-core-i2c.c b/tasdevice-core-i2c.c
 index 1234567..abcdefg 100644
 --- a/tasdevice-core-i2c.c
 +++ b/tasdevice-core-i2c.c
-@@ -147,14 +147,14 @@ static void tasdevice_i2c_remove(struct i2c_client *i2c)
+@@ -146,16 +146,16 @@ static void tasdevice_i2c_remove(struct i2c_client *i2c)
  	return 0;
  }
  
@@ -42,5 +42,6 @@ index 1234567..abcdefg 100644
 +#endif
  	struct tasdevice_priv *tas_dev = NULL;
  	int ret = 0;
+ 
 -- 
 2.34.1
