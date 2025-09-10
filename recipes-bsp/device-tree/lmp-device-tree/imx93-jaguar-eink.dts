@@ -220,15 +220,21 @@
 		>;
 	};
 
-	/* E-Ink display GPIO pins */
+	/* E-Ink display GPIO pins
+	 * GPIO Base Addresses: GPIO1=512, GPIO2=512, GPIO3=576, GPIO4=608  
+	 * Control Signals:
+	 *   - L#R_SEL_DIS (GPIO 528): Routes CS to left/right controller (GPIO2_IO16)
+	 *   - SPI_CS0 (GPIO 523): Primary chip select (GPIO1_IO11)
+	 *   - SPI_CS1 (GPIO 619): Secondary chip select (GPIO4_IO11)
+	 */
 	pinctrl_eink_gpio: eink_gpio_grp {
 		fsl,pins = <
 			MX93_PAD_GPIO_IO14__GPIO2_IO14		0x31e  /* RES_DIS# - Reset (Active-Low) */
 			MX93_PAD_GPIO_IO15__GPIO2_IO15		0x31e  /* D/C#_DIS - Data/Command (LO=Cmd, HI=Data) */
 			MX93_PAD_GPIO_IO16__GPIO2_IO16		0x31e  /* L#R_SEL_DIS - Left/Right Select (LO=Left, HI=Right) */
 			MX93_PAD_GPIO_IO17__GPIO2_IO17		0x31e  /* BUSY_DIS# - Busy Status (LO=Busy, Input) */
-			MX93_PAD_SAI1_TXFS__GPIO1_IO11		0x31e  /* SPI_CS0 - Primary chip select (GPIO control) */
-			MX93_PAD_ENET2_RD1__GPIO4_IO11		0x31e  /* SPI_CS1 - Secondary chip select (GPIO control) */
+			MX93_PAD_SAI1_TXFS__GPIO1_IO11		0x31e  /* SPI_CS0 - GPIO 523 (GPIO1_IO11) */
+			MX93_PAD_ENET2_RD1__GPIO4_IO11		0x31e  /* SPI_CS1 - GPIO 619 (GPIO4_IO11) */
 		>;
 	};
 
