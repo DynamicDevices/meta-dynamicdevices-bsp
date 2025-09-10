@@ -228,6 +228,7 @@
 			MX93_PAD_GPIO_IO16__GPIO2_IO16		0x31e  /* L#R_SEL_DIS - Left/Right Select (LO=Left, HI=Right) */
 			MX93_PAD_GPIO_IO17__GPIO2_IO17		0x31e  /* BUSY_DIS# - Busy Status (LO=Busy, Input) */
 			MX93_PAD_SAI1_TXFS__GPIO1_IO11		0x31e  /* SPI_CS0 - Primary chip select (GPIO control) */
+			MX93_PAD_ENET2_RD1__GPIO4_IO11		0x31e  /* SPI_CS1 - Secondary chip select (GPIO control) */
 		>;
 	};
 
