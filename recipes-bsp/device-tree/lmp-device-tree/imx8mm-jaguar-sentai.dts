@@ -29,13 +29,17 @@
                 simple-audio-card,frame-master = <&cpudai2>;
                 simple-audio-card,bitclock-master = <&cpudai2>;
                 
-                // Enable bidirectional audio for echo reference
+                // Enable bidirectional audio with PDM mics and echo reference
                 simple-audio-card,widgets =
                         "Speaker", "Speaker",
+                        "Microphone", "PDM Mic Left",
+                        "Microphone", "PDM Mic Right", 
                         "Microphone", "Echo Reference";
                 simple-audio-card,routing =
                         "Speaker", "OUT",
                         "SPK", "ASI",
+                        "PDM Mic Left", "DMIC L",
+                        "PDM Mic Right", "DMIC R",
                         "Echo Reference", "ASI OUT",
                         "ASI OUT", "DMIC";
 
@@ -301,10 +305,10 @@
                 ti,bypass-tmax = <0>; /* Enable thermal protection */
                 ti,i2s-bits = <32>; /* 32-bit I2S for Profile 8 */
                 
-                // PDM Microphone Configuration (for test hardware)
-                // Runtime configurable - will be enabled/disabled by userspace
-                ti,mic-mode = <0>; /* 0=disabled initially, 1=enabled for test HW */
-                ti,mic-bias-enable = <0>; /* Microphone bias - runtime configurable */
+                // PDM Microphone Configuration (enabled for Profile 8 echo cancellation)
+                // Enable PDM mics for simultaneous mic + echo reference capture
+                ti,mic-mode = <1>; /* 1=enabled for PDM microphone capture */
+                ti,mic-bias-enable = <1>; /* Enable microphone bias for PDM mics */
                 ti,mic-gain = <0x10>; /* Microphone input gain */
                 ti,pdm-edge = <3>; /* Both rising and falling edge for dual mics */
                 ti,pdm-clk-rate = <3072000>; /* PDM clock rate (3.072 MHz) */
