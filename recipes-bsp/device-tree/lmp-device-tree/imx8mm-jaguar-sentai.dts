@@ -34,10 +34,8 @@
                         "Speaker", "Speaker",
                         "Microphone", "Echo Reference";
                 simple-audio-card,routing =
-                        "Speaker", "OUT",
-                        "SPK", "ASI",
-                        "Echo Reference", "ASI OUT",
-                        "ASI OUT", "DMIC";
+                        "Speaker", "ASI1 OUT",
+                        "Echo Reference", "ASI1 IN";
 
                 cpudai2: simple-audio-card,cpu {
                         sound-dai = <&sai3>;
