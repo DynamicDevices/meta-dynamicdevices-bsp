@@ -1,0 +1,21 @@
+[Unit]
+Description=TAS2563 Audio Codec Initialization
+After=sound.target alsa-state.service
+Wants=sound.target
+Requisite=sound.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/tas2563-init echo-removal
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=30
+# Retry if audio card is not ready yet
+Restart=on-failure
+RestartSec=2
+StartLimitBurst=5
+StartLimitIntervalSec=30
+
+[Install]
+WantedBy=multi-user.target

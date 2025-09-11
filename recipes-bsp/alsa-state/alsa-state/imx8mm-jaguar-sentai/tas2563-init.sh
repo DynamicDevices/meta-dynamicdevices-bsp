@@ -10,7 +10,7 @@
 
 SCRIPT_NAME="tas2563-init"
 LOG_TAG="[$SCRIPT_NAME]"
-AUDIO_CARD="Audio"
+AUDIO_CARD="tas2563audio"
 
 # Function to log messages
 log_info() {
