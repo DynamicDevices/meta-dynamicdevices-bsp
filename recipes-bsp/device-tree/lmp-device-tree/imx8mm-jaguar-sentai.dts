@@ -295,7 +295,7 @@
                 ti,left-slot = <0>; /* TX slot 0 - left audio output */
                 ti,right-slot = <1>; /* TX slot 1 - right audio output */
                 ti,imon-slot-no = <2>; /* Current sense feedback */
-                ti,vmon-slot-no = <3>; /* Voltage sense feedback */
+                ti,vmon-slot-no = <2>; /* Voltage sense feedback - combined with current sense */
                 ti,echo-ref = <3>; /* Echo reference output slot for AEC */
                 ti,bypass-tmax = <0>; /* Enable thermal protection */
                 ti,i2s-bits = <32>; /* 32-bit I2S for Profile 8 */
