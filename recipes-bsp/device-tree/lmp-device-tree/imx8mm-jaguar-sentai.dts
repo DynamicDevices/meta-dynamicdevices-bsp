@@ -29,19 +29,14 @@
                 simple-audio-card,frame-master = <&cpudai2>;
                 simple-audio-card,bitclock-master = <&cpudai2>;
                 
-                // Enable bidirectional audio with PDM mics and echo reference
+                // Profile 8 Echo Cancellation routing
+                // Supports simultaneous playback, microphone capture, and echo reference
                 simple-audio-card,widgets =
                         "Speaker", "Speaker",
-                        "Microphone", "PDM Mic Left",
-                        "Microphone", "PDM Mic Right", 
-                        "Microphone", "Echo Reference";
+                        "Microphone", "PDM Microphones";
                 simple-audio-card,routing =
                         "Speaker", "OUT",
-                        "SPK", "ASI",
-                        "PDM Mic Left", "DMIC L",
-                        "PDM Mic Right", "DMIC R",
-                        "Echo Reference", "ASI OUT",
-                        "ASI OUT", "DMIC";
+                        "DMIC", "PDM Microphones";
 
                 cpudai2: simple-audio-card,cpu {
                         sound-dai = <&sai3>;
