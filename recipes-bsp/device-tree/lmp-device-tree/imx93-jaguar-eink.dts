@@ -208,15 +208,18 @@
 	 * GPIO4_IOx = 576 + x  (gpiochip2)
 	 *
 	 * E-Ink Control Signals:
-	 *   - SPI_CS0 (GPIO 528): GPIO2_IO16 = 512+16 = 528
+	 *   - RES_DIS# (GPIO 526): GPIO2_IO14 = 512+14 = 526
+	 *   - D/C#_DIS (GPIO 527): GPIO2_IO15 = 512+15 = 527
+	 *   - SPI_CS0 (GPIO 529): GPIO2_IO17 = 512+17 = 529
+	 *   - BUSY_DIS# (GPIO 528): GPIO2_IO16 = 512+16 = 528
 	 *   - SPI_CS1 (GPIO 619): GPIO1_IO11 = 608+11 = 619
 	 */
 	pinctrl_eink_gpio: eink_gpio_grp {
 		fsl,pins = <
-			MX93_PAD_GPIO_IO14__GPIO2_IO14		0x31e  /* RES_DIS# - Reset (Active-Low) */
-			MX93_PAD_GPIO_IO15__GPIO2_IO15		0x31e  /* D/C#_DIS - Data/Command (LO=Cmd, HI=Data) */
-			MX93_PAD_GPIO_IO16__GPIO2_IO16		0x31e  /* SPI_CS0 - GPIO 528 */
-			MX93_PAD_GPIO_IO17__GPIO2_IO17		0x31e  /* BUSY_DIS# - Busy Status (LO=Busy, Input) */
+			MX93_PAD_GPIO_IO14__GPIO2_IO14		0x31e  /* RES_DIS# - Reset (Active-Low) - gpio 526 */
+			MX93_PAD_GPIO_IO15__GPIO2_IO15		0x31e  /* D/C#_DIS - Data/Command (LO=Cmd, HI=Data) - gpio 527 */
+			MX93_PAD_GPIO_IO17__GPIO2_IO17		0x31e  /* SPI_CS0 - GPIO 529 */
+			MX93_PAD_GPIO_IO16__GPIO2_IO16		0x31e  /* BUSY_DIS# - Busy Status (LO=Busy, Input) gpio 528*/
 			MX93_PAD_SAI1_TXFS__GPIO1_IO11		0x31e  /* SPI_CS1 - GPIO 619 */			
 		>;
 	};
