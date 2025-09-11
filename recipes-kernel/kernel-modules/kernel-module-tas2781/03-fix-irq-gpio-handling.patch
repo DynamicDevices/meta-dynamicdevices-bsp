@@ -1,32 +1,39 @@
-commit 13f9218731801364eccc4052baa0a03e211c8870
-Author: Alex J Lennon <ajlenon@dynamicdevices.co.uk>
-Date:   Wed Sep 10 15:56:45 2025 +0100
+From 13f9218731801364eccc4052baa0a03e211c8870 Mon Sep 17 00:00:00 2001
+From: Alex J Lennon <ajlenon@dynamicdevices.co.uk>
+Date: Wed, 10 Sep 2025 15:56:45 +0100
+Subject: [PATCH] Fix TAS2781 driver IRQ handling bug
 
-    Fix TAS2781 driver IRQ handling bug
-    
-    The driver was incorrectly treating IRQ numbers as GPIO numbers,
-    causing 'GPIO request error' when using standard interrupt bindings.
-    
-    Changes:
-    - Remove incorrect gpio_request/gpio_to_irq sequence in tasdevice-core.c
-    - Use IRQ number directly from of_irq_get() with request_threaded_irq()
-    - Update IRQ validity checks from gpio_is_valid(irq_gpio) to irq > 0
-    - Fix IRQ handling in tasdevice-codec.c and tasdevice-misc.c
-    
-    This resolves the error:
-    'tasdevice_parse_dt_reset_irq_pin: GPIO 173 request error'
-    
-    The driver now properly uses the Linux interrupt framework with
-    standard device tree interrupt bindings:
-      interrupt-parent = <&gpio5>;
-      interrupts = <5 IRQ_TYPE_LEVEL_LOW>;
-    
-    Tested with: TAS2563 on imx8mm-jaguar-sentai board
+The driver was incorrectly treating IRQ numbers as GPIO numbers,
+causing 'GPIO request error' when using standard interrupt bindings.
 
-diff --git a/src/tasdevice-codec.c b/src/tasdevice-codec.c
+Changes:
+- Remove incorrect gpio_request/gpio_to_irq sequence in tasdevice-core.c
+- Use IRQ number directly from of_irq_get() with request_threaded_irq()
+- Update IRQ validity checks from gpio_is_valid(irq_gpio) to irq > 0
+- Fix IRQ handling in tasdevice-codec.c and tasdevice-misc.c
+
+This resolves the error:
+'tasdevice_parse_dt_reset_irq_pin: GPIO 173 request error'
+
+The driver now properly uses the Linux interrupt framework with
+standard device tree interrupt bindings:
+  interrupt-parent = <&gpio5>;
+  interrupts = <5 IRQ_TYPE_LEVEL_LOW>;
+
+Tested with: TAS2563 on imx8mm-jaguar-sentai board
+
+Upstream-Status: Pending
+Signed-off-by: Alex J Lennon <ajlenon@dynamicdevices.co.uk>
+---
+ tasdevice-codec.c | 4 ++--
+ tasdevice-core.c  | 36 ++++++++++++------------------------
+ tasdevice-misc.c  | 2 +-
+ 3 files changed, 15 insertions(+), 27 deletions(-)
+
+diff --git a/tasdevice-codec.c b/tasdevice-codec.c
 index eb62f1d..60da23c 100644
---- a/src/tasdevice-codec.c
-+++ b/src/tasdevice-codec.c
+--- a/tasdevice-codec.c
++++ b/tasdevice-codec.c
 @@ -260,7 +260,7 @@ void powercontrol_routine(struct work_struct *work)
  	tasdevice_select_cfg_blk(tas_dev, profile_cfg_id,
  		TASDEVICE_BIN_BLK_PRE_POWER_UP);
@@ -45,10 +52,10 @@ index eb62f1d..60da23c 100644
  				tasdevice_enable_irq(tas_dev, false);
  			tasdevice_select_cfg_blk(tas_dev,
  				tas_dev->mtRegbin.profile_cfg_id,
-diff --git a/src/tasdevice-core.c b/src/tasdevice-core.c
+diff --git a/tasdevice-core.c b/tasdevice-core.c
 index ffb6ef3..fcfd02c 100644
---- a/src/tasdevice-core.c
-+++ b/src/tasdevice-core.c
+--- a/tasdevice-core.c
++++ b/tasdevice-core.c
 @@ -127,7 +127,7 @@ void tasdevice_enable_irq(struct tasdevice_priv *tas_dev,
  	bool enable)
  {
@@ -125,10 +132,10 @@ index ffb6ef3..fcfd02c 100644
  		if (delayed_work_pending(&tas_dev->irq_info.irq_work)) {
  			dev_dbg(tas_dev->dev, "cancel IRQ work\n");
  			cancel_delayed_work_sync(&tas_dev->irq_info.irq_work);
-diff --git a/src/tasdevice-misc.c b/src/tasdevice-misc.c
+diff --git a/tasdevice-misc.c b/tasdevice-misc.c
 index c43aff4..d1a069e 100644
---- a/src/tasdevice-misc.c
-+++ b/src/tasdevice-misc.c
+--- a/tasdevice-misc.c
++++ b/tasdevice-misc.c
 @@ -553,7 +553,7 @@ static long tasdevice_ioctl(struct file *f,
  	if (tas_dev->pstream != 0 && tas_dev->cstream == 0) {
  		tas_dev->pstream = 0;
@@ -138,3 +145,5 @@ index c43aff4..d1a069e 100644
  			tasdevice_enable_irq(tas_dev, false);
  		tasdevice_select_cfg_blk(tas_dev, tas_dev->cur_conf,
  			TASDEVICE_BIN_BLK_PRE_SHUTDOWN);
+-- 
+2.34.1
