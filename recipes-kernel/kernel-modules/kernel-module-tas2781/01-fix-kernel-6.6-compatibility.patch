@@ -1,0 +1,46 @@
+From 1933358bd79836f14f82c2b84e1b16817e48b6 Mon Sep 17 00:00:00 2001
+From: Dynamic Devices <support@dynamicdevices.co.uk>
+Date: Thu, 11 Sep 2025 12:45:00 +0000
+Subject: [PATCH] Fix kernel 6.6+ compatibility issues for TAS2781 driver
+
+Fix I2C probe function signature compatibility with kernel 6.2+.
+The I2C probe function signature changed in kernel 6.2+ - removed const struct i2c_device_id parameter.
+
+This change maintains backward compatibility with older kernels using version checks.
+
+Upstream-Status: Pending
+Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
+---
+ tasdevice-core-i2c.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/tasdevice-core-i2c.c b/tasdevice-core-i2c.c
+index 1234567..abcdefg 100644
+--- a/tasdevice-core-i2c.c
++++ b/tasdevice-core-i2c.c
+@@ -25,6 +25,7 @@
+ #include <linux/module.h>
+ #include <linux/moduleparam.h>
+ #include <linux/init.h>
++#include <linux/version.h>
+ #include <linux/delay.h>
+ #include <linux/pm.h>
+ #include <linux/i2c.h>
+@@ -632,8 +633,16 @@ static struct tasdevice_priv *g_tasdevice;
+  * platform dependent
+  * should implement hardware reset functionality
+  */
++#if KERNEL_VERSION(6, 2, 0) <= LINUX_VERSION_CODE
++static int tasdevice_i2c_probe(struct i2c_client *pClient)
++{
++	const struct i2c_device_id *pID = i2c_client_get_device_id(pClient);
++#else
+ static int tasdevice_i2c_probe(struct i2c_client *pClient,
+ 	const struct i2c_device_id *pID)
++{
++#endif
+ 	struct tasdevice_priv *pTASDevice;
+ 	int nResult = 0;
+ 
+-- 
+2.34.1
