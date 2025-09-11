@@ -24,6 +24,14 @@ BB_GENERATE_MIRROR_TARBALLS = "0"
 PV = "1.0+git${SRCPV}"
 SRCREV = "${AUTOREV}"
 
+# Skip this recipe entirely if the machine doesn't have el133uf1 feature
+# This prevents parsing errors when building for machines that don't need E-Ink support
+python __anonymous() {
+    machine_features = d.getVar('MACHINE_FEATURES') or ''
+    if 'el133uf1' not in machine_features:
+        raise bb.parse.SkipRecipe("eink-spectra6 recipe skipped - machine does not have el133uf1 feature")
+}
+
 S = "${WORKDIR}/git"
 
 # Dependencies for E-Ink display functionality
