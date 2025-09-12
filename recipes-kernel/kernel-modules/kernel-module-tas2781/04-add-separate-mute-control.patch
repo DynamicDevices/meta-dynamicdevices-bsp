@@ -26,9 +26,9 @@ Tested with: TAS2563 on imx8mm-jaguar-sentai board
 Upstream-Status: Pending
 Signed-off-by: Alex J Lennon <ajlennon@dynamicdevices.co.uk>
 ---
- tasdevice-codec.c | 65 +++++++++++++++++++++++++++++++++++++++++++++++
+ tasdevice-codec.c | 67 +++++++++++++++++++++++++++++++++++++++++++++++
  tasdevice.h       |  2 ++
- 2 files changed, 67 insertions(+)
+ 2 files changed, 69 insertions(+)
 
 diff --git a/tasdevice-codec.c b/tasdevice-codec.c
 index eb62f1d..a1b2c3d 100644
@@ -111,11 +111,10 @@ index eb62f1d..a1b2c3d 100644
  	vol = (val << 16) | 0xFFFF;
  	mackey = cpu_to_be32p((const unsigned int *) &vol);
  	p = (unsigned char *)&mackey;
-@@ -667,6 +730,8 @@ static const struct snd_kcontrol_new tas2563_snd_controls[] = {
- 		tas2563_amp_vol_tlv),
+@@ -668,6 +731,8 @@ static const struct snd_kcontrol_new tas2563_snd_controls[] = {
  	SOC_SINGLE_RANGE_EXT_TLV("tas2563-digital-volume", TAS2563_DVC_LVL,
  		0, 0, 0xFFFF, 0, tas2563_digital_getvol, tas2563_digital_putvol,
-+		tas2563_dvc_tlv),
+ 		tas2563_dvc_tlv),
 +	SOC_SINGLE_EXT("tas2563-digital-mute", 0, 0, 1, 0,
 +		tas2563_digital_mute_get, tas2563_digital_mute_put),
  };
