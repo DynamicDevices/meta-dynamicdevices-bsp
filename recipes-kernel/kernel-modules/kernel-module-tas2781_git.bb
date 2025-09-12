@@ -12,6 +12,7 @@ SRC_URI = "git://git.ti.com/tas2781-linux-drivers/tas2781-linux-driver.git;branc
            file://TAS2XXX3870.bin \
            file://02-yocto-build-compatibility.patch \
            file://03-fix-irq-gpio-handling.patch \
+           file://04-add-separate-mute-control.patch \
           "
 SRCREV = "124282c12d471a53a2302881788c008fc2d3c364"
 

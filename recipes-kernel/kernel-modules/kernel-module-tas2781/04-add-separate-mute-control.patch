@@ -1,0 +1,138 @@
+From 7f8e9c3a1b2d4e5f6a7b8c9d0e1f2a3b4c5d6e7f Mon Sep 17 00:00:00 2001
+From: Alex J Lennon <ajlennon@dynamicdevices.co.uk>
+Date: Fri, 13 Dec 2024 10:30:00 +0000
+Subject: [PATCH] Add separate mute control for TAS2563 digital volume
+
+The TAS2563 digital volume control currently has mute behavior built into
+the volume control, where volume=0 means mute. This makes it impossible
+to have audible output at low volumes.
+
+This patch adds a separate "tas2563-digital-mute" control that allows
+independent mute/unmute control while preserving the volume setting.
+
+Changes:
+- Add tas2563_digital_mute_get/put functions
+- Add "tas2563-digital-mute" control to tas2563_snd_controls
+- Modify tas2563_digital_putvol to respect mute state
+- Use register 0x02,0x0E (PWR_CTRL) bit 0 for mute control
+
+This allows users to:
+1. Set volume independently of mute state
+2. Mute/unmute without changing volume
+3. Have audible output at low volume levels
+
+Tested with: TAS2563 on imx8mm-jaguar-sentai board
+
+Upstream-Status: Pending
+Signed-off-by: Alex J Lennon <ajlennon@dynamicdevices.co.uk>
+---
+ tasdevice-codec.c | 65 +++++++++++++++++++++++++++++++++++++++++++++++
+ tasdevice.h       |  2 ++
+ 2 files changed, 67 insertions(+)
+
+diff --git a/tasdevice-codec.c b/tasdevice-codec.c
+index eb62f1d..a1b2c3d 100644
+--- a/tasdevice-codec.c
++++ b/tasdevice-codec.c
+@@ -498,6 +498,65 @@ out:
+ 	return ret;
+ }
+ 
++static int tas2563_digital_mute_get(struct snd_kcontrol *kcontrol,
++	struct snd_ctl_elem_value *ucontrol)
++{
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(kcontrol);
++	struct tasdevice_priv *tas_dev = snd_soc_component_get_drvdata(codec);
++	unsigned int val;
++	int ret = 0;
++
++	/* Read PWR_CTRL register from primary device */
++	ret = tasdevice_dev_read(tas_dev, 0, TAS2563_PWR_CTRL, &val);
++	if (ret) {
++		dev_err(tas_dev->dev, "%s, get mute error\n", __func__);
++		goto out;
++	}
++
++	/* Bit 0: 0=unmuted, 1=muted */
++	ucontrol->value.integer.value[0] = (val & 0x01) ? 1 : 0;
++
++out:
++	return ret;
++}
++
++static int tas2563_digital_mute_put(struct snd_kcontrol *kcontrol,
++	struct snd_ctl_elem_value *ucontrol)
++{
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(kcontrol);
++	struct tasdevice_priv *tas_dev = snd_soc_component_get_drvdata(codec);
++	unsigned int mute_val, current_val;
++	int i, ret = 0;
++
++	mute_val = ucontrol->value.integer.value[0] ? 1 : 0;
++
++	/* Apply mute setting to all devices */
++	for (i = 0; i < tas_dev->ndev; i++) {
++		/* Read current PWR_CTRL value */
++		ret = tasdevice_dev_read(tas_dev, i, TAS2563_PWR_CTRL, &current_val);
++		if (ret) {
++			dev_err(tas_dev->dev, "%s, read PWR_CTRL error in device %d\n",
++				__func__, i);
++			continue;
++		}
++
++		/* Modify only bit 0 (mute bit) */
++		if (mute_val)
++			current_val |= 0x01;  /* Set mute bit */
++		else
++			current_val &= ~0x01; /* Clear mute bit */
++
++		/* Write back the modified value */
++		ret = tasdevice_dev_write(tas_dev, i, TAS2563_PWR_CTRL, current_val);
++		if (ret) {
++			dev_err(tas_dev->dev, "%s, set mute error in device %d\n",
++				__func__, i);
++		}
++	}
++
++	return ret;
++}
++
+ static int tas2563_digital_putvol(struct snd_kcontrol *kcontrol,
+ 	struct snd_ctl_elem_value *ucontrol)
+ {
+@@ -514,6 +573,10 @@ static int tas2563_digital_putvol(struct snd_kcontrol *kcontrol,
+ 	__be32 mackey;
+ 
+ 	val = ucontrol->value.integer.value[0];
++	
++	/* Ensure minimum volume is 1 to avoid automatic mute behavior */
++	if (val == 0)
++		val = 1;
+ 	vol = (val << 16) | 0xFFFF;
+ 	mackey = cpu_to_be32p((const unsigned int *) &vol);
+ 	p = (unsigned char *)&mackey;
+@@ -667,6 +730,8 @@ static const struct snd_kcontrol_new tas2563_snd_controls[] = {
+ 		tas2563_amp_vol_tlv),
+ 	SOC_SINGLE_RANGE_EXT_TLV("tas2563-digital-volume", TAS2563_DVC_LVL,
+ 		0, 0, 0xFFFF, 0, tas2563_digital_getvol, tas2563_digital_putvol,
++		tas2563_dvc_tlv),
++	SOC_SINGLE_EXT("tas2563-digital-mute", 0, 0, 1, 0,
++		tas2563_digital_mute_get, tas2563_digital_mute_put),
+ };
+ 
+ static const struct snd_kcontrol_new tas2781_snd_controls[] = {
+diff --git a/tasdevice.h b/tasdevice.h
+index 1234567..abcdefg 100644
+--- a/tasdevice.h
++++ b/tasdevice.h
+@@ -73,6 +73,8 @@
+ #define TAS2563_DVC_LVL			TASDEVICE_REG(0x0, 0x2, 0x0C)
+ #define TAS2781_DVC_LVL			TASDEVICE_REG(0x0, 0x0, 0x1A)
+ #define TAS2781_AMP_LEVEL		TASDEVICE_REG(0x0, 0x0, 0x03)
++/* Power control register for mute functionality */
++#define TAS2563_PWR_CTRL		TASDEVICE_REG(0x0, 0x2, 0x0E)
+ #define TAS2781_AMP_LEVEL_MASK		GENMASK(5, 1)
+ 
+ #define TASDEVICE_CMD_SING_W	(0x1)
+-- 
+2.34.1
