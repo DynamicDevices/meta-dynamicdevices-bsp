@@ -22,4 +22,5 @@ KERNEL_MODULE_PROBECONF:append = " \
 "
 
 # Configure TAS2781 module parameters for optimal TAS2563 operation
-module_conf_snd-soc-tas2781-i2c = "options snd-soc-tas2781-i2c reset_gpio_active_high=0"
+# Note: reset_gpio_active_high parameter not supported in mainline driver
+# GPIO polarity is handled via device tree GPIO_ACTIVE_HIGH/LOW flags
