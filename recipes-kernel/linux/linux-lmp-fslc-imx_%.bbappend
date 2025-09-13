@@ -17,8 +17,9 @@ SRC_URI:append:imx8mm-jaguar-sentai = " \
 		file://03-enable-lis2dh12.cfg \
 		file://04-enable-usb-gadgets.cfg \
 		file://05-patch-led-defaults.patch \
-        file://06-enable-tas256x_2781.cfg \
-        ${@bb.utils.contains('ENABLE_BOOT_PROFILING', '1', 'file://enable_boot_profiling.cfg', '', d)} \
+        file://07-enable-tas2781-mainline.cfg \
+        file://08-backport-tas2563-support-to-tas2781.patch \
+                ${@bb.utils.contains('ENABLE_BOOT_PROFILING', '1', 'file://enable_boot_profiling.cfg', '', d)} \
 "
 
 # NOTE: This DTB file is created as a default for use with local development

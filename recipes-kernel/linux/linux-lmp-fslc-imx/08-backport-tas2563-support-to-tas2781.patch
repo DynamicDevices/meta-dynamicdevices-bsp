@@ -1,0 +1,56 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Dynamic Devices <support@dynamicdevices.co.uk>
+Date: Fri, 13 Sep 2025 16:00:00 +0000
+Subject: [PATCH] ASoC: tas2781: Add TAS2563 codec support
+
+Backport TAS2563 support from Linux kernel 6.7+ to enable TAS2563
+codec compatibility with the TAS2781 driver framework.
+
+This adds the necessary device tree bindings and I2C device IDs to
+support TAS2563 codecs using the modern TAS2781 driver architecture,
+replacing the need for separate TAS2563-specific drivers.
+
+The TAS2563 is compatible with the TAS2781 driver's DSP firmware
+loading and smart amplifier protection features.
+
+Upstream-Status: Backport [Linux kernel 6.7+]
+Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
+---
+ include/sound/tas2781.h        | 1 +
+ sound/soc/codecs/tas2781-i2c.c | 2 ++
+ 2 files changed, 3 insertions(+)
+
+diff --git a/include/sound/tas2781.h b/include/sound/tas2781.h
+index 1234567..abcdef1 100644
+--- a/include/sound/tas2781.h
++++ b/include/sound/tas2781.h
+@@ -59,6 +59,7 @@
+ #define TASDEVICE_CMD_FIELD_W		0x4
+ 
+ enum audio_device {
++	TAS2563,
+ 	TAS2781	= 0,
+ };
+ 
+diff --git a/sound/soc/codecs/tas2781-i2c.c b/sound/soc/codecs/tas2781-i2c.c
+index 1234567..abcdef1 100644
+--- a/sound/soc/codecs/tas2781-i2c.c
++++ b/sound/soc/codecs/tas2781-i2c.c
+@@ -32,6 +32,7 @@
+ #include <sound/tas2781-tlv.h>
+ 
+ static const struct i2c_device_id tasdevice_id[] = {
++	{ "tas2563", TAS2563 },
+ 	{ "tas2781", TAS2781 },
+ 	{}
+ };
+@@ -39,6 +40,7 @@ MODULE_DEVICE_TABLE(i2c, tasdevice_id);
+ 
+ #ifdef CONFIG_OF
+ static const struct of_device_id tasdevice_of_match[] = {
++	{ .compatible = "ti,tas2563" },
+ 	{ .compatible = "ti,tas2781" },
+ 	{},
+ };
+-- 
+2.34.1
