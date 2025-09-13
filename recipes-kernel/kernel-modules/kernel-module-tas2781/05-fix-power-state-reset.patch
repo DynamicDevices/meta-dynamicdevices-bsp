@@ -1,77 +1,18 @@
-From 8f9e0c4b2c3d5e6f7a8b9c0d1e2f3a4b5c6d7e8f Mon Sep 17 00:00:00 2001
-From: Alex J Lennon <ajlennon@dynamicdevices.co.uk>
-Date: Fri, 13 Dec 2024 14:30:00 +0000
-Subject: [PATCH] Fix TAS2563 power state reset between audio sessions
-
-The TAS2563 codec fails to produce audio on second and subsequent
-speaker-test runs due to improper power state management. The codec
-goes through PRE_SHUTDOWN but doesn't properly reset state for the
-next PRE_POWER_UP sequence.
-
-This patch ensures proper state reset between audio sessions by:
-- Forcing configuration reload on each power-up
-- Clearing cached state variables
-- Ensuring proper register initialization sequence
-
-Changes:
-- Reset configuration state in powercontrol_routine
-- Force profile reselection on each power-up
-- Clear device active state before reinitialization
-- Add debug logging for power state transitions
-
-This resolves the issue where audio works on first run but fails
-on subsequent runs without driver reload.
-
-Tested with: TAS2563 on imx8mm-jaguar-sentai board
-
-Upstream-Status: Pending
-Signed-off-by: Alex J Lennon <ajlennon@dynamicdevices.co.uk>
----
- tasdevice-codec.c | 25 +++++++++++++++++++++++++
- 1 file changed, 25 insertions(+)
-
-diff --git a/tasdevice-codec.c b/tasdevice-codec.c
-index a1b2c3d..b2c4e5f 100644
---- a/tasdevice-codec.c
-+++ b/tasdevice-codec.c
-@@ -250,6 +250,19 @@ void powercontrol_routine(struct work_struct *work)
- 	struct tasdevice_priv *tas_dev =
- 		container_of(work, struct tasdevice_priv, powercontrol_work.work);
- 	int profile_cfg_id = tas_dev->mtRegbin.profile_cfg_id;
-+	int i;
-+
-+	dev_info(tas_dev->dev, "%s: enter, profile_cfg_id=%d\n", __func__, profile_cfg_id);
-+
-+	/* Reset device state to ensure clean power-up */
-+	mutex_lock(&tas_dev->codec_lock);
-+	for (i = 0; i < tas_dev->ndev; i++) {
-+		tas_dev->tasdevice[i].mnCurrentConfiguration = -1;
-+		tas_dev->tasdevice[i].mnCurrentProgram = -1;
-+	}
-+	/* Force configuration reload */
-+	tas_dev->cur_conf = -1;
-+	mutex_unlock(&tas_dev->codec_lock);
- 
- 	mutex_lock(&tas_dev->codec_lock);
- 
-@@ -258,6 +271,18 @@ void powercontrol_routine(struct work_struct *work)
- 		goto out;
+--- a/src/tasdevice-codec.c
++++ b/src/tasdevice-codec.c
+@@ -116,8 +116,15 @@ static int tasdevice_dapm_event(struct snd_soc_dapm_widget *w,
+ 	case SND_SOC_DAPM_POST_PMU:
+ 		dev_info(tas_dev->dev, "SND_SOC_DAPM_POST_PMU\n");
+ 		break;
+ 	case SND_SOC_DAPM_PRE_PMD:
+ 		dev_info(tas_dev->dev, "SND_SOC_DAPM_PRE_PMD\n");
++		/* Reset configuration state during power down to ensure
++		 * proper reconfiguration on next power up */
++		for (int i = 0; i < tas_dev->ndev; i++) {
++			tas_dev->tasdevice[i].mnCurrentConfiguration = -1;
++			dev_info(tas_dev->dev, "Reset device %d configuration state\n", i);
++		}
+ 		break;
  	}
  
-+	/* Ensure we have a valid profile configuration */
-+	if (profile_cfg_id < 0) {
-+		dev_info(tas_dev->dev, "%s: Invalid profile_cfg_id, using default (8)\n", __func__);
-+		profile_cfg_id = 8;  /* Default to Profile 8 for echo cancellation */
-+		tas_dev->mtRegbin.profile_cfg_id = profile_cfg_id;
-+	}
-+
-+	dev_info(tas_dev->dev, "%s: Using profile_cfg_id=%d\n", __func__, profile_cfg_id);
-+
-+	/* Force tuning parameter reload */
-+	tas_dev->cur_conf = profile_cfg_id;
-+
- 	tasdevice_select_tuningprm_cfg(tas_dev, tas_dev->cur_conf,
- 		tas_dev->cur_prog, 0);
- 	tasdevice_select_cfg_blk(tas_dev, profile_cfg_id,
--- 
-2.34.1
+ 	return 0;
