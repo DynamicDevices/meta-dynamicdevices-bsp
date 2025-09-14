@@ -1,4 +1,13 @@
 
+From: Dynamic Devices Ltd <info@dynamicdevices.co.uk>
+Date: Wed, 13 Sep 2025 00:00:00 +0000
+Subject: [PATCH] Add support for iwl_dev_tx_power_cmd_v8
+
+This patch adds support for version 8 of the Intel WiFi TX power command
+structure to support newer firmware versions.
+
+Upstream-Status: Backport [from newer kernel version]
+
 diff --git a/drivers/net/wireless/intel/iwlwifi/fw/api/power.h b/drivers/net/wireless/intel/iwlwifi/fw/api/power.h
 index 0bf38243f88ae0..ce18ef9d312819 100644
 --- a/drivers/net/wireless/intel/iwlwifi/fw/api/power.h

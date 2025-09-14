@@ -1,7 +1,10 @@
 # Load the drivers
 
 modprobe snd-soc-fsl-micfil
-modprobe snd-soc-tas2781
+# Load TAS2781 mainline driver modules in correct order
+modprobe snd-soc-tas2781-comlib-i2c
+modprobe snd-soc-tas2781-fmwlib  
+modprobe snd-soc-tas2781-i2c
 
 # Detect and configure audio hardware variant
 if [ -x /usr/bin/detect-audio-hardware.sh ]; then

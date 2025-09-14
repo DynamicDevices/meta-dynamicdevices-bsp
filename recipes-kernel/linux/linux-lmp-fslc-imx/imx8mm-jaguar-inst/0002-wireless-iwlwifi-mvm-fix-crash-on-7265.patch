@@ -1,3 +1,12 @@
+From: Dynamic Devices Ltd <info@dynamicdevices.co.uk>
+Date: Wed, 13 Sep 2025 00:00:00 +0000
+Subject: [PATCH] Fix crash on Intel 7265 WiFi by setting default cmd version
+
+This patch fixes a crash that occurs on Intel 7265 WiFi devices by
+setting a default command version instead of using IWL_FW_CMD_VER_UNKNOWN.
+
+Upstream-Status: Inappropriate [workaround for specific hardware issue]
+
 diff --git a/drivers/net/wireless/intel/iwlwifi/mvm/fw.c b/drivers/net/wireless/intel/iwlwifi/mvm/fw.c
 index e7f5978ef2d719..ca7fcae6995ee3 100644
 --- a/drivers/net/wireless/intel/iwlwifi/mvm/fw.c

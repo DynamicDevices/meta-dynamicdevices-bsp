@@ -1,3 +1,12 @@
+From: Dynamic Devices Ltd <info@dynamicdevices.co.uk>
+Date: Wed, 13 Sep 2025 00:00:00 +0000
+Subject: [PATCH] Patch LP5024 LED driver default register values
+
+This patch modifies the default register values for the LP5024 LED driver
+to set appropriate brightness and color values for the Sentai board LEDs.
+
+Upstream-Status: Inappropriate [board specific configuration]
+
 diff --git a/drivers/leds/leds-lp50xx.c b/drivers/leds/leds-lp50xx.c
 index 28d6b39fa72d..5a4e4804cc93 100644
 --- a/drivers/leds/leds-lp50xx.c

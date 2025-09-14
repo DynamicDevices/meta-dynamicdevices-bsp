@@ -1,11 +1,11 @@
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
 # Only apply NXP WLAN patch for Dynamic Devices machines that use NXP WiFi
-SRC_URI:append:imx8mm-jaguar-sentai = " file://01-disable-scan-in-progress-warning.patch"
-SRC_URI:append:imx8mm-jaguar-inst = " file://01-disable-scan-in-progress-warning.patch"
-SRC_URI:append:imx8mm-jaguar-handheld = " file://01-disable-scan-in-progress-warning.patch"
-SRC_URI:append:imx8mm-jaguar-phasora = " file://01-disable-scan-in-progress-warning.patch"
-SRC_URI:append:imx93-jaguar-eink = " file://01-disable-scan-in-progress-warning.patch"
+SRC_URI:append:imx8mm-jaguar-sentai = " file://0001-nxp-wlan-disable-scan-progress-warning.patch"
+SRC_URI:append:imx8mm-jaguar-inst = " file://0001-nxp-wlan-disable-scan-progress-warning.patch"
+SRC_URI:append:imx8mm-jaguar-handheld = " file://0001-nxp-wlan-disable-scan-progress-warning.patch"
+SRC_URI:append:imx8mm-jaguar-phasora = " file://0001-nxp-wlan-disable-scan-progress-warning.patch"
+SRC_URI:append:imx93-jaguar-eink = " file://0001-nxp-wlan-disable-scan-progress-warning.patch"
 
 # Configure WiFi module parameters for imx93-jaguar-eink
 # Set interface name to wlan0 and disable debug logging
