@@ -2,13 +2,14 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
 SRC_URI:append:imx8mm-jaguar-sentai = " \
 		file://i2c-dev-interface.cfg \
-		file://lp50xx-led-driver.cfg \
+		file://imx8mm-jaguar-sentai/lp50xx-led-driver.cfg \
 		file://usb-modem-support.cfg \
 		file://gpio-keys.cfg \
-		file://stts22h-temperature-sensor.cfg \
-		file://lis2dh-accelerometer.cfg \
-		file://sht4x-humidity-sensor.cfg \
-		file://video-disable.cfg \
+		file://imx8mm-jaguar-sentai/stts22h-temperature-sensor.cfg \
+		file://imx8mm-jaguar-sentai/lis2dh-accelerometer.cfg \
+		file://imx8mm-jaguar-sentai/sht4x-humidity-sensor.cfg \
+		file://imx8mm-jaguar-sentai/video-disable.cfg \
+		file://imx8mm-jaguar-sentai/tas2562-audio-codec.cfg \
 		file://lis2dh12-sensor.cfg \
 		file://usb-gadgets.cfg \
 		file://0001-wireless-remove-nl80211-regdom-warning.patch \
