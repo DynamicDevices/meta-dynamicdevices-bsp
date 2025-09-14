@@ -286,7 +286,7 @@
                 compatible = "ti,tas2563";
                 reg = <0x4C>;
                 ti,channels = <1>; /* channel number */
-                reset-gpios = <&gpio5 4 GPIO_ACTIVE_HIGH>;  /* Enable reset control */
+                reset-gpios = <&gpio5 4 GPIO_ACTIVE_LOW>;   /* Enable reset control - active low */
                 interrupt-parent = <&gpio5>;
                 interrupts = <5 IRQ_TYPE_LEVEL_LOW>;
                 
