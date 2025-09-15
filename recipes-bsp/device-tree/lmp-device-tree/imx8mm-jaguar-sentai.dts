@@ -85,6 +85,23 @@
 		status = "disabled";
 	};
 
+	// RDC (Resource Domain Controller) for runtime peripheral reassignment
+	rdc: rdc@303d0000 {
+		compatible = "fsl,imx8mm-rdc", "fsl,imx-rdc";
+		reg = <0x0 0x303d0000 0x0 0x10000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		status = "okay";
+		
+		// RDC domain assignments
+		// Domain 0: Cortex-A53 (Linux)
+		// Domain 1: Cortex-M4 (disabled)
+		rdc-domains = <2>;
+		
+		// UART4 assignment to domain 0 (A53/Linux)
+		uart4-domain = <0>;
+	};
+
 	sw-keys {
                 compatible = "gpio-keys";
 		status = "enabled";
