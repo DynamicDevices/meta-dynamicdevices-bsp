@@ -80,6 +80,13 @@
 		status = "disabled";
 	};
 
+	// Disable M4 core to allow UART4 access from Linux
+	// This prevents M4 firmware from loading and releases UART4 for A53 core
+	imx8mm-cm4 {
+		compatible = "fsl,imx8mm-cm4";
+		status = "disabled";
+	};
+
 	sw-keys {
                 compatible = "gpio-keys";
 		status = "enabled";
@@ -204,6 +211,7 @@
 };
 
 &uart4 {
+	/* UART4 enabled for Linux access - M4 core disabled above */
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart4>;
 	assigned-clocks = <&clk IMX8MM_CLK_UART4>;
