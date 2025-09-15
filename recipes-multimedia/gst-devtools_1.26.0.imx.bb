@@ -10,7 +10,7 @@ SRC_URI = "https://gstreamer.freedesktop.org/src/gst-devtools/gst-devtools-${@ge
            file://0001-connect-has-a-different-signature-on-musl.patch \
            "
 
-S = "${WORKDIR}/gst-devtools-${@get_gst_ver("${PV}")}"
+S = "${UNPACKDIR}/gst-devtools-${@get_gst_ver("${PV}")}"
 
 SRC_URI[sha256sum] = "eff33d7dc292bb074a2788ea887b6283398ffdefafa49fb7d08efe6658a65648"
 
