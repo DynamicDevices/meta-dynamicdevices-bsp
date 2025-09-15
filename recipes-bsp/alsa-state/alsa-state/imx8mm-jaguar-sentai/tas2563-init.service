@@ -7,7 +7,7 @@ Requisite=sound.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/usr/bin/tas2563-init echo-removal
+ExecStart=/usr/bin/tas2563-init default
 StandardOutput=journal
 StandardError=journal
 TimeoutStartSec=30

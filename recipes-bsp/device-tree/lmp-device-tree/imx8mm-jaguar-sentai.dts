@@ -224,11 +224,11 @@
 &uart4 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart4>;
-	status = "disabled";  /* Disabled to prevent boot failures - initialized via RDC script after boot */
+	status = "okay";  /* Safe to enable - RDC assignment handled by U-Boot before kernel boot */
 	
-	// UART4 will be enabled after boot using RDC script
+	// UART4 RDC assignment is now handled by U-Boot bootcmd before kernel starts
 	// This prevents the synchronous external abort during early boot
-	fsl,rdc-domain = <0>;  // Assign to A53 domain when enabled
+	fsl,rdc-domain = <0>;  // Assign to A53 domain
 };
 
 &gpio2 {
