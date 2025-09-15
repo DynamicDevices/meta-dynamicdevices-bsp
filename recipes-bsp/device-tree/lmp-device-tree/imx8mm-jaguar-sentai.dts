@@ -78,28 +78,11 @@
 		status = "disabled";
 	};
 
-	// Disable M4 core to allow UART4 access from Linux
-	// This prevents M4 firmware from loading and releases UART4 for A53 core
+	// Disable M4 core to prevent resource conflicts
+	// UART4 is disabled due to M4/A53 RDC initialization order issues
 	imx8mm-cm4 {
 		compatible = "fsl,imx8mm-cm4";
 		status = "disabled";
-	};
-
-	// RDC (Resource Domain Controller) for runtime peripheral reassignment
-	rdc: rdc@303d0000 {
-		compatible = "fsl,imx8mm-rdc", "fsl,imx-rdc";
-		reg = <0x0 0x303d0000 0x0 0x10000>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-		status = "okay";
-		
-		// RDC domain assignments
-		// Domain 0: Cortex-A53 (Linux)
-		// Domain 1: Cortex-M4 (disabled)
-		rdc-domains = <2>;
-		
-		// UART4 assignment to domain 0 (A53/Linux)
-		uart4-domain = <0>;
 	};
 
 	sw-keys {
@@ -228,7 +211,7 @@
 &uart4 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart4>;
-	status = "okay";
+	status = "disabled"; /* Disabled due to M4/A53 RDC initialization order issue */
 };
 
 &gpio2 {
