@@ -1,11 +1,11 @@
 #!/bin/sh
 
 #
-# TAS2563 SmartAMP Initialization Script
-# Based on TI TAS2781 driver integration guide
+# TAS2563 Audio Initialization Script
+# Based on TAS2562 driver (basic functionality)
 #
-# This script initializes the TAS2563 codec with appropriate regbin profiles
-# for different use cases. It should be called after the audio system is ready.
+# This script initializes the TAS2563 codec using the TAS2562 driver
+# which provides basic amplifier functionality without DSP features.
 #
 
 SCRIPT_NAME="tas2563-init"
@@ -32,156 +32,74 @@ check_audio_card() {
     return 0
 }
 
-# Function to check if DSP firmware is loaded
-check_dsp_firmware() {
-    # Check if Program control exists (indicates DSP firmware is loaded)
-    if amixer -c "$AUDIO_CARD" cget name="Program" >/dev/null 2>&1; then
-        return 0  # DSP firmware available
+# Function to check TAS2562 driver capabilities
+check_driver_capabilities() {
+    # TAS2562 driver provides basic controls only
+    # Check if basic volume controls are available
+    if amixer -c "$AUDIO_CARD" cget name="Amp Gain Volume" >/dev/null 2>&1; then
+        return 0  # TAS2562 driver loaded
     else
-        return 1  # Regbin-only mode
+        return 1  # Driver not ready
     fi
 }
 
-# Function to set TAS2563 to regbin-only echo removal mode
-set_regbin_echo_removal_mode() {
-    log_info "Setting TAS2563 to regbin-only echo removal mode (Profile 8: Hardware echo reference)"
+# Function to set TAS2562 basic audio mode
+set_basic_audio_mode() {
+    log_info "Setting TAS2563 to basic audio mode (TAS2562 driver)"
     
-    # Select Profile 8: PDM recording with I2S, 48kHz, 32-bit, echo reference
-    if ! amixer -c "$AUDIO_CARD" cset name="TASDEVICE Profile id" 8 >/dev/null 2>&1; then
-        log_error "Failed to set Profile id to 8"
-        return 1
-    fi
-    
-    log_info "TAS2563 configured for regbin-only echo removal mode (Profile 8) successfully"
-    log_info "Echo reference available in TDM slot 3 for external AEC processing"
+    # TAS2562 driver doesn't have profile controls
+    # Just ensure the device is ready for audio
+    log_info "TAS2562 driver provides basic I2S amplification"
+    log_info "No profile configuration needed - driver handles audio automatically"
     return 0
 }
 
-# Function to set TAS2563 to echo removal mode (DSP mode)
-set_echo_removal_mode() {
-    log_info "Setting TAS2563 to DSP echo removal mode (Profile 8: PDM recording with echo ref)"
-    
-    # Enable DSP mode
-    if ! amixer -c "$AUDIO_CARD" cset name="Program" 0 >/dev/null 2>&1; then
-        log_error "Failed to set Program control"
-        return 1
-    fi
-    
-    # Select Profile 8: PDM recording with I2S, 48kHz, 32-bit, echo reference
-    if ! amixer -c "$AUDIO_CARD" cset name="TASDEVICE Profile id" 8 >/dev/null 2>&1; then
-        log_error "Failed to set Profile id to 8"
-        return 1
-    fi
-    
-    # Select default DSP configuration
-    if ! amixer -c "$AUDIO_CARD" cset name="Configuration" 0 >/dev/null 2>&1; then
-        log_error "Failed to set Configuration"
-        return 1
-    fi
-    
-    log_info "TAS2563 configured for DSP echo removal mode (Profile 8) successfully"
-    return 0
-}
+# TAS2562 driver doesn't support DSP modes or profiles
+# All functions simplified to basic volume control
 
-# Function to set TAS2563 to music mode 
-set_music_mode() {
-    log_info "Setting TAS2563 to music mode (Profile 5: I2S auto-rate)"
-    
-    # Enable DSP mode
-    if ! amixer -c "$AUDIO_CARD" cset name="Program" 0 >/dev/null 2>&1; then
-        log_error "Failed to set Program control"
-        return 1
-    fi
-    
-    # Select Profile 5: Music I2S auto-rate 16-bit
-    if ! amixer -c "$AUDIO_CARD" cset name="TASDEVICE Profile id" 5 >/dev/null 2>&1; then
-        log_error "Failed to set Profile id to 5"
-        return 1
-    fi
-    
-    # Select default DSP configuration
-    if ! amixer -c "$AUDIO_CARD" cset name="Configuration" 0 >/dev/null 2>&1; then
-        log_error "Failed to set Configuration"
-        return 1
-    fi
-    
-    log_info "TAS2563 configured for music mode (Profile 5) successfully"
-    return 0
-}
-
-# Function to set TAS2563 to bypass mode
-set_bypass_mode() {
-    log_info "Setting TAS2563 to bypass mode (DSP disabled)"
-    
-    # Enable bypass mode
-    if ! amixer -c "$AUDIO_CARD" cset name="Program" 1 >/dev/null 2>&1; then
-        log_error "Failed to set Program control"
-        return 1
-    fi
-    
-    # Select bypass profile (Profile 2)
-    if ! amixer -c "$AUDIO_CARD" cset name="TASDEVICE Profile id" 2 >/dev/null 2>&1; then
-        log_error "Failed to set Profile id"
-        return 1
-    fi
-    
-    log_info "TAS2563 configured for bypass mode successfully"
-    return 0
-}
-
-# Function to display current TAS2563 status
+# Function to display current TAS2562 status
 show_status() {
-    log_info "Current TAS2563 status:"
+    log_info "Current TAS2563 status (TAS2562 driver):"
     
     echo "Available controls:"
-    amixer -c "$AUDIO_CARD" controls | grep -i "tas\|program\|profile\|configuration" || true
+    amixer -c "$AUDIO_CARD" controls | grep -i "volume\|gain" || true
     
     echo ""
     echo "Current settings:"
-    amixer -c "$AUDIO_CARD" cget name="Program" 2>/dev/null || echo "Program control not available"
-    amixer -c "$AUDIO_CARD" cget name="TASDEVICE Profile id" 2>/dev/null || echo "Profile id control not available"  
-    amixer -c "$AUDIO_CARD" cget name="Configuration" 2>/dev/null || echo "Configuration control not available"
+    amixer -c "$AUDIO_CARD" cget name="Amp Gain Volume" 2>/dev/null || echo "Amp Gain Volume not available"
+    amixer -c "$AUDIO_CARD" cget name="Digital Volume Control" 2>/dev/null || echo "Digital Volume Control not available"
     
     echo ""
-    echo "Volume and mute settings:"
-    amixer -c "$AUDIO_CARD" cget name="tas2563-amp-gain-volume" 2>/dev/null || echo "Amp gain volume not available"
-    amixer -c "$AUDIO_CARD" cget name="tas2563-digital-volume" 2>/dev/null || echo "Digital volume not available"
-    amixer -c "$AUDIO_CARD" cget name="tas2563-digital-mute" 2>/dev/null || echo "Digital mute not available"
+    echo "Note: TAS2562 driver provides basic functionality only"
+    echo "No DSP modes, profiles, or advanced features available"
 }
 
-# Function to set optimal volume and unmute
+# Function to set optimal volume for TAS2562 driver
 set_optimal_volume() {
-    log_info "Setting optimal volume levels and unmuting TAS2563..."
+    log_info "Setting optimal volume levels for TAS2562 driver..."
     
     # Set amp gain volume to a good level (20 out of 28 = ~18dB)
-    if amixer -c "$AUDIO_CARD" cset name="tas2563-amp-gain-volume" 20 >/dev/null 2>&1; then
-        log_info "Set amp gain volume to 20 (18dB)"
+    if amixer -c "$AUDIO_CARD" cset name="Amp Gain Volume" 20 >/dev/null 2>&1; then
+        log_info "Set Amp Gain Volume to 20 (~18dB)"
     else
-        log_info "Could not set amp gain volume"
+        log_info "Could not set Amp Gain Volume"
     fi
     
-    # Set digital volume to 75% (49152 out of 65535)
-    if amixer -c "$AUDIO_CARD" cset name="tas2563-digital-volume" 49152 >/dev/null 2>&1; then
-        log_info "Set digital volume to 49152 (75%)"
+    # Set digital volume to 75% (82 out of 110)
+    if amixer -c "$AUDIO_CARD" cset name="Digital Volume Control" 82 >/dev/null 2>&1; then
+        log_info "Set Digital Volume Control to 82 (75%)"
     else
-        log_info "Could not set digital volume"
+        log_info "Could not set Digital Volume Control"
     fi
     
-    # Unmute the device
-    if amixer -c "$AUDIO_CARD" cset name="tas2563-digital-mute" 0 >/dev/null 2>&1; then
-        log_info "Unmuted TAS2563 digital output"
-    else
-        log_info "Could not unmute - using legacy volume method"
-        # Fallback: ensure digital volume is not zero
-        amixer -c "$AUDIO_CARD" cset name="tas2563-digital-volume" 49152 >/dev/null 2>&1 || true
-    fi
+    log_info "TAS2562 volume configuration completed"
 }
 
 # Main function
 main() {
-    mode="${1:-echo-removal}"
+    mode="${1:-default}"
     
-    log_info "Initializing TAS2563 SmartAMP (mode: $mode)"
+    log_info "Initializing TAS2563 with TAS2562 driver (mode: $mode)"
     
     # Check if audio card is available
     if ! check_audio_card; then
@@ -192,44 +110,27 @@ main() {
     sleep 1
     
     case "$mode" in
-        "echo-removal"|"default")
-            # Auto-detect DSP firmware availability
-            if check_dsp_firmware; then
-                log_info "DSP firmware detected - using DSP mode"
-                set_echo_removal_mode
+        "default"|"basic"|"audio")
+            # Check driver capabilities
+            if check_driver_capabilities; then
+                log_info "TAS2562 driver detected - using basic audio mode"
+                set_basic_audio_mode
+                set_optimal_volume
             else
-                log_info "DSP firmware not available - using regbin-only mode"
-                set_regbin_echo_removal_mode
-            fi
-            set_optimal_volume
-            ;;
-        "music")
-            if check_dsp_firmware; then
-                set_music_mode
-            else
-                log_error "Music mode requires DSP firmware (not available in regbin-only mode)"
+                log_error "TAS2562 driver not ready"
                 exit 1
             fi
-            set_optimal_volume
-            ;;
-        "bypass")
-            if check_dsp_firmware; then
-                set_bypass_mode
-            else
-                log_info "Already in regbin-only mode (equivalent to bypass mode)"
-                set_regbin_echo_removal_mode
-            fi
-            set_optimal_volume
             ;;
         "status")
             show_status
             ;;
         *)
-            echo "Usage: $0 [echo-removal|music|bypass|status]"
-            echo "  echo-removal - Auto-detect DSP/regbin mode with echo reference profile (default)"
-            echo "  music        - Enable DSP mode with music profile (requires DSP firmware)"
-            echo "  bypass       - Enable bypass mode or regbin-only mode"
-            echo "  status       - Show current TAS2563 configuration"
+            echo "Usage: $0 [default|basic|audio|status]"
+            echo "  default/basic/audio - Initialize TAS2562 driver with optimal volume (default)"
+            echo "  status              - Show current TAS2562 configuration"
+            echo ""
+            echo "Note: TAS2562 driver provides basic functionality only"
+            echo "No DSP modes, profiles, or advanced features available"
             exit 1
             ;;
     esac

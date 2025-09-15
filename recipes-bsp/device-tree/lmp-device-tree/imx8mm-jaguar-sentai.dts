@@ -309,26 +309,13 @@
                 interrupt-parent = <&gpio5>;
                 interrupts = <5 IRQ_TYPE_LEVEL_LOW>;
                 
-                // I2S Configuration optimized for Profile 8 (Echo Removal)
-                ti,asi-format = <0>; /* 0, i2S; 1, DSP;  */
-                ti,left-slot = <0>; /* TX slot 0 - left audio output */
-                ti,right-slot = <1>; /* TX slot 1 - right audio output */
-                ti,imon-slot-no = <2>; /* Current sense feedback */
-                ti,vmon-slot-no = <2>; /* Voltage sense feedback - combined with current sense */
-                ti,echo-ref = <3>; /* Echo reference output slot for AEC */
-                ti,bypass-tmax = <0>; /* Enable thermal protection */
-                ti,i2s-bits = <32>; /* 32-bit I2S for Profile 8 */
+                // Basic I2S Configuration for TAS2562 driver
+                ti,asi-format = <0>; /* 0=I2S format */
+                ti,left-slot = <0>; /* Left audio channel */
+                ti,right-slot = <1>; /* Right audio channel */
                 
-                // PDM Microphone Configuration (enabled for Profile 8 echo cancellation)
-                // Enable PDM mics for simultaneous mic + echo reference capture
-                ti,mic-mode = <1>; /* 1=enabled for PDM microphone capture */
-                ti,mic-bias-enable = <1>; /* Enable microphone bias for PDM mics */
-                ti,mic-gain = <0x10>; /* Microphone input gain */
-                ti,pdm-edge = <3>; /* Both rising and falling edge for dual mics */
-                ti,pdm-clk-rate = <3072000>; /* PDM clock rate (3.072 MHz) */
-                ti,pdm-data-width = <16>; /* PDM data width */
-                ti,mic-left-edge = <0>; /* Left mic on rising edge */
-                ti,mic-right-edge = <1>; /* Right mic on falling edge */
+                // TAS2562 driver does not support PDM microphones
+                // Use MICFIL for microphone input instead
                 
                 status = "okay";
         };
