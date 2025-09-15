@@ -184,12 +184,14 @@
                 >;
         };
 
+        /* UART4 pinctrl disabled for testing - M4 core conflict persists
         pinctrl_uart4: uart4grp {
                 fsl,pins = <
                         MX8MM_IOMUXC_UART4_RXD_UART4_DCE_RX     0x140
                         MX8MM_IOMUXC_UART4_TXD_UART4_DCE_TX     0x140
                 >;
         };
+        */
 };
 
 &uart1 { /* BT */
@@ -211,12 +213,8 @@
 };
 
 &uart4 {
-	/* UART4 enabled for Linux access - M4 core disabled above */
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_uart4>;
-	assigned-clocks = <&clk IMX8MM_CLK_UART4>;
-	assigned-clock-parents = <&clk IMX8MM_SYS_PLL1_80M>;
-	status = "okay";
+	/* UART4 temporarily disabled for testing - M4 core issue persists */
+	status = "disabled";
 };
 
 &gpio2 {
