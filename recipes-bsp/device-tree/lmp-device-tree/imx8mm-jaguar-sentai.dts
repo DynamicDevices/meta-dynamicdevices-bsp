@@ -79,10 +79,23 @@
 	};
 
 	// Disable M4 core to prevent resource conflicts
-	// UART4 is disabled due to M4/A53 RDC initialization order issues
 	imx8mm-cm4 {
 		compatible = "fsl,imx8mm-cm4";
 		status = "disabled";
+	};
+
+	// RDC configuration for UART4 resource assignment
+	// This ensures UART4 is properly assigned to A53 domain before UART driver probes
+	rdc: rdc@303d0000 {
+		compatible = "fsl,imx8mm-rdc";
+		reg = <0x0 0x303d0000 0x0 0x10000>;
+		status = "okay";
+		
+		// Configure UART4 for A53 domain (domain 0) access
+		// This must complete before serial driver initialization
+		fsl,rdc-config = <
+			0x44  0x3  // UART4 PDAP: Domain 0 (A53) read/write access
+		>;
 	};
 
 	sw-keys {
@@ -211,7 +224,11 @@
 &uart4 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart4>;
-	status = "disabled"; /* Disabled due to M4/A53 RDC initialization order issue */
+	status = "okay";
+	
+	// Ensure UART4 probes after RDC has configured resource assignment
+	// This prevents the synchronous external abort during early boot
+	fsl,rdc-domain = <0>;  // Assign to A53 domain
 };
 
 &gpio2 {
