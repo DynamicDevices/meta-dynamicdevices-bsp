@@ -4286,6 +4286,7 @@ index a9d179e30773..2d6e374e70c9 100644
  		tas_priv->tasdevice[i].dev_addr = dev_addrs[i];
  
  	tas_priv->reset = devm_gpiod_get_optional(&client->dev,
+-			"reset-gpios", GPIOD_OUT_HIGH);
 +			"reset", GPIOD_OUT_HIGH);
  	if (IS_ERR(tas_priv->reset))
  		dev_err(tas_priv->dev, "%s Can't get reset GPIO\n",
@@ -4349,4 +4350,4 @@ index a9d179e30773..2d6e374e70c9 100644
  MODULE_DESCRIPTION("ASoC TAS2781 Driver");
  MODULE_LICENSE("GPL");
 -MODULE_IMPORT_NS(SND_SOC_TAS2781_FMWLIB);
-+
++MODULE_IMPORT_NS(SND_SOC_TAS2781_FMWLIB);
