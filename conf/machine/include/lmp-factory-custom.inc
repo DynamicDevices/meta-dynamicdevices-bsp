@@ -28,12 +28,12 @@ PREFERRED_PROVIDER_virtual/dtb ?= "lmp-device-tree"
 PACKAGECONFIG:append:pn-networkmanager:imx8mm-jaguar-sentai = " modemmanager ppp"
 PACKAGECONFIG:append:pn-networkmanager:imx93-jaguar-eink = " modemmanager ppp"
 
-# Support SE050
+# Support SE050 (disabled for local development builds)
 SE05X_OEFID:imx8mm-jaguar-sentai = "0xA1F4"
-MACHINE_FEATURES:append:imx8mm-jaguar-sentai = " se05x"
+MACHINE_FEATURES:append:imx8mm-jaguar-sentai = "${@'' if d.getVar('LOCAL_DEVELOPMENT_BUILD') == '1' else ' se05x'}"
 
 SE05X_OEFID:imx8mm-jaguar-inst = "0xA1F4"
-MACHINE_FEATURES:append:imx8mm-jaguar-inst = " se05x"
+MACHINE_FEATURES:append:imx8mm-jaguar-inst = "${@'' if d.getVar('LOCAL_DEVELOPMENT_BUILD') == '1' else ' se05x'}"
 
 # When a new bootloader is used, e.g. moving to a new LMP up-rev here
 LMP_BOOT_FIRMWARE_VERSION:imx8mm-jaguar-sentai = "2"
