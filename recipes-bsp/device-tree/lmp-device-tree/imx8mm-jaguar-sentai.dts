@@ -29,14 +29,12 @@
                 simple-audio-card,frame-master = <&cpudai2>;
                 simple-audio-card,bitclock-master = <&cpudai2>;
                 
-                // Profile 8 Echo Cancellation routing
-                // Supports simultaneous playback, microphone capture, and echo reference
+                // TAS2562 driver routing (simpler than TAS2781)
+                // The TAS2562 driver doesn't use DMIC widgets
                 simple-audio-card,widgets =
-                        "Speaker", "Speaker",
-                        "Microphone", "PDM Microphones";
+                        "Speaker", "Speaker";
                 simple-audio-card,routing =
-                        "Speaker", "OUT",
-                        "DMIC", "PDM Microphones";
+                        "Speaker", "OUT";
 
                 cpudai2: simple-audio-card,cpu {
                         sound-dai = <&sai3>;
