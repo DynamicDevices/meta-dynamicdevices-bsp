@@ -96,6 +96,27 @@ do_configure:prepend() {
     echo "CMAKE_INCLUDE_PATH: ${CMAKE_INCLUDE_PATH}"
 }
 
+# Debug the compile step to see what ninja is actually trying to build
+do_compile:prepend() {
+    echo "=== DEBUG: Ninja build files ==="
+    find ${B} -name "*.ninja" -exec echo "File: {}" \; -exec head -20 {} \; 2>/dev/null || true
+    echo "=== DEBUG: CMake cache ==="
+    if [ -f "${B}/CMakeCache.txt" ]; then
+        grep -i gpiod ${B}/CMakeCache.txt || echo "No gpiod entries in CMakeCache.txt"
+    fi
+    
+    # Try to create a symbolic link to libgpiod.so in the build directory
+    # This is a workaround for CMake configurations that expect the library as a build artifact
+    if [ -f "${STAGING_LIBDIR}/libgpiod.so" ]; then
+        echo "=== DEBUG: Creating libgpiod.so symlink in build directory ==="
+        ln -sf "${STAGING_LIBDIR}/libgpiod.so" "${B}/libgpiod.so" || true
+        ls -la "${B}/libgpiod.so" || echo "Failed to create symlink"
+    else
+        echo "=== DEBUG: libgpiod.so not found in ${STAGING_LIBDIR} ==="
+        ls -la ${STAGING_LIBDIR}/libgpiod* 2>/dev/null || echo "No libgpiod files found"
+    fi
+}
+
 do_install:append() {
     # Install documentation files
     install -d ${D}${datadir}/doc/${PN}
