@@ -58,6 +58,8 @@ EXTRA_OECMAKE = " \
     -DCMAKE_INSTALL_BINDIR=${bindir} \
     -DCMAKE_INSTALL_LIBDIR=${libdir} \
     -DCMAKE_INSTALL_INCLUDEDIR=${includedir} \
+    -DCMAKE_PREFIX_PATH=${STAGING_DIR_HOST}${prefix} \
+    -DPKG_CONFIG_USE_CMAKE_PREFIX_PATH=ON \
 "
 
 # CMake configuration is handled automatically by the cmake class
