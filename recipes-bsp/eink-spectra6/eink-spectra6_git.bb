@@ -56,6 +56,7 @@ TARGET_CXXFLAGS += "-O2 -g"
 TARGET_LDFLAGS += "-L${STAGING_LIBDIR} -lgpiod"
 
 # Installation paths and configuration
+# Yocto-specific CMake configuration (preserves upstream build compatibility)
 EXTRA_OECMAKE = " \
     -DCMAKE_INSTALL_PREFIX=${prefix} \
     -DCMAKE_INSTALL_BINDIR=${bindir} \
@@ -66,9 +67,11 @@ EXTRA_OECMAKE = " \
     -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
     -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
     -DPKG_CONFIG_USE_CMAKE_PREFIX_PATH=ON \
-    -Dlibgpiod_DIR=${STAGING_LIBDIR}/cmake \
-    -DGPIOD_LIBRARY=${STAGING_LIBDIR}/libgpiod.so \
-    -DGPIOD_INCLUDE_DIR=${STAGING_INCDIR} \
+    -DYOCTO_BUILD=ON \
+    -DYOCTO_SYSROOT=${STAGING_DIR_HOST} \
+    -DYOCTO_LIBDIR=${STAGING_LIBDIR} \
+    -DYOCTO_INCDIR=${STAGING_INCDIR} \
+    -DPkgConfig_EXECUTABLE=${STAGING_BINDIR_NATIVE}/pkg-config \
 "
 
 # CMake configuration is handled automatically by the cmake class
