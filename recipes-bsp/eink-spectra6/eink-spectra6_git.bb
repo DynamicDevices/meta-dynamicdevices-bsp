@@ -59,10 +59,29 @@ EXTRA_OECMAKE = " \
     -DCMAKE_INSTALL_LIBDIR=${libdir} \
     -DCMAKE_INSTALL_INCLUDEDIR=${includedir} \
     -DCMAKE_PREFIX_PATH=${STAGING_DIR_HOST}${prefix} \
+    -DCMAKE_FIND_ROOT_PATH=${STAGING_DIR_HOST} \
+    -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
+    -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
     -DPKG_CONFIG_USE_CMAKE_PREFIX_PATH=ON \
 "
 
 # CMake configuration is handled automatically by the cmake class
+
+# Add debugging and library path configuration for libgpiod
+do_configure:prepend() {
+    # Ensure libgpiod can be found during CMake configuration
+    export PKG_CONFIG_PATH="${STAGING_LIBDIR}/pkgconfig:${PKG_CONFIG_PATH}"
+    export CMAKE_LIBRARY_PATH="${STAGING_LIBDIR}"
+    export CMAKE_INCLUDE_PATH="${STAGING_INCDIR}"
+    
+    # Debug: List available libraries
+    echo "=== DEBUG: Available libgpiod files ==="
+    find ${STAGING_DIR_HOST} -name "*gpiod*" -type f 2>/dev/null || true
+    echo "=== DEBUG: PKG_CONFIG_PATH ==="
+    echo "${PKG_CONFIG_PATH}"
+    echo "=== DEBUG: STAGING_LIBDIR ==="
+    ls -la ${STAGING_LIBDIR}/*gpiod* 2>/dev/null || echo "No libgpiod files found in STAGING_LIBDIR"
+}
 
 do_install:append() {
     # Install documentation files
