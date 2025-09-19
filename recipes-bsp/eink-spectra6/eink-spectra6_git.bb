@@ -49,8 +49,8 @@ inherit systemd
 COMPATIBLE_MACHINE = "${@bb.utils.contains('MACHINE_FEATURES', 'el133uf1', '${MACHINE}', 'null', d)}"
 
 # Compiler flags for embedded systems
-TARGET_CFLAGS += "-O2 -g"
-TARGET_CXXFLAGS += "-O2 -g"
+TARGET_CFLAGS += "-O2 -g -Wno-pointer-bool-conversion"
+TARGET_CXXFLAGS += "-O2 -g -Wno-pointer-bool-conversion"
 
 # Linker flags to help find libgpiod
 TARGET_LDFLAGS += "-L${STAGING_LIBDIR} -lgpiod"
