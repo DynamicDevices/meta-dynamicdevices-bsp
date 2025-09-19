@@ -52,6 +52,9 @@ COMPATIBLE_MACHINE = "${@bb.utils.contains('MACHINE_FEATURES', 'el133uf1', '${MA
 TARGET_CFLAGS += "-O2 -g"
 TARGET_CXXFLAGS += "-O2 -g"
 
+# Linker flags to help find libgpiod
+TARGET_LDFLAGS += "-L${STAGING_LIBDIR} -lgpiod"
+
 # Installation paths and configuration
 EXTRA_OECMAKE = " \
     -DCMAKE_INSTALL_PREFIX=${prefix} \
@@ -63,6 +66,9 @@ EXTRA_OECMAKE = " \
     -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
     -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
     -DPKG_CONFIG_USE_CMAKE_PREFIX_PATH=ON \
+    -Dlibgpiod_DIR=${STAGING_LIBDIR}/cmake \
+    -DGPIOD_LIBRARY=${STAGING_LIBDIR}/libgpiod.so \
+    -DGPIOD_INCLUDE_DIR=${STAGING_INCDIR} \
 "
 
 # CMake configuration is handled automatically by the cmake class
@@ -73,6 +79,7 @@ do_configure:prepend() {
     export PKG_CONFIG_PATH="${STAGING_LIBDIR}/pkgconfig:${PKG_CONFIG_PATH}"
     export CMAKE_LIBRARY_PATH="${STAGING_LIBDIR}"
     export CMAKE_INCLUDE_PATH="${STAGING_INCDIR}"
+    export LDFLAGS="${LDFLAGS} -L${STAGING_LIBDIR} -lgpiod"
     
     # Debug: List available libraries
     echo "=== DEBUG: Available libgpiod files ==="
@@ -81,6 +88,12 @@ do_configure:prepend() {
     echo "${PKG_CONFIG_PATH}"
     echo "=== DEBUG: STAGING_LIBDIR ==="
     ls -la ${STAGING_LIBDIR}/*gpiod* 2>/dev/null || echo "No libgpiod files found in STAGING_LIBDIR"
+    echo "=== DEBUG: LDFLAGS ==="
+    echo "${LDFLAGS}"
+    echo "=== DEBUG: CMAKE variables ==="
+    echo "CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}"
+    echo "CMAKE_LIBRARY_PATH: ${CMAKE_LIBRARY_PATH}"
+    echo "CMAKE_INCLUDE_PATH: ${CMAKE_INCLUDE_PATH}"
 }
 
 do_install:append() {
