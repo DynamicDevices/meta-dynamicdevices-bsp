@@ -1,5 +1,10 @@
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
+# Fix buildpaths QA warnings by ensuring debug prefix mapping is applied to kernel builds
+# This prevents TMPDIR references from being embedded in debug information
+DEBUG_PREFIX_MAP:append = " -fdebug-prefix-map=${TMPDIR}=/usr/src/debug/tmpdir"
+DEBUG_PREFIX_MAP:append = " -fdebug-prefix-map=${WORKDIR}=/usr/src/debug/${PN}/${PV}"
+
 SRC_URI:append:imx8mm-jaguar-sentai = " \
 		file://i2c-dev-interface.cfg \
 		file://imx8mm-jaguar-sentai/lp50xx-led-driver.cfg \

@@ -96,6 +96,7 @@
 	wifi_pwrseq: wifi-pwrseq {
 		compatible = "mmc-pwrseq-simple";
 		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_wifi_gpio>;
 		reset-gpios = <&gpio4 26 GPIO_ACTIVE_LOW>; /* WLAN_RST */
 		post-power-on-delay-ms = <500>; /* Increased for proper reset */
 		power-off-delay-us = <50000>; /* Increased to 50ms for proper reset */
@@ -157,6 +158,13 @@
 	pinctrl_bluetooth_gpio: bluetooth_gpio_grp {
 		fsl,pins = <
 			MX93_PAD_ENET2_RD0__GPIO4_IO24		0x31e  /* BT_RST - Active Low, controlled by MCXC143VFM */
+		>;
+	};
+
+	/* WiFi GPIO pin configuration */
+	pinctrl_wifi_gpio: wifi_gpio_grp {
+		fsl,pins = <
+			MX93_PAD_ENET2_RD2__GPIO4_IO26		0x31e  /* WLAN_RST - WiFi Reset (Active-Low) */
 		>;
 	};
 
