@@ -1,12 +1,14 @@
 [Unit]
-Description=Load wireless modules after boot completion
-After=multi-user.target
+Description=Load wireless modules after boot completion (Option 1 optimization)
+After=multi-user.target graphical.target
 Wants=multi-user.target
 
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/delayed-wireless.sh
 RemainAfterExit=yes
+# Option 1: Conservative timeout optimization
+TimeoutStartSec=30s
 
 [Install]
 WantedBy=multi-user.target

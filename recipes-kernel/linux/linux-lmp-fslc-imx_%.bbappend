@@ -119,7 +119,7 @@ SRC_URI:append:imx93-jaguar-eink = " \
 		file://imx93-jaguar-eink/eink-display-support.cfg \
 		file://imx93-jaguar-eink/iw612-wifi.cfg \
 		file://imx93-jaguar-eink/iw612-bluetooth.cfg \
-		file://imx93-jaguar-eink/ieee802154-support.cfg \
+		file://imx93-jaguar-eink/ieee802154-support-optimized.cfg \
 		file://imx93-jaguar-eink/lte-modem-support.cfg \
 		file://imx93-jaguar-eink/spi-support.cfg \
 		file://imx93-jaguar-eink/sound-disable-all.cfg \
