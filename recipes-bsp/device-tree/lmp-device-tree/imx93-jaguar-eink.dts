@@ -116,15 +116,8 @@
 
 };
 
-/* Cortex-M33 support enabled for E-Ink board */
-&cm33 {
-	mbox-names = "tx", "rx", "rxdb";
-	mboxes = <&mu1 0 1
-		  &mu1 1 1
-		  &mu1 3 1>;
-	memory-region = <&vdevbuffer>, <&vdev0vring0>, <&vdev0vring1>, <&rsc_table>;
-	status = "okay";
-};
+/* Cortex-M33 support - TODO: Add proper CM33 node definition for i.MX93 */
+/* Removed &cm33 reference as it doesn't exist in i.MX93 base device tree */
 
 /* EdgeLock Enclave Message Unit - required for secure functionality */
 &s4muap {
