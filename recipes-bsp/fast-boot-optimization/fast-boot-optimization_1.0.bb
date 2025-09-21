@@ -14,6 +14,7 @@ SRC_URI = " \
     file://wifi-priority-init.sh \
     file://delayed-components.service \
     file://delayed-components.sh \
+    file://wifi-power-control.sh \
 "
 
 S = "${WORKDIR}"
@@ -34,6 +35,7 @@ do_install() {
     install -m 0755 ${WORKDIR}/delayed-wireless-aggressive.sh ${D}${bindir}/
     install -m 0755 ${WORKDIR}/wifi-priority-init.sh ${D}${bindir}/
     install -m 0755 ${WORKDIR}/delayed-components.sh ${D}${bindir}/
+    install -m 0755 ${WORKDIR}/wifi-power-control.sh ${D}${bindir}/
     
     # Install systemd configuration optimizations
     install -d ${D}${sysconfdir}/systemd/system.conf.d
@@ -54,6 +56,7 @@ FILES:${PN} += " \
     ${bindir}/delayed-wireless-aggressive.sh \
     ${bindir}/wifi-priority-init.sh \
     ${bindir}/delayed-components.sh \
+    ${bindir}/wifi-power-control.sh \
     ${sysconfdir}/systemd/system.conf.d/fast-boot.conf \
     ${sysconfdir}/systemd/system.conf.d/systemd-aggressive.conf \
 "
