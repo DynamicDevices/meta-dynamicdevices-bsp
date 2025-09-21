@@ -5,5 +5,5 @@
 TEE_BINARY:lmp-mfgtool = ""
 DEPLOY_OPTEE:lmp-mfgtool = "false"
 
-# Use default boot targets (flash_evk_no_hdmi doesn't exist for imx93)
-# IMXBOOT_TARGETS:lmp-mfgtool = "flash_evk_no_hdmi"
+# Use correct boot target for imx93 (flash_singleboot, not flash_evk_no_hdmi)
+IMXBOOT_TARGETS:lmp-mfgtool = "flash_singleboot"
