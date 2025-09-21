@@ -132,10 +132,9 @@ SRC_URI:append:imx93-jaguar-eink = " \
 		file://imx93-jaguar-eink/imx56-video-disable.cfg \
 		file://imx93-jaguar-eink/camera-hdmi-disable.cfg \
 		file://imx93-jaguar-eink/imx9-soc-fixes.cfg \
-		file://imx93-jaguar-eink/power-management.cfg \
-		file://imx93-jaguar-eink/wifi-power-management.cfg \
 		file://imx93-jaguar-eink/ocotp-nvmem-support.cfg \
 		file://imx93-jaguar-eink/cortex-m33-support.cfg \
+		file://imx93-jaguar-eink/battery-power-optimization.cfg \
 		${@bb.utils.contains('ENABLE_BOOT_PROFILING', '1', 'file://boot-profiling.cfg', '', d)} \
 "
 
