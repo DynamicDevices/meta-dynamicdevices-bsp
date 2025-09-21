@@ -1,0 +1,17 @@
+[Unit]
+Description=Priority WiFi initialization for E-Ink image updates
+DefaultDependencies=no
+Before=network.target network-pre.target
+After=basic.target local-fs.target
+Wants=basic.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/wifi-priority-init.sh
+RemainAfterExit=yes
+TimeoutStartSec=10s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=basic.target network-pre.target
