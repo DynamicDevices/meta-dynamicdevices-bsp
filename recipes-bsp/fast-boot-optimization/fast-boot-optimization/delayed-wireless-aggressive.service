@@ -1,0 +1,16 @@
+[Unit]
+Description=Aggressive wireless module loading (Option 2)
+After=basic.target
+Before=multi-user.target
+DefaultDependencies=no
+
+[Service]
+Type=forking
+ExecStart=/usr/bin/delayed-wireless-aggressive.sh
+RemainAfterExit=yes
+TimeoutStartSec=10s
+StandardOutput=null
+StandardError=null
+
+[Install]
+WantedBy=basic.target

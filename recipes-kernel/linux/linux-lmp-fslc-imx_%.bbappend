@@ -116,11 +116,12 @@ SRC_URI:append:imx8mm-jaguar-phasora = " \
 SRC_URI:append:imx93-jaguar-eink = " \
 		file://imx93-jaguar-eink.dts \
 		file://imx93-jaguar-eink/drivers-essential-only.cfg \
-		file://imx93-jaguar-eink/eink-display-support.cfg \
+		file://imx93-jaguar-eink/eink-display-minimal.cfg \
 		file://imx93-jaguar-eink/iw612-wifi.cfg \
 		file://imx93-jaguar-eink/iw612-bluetooth.cfg \
-		file://imx93-jaguar-eink/ieee802154-support-optimized.cfg \
+		file://imx93-jaguar-eink/ieee802154-minimal.cfg \
 		file://imx93-jaguar-eink/lte-modem-support.cfg \
+		file://imx93-jaguar-eink/advanced-boot-params.cfg \
 		file://imx93-jaguar-eink/spi-support.cfg \
 		file://imx93-jaguar-eink/sound-disable-all.cfg \
 		file://imx93-jaguar-eink/imx56-video-disable.cfg \
