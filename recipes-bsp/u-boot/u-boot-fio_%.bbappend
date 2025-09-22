@@ -30,20 +30,13 @@ SRC_URI:append:imx8mm-jaguar-phasora = " \
 "
 
 SRC_URI:append:imx93-jaguar-eink = " \
-    file://selective-i2c-pmic.cfg \
-    file://disable-spi.cfg \
-    file://disable-rtc.cfg \
-    file://spl-size-optimization.cfg \
-    file://power-init-board.cfg \
-    file://power-init-stub.c \
     file://custom-dtb.cfg \
     file://01-customise-dtb.patch \
+    file://enable-i2c.cfg \
+    file://enable-spi.cfg \
     file://enable-fiovb.cfg \
     file://disable-unused-peripherals.cfg \
-    file://disable-ethernet.cfg \
-    file://enable-ele-secure.cfg \
-    file://disable-se050-debug.cfg \
-    ${@bb.utils.contains('DEV_MODE', '1', 'file://enable-ele-debug-commands.cfg', '', d)} \
+    file://disable-ele-reset.cfg \
     ${@bb.utils.contains('ENABLE_BOOT_PROFILING', '1', 'file://enable_boot_profiling.cfg', '', d)} \
 "
 
