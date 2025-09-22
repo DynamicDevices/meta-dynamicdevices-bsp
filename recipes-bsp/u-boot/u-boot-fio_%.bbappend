@@ -30,7 +30,7 @@ SRC_URI:append:imx8mm-jaguar-phasora = " \
 "
 
 SRC_URI:append:imx93-jaguar-eink = " \
-    file://disable-i2c.cfg \
+    file://selective-i2c-pmic.cfg \
     file://disable-spi.cfg \
     file://disable-rtc.cfg \
     file://spl-size-optimization.cfg \
