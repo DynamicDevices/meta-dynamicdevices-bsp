@@ -30,6 +30,8 @@ SRC_URI:append:imx8mm-jaguar-phasora = " \
 "
 
 SRC_URI:append:imx93-jaguar-eink = " \
+    file://disable-i2c.cfg \
+    file://disable-spi.cfg \
     file://custom-dtb.cfg \
     file://01-customise-dtb.patch \
     file://enable-fiovb.cfg \
