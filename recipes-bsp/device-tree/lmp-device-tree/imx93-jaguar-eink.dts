@@ -226,6 +226,14 @@
 		>;
 	};
 
+	/* I2C3 pinctrl for PCF2131 RTC */
+	pinctrl_lpi2c3: lpi2c3grp {
+		fsl,pins = <
+			MX93_PAD_GPIO_IO28__LPI2C3_SDA		0x40000b9e  /* I2C3_SDA */
+			MX93_PAD_GPIO_IO29__LPI2C3_SCL		0x40000b9e  /* I2C3_SCL */
+		>;
+	};
+
 };
 
 /* Bluetooth UART - ublox MAYA W2 - LPUART5 */
@@ -373,6 +381,34 @@
 		/* reset-gpios = <&gpio4 24 GPIO_ACTIVE_LOW>; // BT_RST - shared reset */
 		
 		status = "okay";
+	};
+};
+
+/* 
+ * I2C3 Interface for PCF2131 RTC
+ * 
+ * Hardware Configuration:
+ *   - PCF2131 RTC IC connected to i.MX93 LPI2C3
+ *   - I2C Address: 0x53
+ *   - SDA: MX93_PAD_GPIO_IO28_LPI2C3_SDA
+ *   - SCL: MX93_PAD_GPIO_IO29_LPI2C3_SCL  
+ *   - Interrupt: MX93_PAD_ENET2_RX_CTL__GPIO4_IO22 (RTC_INTA)
+ *   - Power: VBAT for battery backup
+ */
+&lpi2c3 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpi2c3>;
+	status = "okay";
+
+	pcf2131: rtc@53 {
+		compatible = "nxp,pcf2131";
+		reg = <0x53>;
+		interrupt-parent = <&gpio4>;
+		interrupts = <22 IRQ_TYPE_LEVEL_LOW>; /* GPIO4_IO22 - RTC_INTA */
+		interrupt-names = "alarm";
+		wakeup-source;
 	};
 };
 
