@@ -33,6 +33,9 @@ SRC_URI:append:imx93-jaguar-eink = " \
     file://disable-i2c.cfg \
     file://disable-spi.cfg \
     file://disable-rtc.cfg \
+    file://spl-size-optimization.cfg \
+    file://power-init-board.cfg \
+    file://power-init-stub.c \
     file://custom-dtb.cfg \
     file://01-customise-dtb.patch \
     file://enable-fiovb.cfg \
