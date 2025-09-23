@@ -7,11 +7,6 @@ inherit lmp-signing-override
 # Apply to mfgtool distro builds (both imx8mm-jaguar-sentai and imx93-jaguar-eink)
 SRC_URI:append:lmp-mfgtool = " file://disable-se050.cfg"
 
-# CRITICAL: Keep mfgtool U-Boot minimal and functional for imx93-jaguar-eink
-# Production optimizations break the mfgtool bootloader causing programming failures
-# MFGTools needs clean, basic U-Boot to successfully bootstrap boards
-SRC_URI:append:imx93-jaguar-eink = " file://mfgtool-minimal.cfg"
-
 # Override OP-TEE binary for mfgtool builds to use the mfgtool-specific OP-TEE
 # The regular OP-TEE binary has SE050 enabled, but mfgtool needs SE050 disabled
 do_deploy:prepend() {
