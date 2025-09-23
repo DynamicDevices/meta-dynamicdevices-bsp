@@ -29,14 +29,13 @@ SRC_URI:append:imx8mm-jaguar-phasora = " \
     file://boot.cmd \
 "
 
-# Production U-Boot configuration (exclude mfgtool builds)
 SRC_URI:append:imx93-jaguar-eink = " \
-    ${@bb.utils.contains('DISTRO', 'lmp-mfgtool', '', 'file://custom-dtb.cfg', d)} \
-    ${@bb.utils.contains('DISTRO', 'lmp-mfgtool', '', 'file://enable-i2c.cfg', d)} \
-    ${@bb.utils.contains('DISTRO', 'lmp-mfgtool', '', 'file://enable-spi.cfg', d)} \
-    ${@bb.utils.contains('DISTRO', 'lmp-mfgtool', '', 'file://enable-fiovb.cfg', d)} \
-    ${@bb.utils.contains('DISTRO', 'lmp-mfgtool', '', 'file://disable-unused-peripherals.cfg', d)} \
-    ${@bb.utils.contains('DISTRO', 'lmp-mfgtool', '', 'file://disable-ele-reset.cfg', d)} \
+    file://custom-dtb.cfg \
+    file://enable-i2c.cfg \
+    file://enable-spi.cfg \
+    file://enable-fiovb.cfg \
+    file://disable-unused-peripherals.cfg \
+    file://disable-ele-reset.cfg \
     ${@bb.utils.contains('ENABLE_BOOT_PROFILING', '1', 'file://enable_boot_profiling.cfg', '', d)} \
 "
 
