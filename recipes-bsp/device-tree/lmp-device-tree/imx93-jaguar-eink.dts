@@ -28,6 +28,11 @@
 		stdout-path = &lpuart1;
 	};
 
+	/* LMP Bootloader node - required by Foundries.io LMP */
+	bootloader {
+		compatible = "lmp,bootloader";
+	};
+
 	reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
