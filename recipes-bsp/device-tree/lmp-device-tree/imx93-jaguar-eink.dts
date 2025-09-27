@@ -164,6 +164,14 @@
 		>;
 	};
 
+	/* LPUART7 pinctrl for MCXC143VFM power management microcontroller */
+	pinctrl_lpuart7: lpuart7grp {
+		fsl,pins = <
+			MX93_PAD_GPIO_IO08__LPUART7_TX		0x31e  /* TX to MCXC143VFM power management micro */
+			MX93_PAD_GPIO_IO09__LPUART7_RX		0x31e  /* RX from MCXC143VFM power management micro */
+		>;
+	};
+
 	/* WiFi GPIO pin configuration */
 	pinctrl_wifi_gpio: wifi_gpio_grp {
 		fsl,pins = <
@@ -256,6 +264,24 @@
 	bluetooth {
 		compatible = "nxp,88w8997-bt";
 		fw-init-baudrate = <3000000>;
+	};
+};
+
+/* Power Control Microcontroller UART - MCXC143VFM - LPUART7 */
+&lpuart7 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpuart7>;
+	status = "okay";
+
+	mcxc143: power-controller {
+		compatible = "nxp,mcxc143vfm";
+		current-speed = <115200>;  /* Default baudrate for MCXC143VFM communication */
+		/* Power management microcontroller for:
+		 * - WiFi/BT power control
+		 * - Battery monitoring
+		 * - System power management
+		 * - 5-year battery life optimization
+		 */
 	};
 };
 
