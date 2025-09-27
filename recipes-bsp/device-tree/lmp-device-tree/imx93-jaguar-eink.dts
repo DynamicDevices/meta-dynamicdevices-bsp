@@ -132,6 +132,11 @@
 	status = "okay";
 };
 
+/* EdgeLock Enclave - Link to reserved memory region */
+&ele_mu {
+	memory-region = <&ele_reserved>;
+};
+
 /* Console UART */
 &lpuart1 {
 	status = "okay";
