@@ -7,6 +7,11 @@ inherit lmp-signing-override
 # Apply to mfgtool distro builds (both imx8mm-jaguar-sentai and imx93-jaguar-eink)
 SRC_URI:append:lmp-mfgtool = " file://disable-se050.cfg"
 
+# Disable ELE for imx93-jaguar-eink mfgtool builds to keep bootloader minimal
+# ELE is enabled in production builds but must be disabled for mfgtool bootstrap
+# This ensures mfgtool bootloader remains functional for board programming
+SRC_URI:append:imx93-jaguar-eink:lmp-mfgtool = " file://disable-ele-mfgtool.cfg"
+
 # Override OP-TEE binary for mfgtool builds to use the mfgtool-specific OP-TEE
 # The regular OP-TEE binary has SE050 enabled, but mfgtool needs SE050 disabled
 do_deploy:prepend() {
