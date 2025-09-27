@@ -10,8 +10,9 @@
 # to use the default mfgtool bootloader generation.
 
 # Override the upstream function that copies production bootloader as mfgtool
-do_deploy:prepend:mx93-nxp-bsp:imx93-jaguar-eink() {
+# Use machine-specific override with higher precedence than mx93-nxp-bsp
+do_deploy:prepend:imx93-jaguar-eink() {
     # Do nothing - let Foundries.io generate proper mfgtool bootloader
     # This prevents copying production imx-boot as imx-boot-mfgtool
-    bbwarn "imx93-jaguar-eink: Skipping production bootloader copy for mfgtool - using default mfgtool generation"
+    bbwarn "imx93-jaguar-eink: Overriding mfgtool deploy - using default mfgtool generation instead of production bootloader"
 }
