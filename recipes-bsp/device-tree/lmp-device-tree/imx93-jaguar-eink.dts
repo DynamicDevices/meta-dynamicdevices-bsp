@@ -415,7 +415,18 @@
 		status = "okay";
 	};
 
-/* USB-C port configuration removed for now */
+/*
+ * USB-C port (usbotg1) - board lacks Type-C/PD controller so operate in forced host mode.
+ * No external VBUS regulator control needed - hardware provides fixed 5V.
+ */
+&usbotg1 {
+	dr_mode = "host";
+	hnp-disable;
+	srp-disable;
+	adp-disable;
+	disable-over-current;
+	status = "okay";
+};
 
 /* 
  * I2C3 Interface for PCF2131 RTC
