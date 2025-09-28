@@ -117,16 +117,6 @@
 		startup-delay-us = <100>;
 	};
 
-	/* USB-C port operates in forced host mode (no PD controller on board) */
-	reg_usb1_vbus: regulator-usb1-vbus {
-		compatible = "regulator-fixed";
-		regulator-name = "USB1_5V0";
-		regulator-min-microvolt = <5000000>;
-		regulator-max-microvolt = <5000000>;
-		regulator-always-on;
-		regulator-boot-on;
-	};
-
 
 };
 
@@ -146,10 +136,7 @@
 	status = "okay";
 };
 
-/* EdgeLock Enclave - Link to reserved memory region */
-&ele_mu {
-	memory-region = <&ele_reserved>;
-};
+/* EdgeLock Enclave - ELE node removed as it doesn't exist in i.MX93 base device tree */
 
 /* Console UART */
 &lpuart1 {
@@ -428,19 +415,7 @@
 		status = "okay";
 	};
 
-/*
- * USB-C port (usbotg1) - board lacks Type-C/PD controller so operate in forced host mode.
- * Provide fixed 5V supply and disable optional OTG features.
- */
-&usbotg1 {
-	dr_mode = "host";
-	hnp-disable;
-	srp-disable;
-	adp-disable;
-	disable-over-current;
-	vbus-supply = <&reg_usb1_vbus>;
-	status = "okay";
-};
+/* USB-C port configuration removed for now */
 
 /* 
  * I2C3 Interface for PCF2131 RTC
