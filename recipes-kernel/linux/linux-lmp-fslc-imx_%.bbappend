@@ -17,6 +17,7 @@ SRC_URI:append:imx8mm-jaguar-sentai = " \
 		file://imx8mm-jaguar-sentai/tas2562-audio-codec.cfg \
 		file://lis2dh12-sensor.cfg \
 		file://usb-gadgets.cfg \
+		${@bb.utils.contains('DISTRO', 'lmp-mfgtool', '', 'file://imx8mm-jaguar-sentai/usb-audio-gadget.cfg', d)} \
 		file://0001-wireless-remove-nl80211-regdom-warning.patch \
 		file://0004-dts-imx8mm-evkb-fix-duplicate-label.patch \
 		file://0005-dts-imx8mm-evkb-fix-lp50xx-led-driver.patch \
