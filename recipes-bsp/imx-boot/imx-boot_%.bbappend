@@ -5,5 +5,6 @@
 TEE_BINARY:lmp-mfgtool = ""
 DEPLOY_OPTEE:lmp-mfgtool = "false"
 
-# Use correct boot target for imx93 (flash_singleboot, not flash_evk_no_hdmi)
-IMXBOOT_TARGETS:lmp-mfgtool = "flash_singleboot"
+# Use correct boot targets for different SoC families
+# imx93 uses flash_singleboot, imx8mm uses flash_evk
+IMXBOOT_TARGETS:lmp-mfgtool:imx93-jaguar-eink = "flash_singleboot"
