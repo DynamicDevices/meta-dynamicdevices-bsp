@@ -602,9 +602,9 @@
 	status = "disabled";
 };
 
-// USB-C port
+// USB-C port - OTG mode for gadget support (USB audio, etc.)
 &usbotg1 {
-	dr_mode = "host";
+	dr_mode = "otg";
         status = "okay";
 };
 
