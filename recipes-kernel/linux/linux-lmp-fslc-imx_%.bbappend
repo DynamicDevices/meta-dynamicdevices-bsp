@@ -19,6 +19,8 @@ SRC_URI:append:imx8mm-jaguar-sentai = " \
 		file://usb-gadgets.cfg \
 		${@bb.utils.contains('DISTRO', 'lmp-mfgtool', '', 'file://imx8mm-jaguar-sentai/usb-audio-gadget.cfg', d)} \
 		file://0001-wireless-remove-nl80211-regdom-warning.patch \
+		file://0015-usb-gadget-u_audio-fix-capture-stream-memory-init.patch \
+		file://0016-usb-gadget-u_audio-improve-capture-reliability.patch \
 		file://0004-dts-imx8mm-evkb-fix-duplicate-label.patch \
 		file://0005-dts-imx8mm-evkb-fix-lp50xx-led-driver.patch \
 		file://0003-wireless-wilc1000-disable-scan-progress-message.patch \

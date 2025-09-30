@@ -1,0 +1,48 @@
+From: Dynamic Devices Ltd <support@dynamicdevices.co.uk>
+Date: Mon, 30 Sep 2025 14:00:00 +0000
+Subject: [PATCH] usb: gadget: u_audio: fix capture stream memory initialization
+
+This patch addresses USB audio gadget capture stream initialization
+issues that cause "Input/output error" when attempting to record
+audio from the host to the target device.
+
+The problem occurs when the capture stream buffer is not properly
+initialized, leading to memory access issues during audio capture
+operations.
+
+This fix ensures that capture stream memory is properly initialized
+when the stream is prepared, resolving I/O errors during arecord
+operations.
+
+Signed-off-by: Dynamic Devices Ltd <support@dynamicdevices.co.uk>
+---
+ drivers/usb/gadget/function/u_audio.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/drivers/usb/gadget/function/u_audio.c b/drivers/usb/gadget/function/u_audio.c
+index 123456789abc..abcdef123456 100644
+--- a/drivers/usb/gadget/function/u_audio.c
++++ b/drivers/usb/gadget/function/u_audio.c
+@@ -260,6 +260,21 @@ static int uac_pcm_prepare(struct snd_pcm_substream *substream)
+ 	struct uac_rtd_params *prm;
+ 	int err;
+ 
++	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
++		/* Initialize capture stream memory to zero to prevent
++		 * uninitialized memory issues that cause I/O errors
++		 * during audio capture operations from host to target.
++		 */
++		struct snd_pcm_runtime *runtime = substream->runtime;
++		if (runtime->dma_area) {
++			memset(runtime->dma_area, 0, 
++			       frames_to_bytes(runtime, runtime->buffer_size));
++		}
++		dev_dbg(dev, "%s: Initialized capture stream buffer (%lu bytes)\n",
++			__func__, frames_to_bytes(runtime, runtime->buffer_size));
++	}
++
+ 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+ 		prm = &uac->p_prm;
+ 	} else {
+-- 
+2.34.1
