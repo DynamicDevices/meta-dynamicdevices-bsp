@@ -46,7 +46,11 @@ add_uac2_function() {
     echo $SAMPLE_RATE > "$FUNCTIONS/uac2.$function_name/p_srate"
     echo $SAMPLE_SIZE > "$FUNCTIONS/uac2.$function_name/c_ssize"
     echo $SAMPLE_SIZE > "$FUNCTIONS/uac2.$function_name/p_ssize"
-    echo "adaptive" > "$FUNCTIONS/uac2.$function_name/c_sync"
+    
+    # Set capture to async for proper UAC2 feedback endpoint support
+    # This enables the feedback endpoint required for Windows compatibility
+    echo "async" > "$FUNCTIONS/uac2.$function_name/c_sync"
+    
     echo "$STEREO_CHMASK" > "$FUNCTIONS/uac2.$function_name/c_chmask"
     echo "$STEREO_CHMASK" > "$FUNCTIONS/uac2.$function_name/p_chmask"
     
