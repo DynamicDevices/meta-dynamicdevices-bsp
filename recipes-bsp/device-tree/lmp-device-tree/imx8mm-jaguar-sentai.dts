@@ -602,9 +602,9 @@
 	status = "disabled";
 };
 
-// USB-C port - OTG mode for gadget support (USB audio, etc.)
+// USB-C port - Device mode (STUSB4500 UFP, no PTN5110 role switching)
 &usbotg1 {
-	dr_mode = "otg";
+	dr_mode = "peripheral";
         status = "okay";
 };
 
