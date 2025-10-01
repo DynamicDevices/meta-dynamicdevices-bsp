@@ -136,7 +136,10 @@
 	status = "okay";
 };
 
-/* EdgeLock Enclave - ELE node removed as it doesn't exist in i.MX93 base device tree */
+/* EdgeLock Enclave - Link to reserved memory region */
+&ele_mu {
+	memory-region = <&ele_reserved>;
+};
 
 /* Console UART */
 &lpuart1 {
