@@ -15,6 +15,7 @@ SRC_URI:append:imx8mm-jaguar-sentai = " \
 		file://imx8mm-jaguar-sentai/sht4x-humidity-sensor.cfg \
 		file://imx8mm-jaguar-sentai/video-disable.cfg \
 		file://imx8mm-jaguar-sentai/tas2562-audio-codec.cfg \
+		file://imx8mm-jaguar-sentai/wifi-power-management.cfg \
 		file://lis2dh12-sensor.cfg \
 		file://usb-gadgets.cfg \
 		${@bb.utils.contains('DISTRO', 'lmp-mfgtool', '', 'file://imx8mm-jaguar-sentai/usb-audio-gadget.cfg', d)} \

@@ -1,0 +1,14 @@
+[Unit]
+Description=WiFi Power Management for imx8mm-jaguar-sentai (IW612)
+After=network.target
+Wants=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/imx8mm-jaguar-sentai-wifi-pm.sh
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

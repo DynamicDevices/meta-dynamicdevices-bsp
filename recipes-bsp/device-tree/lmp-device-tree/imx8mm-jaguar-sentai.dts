@@ -201,6 +201,39 @@
                         MX8MM_IOMUXC_UART4_TXD_UART4_DCE_TX     0x140
                 >;
         };
+
+        pinctrl_usdhc2: usdhc2grp {
+                fsl,pins = <
+                        MX8MM_IOMUXC_SD2_CLK_USDHC2_CLK         0x190
+                        MX8MM_IOMUXC_SD2_CMD_USDHC2_CMD         0x1d0
+                        MX8MM_IOMUXC_SD2_DATA0_USDHC2_DATA0     0x1d0
+                        MX8MM_IOMUXC_SD2_DATA1_USDHC2_DATA1     0x1d0
+                        MX8MM_IOMUXC_SD2_DATA2_USDHC2_DATA2     0x1d0
+                        MX8MM_IOMUXC_SD2_DATA3_USDHC2_DATA3     0x1d0
+                >;
+        };
+
+        pinctrl_usdhc2_100mhz: usdhc2-100mhzgrp {
+                fsl,pins = <
+                        MX8MM_IOMUXC_SD2_CLK_USDHC2_CLK         0x194
+                        MX8MM_IOMUXC_SD2_CMD_USDHC2_CMD         0x1d4
+                        MX8MM_IOMUXC_SD2_DATA0_USDHC2_DATA0     0x1d4
+                        MX8MM_IOMUXC_SD2_DATA1_USDHC2_DATA1     0x1d4
+                        MX8MM_IOMUXC_SD2_DATA2_USDHC2_DATA2     0x1d4
+                        MX8MM_IOMUXC_SD2_DATA3_USDHC2_DATA3     0x1d4
+                >;
+        };
+
+        pinctrl_usdhc2_200mhz: usdhc2-200mhzgrp {
+                fsl,pins = <
+                        MX8MM_IOMUXC_SD2_CLK_USDHC2_CLK         0x196
+                        MX8MM_IOMUXC_SD2_CMD_USDHC2_CMD         0x1d6
+                        MX8MM_IOMUXC_SD2_DATA0_USDHC2_DATA0     0x1d6
+                        MX8MM_IOMUXC_SD2_DATA1_USDHC2_DATA1     0x1d6
+                        MX8MM_IOMUXC_SD2_DATA2_USDHC2_DATA2     0x1d6
+                        MX8MM_IOMUXC_SD2_DATA3_USDHC2_DATA3     0x1d6
+                >;
+        };
 };
 
 &uart1 { /* BT */
@@ -606,6 +639,31 @@
 &usbotg1 {
 	dr_mode = "peripheral";
         status = "okay";
+};
+
+// WiFi SDIO Interface - IW612 module with power management
+&usdhc2 {
+	pinctrl-names = "default", "state_100mhz", "state_200mhz";
+	pinctrl-0 = <&pinctrl_usdhc2>;
+	pinctrl-1 = <&pinctrl_usdhc2_100mhz>;
+	pinctrl-2 = <&pinctrl_usdhc2_200mhz>;
+	bus-width = <4>;
+	keep-power-in-suspend;
+	non-removable;
+	wakeup-source;
+	max-frequency = <100000000>;
+	fsl,sdio-async-interrupt-enabled;
+	pm-ignore-notify;
+	cap-power-off-card;
+	status = "okay";
+
+	wifi_wake_host {
+		compatible = "nxp,wifi-wake-host";
+		interrupt-parent = <&gpio2>;
+		interrupts = <6 IRQ_TYPE_LEVEL_LOW>;  /* WL_WAKE_DEV GPIO */
+		interrupt-names = "host-wake";
+		wakeup-source;
+	};
 };
 
 // Cellular modem
