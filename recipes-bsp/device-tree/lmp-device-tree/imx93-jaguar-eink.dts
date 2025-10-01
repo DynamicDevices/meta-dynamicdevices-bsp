@@ -267,8 +267,6 @@
 };
 
 /* Power Control Microcontroller UART - MCXC143VFM - LPUART7 */
-/* TEMPORARILY DISABLED: Causes serial numbering issues - will fix in future update */
-/*
 &lpuart7 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpuart7>;
@@ -276,15 +274,15 @@
 
 	mcxc143: power-controller {
 		compatible = "nxp,mcxc143vfm";
-		current-speed = <115200>;
-		// Power management microcontroller for:
-		// - WiFi/BT power control
-		// - Battery monitoring
-		// - System power management
-		// - 5-year battery life optimization
+		current-speed = <115200>;  /* Default baudrate for MCXC143VFM communication */
+		/* Power management microcontroller for:
+		 * - WiFi/BT power control
+		 * - Battery monitoring
+		 * - System power management
+		 * - 5-year battery life optimization
+		 */
 	};
 };
-*/
 
 /* WiFi SDIO Interface - ublox MAYA W2 (IW612) */
 &usdhc2 {
