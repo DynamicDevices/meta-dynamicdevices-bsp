@@ -72,28 +72,25 @@ do_install:append:imx8mm-jaguar-phasora() {
     install -D -m 0644 ${WORKDIR}/99-ignore-uap.conf ${D}${sysconfdir}/NetworkManager/conf.d/99-ignore-uap.conf
 }
 
-do_install:prepend:imx93-jaguar-eink() {
-    # CRITICAL: Install non-secure firmware files BEFORE upstream recipe runs
-    # The upstream Makefile only installs .bin.se (secure) files
-    # We need to manually copy the .bin (non-secure) files from source
+do_install:append() {
+    # CRITICAL: Install BOTH secure and non-secure IW612 firmware files
+    # The upstream Makefile only installs .bin.se (secure) files  
+    # We need both so same image works on secured and unsecured devices
+    # 
+    # NOTE: This must be do_install:append (not machine-specific) because
+    # firmware-nxp-wifi is PACKAGE_ARCH="all" (architecture-independent)
+    # Machine-specific overrides don't work for "all" packages.
     
     if [ -d "${S}/nxp/FwImage_IW612_SD" ]; then
-        bbwarn "imx93-jaguar-eink: Installing non-secure IW612 firmware files from ${S}/nxp/FwImage_IW612_SD"
+        bbwarn "Installing non-secure IW612 firmware files from ${S}/nxp/FwImage_IW612_SD"
         
-        # Create firmware directory
-        install -d ${D}${nonarch_base_libdir}/firmware/nxp
-        
-        # Install non-secure (.bin) firmware files
+        # Install non-secure (.bin) firmware files for IW612
         for binfile in sduart_nw61x_v1.bin sd_w61x_v1.bin uartspi_n61x_v1.bin; do
             if [ -f "${S}/nxp/FwImage_IW612_SD/${binfile}" ]; then
                 install -m 0644 ${S}/nxp/FwImage_IW612_SD/${binfile} ${D}${nonarch_base_libdir}/firmware/nxp/
-                bbwarn "imx93-jaguar-eink: Installed ${binfile}"
-            else
-                bbfatal "imx93-jaguar-eink: CRITICAL - ${binfile} not found in source!"
+                bbwarn "Installed non-secure ${binfile}"
             fi
         done
-    else
-        bbfatal "imx93-jaguar-eink: CRITICAL - IW612 firmware source directory not found at ${S}/nxp/FwImage_IW612_SD"
     fi
 }
 
