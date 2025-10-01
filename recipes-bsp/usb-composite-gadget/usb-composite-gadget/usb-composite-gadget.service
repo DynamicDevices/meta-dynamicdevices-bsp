@@ -7,9 +7,9 @@ Wants=network.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/home/fio/setup-usb-composite-gadget setup
+ExecStart=/usr/bin/setup-usb-composite-gadget setup
 ExecStartPost=/bin/bash -c 'echo device > /sys/devices/platform/soc@0/32c00000.bus/32e40000.usb/ci_hdrc.0/usb_role/ci_hdrc.0-role-switch/role'
-ExecStop=/home/fio/setup-usb-composite-gadget stop
+ExecStop=/usr/bin/setup-usb-composite-gadget stop
 User=root
 StandardOutput=journal
 StandardError=journal
