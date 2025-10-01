@@ -118,6 +118,7 @@ SRC_URI:append:imx93-jaguar-eink = " \
 		file://imx93-jaguar-eink.dts \
 		file://imx93-jaguar-eink/drivers-essential-only.cfg \
 		file://imx93-jaguar-eink/eink-display-minimal.cfg \
+		file://imx93-jaguar-eink/disable-unused-features.cfg \
 		file://imx93-jaguar-eink/iw612-wifi.cfg \
 		file://imx93-jaguar-eink/wifi-priority.cfg \
 		file://imx93-jaguar-eink/iw612-bluetooth.cfg \
@@ -136,6 +137,7 @@ SRC_URI:append:imx93-jaguar-eink = " \
 		file://imx93-jaguar-eink/ocotp-nvmem-support.cfg \
 		file://imx93-jaguar-eink/cortex-m33-support.cfg \
 		file://imx93-jaguar-eink/battery-power-optimization.cfg \
+		file://imx93-jaguar-eink/essential-eink-verification.cfg \
 		${@bb.utils.contains('ENABLE_BOOT_PROFILING', '1', 'file://boot-profiling.cfg', '', d)} \
 "
 
