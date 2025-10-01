@@ -101,17 +101,18 @@ do_install:append:imx93-jaguar-eink() {
     # Install custom WiFi module parameters for IW612
     install -D -m 0644 ${WORKDIR}/wifi_mod_para.conf ${D}${nonarch_base_libdir}/firmware/nxp/wifi_mod_para.conf
     
-    # The NXP WiFi driver automatically detects device secure boot state and selects:
-    # - Unsecured device (DEV_MODE=1) → loads .bin firmware (installed in do_install:prepend above)
-    # - Secured device (production) → loads .bin.se firmware (from upstream recipe)
-    #
-    # Both firmware types are now installed:
-    # - /lib/firmware/nxp/sduart_nw61x_v1.bin (non-secure, from do_install:prepend)
-    # - /lib/firmware/nxp/sduart_nw61x_v1.bin.se (secure, from upstream recipe)
-    #
-    # Default to standard firmware in module config - driver will upgrade to .se if device is secured
-    sed -i '/SDIW612 = {/,/^}/ s|fw_name=nxp/sduart_nw61x_v1\.bin\.se|fw_name=nxp/sduart_nw61x_v1.bin|g' ${D}${nonarch_base_libdir}/firmware/nxp/wifi_mod_para.conf
-    bbwarn "imx93-jaguar-eink: WiFi firmware configured for automatic selection - works on both secured and unsecured devices"
+    # Configure firmware type based on build configuration
+    # Default to secure firmware (.se) for production cloud builds
+    # Use insecure firmware (.bin) only when explicitly requested for development
+    if [ "${NXP_WIFI_INSECURE_FIRMWARE}" = "1" ]; then
+        # Use standard firmware for development builds (when explicitly requested)
+        sed -i '/SDIW612 = {/,/^}/ s|fw_name=nxp/sduart_nw61x_v1\.bin\.se|fw_name=nxp/sduart_nw61x_v1.bin|g' ${D}${nonarch_base_libdir}/firmware/nxp/wifi_mod_para.conf
+        bbwarn "imx93-jaguar-eink: Using insecure NXP WiFi firmware (.bin files) - development mode"
+    else
+        # Default: Use secure firmware for production cloud builds
+        sed -i '/SDIW612 = {/,/^}/ s|fw_name=nxp/sduart_nw61x_v1\.bin|fw_name=nxp/sduart_nw61x_v1.bin.se|g' ${D}${nonarch_base_libdir}/firmware/nxp/wifi_mod_para.conf
+        bbwarn "imx93-jaguar-eink: Using secure NXP WiFi firmware (.se files) - production mode"
+    fi
 }
 
 FILES:${PN} += "${sysconfdir}/NetworkManager/conf.d/99-ignore-uap.conf"
