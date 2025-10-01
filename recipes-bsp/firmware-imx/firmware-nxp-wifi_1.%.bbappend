@@ -72,6 +72,31 @@ do_install:append:imx8mm-jaguar-phasora() {
     install -D -m 0644 ${WORKDIR}/99-ignore-uap.conf ${D}${sysconfdir}/NetworkManager/conf.d/99-ignore-uap.conf
 }
 
+do_install:prepend:imx93-jaguar-eink() {
+    # CRITICAL: Install non-secure firmware files BEFORE upstream recipe runs
+    # The upstream Makefile only installs .bin.se (secure) files
+    # We need to manually copy the .bin (non-secure) files from source
+    
+    if [ -d "${S}/nxp/FwImage_IW612_SD" ]; then
+        bbwarn "imx93-jaguar-eink: Installing non-secure IW612 firmware files from ${S}/nxp/FwImage_IW612_SD"
+        
+        # Create firmware directory
+        install -d ${D}${nonarch_base_libdir}/firmware/nxp
+        
+        # Install non-secure (.bin) firmware files
+        for binfile in sduart_nw61x_v1.bin sd_w61x_v1.bin uartspi_n61x_v1.bin; do
+            if [ -f "${S}/nxp/FwImage_IW612_SD/${binfile}" ]; then
+                install -m 0644 ${S}/nxp/FwImage_IW612_SD/${binfile} ${D}${nonarch_base_libdir}/firmware/nxp/
+                bbwarn "imx93-jaguar-eink: Installed ${binfile}"
+            else
+                bbfatal "imx93-jaguar-eink: CRITICAL - ${binfile} not found in source!"
+            fi
+        done
+    else
+        bbfatal "imx93-jaguar-eink: CRITICAL - IW612 firmware source directory not found at ${S}/nxp/FwImage_IW612_SD"
+    fi
+}
+
 do_install:append:imx93-jaguar-eink() {
     install -d ${D}${sysconfdir}/NetworkManager/conf.d
     install -D -m 0644 ${WORKDIR}/99-ignore-uap.conf ${D}${sysconfdir}/NetworkManager/conf.d/99-ignore-uap.conf
@@ -79,26 +104,12 @@ do_install:append:imx93-jaguar-eink() {
     # Install custom WiFi module parameters for IW612
     install -D -m 0644 ${WORKDIR}/wifi_mod_para.conf ${D}${nonarch_base_libdir}/firmware/nxp/wifi_mod_para.conf
     
-    # CRITICAL: Install BOTH secure and non-secure firmware files
-    # Upstream recipe only installs .bin.se (secure) files by default
-    # We need BOTH so the same image works on secured and unsecured devices
-    #
-    # Install non-secure (.bin) firmware files from source:
-    if [ -f "${S}/nxp/FwImage_IW612_SD/sduart_nw61x_v1.bin" ]; then
-        install -m 0644 ${S}/nxp/FwImage_IW612_SD/sduart_nw61x_v1.bin ${D}${nonarch_base_libdir}/firmware/nxp/
-        install -m 0644 ${S}/nxp/FwImage_IW612_SD/sd_w61x_v1.bin ${D}${nonarch_base_libdir}/firmware/nxp/
-        install -m 0644 ${S}/nxp/FwImage_IW612_SD/uartspi_n61x_v1.bin ${D}${nonarch_base_libdir}/firmware/nxp/
-        bbwarn "imx93-jaguar-eink: Installed non-secure WiFi firmware files (.bin)"
-    else
-        bbwarn "imx93-jaguar-eink: WARNING - Non-secure firmware files not found in source!"
-    fi
-    
     # The NXP WiFi driver automatically detects device secure boot state and selects:
-    # - Unsecured device (DEV_MODE=1) → loads .bin firmware
-    # - Secured device (production) → loads .bin.se firmware
+    # - Unsecured device (DEV_MODE=1) → loads .bin firmware (installed in do_install:prepend above)
+    # - Secured device (production) → loads .bin.se firmware (from upstream recipe)
     #
-    # Now both firmware types are installed:
-    # - /lib/firmware/nxp/sduart_nw61x_v1.bin (standard, installed above)
+    # Both firmware types are now installed:
+    # - /lib/firmware/nxp/sduart_nw61x_v1.bin (non-secure, from do_install:prepend)
     # - /lib/firmware/nxp/sduart_nw61x_v1.bin.se (secure, from upstream recipe)
     #
     # Default to standard firmware in module config - driver will upgrade to .se if device is secured
