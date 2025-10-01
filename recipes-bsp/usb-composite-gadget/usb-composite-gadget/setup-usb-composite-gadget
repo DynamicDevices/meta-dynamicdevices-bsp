@@ -47,8 +47,8 @@ add_uac2_function() {
     echo $SAMPLE_SIZE > "$FUNCTIONS/uac2.$function_name/c_ssize"
     echo $SAMPLE_SIZE > "$FUNCTIONS/uac2.$function_name/p_ssize"
     
-    # Set capture to adaptive for proper UAC2 feedback endpoint support
-    # Adaptive sync works with the feedback endpoint for synchronization
+    # Set capture to adaptive (no feedback endpoint needed for IN direction)
+    # Playback uses async (with feedback), capture uses adaptive (without feedback)
     echo "adaptive" > "$FUNCTIONS/uac2.$function_name/c_sync"
     
     echo "$STEREO_CHMASK" > "$FUNCTIONS/uac2.$function_name/c_chmask"
