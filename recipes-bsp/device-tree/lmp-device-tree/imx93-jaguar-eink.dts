@@ -414,6 +414,7 @@
 		
 		status = "okay";
 	};
+};
 
 /*
  * USB-C port (usbotg1) - board lacks Type-C/PD controller so operate in forced host mode.
