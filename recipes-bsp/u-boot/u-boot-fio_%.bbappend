@@ -31,12 +31,6 @@ SRC_URI:append:imx8mm-jaguar-phasora = " \
 
 SRC_URI:append:imx93-jaguar-eink = " \
     file://custom-dtb.cfg \
-    file://enable-i2c.cfg \
-    file://enable-spi.cfg \
-    file://enable-fiovb.cfg \
-    file://disable-unused-peripherals.cfg \
-    file://fix-environment-config.cfg \
-    file://optimized-boot.cfg \
 "
 
 # TODO: Add u-boot DTB customisation patch
