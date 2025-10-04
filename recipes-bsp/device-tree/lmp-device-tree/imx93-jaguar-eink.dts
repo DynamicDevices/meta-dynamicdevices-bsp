@@ -27,6 +27,13 @@
 		stdout-path = &lpuart1;
 	};
 
+	/* Serial port aliases - explicit mapping to prevent out-of-range errors */
+	aliases {
+		serial0 = &lpuart1;  /* Console UART */
+		serial1 = &lpuart5;  /* Bluetooth UART */
+		serial2 = &lpuart7;  /* Power Management UART */
+	};
+
 	/* LMP Bootloader node - required by Foundries.io LMP */
 	bootloader {
 		compatible = "lmp,bootloader";
