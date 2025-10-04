@@ -130,7 +130,6 @@
 		startup-delay-us = <100>;
 	};
 
-
 };
 
 /* Cortex-M33 support - TODO: Add proper CM33 node definition for i.MX93 */
@@ -149,10 +148,6 @@
 	status = "okay";
 };
 
-/* EdgeLock Enclave - Link to reserved memory region */
-&ele_mu {
-	memory-region = <&ele_reserved>;
-};
 
 /* Console UART */
 &lpuart1 {
@@ -259,6 +254,14 @@
 			MX93_PAD_GPIO_IO16__GPIO2_IO16		0x31e  /* L#R_SEL_DIS - Chip Select Routing (LO=Left, HI=Right) - GPIO 528 */
 			MX93_PAD_GPIO_IO17__GPIO2_IO17		0x31e  /* CS0 - Chip Select 0 (Left half) - GPIO 529 */
 			MX93_PAD_SAI1_TXFS__GPIO1_IO11		0x31e  /* CS1 - Chip Select 1 (Right half) - GPIO 619 */
+		>;
+	};
+
+	/* I2C2 pinctrl for PCA9451A PMIC */
+	pinctrl_lpi2c2: lpi2c2grp {
+		fsl,pins = <
+			MX93_PAD_I2C2_SCL__LPI2C2_SCL		0x40000b9e  /* I2C2_SCL */
+			MX93_PAD_I2C2_SDA__LPI2C2_SDA		0x40000b9e  /* I2C2_SDA */
 		>;
 	};
 
@@ -440,6 +443,100 @@
 
 
 /* 
+ * I2C2 Interface for PCA9451A PMIC
+ * 
+ * Hardware Configuration:
+ *   - PCA9451A PMIC connected to i.MX93 LPI2C2  
+ *   - I2C Address: 0x25
+ *   - SDA: MX93_PAD_I2C2_SDA__LPI2C2_SDA
+ *   - SCL: MX93_PAD_I2C2_SCL__LPI2C2_SCL
+ *   - Provides power rails for i.MX93 SoC and peripherals
+ *   - BUCK1 supplies VDD_SOC for LPM driver
+ */
+&lpi2c2 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpi2c2>;
+	status = "okay";
+
+	pmic: pca9451a@25 {
+		compatible = "nxp,pca9451a";
+		reg = <0x25>;
+		interrupt-parent = <&gpio3>;
+		interrupts = <27 IRQ_TYPE_EDGE_FALLING>;
+
+		regulators {
+			buck1: BUCK1 {
+				regulator-name = "BUCK1";
+				regulator-min-microvolt = <650000>;
+				regulator-max-microvolt = <2237500>;
+				regulator-boot-on;
+				regulator-always-on;
+				regulator-ramp-delay = <3125>;
+			};
+
+			buck2: BUCK2 {
+				regulator-name = "BUCK2";
+				regulator-min-microvolt = <600000>;
+				regulator-max-microvolt = <2187500>;
+				regulator-boot-on;
+				regulator-always-on;
+				regulator-ramp-delay = <3125>;
+			};
+
+			buck4: BUCK4 {
+				regulator-name = "BUCK4";
+				regulator-min-microvolt = <600000>;
+				regulator-max-microvolt = <3400000>;
+				regulator-boot-on;
+				regulator-always-on;
+			};
+
+			buck5: BUCK5 {
+				regulator-name = "BUCK5";
+				regulator-min-microvolt = <600000>;
+				regulator-max-microvolt = <3400000>;
+				regulator-boot-on;
+				regulator-always-on;
+			};
+
+			buck6: BUCK6 {
+				regulator-name = "BUCK6";
+				regulator-min-microvolt = <600000>;
+				regulator-max-microvolt = <3400000>;
+				regulator-boot-on;
+				regulator-always-on;
+			};
+
+			ldo1: LDO1 {
+				regulator-name = "LDO1";
+				regulator-min-microvolt = <1600000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-boot-on;
+				regulator-always-on;
+			};
+
+			ldo4: LDO4 {
+				regulator-name = "LDO4";
+				regulator-min-microvolt = <800000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-boot-on;
+				regulator-always-on;
+			};
+
+			ldo5: LDO5 {
+				regulator-name = "LDO5";
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-boot-on;
+				regulator-always-on;
+			};
+		};
+	};
+};
+
+/* 
  * I2C3 Interface for PCF2131 RTC
  * 
  * Hardware Configuration:
@@ -487,25 +584,12 @@
  * Clock rate: cat /sys/kernel/debug/clk/a55_core/clk_rate
  * 
  * NOTE: Power management handled by custom MCXC143VFM microcontroller
+ * PMIC: Standard PCA9451A provides VDD_SOC regulation via BUCK1
  */
 &lpm {
+	soc-supply = <&buck1>;	/* CRITICAL: VDD_SOC supply from PMIC BUCK1 */
 	ld-mode-enabled;        /* Enable Low Drive modes (2,3) for maximum power savings */
 	status = "okay";        /* Enable the driver - CRITICAL */
-};
-
-/* Power Management Controller (PMC) - Enhanced power domain control */
-&pmc {
-	status = "okay";
-};
-
-/* Generic Power Controller (GPC) - Power domain management */
-&gpc {
-	status = "okay";
-};
-
-/* System Controller (SYSCON) - System-wide power control */
-&syscon {
-	status = "okay";
 };
 
 /* ANATOP - Analog power management and voltage regulation */
