@@ -31,13 +31,13 @@
 	aliases {
 		serial0 = &lpuart1;  /* Console UART - 44380000.serial */
 		serial1 = &lpuart5;  /* Bluetooth UART - 42590000.serial */
-		/* serial2 = &lpuart7; - DISABLED due to pin conflict with SPI3 (GPIO_IO09) */
+		serial2 = &lpuart7;  /* Power Management UART - 42690000.serial */
 		/* Explicitly disable unused LPUARTs to prevent conflicts */
-		serial2 = &lpuart2;  /* Unused - 44390000.serial */
-		serial3 = &lpuart3;  /* Unused - 42570000.serial */
-		serial4 = &lpuart4;  /* Unused - 42580000.serial */
-		serial5 = &lpuart6;  /* Unused - 425a0000.serial */
-		serial6 = &lpuart8;  /* Unused - 426a0000.serial */
+		serial3 = &lpuart2;  /* Unused - 44390000.serial */
+		serial4 = &lpuart3;  /* Unused - 42570000.serial */
+		serial5 = &lpuart4;  /* Unused - 42580000.serial */
+		serial6 = &lpuart6;  /* Unused - 425a0000.serial */
+		serial7 = &lpuart8;  /* Unused - 426a0000.serial */
 	};
 
 	/* LMP Bootloader node - required by Foundries.io LMP */
@@ -177,18 +177,12 @@
 	};
 
 	/* LPUART7 pinctrl for MCXC143VFM power management microcontroller */
-	/* DISABLED: MCXC143VFM likely uses I2C communication, not UART
-	 * Removing this pinctrl to prevent conflict with SPI3 (802.15.4)
-	 * which needs GPIO_IO08 and GPIO_IO09 for proper operation
-	 */
-	/*
 	pinctrl_lpuart7: lpuart7grp {
 		fsl,pins = <
-			MX93_PAD_GPIO_IO08__LPUART7_TX		0x31e  // TX to MCXC143VFM power management micro
-			MX93_PAD_GPIO_IO09__LPUART7_RX		0x31e  // RX from MCXC143VFM power management micro
+			MX93_PAD_GPIO_IO08__LPUART7_TX		0x31e  /* TX to MCXC143VFM power management micro */
+			MX93_PAD_GPIO_IO09__LPUART7_RX		0x31e  /* RX from MCXC143VFM power management micro */
 		>;
 	};
-	*/
 
 	/* WiFi GPIO pin configuration */
 	pinctrl_wifi_gpio: wifi_gpio_grp {
@@ -218,16 +212,19 @@
 		>;
 	};
 
-	/* SPI3 pin configuration for 802.15.4 - ublox MAYA W2 module */
+	/* SPI3 pin configuration - NOT USED on this board */
+	/* 802.15.4 interface not implemented - pins needed for LPUART7 power management */
+	/*
 	pinctrl_lpspi3: lpspi3grp {
 		fsl,pins = <
-			MX93_PAD_GPIO_IO09__LPSPI3_SIN		0x31e  /* MOSI - SPI3_MOSI */
-			MX93_PAD_GPIO_IO10__LPSPI3_SOUT		0x31e  /* MISO - SPI3_MISO */
-			MX93_PAD_GPIO_IO11__LPSPI3_SCK		0x31e  /* SCK - SPI3_SCLK */
-			MX93_PAD_GPIO_IO08__LPSPI3_PCS0		0x31e  /* CS0 - SPI3_SS0 */
-			MX93_PAD_ENET2_RD3__GPIO4_IO27		0x31e  /* ZB_INT - 802.15.4 Interrupt */
+			MX93_PAD_GPIO_IO09__LPSPI3_SIN		0x31e  // MOSI - conflicts with LPUART7_RX
+			MX93_PAD_GPIO_IO10__LPSPI3_SOUT		0x31e  // MISO
+			MX93_PAD_GPIO_IO11__LPSPI3_SCK		0x31e  // SCK
+			MX93_PAD_GPIO_IO08__LPSPI3_PCS0		0x31e  // CS0 - conflicts with LPUART7_TX
+			MX93_PAD_ENET2_RD3__GPIO4_IO27		0x31e  // ZB_INT - 802.15.4 Interrupt
 		>;
 	};
+	*/
 
 	/* E-Ink display GPIO pins
 	 * 
@@ -285,18 +282,22 @@
 	};
 };
 
-/* Power Control Microcontroller - MCXC143VFM */
-/* MCXC143VFM power management microcontroller likely uses I2C communication
- * instead of UART. LPUART7 disabled to prevent pin conflicts with SPI3.
- * MCXC143VFM handles:
- * - WiFi/BT power control (via GPIO4_IO24, GPIO4_IO26, etc.)
- * - Battery monitoring  
- * - System power management
- * - 5-year battery life optimization
- * Communication method: Likely I2C (to be confirmed with hardware team)
- */
+/* Power Control Microcontroller UART - MCXC143VFM - LPUART7 */
 &lpuart7 {
-	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpuart7>;
+	status = "okay";
+
+	mcxc143: power-controller {
+		compatible = "nxp,mcxc143vfm";
+		current-speed = <115200>;  /* Default baudrate for MCXC143VFM communication */
+		/* Power management microcontroller for:
+		 * - WiFi/BT power control
+		 * - Battery monitoring
+		 * - System power management
+		 * - 5-year battery life optimization
+		 */
+	};
 };
 
 /* WiFi SDIO Interface - ublox MAYA W2 (IW612) */
@@ -401,37 +402,19 @@
 };
 
 /*
- * 802.15.4 SPI Interface - ublox MAYA W2 module (IW612 chipset)
+ * 802.15.4 SPI Interface - NOT IMPLEMENTED on this board
  * 
- * LPSPI3 Configuration:
+ * The ublox MAYA W2 module does not provide 802.15.4 functionality on this board.
+ * GPIO_IO08 and GPIO_IO09 are needed for LPUART7 (MCXC143VFM power management).
+ * 
+ * Original planned configuration (not used):
  *   - Device: /dev/spidev2.0
  *   - Speed: Up to 12 MHz
- *   - Standard SPI mode
  *   - Uses GPIO pins (GPIO_IO08-11) for SPI signals
  *   - Interrupt: GPIO4_IO27 (ENET2_RD3)
- *   - Reset: Shared with Bluetooth (GPIO4_IO24, controlled by MCXC143VFM)
  */
 &lpspi3 {
-	#address-cells = <1>;
-	#size-cells = <0>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_lpspi3>;
-	status = "okay";
-
-	zigbee_802154: zigbee@0 {
-		compatible = "rohm,dh2228fv";
-		reg = <0>;
-		spi-max-frequency = <12000000>; /* 12 MHz for 802.15.4 communication */
-		
-		/* Interrupt pin for 802.15.4 */
-		interrupt-parent = <&gpio4>;
-		interrupts = <27 IRQ_TYPE_LEVEL_LOW>; /* GPIO4_IO27 - ZB_INT */
-		
-		/* Reset is shared with Bluetooth, controlled by MCXC143VFM power controller */
-		/* reset-gpios = <&gpio4 24 GPIO_ACTIVE_LOW>; // BT_RST - shared reset */
-		
-		status = "okay";
-	};
+	status = "disabled";
 };
 
 /*
