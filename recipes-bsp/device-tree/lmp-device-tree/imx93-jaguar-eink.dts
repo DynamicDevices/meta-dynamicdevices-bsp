@@ -390,6 +390,9 @@
 	#size-cells = <0>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpspi1>;
+	/* Add DMA channels for better performance and eliminate DMA probe errors */
+	dmas = <&edma1 0 14>, <&edma1 0 15>;
+	dma-names = "tx", "rx";
 	status = "okay"; /* Primary interface for standard SPI testing */
 
 	eink_display_spi: eink@0 {

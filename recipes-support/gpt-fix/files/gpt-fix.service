@@ -1,0 +1,19 @@
+[Unit]
+Description=Fix GPT partition table errors
+Documentation=man:parted(8)
+After=local-fs-pre.target
+Before=local-fs.target
+DefaultDependencies=no
+ConditionPathExists=/dev/mmcblk0
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/gpt-fix.sh
+StandardOutput=journal
+StandardError=journal
+RemainAfterExit=yes
+# Only run if GPT errors are detected in dmesg
+ExecCondition=/bin/sh -c 'dmesg | grep -q "GPT.*error"'
+
+[Install]
+WantedBy=local-fs-pre.target
