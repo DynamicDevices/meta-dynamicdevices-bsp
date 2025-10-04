@@ -294,17 +294,15 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpuart7>;
 	status = "okay";
-
-	mcxc143: power-controller {
-		compatible = "nxp,mcxc143vfm";
-		current-speed = <115200>;  /* Default baudrate for MCXC143VFM communication */
-		/* Power management microcontroller for:
-		 * - WiFi/BT power control
-		 * - Battery monitoring
-		 * - System power management
-		 * - 5-year battery life optimization
-		 */
-	};
+	/* No child device node - MCXC143VFM power management microcontroller
+	 * will be controlled via userspace application using /dev/ttyLP2
+	 * Default baudrate: 115200
+	 * Functions:
+	 * - WiFi/BT power control
+	 * - Battery monitoring  
+	 * - System power management
+	 * - 5-year battery life optimization
+	 */
 };
 
 /* WiFi SDIO Interface - ublox MAYA W2 (IW612) */
