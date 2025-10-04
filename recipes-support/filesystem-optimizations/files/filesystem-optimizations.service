@@ -8,7 +8,6 @@ Description=Filesystem Optimizations for E-Ink Board
 DefaultDependencies=false
 After=local-fs.target
 Before=sysinit.target
-ConditionFirstBoot=true
 
 [Service]
 Type=oneshot
