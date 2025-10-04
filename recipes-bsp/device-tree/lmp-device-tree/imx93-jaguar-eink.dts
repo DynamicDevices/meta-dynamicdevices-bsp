@@ -273,12 +273,16 @@
 &lpuart5 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpuart5>;
-	fsl,uart-has-rtscts;
+	/* MAYA W2 Bluetooth has known issues with hardware flow control (RTS/CTS)
+	 * Disable flow control to prevent initialization timeouts and opcode failures
+	 * Reference: NXP Community - MAYA-W2 Bluetooth Timeout issue
+	 */
+	/* fsl,uart-has-rtscts; -- DISABLED for MAYA W2 compatibility */
 	status = "okay";
 
 	bluetooth {
 		compatible = "nxp,88w8997-bt";
-		fw-init-baudrate = <3000000>;
+		fw-init-baudrate = <3000000>;  /* 3MHz baudrate is correct for MAYA W2 */
 	};
 };
 
