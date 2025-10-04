@@ -31,13 +31,13 @@
 	aliases {
 		serial0 = &lpuart1;  /* Console UART - 44380000.serial */
 		serial1 = &lpuart5;  /* Bluetooth UART - 42590000.serial */
-		serial2 = &lpuart7;  /* Power Management UART - 42690000.serial */
+		/* serial2 = &lpuart7; - DISABLED due to pin conflict with SPI3 (GPIO_IO09) */
 		/* Explicitly disable unused LPUARTs to prevent conflicts */
-		serial3 = &lpuart2;  /* Unused - 44390000.serial */
-		serial4 = &lpuart3;  /* Unused - 42570000.serial */
-		serial5 = &lpuart4;  /* Unused - 42580000.serial */
-		serial6 = &lpuart6;  /* Unused - 425a0000.serial */
-		serial7 = &lpuart8;  /* Unused - 426a0000.serial */
+		serial2 = &lpuart2;  /* Unused - 44390000.serial */
+		serial3 = &lpuart3;  /* Unused - 42570000.serial */
+		serial4 = &lpuart4;  /* Unused - 42580000.serial */
+		serial5 = &lpuart6;  /* Unused - 425a0000.serial */
+		serial6 = &lpuart8;  /* Unused - 426a0000.serial */
 	};
 
 	/* LMP Bootloader node - required by Foundries.io LMP */
@@ -280,21 +280,13 @@
 };
 
 /* Power Control Microcontroller UART - MCXC143VFM - LPUART7 */
+/* DISABLED: Pin conflict with SPI3 - both try to use GPIO_IO09
+ * LPUART7_RX (GPIO_IO09) conflicts with SPI3_MOSI (GPIO_IO09)
+ * SPI3 needed for 802.15.4, so LPUART7 disabled for now.
+ * TODO: Find alternative pins for MCXC143VFM communication or use I2C
+ */
 &lpuart7 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_lpuart7>;
-	status = "okay";
-
-	mcxc143: power-controller {
-		compatible = "nxp,mcxc143vfm";
-		current-speed = <115200>;  /* Default baudrate for MCXC143VFM communication */
-		/* Power management microcontroller for:
-		 * - WiFi/BT power control
-		 * - Battery monitoring
-		 * - System power management
-		 * - 5-year battery life optimization
-		 */
-	};
+	status = "disabled";
 };
 
 /* WiFi SDIO Interface - ublox MAYA W2 (IW612) */
