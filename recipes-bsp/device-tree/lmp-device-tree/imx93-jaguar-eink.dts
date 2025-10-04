@@ -438,6 +438,7 @@
 	status = "okay";
 };
 
+
 /* 
  * I2C3 Interface for PCF2131 RTC
  * 
@@ -468,6 +469,49 @@
 
 /* GPIO pins are available for userspace control via your application */
 /* Pinctrl configurations above ensure proper pin muxing to GPIO function */
+
+/* ============================================================================
+ * POWER MANAGEMENT CONFIGURATION
+ * Critical for 5-year battery life requirement
+ * ============================================================================ */
+
+/* i.MX93 Low Power Management (LPM) Driver - CRITICAL FOR CPU FREQUENCY SCALING
+ * Enables 4 operating modes:
+ * - Mode 0 (OD): 1700 MHz CPU, 3733 MT/s DDR (High Performance)
+ * - Mode 1 (ND): 1400 MHz CPU, 1866 MT/s DDR (Balanced)
+ * - Mode 2 (LD): 900 MHz CPU, 1866 MT/s DDR (Power Save)
+ * - Mode 3 (LD): 900 MHz CPU, 625 MT/s DDR (Maximum Power Save)
+ * 
+ * Control via: echo 3 > /sys/devices/platform/imx93-lpm/mode
+ * Status via: cat /sys/devices/platform/imx93-lpm/mode
+ * Clock rate: cat /sys/kernel/debug/clk/a55_core/clk_rate
+ * 
+ * NOTE: Power management handled by custom MCXC143VFM microcontroller
+ */
+&lpm {
+	ld-mode-enabled;        /* Enable Low Drive modes (2,3) for maximum power savings */
+	status = "okay";        /* Enable the driver - CRITICAL */
+};
+
+/* Power Management Controller (PMC) - Enhanced power domain control */
+&pmc {
+	status = "okay";
+};
+
+/* Generic Power Controller (GPC) - Power domain management */
+&gpc {
+	status = "okay";
+};
+
+/* System Controller (SYSCON) - System-wide power control */
+&syscon {
+	status = "okay";
+};
+
+/* ANATOP - Analog power management and voltage regulation */
+&anatop {
+	status = "okay";
+};
 
 &wdog3 {
 	status = "okay";
