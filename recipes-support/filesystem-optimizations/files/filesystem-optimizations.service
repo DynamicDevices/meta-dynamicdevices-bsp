@@ -1,0 +1,21 @@
+# Filesystem Optimizations for E-Ink Board Power and Performance
+# 
+# This service applies filesystem mount optimizations to reduce power consumption
+# and improve eMMC longevity for the 5-year battery life requirement.
+
+[Unit]
+Description=Filesystem Optimizations for E-Ink Board
+DefaultDependencies=false
+After=local-fs.target
+Before=sysinit.target
+ConditionFirstBoot=true
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/filesystem-optimizations.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=sysinit.target

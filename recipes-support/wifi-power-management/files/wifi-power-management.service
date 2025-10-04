@@ -1,0 +1,26 @@
+# WiFi Power Management Service for E-Ink Board
+# 
+# This service enables aggressive WiFi power saving modes to maximize battery life
+# between image update cycles. The E-Ink board workflow is:
+# 1. Wake up periodically
+# 2. Enable WiFi and download image updates
+# 3. Disable WiFi power saving during active transfers
+# 4. Re-enable power saving when idle
+# 5. Sleep until next update cycle
+
+[Unit]
+Description=WiFi Power Management for E-Ink Board
+After=NetworkManager.service wpa_supplicant.service
+Wants=NetworkManager.service
+ConditionPathExists=/sys/class/net/wlan0
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/wifi-power-management.sh enable
+ExecStop=/usr/bin/wifi-power-management.sh disable
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

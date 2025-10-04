@@ -13,8 +13,8 @@
 #   32 32 or 33kiB, see reference manual
 #
 part u-boot --source rawcopy --sourceparams="file=imx-boot.tagged" --ondisk mmcblk --no-table --align 32
-part /boot --source bootimg-partition --ondisk mmcblk --fstype=vfat --label boot --active --align 8192 --fixed-size 256
-part / --source rootfs --ondisk mmcblk --fstype=ext4 --label root --align 8192 --fixed-size 4096
+part /boot --source bootimg-partition --ondisk mmcblk --fstype=vfat --label boot --active --align 8192 --fixed-size 256 --fsoptions="noatime"
+part / --source rootfs --ondisk mmcblk --fstype=ext4 --label root --align 8192 --fixed-size 4096 --fsoptions="noatime,commit=60"
 
 # Use GPT partition table for better reliability and to match kernel expectations
 # This fixes "GPT: Use GNU Parted to correct GPT errors" warnings
