@@ -177,12 +177,18 @@
 	};
 
 	/* LPUART7 pinctrl for MCXC143VFM power management microcontroller */
+	/* DISABLED: MCXC143VFM likely uses I2C communication, not UART
+	 * Removing this pinctrl to prevent conflict with SPI3 (802.15.4)
+	 * which needs GPIO_IO08 and GPIO_IO09 for proper operation
+	 */
+	/*
 	pinctrl_lpuart7: lpuart7grp {
 		fsl,pins = <
-			MX93_PAD_GPIO_IO08__LPUART7_TX		0x31e  /* TX to MCXC143VFM power management micro */
-			MX93_PAD_GPIO_IO09__LPUART7_RX		0x31e  /* RX from MCXC143VFM power management micro */
+			MX93_PAD_GPIO_IO08__LPUART7_TX		0x31e  // TX to MCXC143VFM power management micro
+			MX93_PAD_GPIO_IO09__LPUART7_RX		0x31e  // RX from MCXC143VFM power management micro
 		>;
 	};
+	*/
 
 	/* WiFi GPIO pin configuration */
 	pinctrl_wifi_gpio: wifi_gpio_grp {
@@ -279,11 +285,15 @@
 	};
 };
 
-/* Power Control Microcontroller UART - MCXC143VFM - LPUART7 */
-/* DISABLED: Pin conflict with SPI3 - both try to use GPIO_IO09
- * LPUART7_RX (GPIO_IO09) conflicts with SPI3_MOSI (GPIO_IO09)
- * SPI3 needed for 802.15.4, so LPUART7 disabled for now.
- * TODO: Find alternative pins for MCXC143VFM communication or use I2C
+/* Power Control Microcontroller - MCXC143VFM */
+/* MCXC143VFM power management microcontroller likely uses I2C communication
+ * instead of UART. LPUART7 disabled to prevent pin conflicts with SPI3.
+ * MCXC143VFM handles:
+ * - WiFi/BT power control (via GPIO4_IO24, GPIO4_IO26, etc.)
+ * - Battery monitoring  
+ * - System power management
+ * - 5-year battery life optimization
+ * Communication method: Likely I2C (to be confirmed with hardware team)
  */
 &lpuart7 {
 	status = "disabled";
