@@ -15,11 +15,9 @@ modprobe moal 2>/dev/null || echo "moal module already loaded or not available"
     sleep 2
     modprobe bluetooth 2>/dev/null || echo "bluetooth module already loaded or not available"
     
-    # 802.15.4 modules (lowest priority, background)
+    # Additional modules can be loaded here if needed
     sleep 5
-    modprobe ieee802154 2>/dev/null || echo "ieee802154 module already loaded or not available"
-    modprobe ieee802154_socket 2>/dev/null || echo "ieee802154_socket module already loaded or not available"
-    modprobe 6lowpan 2>/dev/null || echo "6lowpan module already loaded or not available"
+    echo "Additional module loading complete"
     
     # Start services after modules are loaded
     sleep 2

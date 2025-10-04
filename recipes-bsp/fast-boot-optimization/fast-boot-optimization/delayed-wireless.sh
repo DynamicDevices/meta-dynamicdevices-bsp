@@ -12,10 +12,10 @@ modprobe moal 2>/dev/null || echo "moal module already loaded or not available"
 # Load Bluetooth modules (medium priority)
 modprobe bluetooth 2>/dev/null || echo "bluetooth module already loaded or not available"
 
-# Load 802.15.4 modules (lower priority - can be delayed further if needed)
-modprobe ieee802154 2>/dev/null || echo "ieee802154 module already loaded or not available"
-modprobe ieee802154_socket 2>/dev/null || echo "ieee802154_socket module already loaded or not available"
-modprobe 6lowpan 2>/dev/null || echo "6lowpan module already loaded or not available"
+# Load WiFi and Bluetooth modules (medium priority - needed for updates)
+echo "Loading WiFi and Bluetooth modules..."
+modprobe mlan 2>/dev/null || echo "mlan module already loaded or not available"
+modprobe moal 2>/dev/null || echo "moal module already loaded or not available"
 
 echo "Wireless modules loading completed"
 

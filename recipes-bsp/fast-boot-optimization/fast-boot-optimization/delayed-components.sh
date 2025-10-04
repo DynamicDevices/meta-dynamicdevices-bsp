@@ -19,14 +19,12 @@ echo "Loading delayed components after network initialization..."
     echo "Bluetooth modules loaded"
 ) &
 
-# Load 802.15.4 modules in background (not needed for image updates)
+# Load additional modules in background (not needed for image updates)
 (
-    sleep 15  # Wait longer for 802.15.4 as it's lowest priority
-    echo "Loading 802.15.4 modules..."
-    modprobe ieee802154 2>/dev/null || echo "ieee802154 module already loaded or not available"
-    modprobe ieee802154_socket 2>/dev/null || echo "ieee802154_socket module already loaded or not available"
-    modprobe 6lowpan 2>/dev/null || echo "6lowpan module already loaded or not available"
-    echo "802.15.4 modules loaded"
+    sleep 10  # Wait for essential components first
+    echo "Loading additional modules..."
+    # Load other non-essential modules here if needed
+    echo "Additional modules loaded"
 ) &
 
 # Load LTE modem modules if needed (backup connectivity)
