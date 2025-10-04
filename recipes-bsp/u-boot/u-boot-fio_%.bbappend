@@ -31,6 +31,7 @@ SRC_URI:append:imx8mm-jaguar-phasora = " \
 
 SRC_URI:append:imx93-jaguar-eink = " \
     file://custom-dtb.cfg \
+    file://enable-pmic.cfg \
 "
 
 # TODO: Add u-boot DTB customisation patch
