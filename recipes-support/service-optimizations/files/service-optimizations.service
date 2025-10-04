@@ -1,0 +1,19 @@
+# Service Optimizations for E-Ink Board Power Efficiency
+# 
+# This service disables unnecessary services that consume power and resources
+# without providing value for the E-Ink board's specific use case.
+
+[Unit]
+Description=Service Optimizations for E-Ink Board Power Efficiency
+After=multi-user.target
+DefaultDependencies=false
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/service-optimizations.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
