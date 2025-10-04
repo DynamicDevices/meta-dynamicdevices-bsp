@@ -29,9 +29,15 @@
 
 	/* Serial port aliases - explicit mapping to prevent out-of-range errors */
 	aliases {
-		serial0 = &lpuart1;  /* Console UART */
-		serial1 = &lpuart5;  /* Bluetooth UART */
-		serial2 = &lpuart7;  /* Power Management UART */
+		serial0 = &lpuart1;  /* Console UART - 44380000.serial */
+		serial1 = &lpuart5;  /* Bluetooth UART - 42590000.serial */
+		serial2 = &lpuart7;  /* Power Management UART - 42690000.serial */
+		/* Explicitly disable unused LPUARTs to prevent conflicts */
+		serial3 = &lpuart2;  /* Unused - 44390000.serial */
+		serial4 = &lpuart3;  /* Unused - 42570000.serial */
+		serial5 = &lpuart4;  /* Unused - 42580000.serial */
+		serial6 = &lpuart6;  /* Unused - 425a0000.serial */
+		serial7 = &lpuart8;  /* Unused - 426a0000.serial */
 	};
 
 	/* LMP Bootloader node - required by Foundries.io LMP */
