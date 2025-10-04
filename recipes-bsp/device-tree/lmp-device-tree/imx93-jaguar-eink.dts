@@ -285,7 +285,7 @@
 
 	bluetooth {
 		compatible = "nxp,88w8997-bt";
-		fw-init-baudrate = <3000000>;  /* 3MHz baudrate is correct for MAYA W2 */
+		fw-init-baudrate = <115200>;  /* Standard baudrate for MAYA W2 - 3MHz was causing timeout errors */
 	};
 };
 
