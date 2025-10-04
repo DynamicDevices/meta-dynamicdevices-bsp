@@ -161,12 +161,15 @@
 
 /* Pin configuration for LPUART5 Bluetooth */
 &iomuxc {
+	/* Pin configuration for LPUART5 Bluetooth - MAYA W2 without flow control */
 	pinctrl_lpuart5: lpuart5grp {
 		fsl,pins = <
-			MX93_PAD_DAP_TDO_TRACESWO__LPUART5_TX	0x31e  /* BT UART RX - Output from iMX93 */
-			MX93_PAD_DAP_TDI__LPUART5_RX		0x31e  /* BT UART TX - Input to iMX93 */
-			MX93_PAD_DAP_TCLK_SWCLK__LPUART5_CTS_B	0x31e  /* BT UART CTS - Output from iMX93 */
-			MX93_PAD_DAP_TMS_SWDIO__LPUART5_RTS_B	0x31e  /* BT UART RTS - Input to iMX93 */
+			MX93_PAD_DAP_TDO_TRACESWO__LPUART5_TX	0x31e  /* BT UART TX - Output from iMX93 */
+			MX93_PAD_DAP_TDI__LPUART5_RX		0x31e  /* BT UART RX - Input to iMX93 */
+			/* RTS/CTS pins removed - MAYA W2 doesn't support hardware flow control reliably
+			 * MX93_PAD_DAP_TCLK_SWCLK__LPUART5_CTS_B	0x31e
+			 * MX93_PAD_DAP_TMS_SWDIO__LPUART5_RTS_B	0x31e
+			 */
 		>;
 	};
 
