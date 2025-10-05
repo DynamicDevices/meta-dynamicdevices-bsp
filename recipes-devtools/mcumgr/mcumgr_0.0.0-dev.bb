@@ -44,8 +44,16 @@ do_compile() {
     export GO111MODULE=on
     export CGO_ENABLED=0
     
-    # Build mcumgr binary directly from the source directory
-    # The source already has go.mod, so we can build directly
+    # Build mcumgr binary from the mcumgr subdirectory
+    # The go.mod is at the root, so we build the ./mcumgr package
+    echo "Building mcumgr from source directory: ${S}"
+    echo "Contents of source directory:"
+    ls -la
+    echo "Contents of mcumgr directory:"
+    ls -la mcumgr/
+    echo "go.mod content:"
+    cat go.mod
+    
     go build -ldflags "-s -w -extldflags '-static'" -o mcumgr ./mcumgr
     
     if [ ! -f mcumgr ]; then
