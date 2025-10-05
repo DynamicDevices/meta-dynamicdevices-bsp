@@ -546,17 +546,30 @@
 	};
 };
 
-/* 
- * I2C3 Interface for PCF2131 RTC
+/* ============================================================================
+ * I2C3 Interface for PCF2131 RTC - CRITICAL FOR 5-YEAR BATTERY LIFE
+ * ============================================================================
  * 
- * Hardware Configuration:
- *   - PCF2131 RTC IC connected to i.MX93 LPI2C3
- *   - I2C Address: 0x53
- *   - SDA: MX93_PAD_GPIO_IO28_LPI2C3_SDA
- *   - SCL: MX93_PAD_GPIO_IO29_LPI2C3_SCL  
- *   - Interrupt: MX93_PAD_ENET2_RX_CTL__GPIO4_IO22 (RTC_INTA)
- *   - Power: VBAT for battery backup
- */
+ * POWER-OPTIMIZED RTC ARCHITECTURE:
+ * - Internal i.MX93 RTC: ~100µA (DISABLED in kernel config - too high)
+ * - External PCF2131 RTC: 600nA (166x more efficient!)
+ * - MCXC143VFM PMU RTC: Always powered (internal to PMU)
+ * 
+ * OPERATIONAL STRATEGY:
+ * 1. i.MX93 uses PCF2131 for primary timekeeping (always accurate)
+ * 2. i.MX93 syncs time with PMU periodically when powered
+ * 3. i.MX93 sets wake schedules in PMU before sleep
+ * 4. PMU uses internal RTC or PCF2131 INTB# to wake i.MX93
+ * 5. Complete i.MX93 power-down possible while maintaining time/wake
+ * 
+ * HARDWARE CONNECTIONS:
+ * - I2C3: GPIO_IO28 (SDA), GPIO_IO29 (SCL) - Communication
+ * - INTA#: GPIO4_IO22 (MX93_PAD_ENET2_RX_CTL) - Wake i.MX93 from sleep
+ * - INTB#: PTC5/LLWU_P9 (MCXC143VFM) - Wake PMU from low power
+ * - VBAT: Battery backup power for continuous operation
+ * 
+ * POWER SAVINGS: 600nA vs 100µA = 166x improvement in RTC power consumption!
+ * ============================================================================ */
 &lpi2c3 {
 	#address-cells = <1>;
 	#size-cells = <0>;

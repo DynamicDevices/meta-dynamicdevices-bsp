@@ -131,6 +131,7 @@ SRC_URI:append:imx93-jaguar-eink = " \
 		file://imx93-jaguar-eink/peripheral-power-optimization.cfg \
 		file://imx93-jaguar-eink/memory-power-optimization.cfg \
 		file://imx93-jaguar-eink/cpu-frequency-scaling.cfg \
+		file://imx93-jaguar-eink/rtc-power-optimization.cfg \
 		file://imx93-jaguar-eink/spi-support.cfg \
 		file://imx93-jaguar-eink/sound-disable-all.cfg \
 		file://imx93-jaguar-eink/imx56-video-disable.cfg \
