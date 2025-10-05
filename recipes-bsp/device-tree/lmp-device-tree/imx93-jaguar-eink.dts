@@ -637,16 +637,42 @@
  * CORTEX-M33 CONFIGURATION - POWER MANAGEMENT MICROCONTROLLER
  * ============================================================================ */
 
-/* TODO: Add proper Cortex-M33 device tree configuration
+/* ============================================================================
+ * CORTEX-M33 CONFIGURATION - POWER MANAGEMENT MICROCONTROLLER
+ * ============================================================================ */
+
+/* i.MX93 Cortex-M33 - MCXC143VFM Power Management Microcontroller
  * 
- * ISSUE: Need to research correct device tree label for i.MX93 Cortex-M33
- * - Reserved memory regions are defined: rsc_table, vdev rings, vdevbuffer, m33_reserved
- * - RPMSG drivers enabled in kernel config (cortex-m33-support.cfg)
- * - Need to find correct device node label (not &imx93_cm33)
- * - This should fix: "of_reserved_mem_lookup() returned NULL" error
+ * Based on i.MX93 Reference Manual Chapters 13-16:
+ * - Chapter 13.1: CM33 has 128KB Code TCM + 128KB System TCM
+ * - Memory mapping: Code TCM 0x0FFE_0000, Data TCM 0x2000_0000
+ * - System access: 0x201E_0000-0x201F_FFFF (Code), 0x2020_0000-0x2021_FFFF (System)
  * 
- * Research needed:
- * - Check i.MX93 base device tree for correct CM33 label
- * - Verify remoteproc userspace tools are available
- * - Test M33 firmware loading capabilities
+ * Configuration pattern from working i.MX8ULP example (&imx8ulp_cm33):
+ * - Links M33 device to reserved memory regions
+ * - Fixes: "of_reserved_mem_lookup() returned NULL" error
+ * - Enables RPMSG communication with MCXC143VFM microcontroller
+ * - Memory regions: rsc_table, vdev rings, vdevbuffer, m33_reserved
+ * 
+ * RPMSG drivers enabled in kernel: cortex-m33-support.cfg
+ * Userspace tools: Need to verify remoteproc utilities availability
  */
+
+/* NOTE: Device tree label research needed
+ * - i.MX8ULP uses: &imx8ulp_cm33
+ * - i.MX93 likely uses: &imx93_cm33 or similar
+ * - Need to check i.MX93 base device tree for correct label
+ * - Pattern: &<soc>_cm33 { ... }
+ */
+
+/* TODO: Uncomment when correct device tree label is confirmed
+&imx93_cm33 {
+	memory-region = <&vdevbuffer>, <&vdev0vring0>, <&vdev0vring1>, <&rsc_table>;
+	rsc-da = <0x1fff8000>;
+	mbox-names = "tx", "rx", "rxdb";
+	mboxes = <&mu 0 1
+		  &mu 1 1
+		  &mu 3 1>;
+	status = "okay";
+};
+*/
