@@ -601,3 +601,16 @@
 	status = "okay";
 	timeout-sec = <40>;
 };
+
+/* ============================================================================
+ * EDGELOCK ENCLAVE (ELE) CONFIGURATION - CRITICAL FOR BOOT SUCCESS
+ * ============================================================================ */
+
+/* EdgeLock Enclave Memory Unit - CRITICAL FIX for boot hang
+ * Links ELE device to its reserved memory region
+ * Without this: "fsl-ele-mu soc@0:ele-mu: failed to init reserved memory region -19"
+ * Followed by: RCU stall at 21 seconds causing boot failure
+ */
+&ele_mu {
+	memory-region = <&ele_reserved>;
+};
