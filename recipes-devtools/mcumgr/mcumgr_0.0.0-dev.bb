@@ -11,7 +11,8 @@ HOMEPAGE = "https://github.com/apache/mynewt-mcumgr-cli"
 SECTION = "devel"
 
 LICENSE = "Apache-2.0"
-LIC_FILES_CHKSUM = "file://LICENSE;md5=86d3f3a95c324c9479bd8986968f4327"
+# Override license file location due to Go workspace structure
+LIC_FILES_CHKSUM = "file://src/github.com/apache/mynewt-mcumgr-cli/LICENSE;md5=86d3f3a95c324c9479bd8986968f4327"
 
 # Use latest commit from mynewt-mcumgr-cli (stable client, works with current Zephyr servers)
 SRCREV = "5c56bd24066c780aad5836429bfa2ecc4f9a944c"
@@ -43,12 +44,8 @@ do_compile() {
     export GO111MODULE=on
     export CGO_ENABLED=0
     
-    # Create proper Go workspace
-    mkdir -p ${WORKDIR}/go/src/github.com/apache
-    ln -sf ${S} ${WORKDIR}/go/src/github.com/apache/mynewt-mcumgr-cli
-    
-    # Build mcumgr binary
-    cd ${WORKDIR}/go/src/github.com/apache/mynewt-mcumgr-cli
+    # Build mcumgr binary directly from the source directory
+    # The source already has go.mod, so we can build directly
     go build -ldflags "-s -w -extldflags '-static'" -o mcumgr ./mcumgr
     
     if [ ! -f mcumgr ]; then
@@ -62,9 +59,9 @@ do_compile() {
 do_install() {
     install -d ${D}${bindir}
     
-    # Install main mcumgr binary (built in Go workspace)
-    if [ -f ${WORKDIR}/go/src/github.com/apache/mynewt-mcumgr-cli/mcumgr ]; then
-        install -m 0755 ${WORKDIR}/go/src/github.com/apache/mynewt-mcumgr-cli/mcumgr ${D}${bindir}/mcumgr
+    # Install main mcumgr binary (built in source directory)
+    if [ -f ${S}/mcumgr ]; then
+        install -m 0755 ${S}/mcumgr ${D}${bindir}/mcumgr
     else
         bbfatal "mcumgr binary not found for installation"
     fi
