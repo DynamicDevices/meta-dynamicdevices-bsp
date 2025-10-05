@@ -142,6 +142,7 @@ SRC_URI:append:imx93-jaguar-eink = " \
 		file://imx93-jaguar-eink/battery-power-optimization.cfg \
 		file://imx93-jaguar-eink/essential-eink-verification.cfg \
 		file://imx93-jaguar-eink/suspend-debug.cfg \
+		file://imx93-jaguar-eink/kernel-config-cleanup.cfg \
 		${@bb.utils.contains('ENABLE_BOOT_PROFILING', '1', 'file://boot-profiling.cfg', '', d)} \
 "
 
