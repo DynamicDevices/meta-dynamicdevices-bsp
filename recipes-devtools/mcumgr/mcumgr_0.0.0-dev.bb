@@ -81,8 +81,31 @@ do_compile() {
             fi
         fi
         
-        if [ ! -f mcumgr ]; then
-            bbfatal "mcumgr binary was not created"
+        # Check if binary was created in mcumgr subdirectory (which is the normal Go behavior)
+        if [ -f mcumgr/mcumgr ]; then
+            echo "Found mcumgr binary in mcumgr/ subdirectory (normal Go build behavior)"
+            echo "Current directory: $(pwd)"
+            echo "Directory contents:"
+            ls -la
+            echo "mcumgr subdirectory contents:"
+            ls -la mcumgr/
+            # The binary is already in the correct location for our install function
+            echo "Binary is ready for installation from mcumgr/mcumgr"
+        elif [ -f mcumgr ]; then
+            echo "Found mcumgr binary in current directory"
+        else
+            echo "Binary not found in expected locations. Searching..."
+            find . -name "mcumgr" -type f -exec ls -la {} \;
+            bbfatal "mcumgr binary was not created in any expected location"
+        fi
+        
+        # Final verification that we have a binary ready for installation
+        if [ -f mcumgr/mcumgr ]; then
+            echo "mcumgr binary ready for installation at mcumgr/mcumgr"
+        elif [ -f mcumgr ]; then
+            echo "mcumgr binary ready for installation at mcumgr"
+        else
+            bbfatal "mcumgr binary was not created in any accessible location"
         fi
         
         echo "mcumgr built successfully"
@@ -97,10 +120,14 @@ do_install() {
     
     # Install main mcumgr binary (built in actual source directory)
     ACTUAL_SRC="${S}/src/github.com/apache/mynewt-mcumgr-cli"
-    if [ -f "$ACTUAL_SRC/mcumgr" ]; then
+    if [ -f "$ACTUAL_SRC/mcumgr/mcumgr" ]; then
+        echo "Installing mcumgr binary from $ACTUAL_SRC/mcumgr/mcumgr"
+        install -m 0755 "$ACTUAL_SRC/mcumgr/mcumgr" ${D}${bindir}/mcumgr
+    elif [ -f "$ACTUAL_SRC/mcumgr" ]; then
+        echo "Installing mcumgr binary from $ACTUAL_SRC/mcumgr"
         install -m 0755 "$ACTUAL_SRC/mcumgr" ${D}${bindir}/mcumgr
     else
-        bbfatal "mcumgr binary not found at $ACTUAL_SRC/mcumgr"
+        bbfatal "mcumgr binary not found at expected locations in $ACTUAL_SRC"
     fi
     
     # Create configuration helper script
