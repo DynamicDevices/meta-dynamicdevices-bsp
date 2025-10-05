@@ -117,32 +117,17 @@ SRC_URI:append:imx8mm-jaguar-phasora = " \
 
 SRC_URI:append:imx93-jaguar-eink = " \
 		file://imx93-jaguar-eink.dts \
-		file://imx93-jaguar-eink/drivers-essential-only.cfg \
-		file://imx93-jaguar-eink/eink-display-minimal.cfg \
-		file://imx93-jaguar-eink/disable-unused-features.cfg \
-		file://imx93-jaguar-eink/iw612-wifi.cfg \
-		file://imx93-jaguar-eink/wifi-priority.cfg \
-		file://imx93-jaguar-eink/iw612-bluetooth.cfg \
-		file://imx93-jaguar-eink/regulatory-database.cfg \
-		file://imx93-jaguar-eink/delayed-components.cfg \
-		file://imx93-jaguar-eink/lte-modem-support.cfg \
+		file://imx93-jaguar-eink/imx93-core-system.cfg \
+		file://imx93-jaguar-eink/imx93-power-management.cfg \
+		file://imx93-jaguar-eink/imx93-wireless.cfg \
+		file://imx93-jaguar-eink/imx93-hardware-disable.cfg \
 		file://imx93-jaguar-eink/advanced-boot-params.cfg \
-		file://imx93-jaguar-eink/power-optimization.cfg \
-		file://imx93-jaguar-eink/peripheral-power-optimization.cfg \
-		file://imx93-jaguar-eink/memory-power-optimization.cfg \
-		file://imx93-jaguar-eink/cpu-frequency-scaling.cfg \
-		file://imx93-jaguar-eink/rtc-power-optimization.cfg \
-		file://imx93-jaguar-eink/spi-support.cfg \
-		file://imx93-jaguar-eink/sound-disable-all.cfg \
-		file://imx93-jaguar-eink/imx56-video-disable.cfg \
-		file://imx93-jaguar-eink/camera-hdmi-disable.cfg \
-		file://imx93-jaguar-eink/imx9-soc-fixes.cfg \
-		file://imx93-jaguar-eink/ocotp-nvmem-support.cfg \
-		file://imx93-jaguar-eink/cortex-m33-support.cfg \
-		file://imx93-jaguar-eink/battery-power-optimization.cfg \
-		file://imx93-jaguar-eink/essential-eink-verification.cfg \
 		file://imx93-jaguar-eink/suspend-debug.cfg \
-		file://imx93-jaguar-eink/kernel-config-cleanup.cfg \
+		file://imx93-jaguar-eink/delayed-components.cfg \
+		file://imx93-jaguar-eink/essential-eink-verification.cfg \
+		file://imx93-jaguar-eink/lte-modem-support.cfg \
+		file://imx93-jaguar-eink/ocotp-nvmem-support.cfg \
+		file://imx93-jaguar-eink/spi-support.cfg \
 		${@bb.utils.contains('ENABLE_BOOT_PROFILING', '1', 'file://boot-profiling.cfg', '', d)} \
 "
 
