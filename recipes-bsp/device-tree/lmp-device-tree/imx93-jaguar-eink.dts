@@ -278,7 +278,7 @@
 /* Bluetooth UART - ublox MAYA W2 - LPUART5 */
 &lpuart5 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_lpuart5>;
+	pinctrl-0 = <&pinctrl_lpuart5 &pinctrl_bluetooth_gpio>;
 	/* MAYA W2 Bluetooth configuration - higher baudrate required
 	 * Hardware flow control disabled to prevent timeout issues
 	 * Fixes: "Bluetooth: hci0: Setting wake-up method failed (-110)"
@@ -290,6 +290,7 @@
 	bluetooth {
 		compatible = "nxp,88w8997-bt";
 		fw-init-baudrate = <3000000>;  /* Higher baudrate for MAYA W2 - 115200 was causing timeout errors */
+		reset-gpios = <&gpio4 24 GPIO_ACTIVE_LOW>;  /* BT_RST - MX93_PAD_ENET2_RD0__GPIO4_IO24 */
 	};
 };
 
