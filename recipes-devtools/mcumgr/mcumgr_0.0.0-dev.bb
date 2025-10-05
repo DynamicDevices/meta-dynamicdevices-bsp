@@ -28,106 +28,74 @@ DEPENDS = "go-native"
 # Runtime dependencies
 RDEPENDS:${PN} = "bash"
 
-# Inherit go class for proper Go build support
-inherit go
-
-# Go module configuration
-GO_IMPORT = "github.com/apache/mynewt-mcumgr-cli"
-GO_INSTALL = "${GO_IMPORT}/mcumgr"
+# Don't inherit go class - we'll handle the build manually to avoid conflicts
 
 # Override the default go build process
 do_compile() {
     cd ${S}
     
     # Set up Go environment
-    export GOPATH="${WORKDIR}/go"
     export GO111MODULE=on
     export CGO_ENABLED=0
+    export GOOS=linux
+    export GOARCH=arm64
     
-    # The source is in src/github.com/apache/mynewt-mcumgr-cli/ due to Go workspace setup
     echo "Building mcumgr from source directory: ${S}"
     echo "Contents of source directory:"
     ls -la
     
-    # Navigate to the actual source location
-    ACTUAL_SRC="${S}/src/github.com/apache/mynewt-mcumgr-cli"
-    if [ -d "$ACTUAL_SRC" ]; then
-        echo "Found actual source at: $ACTUAL_SRC"
-        cd "$ACTUAL_SRC"
-        echo "Contents of actual source directory:"
-        ls -la
-        echo "Contents of mcumgr directory:"
-        ls -la mcumgr/
+    # Check if we have the expected Go module structure
+    if [ -f go.mod ]; then
+        echo "Found go.mod at root level"
         echo "go.mod content:"
         cat go.mod
         
-        # Build mcumgr binary from the mcumgr subdirectory
-        echo "Attempting to build mcumgr..."
-        echo "Current directory: $(pwd)"
+        echo "Building mcumgr binary..."
         echo "Go version: $(go version)"
-        echo "Go environment:"
-        go env
         
-        # Try to build with verbose output and error capture
-        if ! go build -v -ldflags "-s -w -extldflags '-static'" -o mcumgr ./mcumgr; then
-            echo "Go build failed! Checking for detailed error..."
-            echo "Trying build without static linking..."
-            if ! go build -v -o mcumgr ./mcumgr; then
-                echo "Go build failed even without static linking!"
-                echo "Checking Go module status..."
-                go mod tidy || echo "go mod tidy failed"
-                go mod download || echo "go mod download failed"
+        # Build directly from the mcumgr subdirectory and place binary at root
+        if go build -v -o "$(pwd)/mcumgr" ./mcumgr; then
+            echo "mcumgr built successfully"
+            ls -la mcumgr*
+        else
+            echo "Go build failed, trying without verbose output..."
+            if go build -o "$(pwd)/mcumgr" ./mcumgr; then
+                echo "mcumgr built successfully (second attempt)"
+                ls -la mcumgr*
+            else
                 bbfatal "Go build failed completely"
             fi
         fi
         
-        # Check if binary was created in mcumgr subdirectory (which is the normal Go behavior)
-        if [ -f mcumgr/mcumgr ]; then
-            echo "Found mcumgr binary in mcumgr/ subdirectory (normal Go build behavior)"
-            echo "Current directory: $(pwd)"
-            echo "Directory contents:"
-            ls -la
-            echo "mcumgr subdirectory contents:"
-            ls -la mcumgr/
-            # The binary is already in the correct location for our install function
-            echo "Binary is ready for installation from mcumgr/mcumgr"
-        elif [ -f mcumgr ]; then
-            echo "Found mcumgr binary in current directory"
+        # Verify binary was created - the Go build is working, binary may be in subdirectory
+        if [ -f mcumgr ]; then
+            echo "mcumgr binary verified at root: $(ls -la mcumgr)"
+        elif [ -f mcumgr/mcumgr ]; then
+            echo "mcumgr binary found in subdirectory: $(ls -la mcumgr/mcumgr)"
+            echo "This is expected - Go build creates binary in package subdirectory"
         else
-            echo "Binary not found in expected locations. Searching..."
+            echo "mcumgr binary not found, searching..."
             find . -name "mcumgr" -type f -exec ls -la {} \;
-            bbfatal "mcumgr binary was not created in any expected location"
+            bbfatal "mcumgr binary was not created"
         fi
         
-        # Final verification that we have a binary ready for installation
-        if [ -f mcumgr/mcumgr ]; then
-            echo "mcumgr binary ready for installation at mcumgr/mcumgr"
-        elif [ -f mcumgr ]; then
-            echo "mcumgr binary ready for installation at mcumgr"
-        else
-            bbfatal "mcumgr binary was not created in any accessible location"
-        fi
-        
-        echo "mcumgr built successfully"
-        ls -la mcumgr
     else
-        bbfatal "Could not find source at $ACTUAL_SRC"
+        bbfatal "No go.mod found in source directory - invalid Go module"
     fi
 }
 
 do_install() {
     install -d ${D}${bindir}
     
-    # Install main mcumgr binary (built in actual source directory)
-    ACTUAL_SRC="${S}/src/github.com/apache/mynewt-mcumgr-cli"
-    if [ -f "$ACTUAL_SRC/mcumgr/mcumgr" ]; then
-        echo "Installing mcumgr binary from $ACTUAL_SRC/mcumgr/mcumgr"
-        install -m 0755 "$ACTUAL_SRC/mcumgr/mcumgr" ${D}${bindir}/mcumgr
-    elif [ -f "$ACTUAL_SRC/mcumgr" ]; then
-        echo "Installing mcumgr binary from $ACTUAL_SRC/mcumgr"
-        install -m 0755 "$ACTUAL_SRC/mcumgr" ${D}${bindir}/mcumgr
+    # Install main mcumgr binary - check both possible locations
+    if [ -f "${S}/mcumgr" ]; then
+        echo "Installing mcumgr binary from ${S}/mcumgr"
+        install -m 0755 "${S}/mcumgr" ${D}${bindir}/mcumgr
+    elif [ -f "${S}/mcumgr/mcumgr" ]; then
+        echo "Installing mcumgr binary from ${S}/mcumgr/mcumgr"
+        install -m 0755 "${S}/mcumgr/mcumgr" ${D}${bindir}/mcumgr
     else
-        bbfatal "mcumgr binary not found at expected locations in $ACTUAL_SRC"
+        bbfatal "mcumgr binary not found at ${S}/mcumgr or ${S}/mcumgr/mcumgr"
     fi
     
     # Create configuration helper script
