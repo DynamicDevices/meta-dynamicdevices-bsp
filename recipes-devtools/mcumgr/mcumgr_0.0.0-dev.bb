@@ -44,34 +44,46 @@ do_compile() {
     export GO111MODULE=on
     export CGO_ENABLED=0
     
-    # Build mcumgr binary from the mcumgr subdirectory
-    # The go.mod is at the root, so we build the ./mcumgr package
+    # The source is in src/github.com/apache/mynewt-mcumgr-cli/ due to Go workspace setup
     echo "Building mcumgr from source directory: ${S}"
     echo "Contents of source directory:"
     ls -la
-    echo "Contents of mcumgr directory:"
-    ls -la mcumgr/
-    echo "go.mod content:"
-    cat go.mod
     
-    go build -ldflags "-s -w -extldflags '-static'" -o mcumgr ./mcumgr
-    
-    if [ ! -f mcumgr ]; then
-        bbfatal "mcumgr binary was not created"
+    # Navigate to the actual source location
+    ACTUAL_SRC="${S}/src/github.com/apache/mynewt-mcumgr-cli"
+    if [ -d "$ACTUAL_SRC" ]; then
+        echo "Found actual source at: $ACTUAL_SRC"
+        cd "$ACTUAL_SRC"
+        echo "Contents of actual source directory:"
+        ls -la
+        echo "Contents of mcumgr directory:"
+        ls -la mcumgr/
+        echo "go.mod content:"
+        cat go.mod
+        
+        # Build mcumgr binary from the mcumgr subdirectory
+        go build -ldflags "-s -w -extldflags '-static'" -o mcumgr ./mcumgr
+        
+        if [ ! -f mcumgr ]; then
+            bbfatal "mcumgr binary was not created"
+        fi
+        
+        echo "mcumgr built successfully"
+        ls -la mcumgr
+    else
+        bbfatal "Could not find source at $ACTUAL_SRC"
     fi
-    
-    echo "mcumgr built successfully"
-    ls -la mcumgr
 }
 
 do_install() {
     install -d ${D}${bindir}
     
-    # Install main mcumgr binary (built in source directory)
-    if [ -f ${S}/mcumgr ]; then
-        install -m 0755 ${S}/mcumgr ${D}${bindir}/mcumgr
+    # Install main mcumgr binary (built in actual source directory)
+    ACTUAL_SRC="${S}/src/github.com/apache/mynewt-mcumgr-cli"
+    if [ -f "$ACTUAL_SRC/mcumgr" ]; then
+        install -m 0755 "$ACTUAL_SRC/mcumgr" ${D}${bindir}/mcumgr
     else
-        bbfatal "mcumgr binary not found for installation"
+        bbfatal "mcumgr binary not found at $ACTUAL_SRC/mcumgr"
     fi
     
     # Create configuration helper script
