@@ -29,15 +29,15 @@
 
 	/* Serial port aliases - explicit mapping to prevent out-of-range errors */
 	aliases {
-		serial0 = &lpuart1;  /* Console UART - 44380000.serial */
-		serial1 = &lpuart5;  /* Bluetooth UART - 42590000.serial */
-		serial2 = &lpuart7;  /* Power Management UART - 42690000.serial */
+		serial0 = &lpuart1;  /* Console UART */
+		serial1 = &lpuart5;  /* Bluetooth UART */
+		serial2 = &lpuart7;  /* Power Management UART - MCXC143VFM PMU */
 		/* Explicitly disable unused LPUARTs to prevent conflicts */
-		serial3 = &lpuart2;  /* Unused - 44390000.serial */
-		serial4 = &lpuart3;  /* Unused - 42570000.serial */
-		serial5 = &lpuart4;  /* Unused - 42580000.serial */
-		serial6 = &lpuart6;  /* Unused - 425a0000.serial */
-		serial7 = &lpuart8;  /* Unused - 426a0000.serial */
+		serial3 = &lpuart2;  /* Unused */
+		serial4 = &lpuart3;  /* Unused */
+		serial5 = &lpuart4;  /* Unused */
+		serial6 = &lpuart6;  /* Unused */
+		serial7 = &lpuart8;  /* Unused */
 	};
 
 	/* LMP Bootloader node - required by Foundries.io LMP */
@@ -297,6 +297,8 @@
 &lpuart7 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpuart7>;
+	/* Override IRQ assignment - iMX93 Reference Manual shows LPUART7 = IRQ 105 */
+	interrupts = <GIC_SPI 73 IRQ_TYPE_LEVEL_HIGH>;  /* 105 - 32 = 73 for GIC_SPI */
 	status = "okay";
 	/* No child device node - MCXC143VFM power management microcontroller
 	 * will be controlled via userspace application using /dev/ttyLP2
