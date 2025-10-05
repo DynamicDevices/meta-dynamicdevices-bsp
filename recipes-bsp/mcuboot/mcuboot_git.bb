@@ -10,7 +10,7 @@ LIC_FILES_CHKSUM = "file://LICENSE;md5=86d3f3a95c324c9479bd8986968f4327"
 SRCREV = "v2.1.0"
 SRC_URI = "git://github.com/mcu-tools/mcuboot.git;protocol=https;branch=main"
 
-S = "${WORKDIR}/git"
+S = "${WORKDIR}/src/github.com/apache/mynewt-mcumgr-cli"
 
 # Dependencies for building MCUboot
 DEPENDS = "python3-native python3-cryptography-native python3-click-native python3-cbor2-native python3-intelhex-native"
