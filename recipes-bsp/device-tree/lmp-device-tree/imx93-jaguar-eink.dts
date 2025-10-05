@@ -170,7 +170,7 @@
 
 	pinctrl_bluetooth_gpio: bluetooth_gpio_grp {
 		fsl,pins = <
-			MX93_PAD_ENET2_RD0__GPIO4_IO24		0x31e  /* BT_RST - Active Low, controlled by MCXC143VFM */
+			MX93_PAD_ENET2_RD0__GPIO4_IO24		0x31e  /* BT_RST - Active Low, Software Reset for BT & 802.15.4 */
 		>;
 	};
 
