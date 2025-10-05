@@ -275,20 +275,20 @@
 
 };
 
-/* Bluetooth UART - ublox MAYA W2 - LPUART5 */
+/* Bluetooth UART - Murata Type 1LV (IW612-based) - LPUART5 */
 &lpuart5 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpuart5>;
-	/* MAYA W2 Bluetooth has known issues with hardware flow control (RTS/CTS)
-	 * Disable flow control to prevent initialization timeouts and opcode failures
-	 * Reference: NXP Community - MAYA-W2 Bluetooth Timeout issue
+	/* Murata Type 1LV with IW612 - higher baudrate required for proper initialization
+	 * Hardware flow control disabled to prevent timeout issues
+	 * Fixes: "Bluetooth: hci0: Setting wake-up method failed (-110)"
 	 */
-	/* fsl,uart-has-rtscts; -- DISABLED for MAYA W2 compatibility */
+	/* fsl,uart-has-rtscts; -- DISABLED for Murata compatibility */
 	status = "okay";
 
 	bluetooth {
-		compatible = "nxp,88w8997-bt";
-		fw-init-baudrate = <115200>;  /* Standard baudrate for MAYA W2 - 3MHz was causing timeout errors */
+		compatible = "murata,1lv-bt";
+		fw-init-baudrate = <3000000>;  /* Higher baudrate for Murata Type 1LV (IW612) */
 	};
 };
 
