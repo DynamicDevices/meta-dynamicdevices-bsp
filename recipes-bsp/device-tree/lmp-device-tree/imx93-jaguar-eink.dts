@@ -422,15 +422,6 @@
 };
 
 /*
- * LPSPI2 - NOT USED on this board (address 0x44360000)
- * Disable to prevent DMA setup errors and reduce power consumption
- * Error: "fsl_lpspi 44360000.spi: dma setup error -19, use pio"
- */
-&lpspi2 {
-	status = "disabled";
-};
-
-/*
  * 802.15.4 SPI Interface - NOT IMPLEMENTED on this board
  * 
  * The ublox MAYA W2 module does not provide 802.15.4 functionality on this board.
