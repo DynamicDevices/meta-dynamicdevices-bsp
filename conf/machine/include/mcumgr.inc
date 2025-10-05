@@ -6,12 +6,12 @@
 MACHINE_FEATURES_BACKFILL_CONSIDERED:append = " mcumgr"
 
 # Add MCUmgr package when the machine feature is present
-MACHINE_EXTRA_RRECOMMENDS:append = " \
+MACHINE_EXTRA_RDEPENDS:append = " \
     ${@bb.utils.contains('MACHINE_FEATURES', 'mcumgr', 'mcumgr', '', d)} \
 "
 
 # Add useful serial communication tools for MCUmgr
-MACHINE_EXTRA_RRECOMMENDS:append = " \
+MACHINE_EXTRA_RDEPENDS:append = " \
     ${@bb.utils.contains('MACHINE_FEATURES', 'mcumgr', 'screen minicom', '', d)} \
 "
 
