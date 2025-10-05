@@ -413,6 +413,15 @@
 };
 
 /*
+ * LPSPI2 - NOT USED on this board (address 0x44360000)
+ * Disable to prevent DMA setup errors and reduce power consumption
+ * Error: "fsl_lpspi 44360000.spi: dma setup error -19, use pio"
+ */
+&lpspi2 {
+	status = "disabled";
+};
+
+/*
  * 802.15.4 SPI Interface - NOT IMPLEMENTED on this board
  * 
  * The ublox MAYA W2 module does not provide 802.15.4 functionality on this board.
@@ -613,4 +622,18 @@
  */
 &ele_mu {
 	memory-region = <&ele_reserved>;
+};
+
+/* ============================================================================
+ * CORTEX-M33 CONFIGURATION - POWER MANAGEMENT MICROCONTROLLER
+ * ============================================================================ */
+
+/* i.MX93 Cortex-M33 - MCXC143VFM Power Management Microcontroller
+ * Links M33 device to its reserved memory regions
+ * Fixes: "of_reserved_mem_lookup() returned NULL" error
+ * Memory regions: rsc_table, vdev rings, vdevbuffer, m33_reserved
+ */
+&imx93_cm33 {
+	memory-region = <&vdevbuffer>, <&vdev0vring0>, <&vdev0vring1>, <&rsc_table>;
+	status = "okay";
 };
