@@ -62,7 +62,24 @@ do_compile() {
         cat go.mod
         
         # Build mcumgr binary from the mcumgr subdirectory
-        go build -ldflags "-s -w -extldflags '-static'" -o mcumgr ./mcumgr
+        echo "Attempting to build mcumgr..."
+        echo "Current directory: $(pwd)"
+        echo "Go version: $(go version)"
+        echo "Go environment:"
+        go env
+        
+        # Try to build with verbose output and error capture
+        if ! go build -v -ldflags "-s -w -extldflags '-static'" -o mcumgr ./mcumgr; then
+            echo "Go build failed! Checking for detailed error..."
+            echo "Trying build without static linking..."
+            if ! go build -v -o mcumgr ./mcumgr; then
+                echo "Go build failed even without static linking!"
+                echo "Checking Go module status..."
+                go mod tidy || echo "go mod tidy failed"
+                go mod download || echo "go mod download failed"
+                bbfatal "Go build failed completely"
+            fi
+        fi
         
         if [ ! -f mcumgr ]; then
             bbfatal "mcumgr binary was not created"
