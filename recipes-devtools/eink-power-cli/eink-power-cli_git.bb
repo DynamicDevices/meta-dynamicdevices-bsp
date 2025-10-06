@@ -21,9 +21,6 @@ SRC_URI = "git://github.com/DynamicDevices/eink-power-cli.git;protocol=https;bra
 
 S = "${WORKDIR}/git"
 
-# Rust dependencies
-DEPENDS = "virtual/rust-native"
-
 # Runtime dependencies for serial communication and Rust runtime
 RDEPENDS:${PN} = "libgcc coreutils"
 
