@@ -20,7 +20,10 @@ RDEPENDS:${PN} = "bash iw wireless-tools"
 
 inherit systemd
 
-SYSTEMD_SERVICE:${PN} = "eink-suspend.service eink-resume.service eink-power-config.service setup-wowlan.service"
+SYSTEMD_SERVICE:${PN} = "eink-resume.service eink-power-config.service setup-wowlan.service"
+# TEMPORARILY DISABLED: eink-suspend.service - causing LPUART7 runtime PM issues
+# This service was enabling runtime PM for ALL devices, including LPUART7 (MCXC143VFM communication)
+# Re-enable after proper LPUART7 exclusion testing
 SYSTEMD_AUTO_ENABLE = "enable"
 
 do_install() {
