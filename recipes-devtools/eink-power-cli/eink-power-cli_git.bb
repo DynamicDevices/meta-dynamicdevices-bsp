@@ -33,6 +33,9 @@ do_compile[network] = "1"
 RUSTFLAGS:append = " --remap-path-prefix=${WORKDIR}=/usr/src/debug/${PN}/${PV}"
 RUSTFLAGS:append = " --remap-path-prefix=${TMPDIR}=/usr/src/debug/tmpdir"
 
+# Skip QA check for already-stripped - Rust release binaries are pre-stripped
+INSANE_SKIP:${PN} += "already-stripped"
+
 # Installation
 do_install() {
     install -d ${D}${bindir}
