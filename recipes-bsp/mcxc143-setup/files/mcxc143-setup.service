@@ -1,0 +1,23 @@
+[Unit]
+Description=MCXC143VFM Power Microcontroller Setup
+Documentation=man:mcxc143-setup(8)
+After=multi-user.target
+After=dev-ttyLP2.device
+Wants=dev-ttyLP2.device
+ConditionPathExists=!/var/lib/mcxc143/first-boot-complete
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/mcxc143-setup.sh
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=60
+User=root
+
+# Restart policy for robustness
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

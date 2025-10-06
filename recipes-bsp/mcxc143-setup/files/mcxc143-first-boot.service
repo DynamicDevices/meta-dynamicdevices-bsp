@@ -1,0 +1,19 @@
+[Unit]
+Description=MCXC143VFM First Boot Setup
+Documentation=man:mcxc143-setup(8)
+After=multi-user.target
+After=systemd-udev-settle.service
+Wants=systemd-udev-settle.service
+ConditionPathExists=!/var/lib/mcxc143/first-boot-complete
+ConditionFirstBoot=yes
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+ExecStart=/usr/bin/systemctl start mcxc143-setup.service
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=10
+
+[Install]
+WantedBy=multi-user.target
