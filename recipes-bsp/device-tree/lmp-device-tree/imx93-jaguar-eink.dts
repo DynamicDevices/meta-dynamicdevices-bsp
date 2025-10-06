@@ -153,6 +153,11 @@
 	status = "disabled";
 };
 
+/* BBNSM RTC - DISABLED (using external PCF2131 RTC for 166x better power efficiency) */
+&bbnsm_rtc {
+	status = "disabled";
+};
+
 
 /* Console UART */
 &lpuart1 {
