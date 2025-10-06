@@ -27,19 +27,19 @@ DEPENDS = "virtual/rust-native"
 # Runtime dependencies for serial communication and Rust runtime
 RDEPENDS:${PN} = "libgcc coreutils"
 
-inherit cargo
+inherit cargo_bin
 
-# Cargo configuration for cross-compilation
-CARGO_SRC_DIR = ""
-EXTRA_OECARGO_PATHS = "${S}"
+# Enable network for the compile task allowing cargo to download dependencies
+do_compile[network] = "1"
 
-# Build configuration
-CARGO_BUILD_FLAGS = "--release"
+# Fix buildpaths QA warnings by ensuring debug prefix mapping is applied to Rust builds
+RUSTFLAGS:append = " --remap-path-prefix=${WORKDIR}=/usr/src/debug/${PN}/${PV}"
+RUSTFLAGS:append = " --remap-path-prefix=${TMPDIR}=/usr/src/debug/tmpdir"
 
 # Installation
 do_install() {
     install -d ${D}${bindir}
-    install -m 755 ${CARGO_TARGET_SUBDIR}/eink-power-cli ${D}${bindir}/eink-power-cli
+    install -m 755 ${B}/target/${CARGO_TARGET_SUBDIR}/eink-power-cli ${D}${bindir}/eink-power-cli
     
     # Create symlink for convenience
     ln -sf eink-power-cli ${D}${bindir}/eink-pmu
