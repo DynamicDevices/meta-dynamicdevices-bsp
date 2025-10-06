@@ -148,6 +148,11 @@
 	status = "okay";
 };
 
+/* BBNSM Power Key - DISABLED (no physical power button on this board) */
+&bbnsm_pwrkey {
+	status = "disabled";
+};
+
 
 /* Console UART */
 &lpuart1 {
