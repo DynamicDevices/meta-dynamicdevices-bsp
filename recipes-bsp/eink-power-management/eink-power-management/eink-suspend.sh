@@ -80,9 +80,15 @@ prepare_system_suspend() {
         fi
     done
     
-    # Enable runtime PM for all devices
+    # Enable runtime PM for all devices EXCEPT critical LPUART7 (power management communication)
     find /sys/devices -name "power/control" -type f | while read -r control; do
-        echo auto > "$control" 2>/dev/null || true
+        # Check if this is LPUART7 (42690000.serial) - CRITICAL for MCXC143VFM communication
+        if echo "$control" | grep -q "42690000.serial"; then
+            log_message "Skipping runtime PM for LPUART7 (MCXC143VFM communication): $control"
+            echo on > "$control" 2>/dev/null || true  # Explicitly keep LPUART7 always on
+        else
+            echo auto > "$control" 2>/dev/null || true
+        fi
     done
     
     # Sync filesystems
