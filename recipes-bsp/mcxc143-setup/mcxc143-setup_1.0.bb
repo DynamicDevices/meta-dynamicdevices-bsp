@@ -12,6 +12,7 @@ SRC_URI = " \
     file://mcxc143-setup.sh \
     file://mcxc143-setup.service \
     file://mcxc143-first-boot.service \
+    file://lpuart7-keep-active.service \
 "
 
 S = "${WORKDIR}"
@@ -20,7 +21,7 @@ RDEPENDS:${PN} = "bash coreutils"
 
 inherit systemd
 
-SYSTEMD_SERVICE:${PN} = "mcxc143-first-boot.service"
+SYSTEMD_SERVICE:${PN} = "mcxc143-first-boot.service lpuart7-keep-active.service"
 SYSTEMD_AUTO_ENABLE = "enable"
 
 do_install() {
@@ -32,6 +33,7 @@ do_install() {
     install -d ${D}${systemd_system_unitdir}
     install -m 0644 ${WORKDIR}/mcxc143-setup.service ${D}${systemd_system_unitdir}/
     install -m 0644 ${WORKDIR}/mcxc143-first-boot.service ${D}${systemd_system_unitdir}/
+    install -m 0644 ${WORKDIR}/lpuart7-keep-active.service ${D}${systemd_system_unitdir}/
     
     # Create state directory for tracking first boot
     install -d ${D}${localstatedir}/lib/mcxc143

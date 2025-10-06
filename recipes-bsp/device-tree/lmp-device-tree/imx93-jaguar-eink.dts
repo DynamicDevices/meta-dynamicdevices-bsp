@@ -405,6 +405,12 @@
 	/* Use default IRQ assignment from base i.MX93 device tree (GIC_SPI 210 = IRQ 242) */
 	/* Previous custom override (GIC_SPI 73) was causing IRQ conflicts with BBNSM */
 	status = "okay";
+	
+	/* TEMPORARY WORKAROUND FOR TESTING: Disable runtime power management for MCXC143VFM communication */
+	/* This prevents the UART from going into suspend mode which breaks PMU communication */
+	/* TODO: Find a more elegant solution that allows power management while maintaining communication */
+	/delete-property/ power-domains;
+	
 	/* No child device node - MCXC143VFM controlled via userspace application */
 };
 
