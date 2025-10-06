@@ -298,8 +298,7 @@
 &lpuart7 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpuart7>;
-	/* Override IRQ assignment - iMX93 Reference Manual shows LPUART7 = IRQ 105 */
-	interrupts = <GIC_SPI 73 IRQ_TYPE_LEVEL_HIGH>;  /* 105 - 32 = 73 for GIC_SPI */
+	/* Use default IRQ assignment from base i.MX93 device tree - custom override was causing IRQ conflicts */
 	status = "okay";
 	/* No child device node - MCXC143VFM power management microcontroller
 	 * will be controlled via userspace application using /dev/ttyLP2
