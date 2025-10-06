@@ -23,7 +23,9 @@ S = "${WORKDIR}/git"
 
 # Rust dependencies
 DEPENDS = "virtual/rust-native"
-RDEPENDS:${PN} = "libgcc"
+
+# Runtime dependencies for serial communication and Rust runtime
+RDEPENDS:${PN} = "libgcc coreutils"
 
 inherit cargo
 
@@ -54,9 +56,6 @@ FILES:${PN} = " \
     ${bindir}/eink-pmu \
     ${sysconfdir}/eink-power-cli.toml \
 "
-
-# Runtime dependencies for serial communication
-RDEPENDS:${PN} += "coreutils-stty"
 
 # Package description
 PACKAGE_ARCH = "${MACHINE_ARCH}"
