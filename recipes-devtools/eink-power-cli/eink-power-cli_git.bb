@@ -37,18 +37,9 @@ RUSTFLAGS:append = " --remap-path-prefix=${TMPDIR}=/usr/src/debug/tmpdir"
 do_install() {
     install -d ${D}${bindir}
     
-    # Find the correct binary path - cargo_bin may use different structure
-    if [ -f ${B}/target/${CARGO_TARGET_SUBDIR}/eink-power-cli ]; then
-        install -m 755 ${B}/target/${CARGO_TARGET_SUBDIR}/eink-power-cli ${D}${bindir}/eink-power-cli
-    elif [ -f ${B}/target/release/eink-power-cli ]; then
-        install -m 755 ${B}/target/release/eink-power-cli ${D}${bindir}/eink-power-cli
-    elif [ -f ${B}/target/aarch64-unknown-linux-gnu/release/eink-power-cli ]; then
-        install -m 755 ${B}/target/aarch64-unknown-linux-gnu/release/eink-power-cli ${D}${bindir}/eink-power-cli
-    else
-        echo "Searching for eink-power-cli binary..."
-        find ${B}/target -name "eink-power-cli" -type f -exec ls -la {} \;
-        bbfatal "eink-power-cli binary not found in expected locations"
-    fi
+    # cargo_bin class builds to ${B}/${RUST_TARGET}/release/ for release profile
+    # where B = ${WORKDIR}/target and RUST_TARGET = aarch64-unknown-linux-gnu
+    install -m 755 ${B}/${RUST_TARGET}/release/eink-power-cli ${D}${bindir}/eink-power-cli
     
     # Create symlink for convenience
     ln -sf eink-power-cli ${D}${bindir}/eink-pmu
