@@ -4,10 +4,37 @@
  * Copyright 2024 Dynamic Devices Ltd
  * 
  * Device tree for Dynamic Devices i.MX93 Jaguar E-Ink board
+ * 
+ * ============================================================================
+ * CRITICAL FIXES APPLIED - DO NOT REVERT WITHOUT UNDERSTANDING
+ * ============================================================================
+ * 
+ * 1. BBNSM IRQ CONFLICT RESOLUTION:
+ *    - BBNSM RTC disabled (using external PCF2131 for 166x power savings)
+ *    - BBNSM power key disabled (no physical button on board)
+ *    - Prevents: genirq: Flags mismatch irq 20 / bbnsm_rtc failed to request irq
+ * 
+ * 2. LPUART7 IRQ FIX:
+ *    - Removed custom IRQ override (GIC_SPI 73) that conflicted with BBNSM
+ *    - Now uses correct default IRQ (GIC_SPI 210 = Linux IRQ 242)
+ *    - Prevents: GPIO device link failures and UART conflicts
+ * 
+ * 3. LPSPI2 DMA ERROR FIX:
+ *    - Explicitly disabled unused LPSPI2 to prevent DMA setup errors
+ *    - Prevents: "fsl_lpspi 44360000.spi: dma setup error -19, use pio"
+ * 
+ * 4. POWER OPTIMIZATION:
+ *    - Primary RTC: PCF2131 (I2C3, 600nA, wake capability)
+ *    - Internal RTC: DISABLED (100µA too high for 5-year battery life)
+ *    - PMU RTC: MCXC143VFM (always powered, system management)
+ * 
  * Features:
  * - ublox MAYA W2 module (IW612 chipset) for WiFi/BT/802.15.4
  * - LTE modem support
  * - Power management via MCXC143VFM microcontroller
+ * - E-Ink display interfaces (SPI primary, QSPI disabled)
+ * - 5-year battery life optimization
+ * ============================================================================
  */
 
 /dts-v1/;
@@ -148,14 +175,46 @@
 	status = "okay";
 };
 
-/* BBNSM Power Key - DISABLED (no physical power button on this board) */
-&bbnsm_pwrkey {
-	status = "disabled";
+/* EdgeLock Enclave Message Unit - required for secure functionality */
+&s4muap {
+	status = "okay";
 };
 
-/* BBNSM RTC - DISABLED (using external PCF2131 RTC for 166x better power efficiency) */
+&mu1 {
+	status = "okay";
+};
+
+&mu2 {
+	status = "okay";
+};
+
+/* ============================================================================
+ * BBNSM (Battery-Backed Security Module) Configuration - POWER OPTIMIZED
+ * ============================================================================
+ * 
+ * CRITICAL IRQ CONFLICT RESOLUTION:
+ * The base i.MX93 device tree defines both bbnsm_rtc and bbnsm_pwrkey using
+ * the SAME IRQ (GIC_SPI 73 = Linux IRQ 105). This causes boot failures:
+ * 
+ * ERROR: genirq: Flags mismatch irq 20. 00000084 (rtc alarm) vs. 00000004 (fsl-lpuart)
+ * ERROR: bbnsm_rtc 44440000.bbnsm:rtc: failed to request irq 20: -16
+ * 
+ * SOLUTION: Disable both BBNSM devices since:
+ * 1. No physical power button exists on this board
+ * 2. External PCF2131 RTC is 166x more power efficient (600nA vs 100µA)
+ * 
+ * POWER ARCHITECTURE:
+ * - Internal BBNSM RTC: ~100µA (DISABLED - too high for 5-year battery life)
+ * - External PCF2131 RTC: 600nA (PRIMARY - ultra-low power, I2C3 @ 0x53)
+ * - MCXC143VFM PMU RTC: Always powered (internal to power management micro)
+ * ============================================================================ */
+
+&bbnsm_pwrkey {
+	status = "disabled";  /* No physical power button on this board */
+};
+
 &bbnsm_rtc {
-	status = "disabled";
+	status = "disabled";  /* Using external PCF2131 for 166x better power efficiency */
 };
 
 
@@ -304,21 +363,42 @@
 	};
 };
 
-/* Power Control Microcontroller UART - MCXC143VFM - LPUART7 */
+/* ============================================================================
+ * Power Control Microcontroller UART - MCXC143VFM - LPUART7
+ * ============================================================================
+ * 
+ * CRITICAL IRQ FIX - CUSTOM IRQ OVERRIDE REMOVED:
+ * Previous incorrect configuration had:
+ *   interrupts = <GIC_SPI 73 IRQ_TYPE_LEVEL_HIGH>;  // WRONG - conflicts with BBNSM
+ * 
+ * This caused IRQ conflicts because GIC_SPI 73 (Linux IRQ 105) was already
+ * used by BBNSM RTC and BBNSM power key, leading to boot failures.
+ * 
+ * CORRECT CONFIGURATION:
+ * Now uses default IRQ from base i.MX93 device tree:
+ *   - LPUART7 @ 0x42690000: GIC_SPI 210 (Linux IRQ 242)
+ *   - No conflicts with other devices
+ * 
+ * HARDWARE DETAILS:
+ * - Address: 0x42690000 (LPUART7)
+ * - IRQ: GIC_SPI 210 (Linux IRQ 242) - from base imx93.dtsi
+ * - Device: /dev/ttyLP2 (serial2 alias)
+ * - Pins: MX93_PAD_GPIO_IO08 (TX), MX93_PAD_GPIO_IO09 (RX)
+ * - Baudrate: 115200 (default)
+ * 
+ * MCXC143VFM FUNCTIONS:
+ * - WiFi/BT power control and sequencing
+ * - Battery monitoring and fuel gauge
+ * - System power management and wake scheduling  
+ * - 5-year battery life optimization algorithms
+ * ============================================================================ */
 &lpuart7 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpuart7>;
-	/* Use default IRQ assignment from base i.MX93 device tree - custom override was causing IRQ conflicts */
+	/* Use default IRQ assignment from base i.MX93 device tree (GIC_SPI 210 = IRQ 242) */
+	/* Previous custom override (GIC_SPI 73) was causing IRQ conflicts with BBNSM */
 	status = "okay";
-	/* No child device node - MCXC143VFM power management microcontroller
-	 * will be controlled via userspace application using /dev/ttyLP2
-	 * Default baudrate: 115200
-	 * Functions:
-	 * - WiFi/BT power control
-	 * - Battery monitoring  
-	 * - System power management
-	 * - 5-year battery life optimization
-	 */
+	/* No child device node - MCXC143VFM controlled via userspace application */
 };
 
 /* WiFi SDIO Interface - ublox MAYA W2 (IW612) */
@@ -425,11 +505,22 @@
 	};
 };
 
-/*
- * LPSPI2 - NOT USED on this board (address 0x44360000)
- * Disable to prevent DMA setup errors and reduce power consumption
- * Error: "fsl_lpspi 44360000.spi: dma setup error -19, use pio"
- */
+/* ============================================================================
+ * LPSPI2 - DISABLED (DMA Error Fix)
+ * ============================================================================
+ * 
+ * HARDWARE: Not used on this board (address 0x44360000)
+ * 
+ * DMA ERROR FIX:
+ * Previous boot error: "fsl_lpspi 44360000.spi: dma setup error -19, use pio"
+ * 
+ * ROOT CAUSE: LPSPI2 was trying to set up DMA channels but:
+ * 1. No DMA channels assigned in device tree
+ * 2. Hardware not connected on this board
+ * 3. Driver still attempts DMA setup during probe
+ * 
+ * SOLUTION: Explicitly disable to prevent DMA probe errors and reduce power
+ * ============================================================================ */
 &lpspi2 {
 	status = "disabled";
 };
@@ -559,13 +650,17 @@
 };
 
 /* ============================================================================
- * I2C3 Interface for PCF2131 RTC - CRITICAL FOR 5-YEAR BATTERY LIFE
+ * I2C3 Interface for PCF2131 RTC - PRIMARY RTC FOR 5-YEAR BATTERY LIFE
  * ============================================================================
  * 
  * POWER-OPTIMIZED RTC ARCHITECTURE:
- * - Internal i.MX93 RTC: ~100µA (DISABLED in kernel config - too high)
- * - External PCF2131 RTC: 600nA (166x more efficient!)
+ * - Internal i.MX93 BBNSM RTC: ~100µA (DISABLED in device tree - too high)
+ * - External PCF2131 RTC: 600nA (PRIMARY - 166x more efficient!)
  * - MCXC143VFM PMU RTC: Always powered (internal to PMU)
+ * 
+ * IRQ CONFLICT RESOLUTION:
+ * Internal BBNSM RTC disabled to prevent IRQ conflicts and save power.
+ * PCF2131 is now the sole system RTC, eliminating all IRQ conflicts.
  * 
  * OPERATIONAL STRATEGY:
  * 1. i.MX93 uses PCF2131 for primary timekeeping (always accurate)
