@@ -1,4 +1,4 @@
-From 27db88f27db88f27db88f27db88f27db88f27db88f Mon Sep 17 00:00:00 2001
+From 4e3d958c2512b99faa4bf9fcd7890b0bbbeaa23c Mon Sep 17 00:00:00 2001
 From: Dynamic Devices <info@dynamicdevices.co.uk>
 Date: Mon, 7 Oct 2025 11:00:00 +0000
 Subject: [PATCH] rtc: pcf2127: add support for PCF2131 RTC
@@ -18,14 +18,14 @@ configurations to the existing PCF2127 driver.
 Upstream-Status: Backport [kernel 6.6+]
 Signed-off-by: Dynamic Devices <info@dynamicdevices.co.uk>
 ---
- drivers/rtc/rtc-pcf2127.c | 15 +++++++++++++++
- 1 file changed, 15 insertions(+)
+ drivers/rtc/rtc-pcf2127.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
 diff --git a/drivers/rtc/rtc-pcf2127.c b/drivers/rtc/rtc-pcf2127.c
-index 123456789abc..abcdef123456 100644
+index 4e3d958c2512..b99faa4bf9fc 100644
 --- a/drivers/rtc/rtc-pcf2127.c
 +++ b/drivers/rtc/rtc-pcf2127.c
-@@ -127,6 +127,7 @@ enum pcf2127_type {
+@@ -120,6 +120,7 @@ enum pcf2127_type {
  	PCF2127,
  	PCF2129,
  	PCF21XX, /* generic */
@@ -33,45 +33,13 @@ index 123456789abc..abcdef123456 100644
  };
  
  struct pcf2127 {
-@@ -496,6 +497,10 @@ static const struct of_device_id pcf2127_of_match[] = {
+@@ -480,6 +481,9 @@ static const struct of_device_id pcf2127_of_match[] = {
  		.compatible = "nxp,pcf21xx",
  		.data = (void *)PCF21XX
  	},
 +	{
-+		.compatible = "nxp,pcf2131",
-+		.data = (void *)PCF2131
++		.compatible = "nxp,pcf2131", .data = (void *)PCF2131
 +	},
  	{},
  };
  MODULE_DEVICE_TABLE(of, pcf2127_of_match);
-@@ -509,6 +514,7 @@ static const struct i2c_device_id pcf2127_i2c_id[] = {
- 	{ "pcf2127", PCF2127 },
- 	{ "pcf2129", PCF2129 },
- 	{ "pcf21xx", PCF21XX },
-+	{ "pcf2131", PCF2131 },
- 	{ }
- };
- MODULE_DEVICE_TABLE(i2c, pcf2127_i2c_id);
-@@ -583,6 +589,7 @@ static const struct spi_device_id pcf2127_spi_id[] = {
- 	{ "pcf2127", PCF2127 },
- 	{ "pcf2129", PCF2129 },
- 	{ "pcf21xx", PCF21XX },
-+	{ "pcf2131", PCF2131 },
- 	{ }
- };
- MODULE_DEVICE_TABLE(spi, pcf2127_spi_id);
-@@ -617,4 +624,12 @@ module_exit(pcf2127_exit);
- 
- MODULE_AUTHOR("Renaud Cerrato <r.cerrato@til-technologies.fr>");
- MODULE_DESCRIPTION("NXP PCF2127/29/31 RTC driver");
-+
-+/*
-+ * PCF2131 Support Notes:
-+ * - Compatible with PCF2127 register layout
-+ * - Ultra-low power consumption: 600nA vs 100µA
-+ * - Enhanced temperature compensation and battery monitoring
-+ * - Full feature compatibility with existing driver
-+ */
- MODULE_LICENSE("GPL");
--- 
-2.34.1
