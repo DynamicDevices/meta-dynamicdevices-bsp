@@ -35,6 +35,9 @@ When reporting a security vulnerability, please include:
 - **Initial Assessment**: Within 5 business days
 - **Status Updates**: Weekly until resolution
 - **Fix Timeline**: Varies by severity (Critical: 7 days, High: 14 days, Medium: 30 days)
+- **Regulatory Reporting**: EU CRA incidents reported to authorities within 24 hours
+
+**Note**: For operational incident response procedures, see `docs/security/INCIDENT_RESPONSE_POLICY.md`
 
 ### Severity Levels
 
@@ -86,4 +89,4 @@ We follow responsible disclosure practices:
 
 ---
 
-*This security policy is effective as of 2024 and may be updated periodically.*
+*This security policy is effective as of October 2025 and is updated to comply with EU Cyber Resilience Act (CRA) requirements. For comprehensive incident response procedures, refer to the operational incident response policy.*
