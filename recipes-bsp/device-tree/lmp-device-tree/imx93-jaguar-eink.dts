@@ -250,18 +250,26 @@
 
 &lpuart3 {
 	status = "disabled";  /* Unused */
+	/* Disable power management to prevent device link failures during boot */
+	/delete-property/ power-domains;
 };
 
 &lpuart4 {
 	status = "disabled";  /* Unused */
+	/* Disable power management to prevent device link failures during boot */
+	/delete-property/ power-domains;
 };
 
 &lpuart6 {
 	status = "disabled";  /* Unused */
+	/* Disable power management to prevent device link failures during boot */
+	/delete-property/ power-domains;
 };
 
 &lpuart8 {
 	status = "disabled";  /* Unused */
+	/* Disable power management to prevent device link failures during boot */
+	/delete-property/ power-domains;
 };
 
 /* Pin configuration for LPUART2 Bluetooth */
@@ -393,6 +401,8 @@
 
 &lpuart5 {
 	status = "disabled";  /* Unused - Bluetooth moved to LPUART2 to match hardware */
+	/* Disable power management to prevent device link failures during boot */
+	/delete-property/ power-domains;
 };
 
 /* ============================================================================
