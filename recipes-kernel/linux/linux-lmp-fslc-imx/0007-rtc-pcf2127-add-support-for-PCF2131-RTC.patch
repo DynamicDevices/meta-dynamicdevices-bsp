@@ -3,7 +3,7 @@ From: Dynamic Devices <info@dynamicdevices.co.uk>
 Date: Mon, 7 Oct 2025 11:00:00 +0000
 Subject: [PATCH] rtc: pcf2127: add support for PCF2131 RTC
 
-Backport PCF2131 support to kernel 6.1 from mainline kernel 6.6+.
+Add PCF2131 support to the PCF2127 RTC driver.
 
 The PCF2131 is pin and register compatible with PCF2127/29 but has
 additional features:
@@ -12,34 +12,39 @@ additional features:
 - Battery low detection
 - Dual interrupt mode support
 
-This patch adds PCF2131 compatible string recognition and device-specific
-configurations to the existing PCF2127 driver.
+This patch adds PCF2131 compatible string recognition to the existing
+PCF2127 driver device tables.
 
-Upstream-Status: Backport [kernel 6.6+]
 Signed-off-by: Dynamic Devices <info@dynamicdevices.co.uk>
 ---
- drivers/rtc/rtc-pcf2127.c | 4 ++++
- 1 file changed, 4 insertions(+)
+ drivers/rtc/rtc-pcf2127.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
 diff --git a/drivers/rtc/rtc-pcf2127.c b/drivers/rtc/rtc-pcf2127.c
 index 4e3d958c2512..b99faa4bf9fc 100644
 --- a/drivers/rtc/rtc-pcf2127.c
 +++ b/drivers/rtc/rtc-pcf2127.c
-@@ -120,6 +120,7 @@ enum pcf2127_type {
- 	PCF2127,
- 	PCF2129,
- 	PCF21XX, /* generic */
-+	PCF2131,
- };
- 
- struct pcf2127 {
-@@ -480,6 +481,9 @@ static const struct of_device_id pcf2127_of_match[] = {
- 		.compatible = "nxp,pcf21xx",
- 		.data = (void *)PCF21XX
- 	},
-+	{
-+		.compatible = "nxp,pcf2131", .data = (void *)PCF2131
-+	},
- 	{},
+@@ -801,6 +801,7 @@ static const struct of_device_id pcf2127_of_match[] = {
+ 	{ .compatible = "nxp,pcf2127" },
+ 	{ .compatible = "nxp,pcf2129" },
+ 	{ .compatible = "nxp,pca2129" },
++	{ .compatible = "nxp,pcf2131" },
+ 	{}
  };
  MODULE_DEVICE_TABLE(of, pcf2127_of_match);
+@@ -890,6 +891,7 @@ static const struct i2c_device_id pcf2127_i2c_id[] = {
+ 	{ "pcf2127", 1 },
+ 	{ "pcf2129", 0 },
+ 	{ "pca2129", 0 },
++	{ "pcf2131", 0 },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(i2c, pcf2127_i2c_id);
+@@ -982,6 +984,7 @@ static const struct spi_device_id pcf2127_spi_id[] = {
+ 	{ "pcf2127", 1 },
+ 	{ "pcf2129", 0 },
+ 	{ "pca2129", 0 },
++	{ "pcf2131", 0 },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(spi, pcf2127_spi_id);
