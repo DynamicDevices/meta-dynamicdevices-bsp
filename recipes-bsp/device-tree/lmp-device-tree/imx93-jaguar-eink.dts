@@ -19,11 +19,17 @@
  *    - Now uses correct default IRQ (GIC_SPI 210 = Linux IRQ 242)
  *    - Prevents: GPIO device link failures and UART conflicts
  * 
- * 3. LPSPI2 DMA ERROR FIX:
+ * 3. BLUETOOTH MAYA W2 LPUART FIX:
+ *    - Moved from LPUART5 to LPUART2 to match actual hardware configuration
+ *    - Fixes: "Bluetooth: hci0: Opcode 0x0c03 failed: -110" (HCI Reset timeout)
+ *    - Root cause: Base DT has bluetooth on LPUART2, our overlay had LPUART5
+ *    - btnxpuart driver now binds correctly to hardware on LPUART2
+ * 
+ * 4. LPSPI2 DMA ERROR FIX:
  *    - Explicitly disabled unused LPSPI2 to prevent DMA setup errors
  *    - Prevents: "fsl_lpspi 44360000.spi: dma setup error -19, use pio"
  * 
- * 4. POWER OPTIMIZATION:
+ * 5. POWER OPTIMIZATION:
  *    - Primary RTC: PCF2131 (I2C3, 600nA, wake capability)
  *    - Internal RTC: DISABLED (100µA too high for 5-year battery life)
  *    - PMU RTC: MCXC143VFM (always powered, system management)
@@ -57,12 +63,12 @@
 	/* Serial port aliases - explicit mapping to prevent out-of-range errors */
 	aliases {
 		serial0 = &lpuart1;  /* Console UART */
-		serial1 = &lpuart5;  /* Bluetooth UART */
+		serial1 = &lpuart2;  /* Bluetooth UART - MAYA W2 */
 		serial2 = &lpuart7;  /* Power Management UART - MCXC143VFM PMU */
 		/* Explicitly disable unused LPUARTs to prevent conflicts */
-		serial3 = &lpuart2;  /* Unused */
-		serial4 = &lpuart3;  /* Unused */
-		serial5 = &lpuart4;  /* Unused */
+		serial3 = &lpuart3;  /* Unused */
+		serial4 = &lpuart4;  /* Unused */
+		serial5 = &lpuart5;  /* Unused */
 		serial6 = &lpuart6;  /* Unused */
 		serial7 = &lpuart8;  /* Unused */
 	};
@@ -225,7 +231,21 @@
 
 /* Unused UARTs - explicitly disable to prevent GPIO conflicts and device link failures */
 &lpuart2 {
-	status = "disabled";  /* Unused - prevents GPIO4 device link failure */
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpuart2 &pinctrl_bluetooth_gpio>;
+	/* MAYA W2 Bluetooth configuration - higher baudrate required
+	 * Hardware flow control disabled to prevent timeout issues
+	 * Fixes: "Bluetooth: hci0: Setting wake-up method failed (-110)"
+	 * Reference: MAYA W2 needs 3MHz baudrate for proper initialization
+	 */
+	/* fsl,uart-has-rtscts; -- DISABLED for MAYA W2 compatibility */
+	status = "okay";  /* Bluetooth UART - MAYA W2 */
+
+	bluetooth {
+		compatible = "nxp,88w8997-bt";
+		fw-init-baudrate = <3000000>;  /* Higher baudrate for MAYA W2 - 115200 was causing timeout errors */
+		reset-gpios = <&gpio4 24 GPIO_ACTIVE_LOW>;  /* BT_RST - MX93_PAD_ENET2_RD0__GPIO4_IO24 */
+	};
 };
 
 &lpuart3 {
@@ -244,16 +264,15 @@
 	status = "disabled";  /* Unused */
 };
 
-/* Pin configuration for LPUART5 Bluetooth */
+/* Pin configuration for LPUART2 Bluetooth */
 &iomuxc {
-	/* Pin configuration for LPUART5 Bluetooth - MAYA W2 without flow control */
-	pinctrl_lpuart5: lpuart5grp {
+	/* Pin configuration for LPUART2 Bluetooth - MAYA W2 without flow control */
+	pinctrl_lpuart2: lpuart2grp {
 		fsl,pins = <
-			MX93_PAD_DAP_TDO_TRACESWO__LPUART5_TX	0x31e  /* BT UART TX - Output from iMX93 */
-			MX93_PAD_DAP_TDI__LPUART5_RX		0x31e  /* BT UART RX - Input to iMX93 */
+			MX93_PAD_DAP_TDO_TRACESWO__LPUART2_TX	0x31e  /* BT UART TX - Output from iMX93 */
+			MX93_PAD_DAP_TDI__LPUART2_RX		0x31e  /* BT UART RX - Input to iMX93 */
 			/* RTS/CTS pins removed - MAYA W2 doesn't support hardware flow control reliably
-			 * MX93_PAD_DAP_TCLK_SWCLK__LPUART5_CTS_B	0x31e
-			 * MX93_PAD_DAP_TMS_SWDIO__LPUART5_RTS_B	0x31e
+			 * Hardware flow control disabled to prevent timeout issues
 			 */
 		>;
 	};
@@ -372,23 +391,8 @@
 
 };
 
-/* Bluetooth UART - ublox MAYA W2 - LPUART5 */
 &lpuart5 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_lpuart5 &pinctrl_bluetooth_gpio>;
-	/* MAYA W2 Bluetooth configuration - higher baudrate required
-	 * Hardware flow control disabled to prevent timeout issues
-	 * Fixes: "Bluetooth: hci0: Setting wake-up method failed (-110)"
-	 * Reference: MAYA W2 needs 3MHz baudrate for proper initialization
-	 */
-	/* fsl,uart-has-rtscts; -- DISABLED for MAYA W2 compatibility */
-	status = "okay";
-
-	bluetooth {
-		compatible = "nxp,88w8997-bt";
-		fw-init-baudrate = <3000000>;  /* Higher baudrate for MAYA W2 - 115200 was causing timeout errors */
-		reset-gpios = <&gpio4 24 GPIO_ACTIVE_LOW>;  /* BT_RST - MX93_PAD_ENET2_RD0__GPIO4_IO24 */
-	};
+	status = "disabled";  /* Unused - Bluetooth moved to LPUART2 to match hardware */
 };
 
 /* ============================================================================
