@@ -131,6 +131,7 @@ SRC_URI:append:imx93-jaguar-eink = " \
 		file://imx93-jaguar-eink/pcf2131-rtc.cfg \
 		file://imx93-jaguar-eink/config-conflicts-fix.cfg \
 		file://imx93-jaguar-eink/module-signing.cfg \
+		file://0007-rtc-pcf2127-add-support-for-PCF2131-RTC.patch \
 		${@bb.utils.contains('ENABLE_BOOT_PROFILING', '1', 'file://boot-profiling.cfg', '', d)} \
 "
 

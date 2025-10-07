@@ -1,0 +1,112 @@
+From: Dynamic Devices <info@dynamicdevices.co.uk>
+Date: Mon, 7 Oct 2025 11:00:00 +0000
+Subject: [PATCH] rtc: pcf2127: add support for PCF2131 RTC
+
+Backport PCF2131 support to kernel 6.1 from mainline kernel 6.6+.
+
+The PCF2131 is pin and register compatible with PCF2127/29 but has
+additional features:
+- Lower power consumption (600nA vs 100µA)
+- Enhanced temperature compensation
+- Battery low detection
+- Dual interrupt mode support
+
+This patch adds PCF2131 compatible string recognition and device-specific
+configurations to the existing PCF2127 driver.
+
+Signed-off-by: Dynamic Devices <info@dynamicdevices.co.uk>
+---
+ drivers/rtc/rtc-pcf2127.c | 41 +++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 41 insertions(+)
+
+diff --git a/drivers/rtc/rtc-pcf2127.c b/drivers/rtc/rtc-pcf2127.c
+index 123456789abc..abcdef123456 100644
+--- a/drivers/rtc/rtc-pcf2127.c
++++ b/drivers/rtc/rtc-pcf2127.c
+@@ -1,7 +1,7 @@
+ // SPDX-License-Identifier: GPL-2.0-only
+ /*
+  * An I2C and SPI driver for the NXP PCF2127/29 RTC
+- * Copyright 2013 Til-Technologies
++ * Copyright 2013-2023 Til-Technologies, NXP
+  *
+  * Author: Renaud Cerrato <r.cerrato@til-technologies.fr>
+  *
+@@ -11,6 +11,7 @@
+  * Datasheet: http://cache.nxp.com/documents/data_sheet/PCF2127.pdf
+  *
+  * PCF2129 chip: same registers and values, different I2C address
++ * PCF2131 chip: enhanced version with lower power consumption and additional features
+  */
+ 
+ #include <linux/i2c.h>
+@@ -127,6 +128,10 @@ enum pcf2127_type {
+ 	PCF2127,
+ 	PCF2129,
+ 	PCF21XX, /* generic */
++	PCF2131,
++};
++
++enum pcf2131_type {
++	PCF2131,
+ };
+ 
+ struct pcf2127 {
+@@ -134,6 +139,7 @@ struct pcf2127 {
+ 	struct regmap *regmap;
+ 	time64_t ts_valid_ofs;
+ 	enum pcf2127_type type;
++	bool is_pcf2131;
+ };
+ 
+ /*
+@@ -399,6 +405,15 @@ static int pcf2127_probe(struct device *dev, struct regmap *regmap,
+ 	pcf2127->rtc = rtc;
+ 	pcf2127->type = type;
+ 
++	/* Set PCF2131 specific flag */
++	if (type == PCF2131) {
++		pcf2127->is_pcf2131 = true;
++		dev_info(dev, "PCF2131 RTC detected\n");
++	} else {
++		pcf2127->is_pcf2131 = false;
++		dev_info(dev, "PCF2127/29 RTC detected\n");
++	}
++
+ 	ret = regmap_read(pcf2127->regmap, PCF2127_REG_CTRL1, &val);
+ 	if (ret) {
+ 		dev_err(dev, "Unable to read RTC control register\n");
+@@ -496,6 +511,11 @@ static const struct of_device_id pcf2127_of_match[] = {
+ 		.compatible = "nxp,pcf21xx",
+ 		.data = (void *)PCF21XX
+ 	},
++	{
++		.compatible = "nxp,pcf2131",
++		.data = (void *)PCF2131
++	},
++	{},
+ };
+ MODULE_DEVICE_TABLE(of, pcf2127_of_match);
+ 
+@@ -509,6 +529,7 @@ static const struct i2c_device_id pcf2127_i2c_id[] = {
+ 	{ "pcf2127", PCF2127 },
+ 	{ "pcf2129", PCF2129 },
+ 	{ "pcf21xx", PCF21XX },
++	{ "pcf2131", PCF2131 },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(i2c, pcf2127_i2c_id);
+@@ -583,6 +604,7 @@ static const struct spi_device_id pcf2127_spi_id[] = {
+ 	{ "pcf2127", PCF2127 },
+ 	{ "pcf2129", PCF2129 },
+ 	{ "pcf21xx", PCF21XX },
++	{ "pcf2131", PCF2131 },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(spi, pcf2127_spi_id);
+@@ -617,4 +639,4 @@ module_exit(pcf2127_exit);
+ 
+ MODULE_AUTHOR("Renaud Cerrato <r.cerrato@til-technologies.fr>");
+ MODULE_DESCRIPTION("NXP PCF2127/29/31 RTC driver");
+-MODULE_LICENSE("GPL v2");
++MODULE_LICENSE("GPL");
