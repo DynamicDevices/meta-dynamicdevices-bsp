@@ -1,9 +1,9 @@
 # Extend compatibility to include Dynamic Devices i.MX93 boards
-# The base recipe only supports (mx8ulp-nxp-bsp|mx9-nxp-bsp) but our 
-# imx93-jaguar-eink machine inherits from mx93 which should be compatible
+# The base recipe supports (mx8ulp-nxp-bsp|mx9-nxp-bsp) and our 
+# imx93-jaguar-eink machine inherits mx93 which gets mx9-nxp-bsp override
 
-# Add imx93-jaguar-eink to the compatible machines list
-COMPATIBLE_MACHINE:append = "|imx93-jaguar-eink"
+# This bbappend extends the base imx-secure-enclave recipe from meta-freescale
+# The base recipe already has COMPATIBLE_MACHINE = "(mx8ulp-nxp-bsp|mx9-nxp-bsp)"
+# Our imx93-jaguar-eink machine gets mx9-nxp-bsp via MACHINEOVERRIDES_EXTENDER
 
-# Ensure we have the right platform setting for i.MX93
-EXTRA_OEMAKE:imx93-jaguar-eink = "PLAT=ele"
+# Platform is already set to "ele" in base recipe for i.MX93
