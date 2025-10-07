@@ -648,6 +648,11 @@
 	pinctrl-0 = <&pinctrl_lpi2c3>;
 	status = "okay";
 	clock-frequency = <100000>;  /* 100kHz for low power operation */
+	
+	/* Ensure clocks are properly assigned and enabled */
+	assigned-clocks = <&clk IMX93_CLK_LPI2C3_GATE>;
+	assigned-clock-parents = <&clk IMX93_CLK_SYS_PLL_PFD1_DIV2>;
+	assigned-clock-rates = <24000000>;
 
 	pcf2131: rtc@53 {
 		compatible = "nxp,pcf2131";
