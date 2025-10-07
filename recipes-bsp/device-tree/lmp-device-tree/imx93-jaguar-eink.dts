@@ -223,6 +223,27 @@
 	status = "okay";
 };
 
+/* Unused UARTs - explicitly disable to prevent GPIO conflicts and device link failures */
+&lpuart2 {
+	status = "disabled";  /* Unused - prevents GPIO4 device link failure */
+};
+
+&lpuart3 {
+	status = "disabled";  /* Unused */
+};
+
+&lpuart4 {
+	status = "disabled";  /* Unused */
+};
+
+&lpuart6 {
+	status = "disabled";  /* Unused */
+};
+
+&lpuart8 {
+	status = "disabled";  /* Unused */
+};
+
 /* Pin configuration for LPUART5 Bluetooth */
 &iomuxc {
 	/* Pin configuration for LPUART5 Bluetooth - MAYA W2 without flow control */
