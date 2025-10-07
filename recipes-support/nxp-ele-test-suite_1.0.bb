@@ -12,7 +12,7 @@ DEPENDS = "openssl"
 RDEPENDS:${PN} = "openssl-bin"
 
 # Compatible only with i.MX93 machines that have EdgeLock Enclave
-COMPATIBLE_MACHINE = "(imx93-jaguar-eink|imx93-11x11-lpddr4x-evk)"
+# COMPATIBLE_MACHINE = "(imx93-jaguar-eink|imx93-11x11-lpddr4x-evk)"
 
 # For now, we'll focus on our reliable simple test utility
 # The NXP repository can be added later when branch issues are resolved
