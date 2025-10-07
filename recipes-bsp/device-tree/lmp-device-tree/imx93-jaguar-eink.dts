@@ -575,6 +575,27 @@
 	status = "disabled";
 };
 
+/* ============================================================================
+ * EDMA1 DMA Controller - Enable for LPSPI1 DMA support
+ * ============================================================================
+ * 
+ * PROBLEM: LPSPI1 DMA setup error -19 (ENODEV)
+ * ERROR: "fsl_lpspi 44360000.spi: dma setup error -19, use pio"
+ * 
+ * ROOT CAUSE: EDMA1 controller not explicitly enabled in device tree
+ * - LPSPI1 requests: dmas = <&edma1 0 14>, <&edma1 0 15>
+ * - EDMA1 exists at 44000000.dma-controller but may be disabled by default
+ * - Error sequence: -517 (EPROBE_DEFER) → -19 (ENODEV) → PIO fallback
+ * 
+ * SOLUTION: Explicitly enable EDMA1 controller
+ * - Ensures DMA channels are available for LPSPI1
+ * - Eliminates boot error and improves SPI performance
+ * - DMA channels 14 and 15 verified available (in_use: 0)
+ * ============================================================================ */
+&edma1 {
+	status = "okay";
+};
+
 /*
  * USB-C port (usbotg1) - board lacks Type-C/PD controller so operate in forced host mode.
  * No external VBUS regulator control needed - hardware provides fixed 5V.
