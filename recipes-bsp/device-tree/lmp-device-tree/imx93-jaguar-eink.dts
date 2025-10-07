@@ -382,7 +382,7 @@
 		>;
 	};
 
-	/* I2C3 pinctrl for PCF2131 RTC */
+	/* I2C3 pinctrl for PCF2131 RTC - confirmed by schematic */
 	pinctrl_lpi2c3: lpi2c3grp {
 		fsl,pins = <
 			MX93_PAD_GPIO_IO28__LPI2C3_SDA		0x40000b9e  /* I2C3_SDA */
@@ -624,6 +624,55 @@
 };
 
 
+/* ============================================================================
+ * I2C3 Interface for PCF2131 RTC - PRIMARY RTC FOR 5-YEAR BATTERY LIFE
+ * ============================================================================
+ * 
+ * SCHEMATIC CONFIRMED: PCF2131 connects to I2C3_SDA/SCL via GPIO_IO28/29
+ * 
+ * POWER-OPTIMIZED RTC ARCHITECTURE:
+ * - Internal i.MX93 BBNSM RTC: ~100µA (DISABLED - too high for 5-year battery)
+ * - External PCF2131 RTC: 600nA (PRIMARY - 166x more efficient!)
+ * - MCXC143VFM PMU RTC: Always powered (internal to PMU)
+ * 
+ * HARDWARE CONNECTIONS (per schematic):
+ * - I2C3_SDA: GPIO_IO28 (pin J21) → PCF2131 pin 5
+ * - I2C3_SCL: GPIO_IO29 (pin J20) → PCF2131 pin 4
+ * - INTA#: GPIO4_IO22 → i.MX93 wake interrupt
+ * - INTB#: Connected to MCXC143VFM PMU
+ * ============================================================================ */
+&lpi2c3 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpi2c3>;
+	status = "okay";
+	clock-frequency = <100000>;  /* 100kHz for low power operation */
+
+	pcf2131: rtc@53 {
+		compatible = "nxp,pcf2131";
+		reg = <0x53>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_pcf2131_irq>;
+		interrupt-parent = <&gpio4>;
+		interrupts = <22 IRQ_TYPE_LEVEL_LOW>; /* GPIO4_IO22 - INTA# */
+		interrupt-names = "alarm";
+		wakeup-source;                         /* Enable wake capability */
+		
+		/* POWER OPTIMIZATION: Direct switching mode for lower power consumption */
+		nxp,power-mode = <3>;                  /* Direct switching mode (011) */
+		
+		/* ULTRA-LOW POWER: Disable temperature compensation for minimum current */
+		nxp,temp-compensation-disable;
+		
+		/* BATTERY MANAGEMENT: Optimize for 3.3V VBAT operation */
+		nxp,battery-low-detection;
+		
+		/* WAKE OPTIMIZATION: Configure both interrupt outputs */
+		nxp,dual-interrupt-mode;
+	};
+};
+
 /* 
  * I2C2 Interface for PCA9451A PMIC
  * 
@@ -715,85 +764,6 @@
 				regulator-always-on;
 			};
 		};
-	};
-};
-
-/* ============================================================================
- * I2C3 Interface for PCF2131 RTC - PRIMARY RTC FOR 5-YEAR BATTERY LIFE
- * ============================================================================
- * 
- * POWER-OPTIMIZED RTC ARCHITECTURE:
- * - Internal i.MX93 BBNSM RTC: ~100µA (DISABLED in device tree - too high)
- * - External PCF2131 RTC: 600nA (PRIMARY - 166x more efficient!)
- * - MCXC143VFM PMU RTC: Always powered (internal to PMU)
- * 
- * IRQ CONFLICT RESOLUTION:
- * Internal BBNSM RTC disabled to prevent IRQ conflicts and save power.
- * PCF2131 is now the sole system RTC, eliminating all IRQ conflicts.
- * 
- * OPERATIONAL STRATEGY:
- * 1. i.MX93 uses PCF2131 for primary timekeeping (always accurate)
- * 2. i.MX93 syncs time with PMU periodically when powered
- * 3. i.MX93 sets wake schedules in PMU before sleep
- * 4. PMU uses internal RTC or PCF2131 INTB# to wake i.MX93
- * 5. Complete i.MX93 power-down possible while maintaining time/wake
- * 
- * HARDWARE CONNECTIONS:
- * - I2C3: GPIO_IO28 (SDA), GPIO_IO29 (SCL) - Communication
- * - INTA#: MX93_PAD_ENET2_RX_CTL → GPIO4_IO22 - Wake i.MX93 from sleep
- * - INTB#: PTC5/LLWU_P9 (MCXC143VFM) - Wake PMU from low power
- * - VBAT: Battery backup power for continuous operation
- * 
- * PIN CONFIGURATION:
- * - MX93_PAD_ENET2_RX_CTL configured as GPIO4_IO22 input with pull-up
- * - Interrupt trigger: IRQ_TYPE_LEVEL_LOW (INTA# active low)
- * - Wake capability: Enabled for suspend/resume functionality
- * 
- * POWER SAVINGS: 600nA vs 100µA = 166x improvement in RTC power consumption!
- * ============================================================================ */
-&lpi2c3 {
-	#address-cells = <1>;
-	#size-cells = <0>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_lpi2c3>;
-	status = "okay";
-
-	pcf2131: rtc@53 {
-		compatible = "nxp,pcf2131";
-		reg = <0x53>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_pcf2131_irq>;
-		interrupt-parent = <&gpio4>;
-		interrupts = <22 IRQ_TYPE_LEVEL_LOW>; /* GPIO4_IO22 - INTA# */
-		interrupt-names = "alarm";
-		wakeup-source;                         /* Enable wake capability */
-		
-		/* POWER OPTIMIZATION: Direct switching mode for lower power consumption
-		 * PWRMNG[2:0] = 011 (Direct switching mode) vs 000 (Standard mode)
-		 * Benefits: Reduced power consumption by disabling VDD/Vth monitoring
-		 * Suitable when VDD > VBAT (typical for our battery backup scenario)
-		 */
-		nxp,power-mode = <3>;                  /* Direct switching mode (011) */
-		
-		/* ULTRA-LOW POWER: Disable temperature compensation for minimum current
-		 * TC_DIS = 1: Disables temperature compensation engine
-		 * Power savings: Additional nA reduction for 5-year battery life
-		 * Trade-off: Slightly reduced accuracy (~±3ppm vs ±1ppm)
-		 * Acceptable for E-Ink display timing requirements
-		 */
-		nxp,temp-compensation-disable;
-		
-		/* BATTERY MANAGEMENT: Optimize for 3.3V VBAT operation
-		 * Current consumption: 83-104 nA @ 3.3V (better than 600nA spec!)
-		 * Battery low detection enabled for maintenance alerts
-		 */
-		nxp,battery-low-detection;
-		
-		/* WAKE OPTIMIZATION: Configure both interrupt outputs
-		 * INTA: i.MX93 wake (GPIO4_IO22) - Primary wake source
-		 * INTB: PMU wake (PTC5/LLWU_P9) - Secondary wake path
-		 */
-		nxp,dual-interrupt-mode;
 	};
 };
 
