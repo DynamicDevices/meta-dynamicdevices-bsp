@@ -269,8 +269,8 @@
 	/* Pin configuration for LPUART2 Bluetooth - MAYA W2 without flow control */
 	pinctrl_lpuart2: lpuart2grp {
 		fsl,pins = <
-			MX93_PAD_DAP_TDO_TRACESWO__LPUART2_TX	0x31e  /* BT UART TX - Output from iMX93 */
-			MX93_PAD_DAP_TDI__LPUART2_RX		0x31e  /* BT UART RX - Input to iMX93 */
+			MX93_PAD_UART2_TXD__LPUART2_TX		0x31e  /* BT UART TX - Output from iMX93 */
+			MX93_PAD_UART2_RXD__LPUART2_RX		0x31e  /* BT UART RX - Input to iMX93 */
 			/* RTS/CTS pins removed - MAYA W2 doesn't support hardware flow control reliably
 			 * Hardware flow control disabled to prevent timeout issues
 			 */
