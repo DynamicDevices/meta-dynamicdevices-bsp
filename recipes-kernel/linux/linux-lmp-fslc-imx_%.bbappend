@@ -128,7 +128,6 @@ SRC_URI:append:imx93-jaguar-eink = " \
 		file://imx93-jaguar-eink/lte-modem-support.cfg \
 		file://imx93-jaguar-eink/ocotp-nvmem-support.cfg \
 		file://imx93-jaguar-eink/spi-support.cfg \
-		file://imx93-jaguar-eink/pcf2131-rtc.cfg \
 		file://imx93-jaguar-eink/config-conflicts-fix.cfg \
 		file://imx93-jaguar-eink/module-signing.cfg \
 		${@bb.utils.contains('ENABLE_BOOT_PROFILING', '1', 'file://boot-profiling.cfg', '', d)} \
