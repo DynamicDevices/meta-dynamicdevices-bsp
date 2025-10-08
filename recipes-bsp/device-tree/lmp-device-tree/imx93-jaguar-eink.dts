@@ -665,7 +665,7 @@
 		wakeup-source;                         /* Enable wake capability */
 		
 		/* DSM POWER MANAGEMENT: Primary wake source for Deep Sleep Mode */
-		power-domains = <&wakeupmix_pd>;       /* Ensure RTC remains powered in DSM */
+		/* power-domains = <&wakeupmix_pd>; */    /* TODO: Verify power domain name in kernel 6.6+ */
 		
 		/* POWER OPTIMIZATION: Direct switching mode for lower power consumption */
 		nxp,power-mode = <3>;                  /* Direct switching mode (011) */
@@ -844,7 +844,7 @@
 	status = "okay";
 	
 	/* Configure wake sources for DSM */
-	wakeup-sources = <&pcf2131>;  /* PCF2131 RTC as primary wake source */
+	/* wakeup-sources = <&pcf2131>; */  /* TODO: Verify GPC wake source syntax in kernel 6.6+ */
 };
 
 /* Low Power Management - Enable power mode switching */
@@ -861,10 +861,15 @@
  * Links ELE device to its reserved memory region
  * Without this: "fsl-ele-mu soc@0:ele-mu: failed to init reserved memory region -19"
  * Followed by: RCU stall at 21 seconds causing boot failure
+ * 
+ * NOTE: Commented out for kernel 6.6+ - ELE node name may have changed
+ * TODO: Find correct ELE node name in kernel 6.6+ and re-enable if needed
  */
+/*
 &ele_mu {
 	memory-region = <&ele_reserved>;
 };
+*/
 
 /* ============================================================================
  * CORTEX-M33 CONFIGURATION - POWER MANAGEMENT MICROCONTROLLER
