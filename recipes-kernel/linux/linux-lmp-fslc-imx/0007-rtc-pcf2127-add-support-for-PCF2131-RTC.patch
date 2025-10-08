@@ -36,7 +36,7 @@ index 4e3d958c2512..b99faa4bf9fc 100644
  	{ "pcf2127", 1 },
  	{ "pcf2129", 0 },
  	{ "pca2129", 0 },
-+	{ "pcf2131", 0 },
++	{ "pcf2131", 1 },
  	{ }
  };
  MODULE_DEVICE_TABLE(i2c, pcf2127_i2c_id);
@@ -44,7 +44,7 @@ index 4e3d958c2512..b99faa4bf9fc 100644
  	{ "pcf2127", 1 },
  	{ "pcf2129", 0 },
  	{ "pca2129", 0 },
-+	{ "pcf2131", 0 },
++	{ "pcf2131", 1 },
  	{ }
  };
  MODULE_DEVICE_TABLE(spi, pcf2127_spi_id);
