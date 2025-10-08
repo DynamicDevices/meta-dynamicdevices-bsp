@@ -116,6 +116,7 @@ SRC_URI:append:imx8mm-jaguar-phasora = " \
 "
 
 SRC_URI:append:imx93-jaguar-eink = " \
+		file://imx93-jaguar-eink.dts \
 		file://imx93-jaguar-eink/imx93-core-system.cfg \
 		file://imx93-jaguar-eink/imx93-power-management.cfg \
 		file://imx93-jaguar-eink/imx93-wireless.cfg \
@@ -134,6 +135,18 @@ SRC_URI:append:imx93-jaguar-eink = " \
 "
 
 # NOTE: Device tree is handled by lmp-device-tree recipe, not kernel recipe
+
+# NOTE: This DTB file is created as a default for use with local development
+#       when building lmp-base. It is NOT used by the lmp build or under CI
+#       which uses the DTS in lmp-device-tree
+do_configure:append:imx93-jaguar-eink(){
+ if [ -f ${WORKDIR}/imx93-jaguar-eink.dts ]; then
+     cp ${WORKDIR}/imx93-jaguar-eink.dts ${S}/arch/arm64/boot/dts
+     echo "dtb-y += imx93-jaguar-eink.dtb" >> ${S}/arch/arm64/boot/dts/Makefile
+ else
+     bbwarn "imx93-jaguar-eink.dts not found in ${WORKDIR}, skipping DTS copy"
+ fi
+}
 
 #do_configure:append:imx8mm-jaguar-phasora() {
 #   for i in ../*.cfg; do
