@@ -835,17 +835,23 @@
  */
 
 /* Power Management Controller - Enable DSM support */
+/* NOTE: &pmc and &gpc labels changed/removed in kernel 6.6+ - commenting out for compatibility */
+/*
 &pmc {
 	status = "okay";
 };
+*/
 
 /* System Power Management - Configure wake sources */
+/* NOTE: &gpc label changed/removed in kernel 6.6+ - power management handled differently */
+/*
 &gpc {
 	status = "okay";
-	
-	/* Configure wake sources for DSM */
-	/* wakeup-sources = <&pcf2131>; */  /* TODO: Verify GPC wake source syntax in kernel 6.6+ */
+
+	// Configure wake sources for DSM
+	// wakeup-sources = <&pcf2131>;  // TODO: Verify GPC wake source syntax in kernel 6.6+
 };
+*/
 
 /* Low Power Management - Enable power mode switching */
 &lpuart1 {
