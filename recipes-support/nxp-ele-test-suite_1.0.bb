@@ -6,6 +6,7 @@ LIC_FILES_CHKSUM = "file://LICENSE;md5=8636bd68fc00cc6a3809b7b58b45f982"
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
 SRC_URI = "file://simple-ele-test.c \
+           file://enhanced-ele-test.c \
            file://LICENSE"
 
 DEPENDS = "openssl"
@@ -16,13 +17,17 @@ S = "${WORKDIR}"
 do_compile() {
     ${CC} ${CFLAGS} ${LDFLAGS} ${WORKDIR}/simple-ele-test.c \
         -o ${S}/simple-ele-test || bbfatal "Failed to compile simple ELE test"
+    
+    ${CC} ${CFLAGS} ${LDFLAGS} ${WORKDIR}/enhanced-ele-test.c \
+        -o ${S}/enhanced-ele-test || bbfatal "Failed to compile enhanced ELE test"
 }
 
 do_install() {
     install -d ${D}${bindir}
     install -m 0755 ${S}/simple-ele-test ${D}${bindir}/
+    install -m 0755 ${S}/enhanced-ele-test ${D}${bindir}/
     
-    # Create test runner script
+    # Create test runner scripts
     cat > ${D}${bindir}/run-ele-tests << 'EOF'
 #!/bin/bash
 echo "=== EdgeLock Enclave Test Suite ==="
@@ -31,6 +36,16 @@ simple-ele-test all
 echo "=== ELE Test Suite Complete ==="
 EOF
     chmod +x ${D}${bindir}/run-ele-tests
+    
+    cat > ${D}${bindir}/run-enhanced-ele-tests << 'EOF'
+#!/bin/bash
+echo "🔐 Enhanced EdgeLock Enclave Test Suite"
+echo "========================================"
+echo "Target: i.MX93 Jaguar E-Ink Platform"
+echo ""
+enhanced-ele-test all
+EOF
+    chmod +x ${D}${bindir}/run-enhanced-ele-tests
 }
 
-FILES:${PN} = "${bindir}/simple-ele-test ${bindir}/run-ele-tests"
+FILES:${PN} = "${bindir}/simple-ele-test ${bindir}/enhanced-ele-test ${bindir}/run-ele-tests ${bindir}/run-enhanced-ele-tests"
