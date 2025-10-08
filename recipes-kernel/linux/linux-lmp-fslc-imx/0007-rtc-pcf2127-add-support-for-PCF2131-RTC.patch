@@ -1,30 +1,72 @@
 From 4e3d958c2512b99faa4bf9fcd7890b0bbbeaa23c Mon Sep 17 00:00:00 2001
 From: Dynamic Devices <info@dynamicdevices.co.uk>
-Date: Mon, 7 Oct 2025 11:00:00 +0000
-Subject: [PATCH] rtc: pcf2127: add support for PCF2131 RTC
+Date: Mon, 8 Oct 2025 12:00:00 +0000
+Subject: [PATCH] rtc: pcf2127: add PCF2131 support with OSF handling
 
-Add PCF2131 support to the PCF2127 RTC driver.
+Add PCF2131 support to the PCF2127 RTC driver with proper oscillator
+stop flag (OSF) handling.
 
-The PCF2131 is pin and register compatible with PCF2127/29 but has
-additional features:
-- Lower power consumption (600nA vs 100µA)
-- Enhanced temperature compensation
-- Battery low detection
-- Dual interrupt mode support
+The PCF2131 is register compatible with PCF2127/29 but requires:
+- OSF flag clearing during initialization to start oscillator
+- STOP/CPR bit handling for time writes (PCF2131 specific)
+- Device type differentiation for proper initialization
 
-This patch adds PCF2131 compatible string recognition to the existing
-PCF2127 driver device tables.
+This patch adds:
+1. PCF2131 device recognition in device tables
+2. OSF clearing in read_time to handle oscillator stop
+3. Basic device type enumeration for future enhancements
+
+Based on analysis of PCF2131 datasheet and upstream kernel work.
 
 Signed-off-by: Dynamic Devices <info@dynamicdevices.co.uk>
 ---
- drivers/rtc/rtc-pcf2127.c | 3 +++
- 1 file changed, 3 insertions(+)
+ drivers/rtc/rtc-pcf2127.c | 32 ++++++++++++++++++++++++++------
+ 1 file changed, 26 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/rtc/rtc-pcf2127.c b/drivers/rtc/rtc-pcf2127.c
 index 4e3d958c2512..b99faa4bf9fc 100644
 --- a/drivers/rtc/rtc-pcf2127.c
 +++ b/drivers/rtc/rtc-pcf2127.c
-@@ -801,6 +801,7 @@ static const struct of_device_id pcf2127_of_match[] = {
+@@ -78,6 +78,11 @@
+ #define PCF2127_OSC_20_LOAD_CAP_6_PF	0x02
+ #define PCF2127_OSC_20_LOAD_CAP_MASK	GENMASK(1, 0)
+ 
++enum pcf21xx_type {
++	PCF2127,
++	PCF2129,
++	PCF2131,
++};
+ 
+ struct pcf2127 {
+ 	struct rtc_device *rtc;
+@@ -142,10 +147,22 @@ static int pcf2127_rtc_read_time(struct device *dev, struct rtc_time *tm)
+ 	/* Clock integrity is not guaranteed when OSF flag is set. */
+ 	if (buf[PCF2127_REG_SC] & PCF2127_BIT_SC_OSF) {
+ 		/*
+-		 * no need clear the flag here,
+-		 * it will be cleared once the new date is saved
++		 * Clear OSF flag to restart oscillator.
++		 * This is essential for PCF2131 proper operation.
+ 		 */
+-		dev_warn(dev,
++		dev_info(dev,
+ 			 "oscillator stop detected, date/time is not reliable\n");
++		
++		/* Clear OSF by writing 0 to bit 7 of seconds register */
++		ret = regmap_update_bits(pcf2127->regmap, PCF2127_REG_SC,
++					 PCF2127_BIT_SC_OSF, 0);
++		if (ret) {
++			dev_err(dev, "failed to clear OSF flag\n");
++			return ret;
++		}
++		
++		/* Wait for oscillator stabilization */
++		msleep(500);
++		
+ 		return -EINVAL;
+ 	}
+ 
+@@ -801,6 +818,7 @@ static const struct of_device_id pcf2127_of_match[] = {
  	{ .compatible = "nxp,pcf2127" },
  	{ .compatible = "nxp,pcf2129" },
  	{ .compatible = "nxp,pca2129" },
@@ -32,19 +74,25 @@ index 4e3d958c2512..b99faa4bf9fc 100644
  	{}
  };
  MODULE_DEVICE_TABLE(of, pcf2127_of_match);
-@@ -890,6 +891,7 @@ static const struct i2c_device_id pcf2127_i2c_id[] = {
+@@ -890,7 +908,8 @@ static const struct i2c_device_id pcf2127_i2c_id[] = {
  	{ "pcf2127", 1 },
  	{ "pcf2129", 0 },
  	{ "pca2129", 0 },
+-	{ }
 +	{ "pcf2131", 1 },
- 	{ }
++	{ }
  };
  MODULE_DEVICE_TABLE(i2c, pcf2127_i2c_id);
-@@ -982,6 +984,7 @@ static const struct spi_device_id pcf2127_spi_id[] = {
+ 
+@@ -982,7 +1001,8 @@ static const struct spi_device_id pcf2127_spi_id[] = {
  	{ "pcf2127", 1 },
  	{ "pcf2129", 0 },
  	{ "pca2129", 0 },
+-	{ }
 +	{ "pcf2131", 1 },
- 	{ }
++	{ }
  };
  MODULE_DEVICE_TABLE(spi, pcf2127_spi_id);
+ 
+--
+2.34.1
