@@ -130,6 +130,7 @@ SRC_URI:append:imx93-jaguar-eink = " \
 		file://imx93-jaguar-eink/spi-support.cfg \
 		file://imx93-jaguar-eink/config-conflicts-fix.cfg \
 		file://imx93-jaguar-eink/module-signing.cfg \
+		file://imx93-jaguar-eink/dsm-power-management.cfg \
 		${@bb.utils.contains('ENABLE_BOOT_PROFILING', '1', 'file://boot-profiling.cfg', '', d)} \
 "
 

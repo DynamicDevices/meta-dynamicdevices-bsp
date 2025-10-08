@@ -664,6 +664,9 @@
 		interrupt-names = "alarm";
 		wakeup-source;                         /* Enable wake capability */
 		
+		/* DSM POWER MANAGEMENT: Primary wake source for Deep Sleep Mode */
+		power-domains = <&wakeupmix_pd>;       /* Ensure RTC remains powered in DSM */
+		
 		/* POWER OPTIMIZATION: Direct switching mode for lower power consumption */
 		nxp,power-mode = <3>;                  /* Direct switching mode (011) */
 		
@@ -701,6 +704,10 @@
 		reg = <0x25>;
 		interrupt-parent = <&gpio3>;
 		interrupts = <27 IRQ_TYPE_EDGE_FALLING>;
+		
+		/* DSM POWER MANAGEMENT: Enable STBY mode for Deep Sleep Mode */
+		nxp,stby-mode-enable;                    /* Enable STBY mode support */
+		nxp,stby-mode-microvolt = <900000>;      /* STBY voltage for VDD_SOC */
 
 		regulators {
 			buck1: BUCK1 {
@@ -710,6 +717,12 @@
 				regulator-boot-on;
 				regulator-always-on;
 				regulator-ramp-delay = <3125>;
+				
+				/* DSM: Allow voltage scaling for power saving */
+				regulator-state-mem {
+					regulator-on-in-suspend;
+					regulator-suspend-microvolt = <900000>;
+				};
 			};
 
 			buck2: BUCK2 {
@@ -808,6 +821,36 @@
 &wdog3 {
 	status = "okay";
 	timeout-sec = <40>;
+};
+
+/* ============================================================================
+ * DEEP SLEEP MODE (DSM) POWER MANAGEMENT CONFIGURATION
+ * ============================================================================
+ * 
+ * Based on AN13917: i.MX 93 Power Consumption Measurement
+ * - DSM provides 7.6mW standby power consumption
+ * - Perfect for E-Ink applications with infrequent updates
+ * - PCF2131 RTC configured as primary wake source
+ * - PMIC STBY mode support for ultra-low power
+ */
+
+/* Power Management Controller - Enable DSM support */
+&pmc {
+	status = "okay";
+};
+
+/* System Power Management - Configure wake sources */
+&gpc {
+	status = "okay";
+	
+	/* Configure wake sources for DSM */
+	wakeup-sources = <&pcf2131>;  /* PCF2131 RTC as primary wake source */
+};
+
+/* Low Power Management - Enable power mode switching */
+&lpuart1 {
+	/* Ensure console UART can wake system if needed */
+	wakeup-source;
 };
 
 /* ============================================================================
