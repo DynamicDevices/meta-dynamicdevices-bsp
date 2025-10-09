@@ -111,48 +111,33 @@ execute_power_restart() {
     log_message "Executing power-controlled restart using eink-power-cli..."
     
     if check_eink_power_cli; then
-        # Option 1: Use eink-power-cli for board reset
-        log_message "Attempting board reset via eink-power-cli..."
-        if eink-power-cli reset 2>&1 | tee -a "$LOG_FILE"; then
-            log_message "eink-power-cli reset command issued successfully"
-            sleep 3  # Give time for power controller to execute reset
-            return 0
-        else
-            log_message "eink-power-cli reset command failed, trying alternative commands..."
+        # Try eink-power-cli board reset up to 5 times
+        log_message "Attempting board reset via eink-power-cli (up to 5 attempts)..."
+        
+        for attempt in $(seq 1 5); do
+            log_message "Board reset attempt $attempt/5..."
             
-            # Try alternative reset commands
-            if eink-power-cli board-reset 2>&1 | tee -a "$LOG_FILE"; then
-                log_message "eink-power-cli board-reset command issued successfully"
-                sleep 3
-                return 0
-            elif eink-power-cli system-reset 2>&1 | tee -a "$LOG_FILE"; then
-                log_message "eink-power-cli system-reset command issued successfully"  
-                sleep 3
-                return 0
-            elif eink-power-cli power-cycle 2>&1 | tee -a "$LOG_FILE"; then
-                log_message "eink-power-cli power-cycle command issued successfully"
-                sleep 3
+            if eink-power-cli board reset 2>&1 | tee -a "$LOG_FILE"; then
+                log_message "eink-power-cli board reset successful on attempt $attempt"
+                sleep 3  # Give time for power controller to execute reset
                 return 0
             else
-                log_message "All eink-power-cli reset commands failed"
+                log_message "Board reset attempt $attempt failed"
+                if [ $attempt -lt 5 ]; then
+                    log_message "Waiting 1 second before next attempt..."
+                    sleep 1
+                fi
             fi
-        fi
+        done
+        
+        log_message "All 5 board reset attempts failed"
+    else
+        log_message "eink-power-cli not available"
     fi
     
-    # Fallback: Direct UART communication
-    log_message "Falling back to direct UART power restart..."
-    if [ -c "/dev/ttyLP2" ]; then
-        echo "POWER_RESTART" > /dev/ttyLP2 || {
-            log_message "UART power restart failed"
-            return 1
-        }
-        log_message "UART power restart command sent"
-        sleep 2
-        return 0
-    else
-        log_message "No power controller communication available"
-        return 1
-    fi
+    # If we reach here, power controller restart failed
+    log_message "Power controller restart failed, allowing normal system reboot to proceed"
+    return 1
 }
 
 # Main restart handler
