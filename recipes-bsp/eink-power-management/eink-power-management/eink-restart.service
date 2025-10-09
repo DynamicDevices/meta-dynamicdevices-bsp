@@ -1,0 +1,20 @@
+[Unit]
+Description=E-ink Board Custom Restart Handler
+Documentation=man:systemd.service(5)
+DefaultDependencies=no
+Before=shutdown.target reboot.target halt.target
+Conflicts=shutdown.target reboot.target halt.target
+Wants=shutdown.target reboot.target halt.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/true
+ExecStop=/usr/bin/eink-restart.sh
+TimeoutStopSec=10
+StandardOutput=journal
+StandardError=journal
+KillMode=none
+
+[Install]
+WantedBy=multi-user.target
