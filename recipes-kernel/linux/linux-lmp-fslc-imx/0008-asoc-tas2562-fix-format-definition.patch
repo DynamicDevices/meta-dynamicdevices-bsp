@@ -1,0 +1,33 @@
+From: Andrew Lennon <andrew.lennon@dynamicdevices.co.uk>
+Date: Thu, 9 Oct 2025 14:30:00 +0000
+Subject: [PATCH] ASoC: tas2562: Fix S32_LE format definition to use bitmask
+
+The TAS2562 driver was incorrectly using SNDRV_PCM_FORMAT_S32_LE
+instead of SNDRV_PCM_FMTBIT_S32_LE in the formats field of the
+DAI driver structure. The formats field expects bitmask values
+that can be OR'd together, not individual format enum values.
+
+This fixes the S32_LE format definition to use the correct bitmask macro,
+aligning the TAS2562 driver with standard ALSA practices and other TAS 
+drivers (TAS2770, TAS2781, etc.) which correctly use SNDRV_PCM_FMTBIT_* macros.
+
+Signed-off-by: Andrew Lennon <andrew.lennon@dynamicdevices.co.uk>
+---
+ sound/soc/codecs/tas2562.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/sound/soc/codecs/tas2562.c b/sound/soc/codecs/tas2562.c
+index abcdef123456..123456abcdef 100644
+--- a/sound/soc/codecs/tas2562.c
++++ b/sound/soc/codecs/tas2562.c
+@@ -23,7 +23,7 @@
+ #include "tas2562.h"
+ 
+ #define TAS2562_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE |\
+-			 SNDRV_PCM_FORMAT_S32_LE)
++			 SNDRV_PCM_FMTBIT_S32_LE)
+ 
+ /* DVC equation involves floating point math
+  * round(10^(volume in dB/20)*2^30)
+-- 
+2.34.1
