@@ -31,15 +31,13 @@ prepare_power_controller_restart() {
     if check_eink_power_cli; then
         # Use eink-power-cli to prepare for restart
         log_message "Notifying power controller of impending restart..."
-        if eink-power-cli status >/dev/null 2>&1; then
+        if eink-power-cli ping >/dev/null 2>&1; then
             log_message "Power controller is responsive"
             
-            # Prepare for restart (example commands - adjust based on actual CLI)
-            eink-power-cli prepare-restart 2>&1 | tee -a "$LOG_FILE" || {
-                log_message "Warning: prepare-restart command not available, continuing..."
-            }
+            # No prepare-restart command available in v2.3.0, skip preparation
+            log_message "Power controller communication verified"
         else
-            log_message "Warning: Power controller not responding to status check"
+            log_message "Warning: Power controller not responding to ping"
         fi
     else
         log_message "Falling back to direct UART communication..."

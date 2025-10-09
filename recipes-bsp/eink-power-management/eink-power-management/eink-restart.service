@@ -1,14 +1,15 @@
 [Unit]
 Description=E-ink Board Custom Restart Handler
 DefaultDependencies=no
-After=final.target
-Before=systemd-reboot.service
+Before=systemd-reboot.service systemd-shutdown.service
+Conflicts=rescue.service rescue.target
+After=shutdown.target
 
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/eink-restart.sh
-TimeoutStartSec=0
+TimeoutStartSec=30
 RemainAfterExit=yes
 
 [Install]
-WantedBy=final.target
+WantedBy=reboot.target
