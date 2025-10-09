@@ -34,11 +34,11 @@ LogLevel INFO
 
 # Authentication:
 
-LoginGraceTime 2m
+LoginGraceTime 30s
 # SECURITY: Disable root login completely
 PermitRootLogin no
 StrictModes yes
-MaxAuthTries 3
+MaxAuthTries 5
 MaxSessions 5
 
 # Public key authentication (preferred)
@@ -107,7 +107,7 @@ ClientAliveInterval 15
 ClientAliveCountMax 4
 UseDNS no
 #PidFile /var/run/sshd.pid
-MaxStartups 5:30:10
+MaxStartups 2
 PermitTunnel no
 #ChrootDirectory none
 #VersionAddendum none
