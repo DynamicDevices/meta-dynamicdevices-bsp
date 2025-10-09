@@ -69,4 +69,4 @@ EOF
 FILES:${PN} = "${bindir}/ele-debug.sh ${bindir}/ele-status.sh ${bindir}/ele-firmware-info.sh ${bindir}/ele-dev-tools"
 
 # Only install on i.MX93 platforms with ELE support
-COMPATIBLE_MACHINE = "(mx9-generic-bsp)"
+COMPATIBLE_MACHINE = "imx93-jaguar-eink"
