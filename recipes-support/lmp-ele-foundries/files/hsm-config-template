@@ -1,0 +1,42 @@
+# EdgeLock Enclave (ELE) HSM Configuration for Foundries.io
+# This file configures the Hardware Security Module settings for the i.MX93 ELE
+#
+# IMPORTANT: This is a template file. Copy to /etc/sota/hsm on the target device
+# and customize the values for your specific deployment.
+
+# PKCS#11 Module Path
+# Points to the ELE PKCS#11 module that provides cryptographic operations
+HSM_MODULE="/usr/lib/pkcs11/ele-pkcs11.so"
+
+# User PIN (for normal operations)
+# Change this to a secure value in production
+HSM_PIN="1234"
+
+# Security Officer PIN (for administrative operations)
+# Change this to a secure value in production  
+HSM_SOPIN="123456"
+
+# ELE-specific configuration
+ELE_DEVICE="/dev/ele_mu"
+ELE_SLOT_ID="0"
+
+# Optional: ELE key storage configuration
+ELE_KEY_STORAGE_PATH="/var/sota/ele-keys"
+
+# Debug settings (set to 1 to enable)
+ELE_DEBUG="0"
+PKCS11_DEBUG="0"
+
+# Timeout settings (in seconds)
+ELE_TIMEOUT="30"
+PKCS11_TIMEOUT="60"
+
+# Production settings
+# Set to 1 when deploying to production devices
+PRODUCTION_MODE="0"
+
+# Factory-specific settings
+# These should be customized per deployment
+FACTORY_NAME="your-factory-name"
+DEVICE_GROUP="eink-dev"
+DEVICE_TAG="eink-test"
