@@ -236,17 +236,17 @@
 &lpuart2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpuart2 &pinctrl_bluetooth_gpio>;
-	/* MAYA W2 Bluetooth configuration - higher baudrate required
-	 * Hardware flow control disabled to prevent timeout issues
-	 * Fixes: "Bluetooth: hci0: Setting wake-up method failed (-110)"
-	 * Reference: MAYA W2 needs 3MHz baudrate for proper initialization
+	/* MAYA W2 Bluetooth configuration - hardware flow control REQUIRED
+	 * Based on working imx8mm-jaguar-handheld configuration
+	 * Hardware flow control ENABLED to fix UART timeout issues
+	 * Reference: MAYA W2 requires RTS/CTS for reliable high-speed communication
 	 */
-	/* fsl,uart-has-rtscts; -- DISABLED for MAYA W2 compatibility */
+	fsl,uart-has-rtscts;
 	status = "okay";  /* Bluetooth UART - MAYA W2 */
 
 	bluetooth {
 		compatible = "nxp,88w8997-bt";
-		fw-init-baudrate = <115200>;  /* Standard baudrate to prevent HCI timeout */
+		fw-init-baudrate = <3000000>;  /* High-speed baudrate matching working Sentai config */
 		reset-gpios = <&gpio4 24 GPIO_ACTIVE_LOW>;  /* BT_RST - MX93_PAD_ENET2_RD0__GPIO4_IO24 */
 		
 		/* Fix HCI opcode 0x0c03 failure - add power management delay */
@@ -281,14 +281,17 @@
 
 /* Pin configuration for LPUART2 Bluetooth */
 &iomuxc {
-	/* Pin configuration for LPUART2 Bluetooth - MAYA W2 without flow control */
+	/* Pin configuration for LPUART2 Bluetooth - MAYA W2 with hardware flow control */
 	pinctrl_lpuart2: lpuart2grp {
 		fsl,pins = <
 			MX93_PAD_UART2_TXD__LPUART2_TX		0x31e  /* BT UART TX - Output from iMX93 */
 			MX93_PAD_UART2_RXD__LPUART2_RX		0x31e  /* BT UART RX - Input to iMX93 */
-			/* RTS/CTS pins removed - MAYA W2 doesn't support hardware flow control reliably
-			 * Hardware flow control disabled to prevent timeout issues
+			/* TODO: Add correct RTS/CTS pin mappings for iMX93 LPUART2
+			 * These pin assignments need to be verified against iMX93 reference manual
+			 * and board schematic to ensure hardware flow control works properly
 			 */
+			/* MX93_PAD_UART2_RTS__LPUART2_RTS	0x31e     BT UART RTS - Request To Send */
+			/* MX93_PAD_UART2_CTS__LPUART2_CTS	0x31e     BT UART CTS - Clear To Send */
 		>;
 	};
 
@@ -404,6 +407,26 @@
 		>;
 	};
 
+};
+
+/* GPIO hog configurations for Maya W2 Bluetooth power management
+ * Based on working imx8mm-jaguar-handheld configuration
+ * These GPIO hogs ensure proper power sequencing and wake control
+ */
+&gpio4 {
+	bt-wake-dev-hog {
+		gpio-hog;
+		gpios = <24 GPIO_ACTIVE_HIGH>;  /* BT_RST repurposed as BT_WAKE_DEV */
+		output-high;
+		line-name = "bt-wake-dev";
+	};
+	
+	bt-wake-host-hog {
+		gpio-hog;
+		gpios = <25 GPIO_ACTIVE_HIGH>;  /* Using WiFi interrupt pin for BT wake host */
+		input;
+		line-name = "bt-wake-host";
+	};
 };
 
 &lpuart5 {
