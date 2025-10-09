@@ -69,14 +69,12 @@ PermitEmptyPasswords no
 # with some PAM modules and threads)
 KbdInteractiveAuthentication no
 
-# Kerberos options
-KerberosAuthentication no
+# Kerberos options (removed - not supported in this OpenSSH build)
 #KerberosOrLocalPasswd yes
 #KerberosTicketCleanup yes
 #KerberosGetAFSToken no
 
-# GSSAPI options
-GSSAPIAuthentication no
+# GSSAPI options (removed - not supported in this OpenSSH build)
 #GSSAPICleanupCredentials yes
 
 # Set this to 'yes' to enable PAM authentication, account processing,
@@ -128,7 +126,7 @@ DenyGroups root
 # Additional security settings
 PermitUserRC no
 StrictModes yes
-UsePrivilegeSeparation sandbox
+# UsePrivilegeSeparation removed - deprecated in OpenSSH 7.5+ and removed in 9.0+
 
 # Example of overriding settings on a per-user basis
 #Match User anoncvs
