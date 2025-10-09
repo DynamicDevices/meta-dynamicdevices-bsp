@@ -78,4 +78,4 @@ FILES:${PN} = "${bindir}/lmp-ele-auto-register \
                ${localstatedir}/sota"
 
 # Only install on i.MX93 platforms with ELE support
-COMPATIBLE_MACHINE = "(mx9-generic-bsp)"
+COMPATIBLE_MACHINE = "imx93-jaguar-eink"
