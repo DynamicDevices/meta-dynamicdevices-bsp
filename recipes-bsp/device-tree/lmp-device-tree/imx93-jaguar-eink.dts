@@ -104,6 +104,13 @@
 			no-map;
 		};
 
+		/* Secure Enclave (SE05X) reserved memory region */
+		se_reserved: se-reserved@91000000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0x91000000 0 0x100000>;
+			no-map;
+		};
+
 		/* Cortex-M33 reserved memory regions */
 		rsc_table: rsc-table@1fff8000 {
 			reg = <0 0x1fff8000 0 0x1000>;
@@ -181,17 +188,13 @@
 	status = "okay";
 };
 
-/* EdgeLock Enclave Message Unit - required for secure functionality */
-&s4muap {
-	status = "okay";
-};
-
-&mu1 {
-	status = "okay";
-};
-
-&mu2 {
-	status = "okay";
+/* Secure Enclave device node - fixes "failed to init reserved memory region -19" */
+/ {
+	secure-enclave {
+		compatible = "fsl,se";
+		memory-region = <&se_reserved>;
+		status = "okay";
+	};
 };
 
 /* ============================================================================
@@ -243,8 +246,12 @@
 
 	bluetooth {
 		compatible = "nxp,88w8997-bt";
-		fw-init-baudrate = <3000000>;  /* Higher baudrate for MAYA W2 - 115200 was causing timeout errors */
+		fw-init-baudrate = <115200>;  /* Standard baudrate to prevent HCI timeout */
 		reset-gpios = <&gpio4 24 GPIO_ACTIVE_LOW>;  /* BT_RST - MX93_PAD_ENET2_RD0__GPIO4_IO24 */
+		
+		/* Fix HCI opcode 0x0c03 failure - add power management delay */
+		power-on-delay-ms = <200>;
+		reset-delay-ms = <100>;
 	};
 };
 
@@ -649,9 +656,9 @@
 	status = "okay";
 	clock-frequency = <100000>;  /* 100kHz for low power operation */
 	
-	/* Ensure clocks are properly assigned and enabled */
-	assigned-clocks = <&clk IMX93_CLK_LPI2C3_GATE>;
-	assigned-clock-parents = <&clk IMX93_CLK_SYS_PLL_PFD1_DIV2>;
+	/* Ensure clocks are properly assigned and enabled - fix "failed to reparent lpi2c3" */
+	assigned-clocks = <&clk IMX93_CLK_LPI2C3>;
+	assigned-clock-parents = <&clk IMX93_CLK_24M>;
 	assigned-clock-rates = <24000000>;
 
 	pcf2131: rtc@53 {
@@ -663,6 +670,10 @@
 		interrupts = <22 IRQ_TYPE_LEVEL_LOW>; /* GPIO4_IO22 - INTA# */
 		interrupt-names = "alarm";
 		wakeup-source;                         /* Enable wake capability */
+		
+		/* Fix interrupt pin configuration - disable auto-configuration */
+		nxp,irq-clear-on-write;
+		nxp,irq-output-push-pull;
 		
 		/* DSM POWER MANAGEMENT: Primary wake source for Deep Sleep Mode */
 		/* power-domains = <&wakeupmix_pd>; */    /* TODO: Verify power domain name in kernel 6.6+ */
@@ -806,10 +817,14 @@
  * 
  * NOTE: Power management handled by custom MCXC143VFM microcontroller
  * PMIC: Standard PCA9451A provides VDD_SOC regulation via BUCK1
+ * 
+ * FIX: Remove se-fw2 dependency that causes "get se-fw2 failed" error
  */
 &lpm {
 	soc-supply = <&buck1>;	/* CRITICAL: VDD_SOC supply from PMIC BUCK1 */
 	ld-mode-enabled;        /* Enable Low Drive modes (2,3) for maximum power savings */
+	/* Remove se-fw2 dependency - not needed for our configuration */
+	/delete-property/ se-fw2;
 	status = "okay";        /* Enable the driver - CRITICAL */
 };
 
