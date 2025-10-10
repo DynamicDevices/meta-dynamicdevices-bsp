@@ -1,0 +1,16 @@
+[Unit]
+Description=E-ink Board Custom Shutdown Handler
+DefaultDependencies=no
+Before=systemd-poweroff.service systemd-halt.service
+Conflicts=rescue.service rescue.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/eink-shutdown.sh
+TimeoutStartSec=30
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=poweroff.target halt.target
