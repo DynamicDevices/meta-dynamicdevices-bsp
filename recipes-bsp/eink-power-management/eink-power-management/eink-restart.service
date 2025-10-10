@@ -1,9 +1,8 @@
 [Unit]
 Description=E-ink Board Custom Restart Handler
 DefaultDependencies=no
-Before=systemd-reboot.service systemd-shutdown.service
+Before=systemd-reboot.service
 Conflicts=rescue.service rescue.target
-After=shutdown.target
 
 [Service]
 Type=oneshot

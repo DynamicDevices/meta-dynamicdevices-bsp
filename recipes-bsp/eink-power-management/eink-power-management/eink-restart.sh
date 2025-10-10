@@ -4,7 +4,7 @@
 
 set -e
 
-LOG_FILE="/var/log/eink-restart.log"
+LOG_FILE="/tmp/eink-restart.log"
 
 log_message() {
     echo "$(date): $1" | tee -a "$LOG_FILE"
