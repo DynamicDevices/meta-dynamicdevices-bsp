@@ -495,13 +495,15 @@
 	cap-power-off-card;
 	status = "okay";
 
-	/* wifi_wake_host {
+	/*
+	wifi_wake_host {
 		compatible = "nxp,wifi-wake-host";
 		interrupt-parent = <&gpio4>;
 		interrupts = <25 IRQ_TYPE_LEVEL_LOW>;  /* ENET2_RD1 - SD2_INT */
 		interrupt-names = "host-wake";
 		wakeup-source;
-	}; */
+	};
+	*/
 	/* WIFI OOB WAKEUP COMPLETELY DISABLED: 
 	 * Commenting out entire wifi_wake_host node to prevent IRQ 99 registration
 	 * This eliminates GPIO4 pin 25 from being configured as wakeup interrupt
