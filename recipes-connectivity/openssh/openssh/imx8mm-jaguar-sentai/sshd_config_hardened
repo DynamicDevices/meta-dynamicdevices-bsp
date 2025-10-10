@@ -1,6 +1,7 @@
 #	$OpenBSD: sshd_config,v 1.104 2021/07/02 05:11:21 dtucker Exp $
-# Hardened SSH configuration for Dynamic Devices embedded systems
-# This configuration prioritizes security while maintaining functionality
+# SSH configuration for imx8mm-jaguar-sentai - Development/Testing Configuration
+# This configuration enables password authentication for easier development access
+# WARNING: Less secure than key-only authentication - use only for development
 
 # This is the sshd server system-wide configuration file.  See
 # sshd_config(5) for more information.
@@ -34,12 +35,12 @@ LogLevel INFO
 
 # Authentication:
 
-LoginGraceTime 30s
+LoginGraceTime 60s
 # SECURITY: Disable root login completely
 PermitRootLogin no
 StrictModes yes
-MaxAuthTries 5
-MaxSessions 5
+MaxAuthTries 10
+MaxSessions 10
 
 # Public key authentication (preferred)
 PubkeyAuthentication yes
@@ -61,13 +62,13 @@ IgnoreUserKnownHosts yes
 # Don't read the user's ~/.rhosts and ~/.shosts files
 IgnoreRhosts yes
 
-# SECURITY: Disable password authentication (use keys only)
-PasswordAuthentication no
+# DEVELOPMENT: Enable password authentication for easier access
+PasswordAuthentication yes
 PermitEmptyPasswords no
 
 # Change to yes to enable keyboard-interactive authentication (beware issues
 # with some PAM modules and threads)
-KbdInteractiveAuthentication no
+KbdInteractiveAuthentication yes
 
 # Kerberos options (removed - not supported in this OpenSSH build)
 #KerberosOrLocalPasswd yes
@@ -88,11 +89,11 @@ KbdInteractiveAuthentication no
 # and KbdInteractiveAuthentication to 'no'.
 UsePAM yes
 
-# SECURITY: Disable forwarding features
-AllowAgentForwarding no
-AllowTcpForwarding no
+# DEVELOPMENT: Enable forwarding features for development convenience
+AllowAgentForwarding yes
+AllowTcpForwarding yes
 GatewayPorts no
-X11Forwarding no
+X11Forwarding yes
 #X11DisplayOffset 10
 #X11UseLocalhost yes
 PermitTTY yes
@@ -101,27 +102,23 @@ PrintLastLog yes
 TCPKeepAlive yes
 PermitUserEnvironment no
 Compression no
-ClientAliveInterval 15
-ClientAliveCountMax 4
+ClientAliveInterval 30
+ClientAliveCountMax 10
 UseDNS no
 #PidFile /var/run/sshd.pid
-MaxStartups 2
+MaxStartups 10
 PermitTunnel no
 #ChrootDirectory none
 #VersionAddendum none
 
-# SECURITY: Add security banner
+# DEVELOPMENT: Add security banner
 Banner /etc/ssh/banner
 
 # override default of no subsystems
 Subsystem	sftp	/usr/libexec/sftp-server
 
-# SECURITY: Only allow specific users
+# DEVELOPMENT: Allow broader user access (excluding root)
 AllowUsers fio
-
-# SECURITY: Deny specific users and groups
-DenyUsers root
-DenyGroups root
 
 # Additional security settings
 PermitUserRC no
