@@ -1,6 +1,6 @@
 SUMMARY = "E-ink Board Power Management"
 DESCRIPTION = "Active power management scripts for the e-ink board: Wake-on-LAN configuration, \
-custom restart handler, and custom shutdown handler using eink-power-cli for MCXC143VFM power controller integration."
+custom restart/shutdown handlers, and WiFi suspend/resume management using eink-power-cli for MCXC143VFM power controller integration."
 LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
@@ -11,6 +11,10 @@ SRC_URI = " \
     file://eink-restart.service \
     file://eink-shutdown.sh \
     file://eink-shutdown.service \
+    file://wifi-suspend.sh \
+    file://wifi-suspend.service \
+    file://wifi-resume.sh \
+    file://wifi-resume.service \
 "
 
 S = "${WORKDIR}"
@@ -19,11 +23,13 @@ RDEPENDS:${PN} = "bash iw wireless-tools eink-power-cli"
 
 inherit systemd
 
-SYSTEMD_SERVICE:${PN} = "setup-wowlan.service eink-restart.service eink-shutdown.service"
+SYSTEMD_SERVICE:${PN} = "setup-wowlan.service eink-restart.service eink-shutdown.service wifi-suspend.service wifi-resume.service"
 # Active services:
 # - setup-wowlan.service: WiFi wake-on-LAN functionality (magic packets only)
 # - eink-restart.service: Custom power-optimized restart handling via eink-power-cli
 # - eink-shutdown.service: Custom power-optimized shutdown handling via eink-power-cli
+# - wifi-suspend.service: WiFi interface shutdown before system suspend
+# - wifi-resume.service: WiFi interface restoration after system resume
 SYSTEMD_AUTO_ENABLE = "enable"
 
 do_install() {
@@ -32,19 +38,27 @@ do_install() {
     install -m 0644 ${WORKDIR}/setup-wowlan.service ${D}${systemd_system_unitdir}/
     install -m 0644 ${WORKDIR}/eink-restart.service ${D}${systemd_system_unitdir}/
     install -m 0644 ${WORKDIR}/eink-shutdown.service ${D}${systemd_system_unitdir}/
+    install -m 0644 ${WORKDIR}/wifi-suspend.service ${D}${systemd_system_unitdir}/
+    install -m 0644 ${WORKDIR}/wifi-resume.service ${D}${systemd_system_unitdir}/
 
     # Install scripts
     install -d ${D}${bindir}
     install -m 0755 ${WORKDIR}/setup-wowlan.sh ${D}${bindir}/
     install -m 0755 ${WORKDIR}/eink-restart.sh ${D}${bindir}/
     install -m 0755 ${WORKDIR}/eink-shutdown.sh ${D}${bindir}/
+    install -m 0755 ${WORKDIR}/wifi-suspend.sh ${D}${bindir}/
+    install -m 0755 ${WORKDIR}/wifi-resume.sh ${D}${bindir}/
 }
 
 FILES:${PN} = " \
     ${systemd_system_unitdir}/setup-wowlan.service \
     ${systemd_system_unitdir}/eink-restart.service \
     ${systemd_system_unitdir}/eink-shutdown.service \
+    ${systemd_system_unitdir}/wifi-suspend.service \
+    ${systemd_system_unitdir}/wifi-resume.service \
     ${bindir}/setup-wowlan.sh \
     ${bindir}/eink-restart.sh \
     ${bindir}/eink-shutdown.sh \
+    ${bindir}/wifi-suspend.sh \
+    ${bindir}/wifi-resume.sh \
 "

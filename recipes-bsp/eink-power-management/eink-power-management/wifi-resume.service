@@ -1,0 +1,17 @@
+[Unit]
+Description=WiFi Resume Service
+Documentation=man:systemd-suspend.service(8)
+DefaultDependencies=no
+After=systemd-suspend.service systemd-hibernate.service systemd-hybrid-sleep.service systemd-suspend-then-hibernate.service
+Wants=network.target
+Before=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/wifi-resume.sh
+TimeoutStartSec=60
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
