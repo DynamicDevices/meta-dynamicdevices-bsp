@@ -495,16 +495,27 @@
 	cap-power-off-card;
 	status = "okay";
 
-	wifi_wake_host {
+	/* wifi_wake_host {
 		compatible = "nxp,wifi-wake-host";
 		interrupt-parent = <&gpio4>;
 		interrupts = <25 IRQ_TYPE_LEVEL_LOW>;  /* ENET2_RD1 - SD2_INT */
 		interrupt-names = "host-wake";
-		/* wakeup-source; */  /* DISABLED: Prevents proper suspend - causes immediate resume via IRQ 99 
-		                      * TODO: Investigate selective WiFi wake capability for remote management
-		                      * Future requirement: Wake on specific WiFi events (magic packet, etc.)
-		                      * See GitHub issue for investigation roadmap */
-	};
+		wakeup-source;
+	}; */
+	/* WIFI OOB WAKEUP COMPLETELY DISABLED: 
+	 * Commenting out entire wifi_wake_host node to prevent IRQ 99 registration
+	 * This eliminates GPIO4 pin 25 from being configured as wakeup interrupt
+	 * 
+	 * ISSUE: Even with wakeup-source disabled, IRQ 99 still triggers immediate resume
+	 * ROOT CAUSE: Driver or hardware level configuration overrides device tree settings
+	 * SOLUTION: Complete removal prevents IRQ handler registration entirely
+	 * 
+	 * FUTURE: Selective wake capability investigation in GitHub issue #26
+	 * - Wake on LAN (magic packet detection)
+	 * - Remote management wake events  
+	 * - Programmable wake event filtering
+	 * - Runtime enable/disable control
+	 */
 };
 
 /* eMMC storage */
