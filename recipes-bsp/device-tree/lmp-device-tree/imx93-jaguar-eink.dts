@@ -246,7 +246,7 @@
 
 	bluetooth {
 		compatible = "nxp,88w8997-bt";
-		fw-init-baudrate = <3000000>;  /* High-speed baudrate matching working Sentai config */
+		fw-init-baudrate = <115200>;  /* Start with working baudrate from i.MX8MM */
 		reset-gpios = <&gpio4 24 GPIO_ACTIVE_LOW>;  /* BT_RST - MX93_PAD_ENET2_RD0__GPIO4_IO24 */
 		
 		/* Fix HCI opcode 0x0c03 failure - add power management delay */
@@ -286,12 +286,8 @@
 		fsl,pins = <
 			MX93_PAD_UART2_TXD__LPUART2_TX		0x31e  /* BT UART TX - Output from iMX93 */
 			MX93_PAD_UART2_RXD__LPUART2_RX		0x31e  /* BT UART RX - Input to iMX93 */
-			/* TODO: Add correct RTS/CTS pin mappings for iMX93 LPUART2
-			 * These pin assignments need to be verified against iMX93 reference manual
-			 * and board schematic to ensure hardware flow control works properly
-			 */
-			/* MX93_PAD_UART2_RTS__LPUART2_RTS	0x31e     BT UART RTS - Request To Send */
-			/* MX93_PAD_UART2_CTS__LPUART2_CTS	0x31e     BT UART CTS - Clear To Send */
+			MX93_PAD_UART2_RTS__LPUART2_RTS		0x31e  /* BT UART RTS - Request To Send */
+			MX93_PAD_UART2_CTS__LPUART2_CTS		0x31e  /* BT UART CTS - Clear To Send */
 		>;
 	};
 
