@@ -872,6 +872,21 @@
  * - PMIC STBY mode support for ultra-low power
  */
 
+/* Disable i.MX93 Low Power Management (LPM) driver
+ * 
+ * REASON: This board uses an i.MX9302/i.MX9301 (SOC ID 37632/0x9300) which is
+ *         a VOLT_LOW_DRIVE variant that doesn't support LPM modes.
+ *         
+ * IMPACT: - Eliminates boot error: "No matching index found for soc_id = 37632"
+ *         - Prevents failed firmware loading attempts
+ *         - MCXC143VFM power controller handles all power management instead
+ *         
+ * REF: NXP Community - LPM modes intentionally disabled on low-voltage variants
+ */
+&lpm {
+	status = "disabled";
+};
+
 /* Power Management Controller - Enable DSM support */
 /* NOTE: Kernel 6.6+ uses SRC (System Reset Controller) instead of PMC/GPC */
 &src {
