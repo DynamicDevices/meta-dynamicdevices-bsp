@@ -15,6 +15,8 @@ SRC_URI = " \
     file://wifi-suspend.service \
     file://wifi-resume.sh \
     file://wifi-resume.service \
+    file://wifi-power-management \
+    file://99-disable-mac-randomization.conf \
 "
 
 S = "${WORKDIR}"
@@ -48,6 +50,14 @@ do_install() {
     install -m 0755 ${WORKDIR}/eink-shutdown.sh ${D}${bindir}/
     install -m 0755 ${WORKDIR}/wifi-suspend.sh ${D}${bindir}/
     install -m 0755 ${WORKDIR}/wifi-resume.sh ${D}${bindir}/
+
+    # Install systemd system-sleep hook
+    install -d ${D}${prefix}/lib/systemd/system-sleep
+    install -m 0755 ${WORKDIR}/wifi-power-management ${D}${prefix}/lib/systemd/system-sleep/
+
+    # Install NetworkManager configuration to disable MAC randomization
+    install -d ${D}${sysconfdir}/NetworkManager/conf.d
+    install -m 0644 ${WORKDIR}/99-disable-mac-randomization.conf ${D}${sysconfdir}/NetworkManager/conf.d/
 }
 
 FILES:${PN} = " \
@@ -61,4 +71,6 @@ FILES:${PN} = " \
     ${bindir}/eink-shutdown.sh \
     ${bindir}/wifi-suspend.sh \
     ${bindir}/wifi-resume.sh \
+    ${prefix}/lib/systemd/system-sleep/wifi-power-management \
+    ${sysconfdir}/NetworkManager/conf.d/99-disable-mac-randomization.conf \
 "

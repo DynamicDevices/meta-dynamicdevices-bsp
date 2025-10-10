@@ -500,7 +500,10 @@
 		interrupt-parent = <&gpio4>;
 		interrupts = <25 IRQ_TYPE_LEVEL_LOW>;  /* ENET2_RD1 - SD2_INT */
 		interrupt-names = "host-wake";
-		wakeup-source;
+		/* wakeup-source; */  /* DISABLED: Prevents proper suspend - causes immediate resume via IRQ 99 
+		                      * TODO: Investigate selective WiFi wake capability for remote management
+		                      * Future requirement: Wake on specific WiFi events (magic packet, etc.)
+		                      * See GitHub issue for investigation roadmap */
 	};
 };
 

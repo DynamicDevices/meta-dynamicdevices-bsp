@@ -1,0 +1,12 @@
+#!/bin/bash
+
+case $1/$2 in
+  pre/*)
+    echo "WiFi suspend: $(date)" >> /tmp/wifi-power-log.txt
+    /usr/bin/wifi-suspend.sh >> /tmp/wifi-power-log.txt 2>&1
+    ;;
+  post/*)
+    echo "WiFi resume: $(date)" >> /tmp/wifi-power-log.txt
+    /usr/bin/wifi-resume.sh >> /tmp/wifi-power-log.txt 2>&1
+    ;;
+esac
