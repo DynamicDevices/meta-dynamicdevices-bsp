@@ -63,7 +63,7 @@
 	/* Serial port aliases - explicit mapping to prevent out-of-range errors */
 	aliases {
 		serial0 = &lpuart1;  /* Console UART */
-		serial1 = &lpuart2;  /* Bluetooth UART - MAYA W2 */
+		serial1 = &lpuart5;  /* Bluetooth UART - MAYA W2 */
 		serial2 = &lpuart7;  /* Power Management UART - MCXC143VFM PMU */
 		/* Explicitly disable unused LPUARTs to prevent conflicts */
 		serial3 = &lpuart3;  /* Unused */
@@ -234,10 +234,22 @@
 
 /* Unused UARTs - explicitly disable to prevent GPIO conflicts and device link failures */
 &lpuart2 {
+	status = "disabled";  /* Unused */
+	/* Disable power management to prevent device link failures during boot */
+	/delete-property/ power-domains;
+};
+
+&lpuart3 {
+	status = "disabled";  /* Unused */
+	/* Disable power management to prevent device link failures during boot */
+	/delete-property/ power-domains;
+};
+
+&lpuart5 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_lpuart2 &pinctrl_bluetooth_gpio>;
+	pinctrl-0 = <&pinctrl_lpuart5 &pinctrl_bluetooth_gpio>;
 	/* MAYA W2 Bluetooth configuration - hardware flow control REQUIRED
-	 * Based on working imx8mm-jaguar-handheld configuration
+	 * CORRECT HARDWARE MAPPING: Bluetooth is on LPUART5 using DAP pins
 	 * Hardware flow control ENABLED to fix UART timeout issues
 	 * Reference: MAYA W2 requires RTS/CTS for reliable high-speed communication
 	 */
@@ -253,12 +265,6 @@
 		power-on-delay-ms = <200>;
 		reset-delay-ms = <100>;
 	};
-};
-
-&lpuart3 {
-	status = "disabled";  /* Unused */
-	/* Disable power management to prevent device link failures during boot */
-	/delete-property/ power-domains;
 };
 
 &lpuart4 {
@@ -281,13 +287,13 @@
 
 /* Pin configuration for LPUART2 Bluetooth */
 &iomuxc {
-	/* Pin configuration for LPUART2 Bluetooth - MAYA W2 with hardware flow control */
-	pinctrl_lpuart2: lpuart2grp {
+	/* Pin configuration for LPUART5 Bluetooth - MAYA W2 with hardware flow control on DAP pins */
+	pinctrl_lpuart5: lpuart5grp {
 		fsl,pins = <
-			MX93_PAD_UART2_TXD__LPUART2_TX		0x31e  /* BT UART TX - Output from iMX93 */
-			MX93_PAD_UART2_RXD__LPUART2_RX		0x31e  /* BT UART RX - Input to iMX93 */
-			MX93_PAD_DAP_TMS_SWDIO__LPUART5_RTS_B	0x31e  /* BT UART RTS - Output from iMX93 */
-			MX93_PAD_DAP_TCLK_SWCLK__LPUART5_CTS_B	0x31e  /* BT UART CTS - Input to iMX93 */
+			MX93_PAD_DAP_TDO_TRACESWO__LPUART5_TX	0x31e  /* BT UART TX - Output from iMX93 */
+			MX93_PAD_DAP_TDI__LPUART5_RX		0x31e  /* BT UART RX - Input to iMX93 */
+			MX93_PAD_DAP_TMS_SWDIO__LPUART5_RTS_B	0x31e  /* BT UART RTS - Input to iMX93 */
+			MX93_PAD_DAP_TCLK_SWCLK__LPUART5_CTS_B	0x31e  /* BT UART CTS - Output from iMX93 */
 		>;
 	};
 
