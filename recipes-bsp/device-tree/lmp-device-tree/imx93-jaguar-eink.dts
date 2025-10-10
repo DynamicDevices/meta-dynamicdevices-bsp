@@ -286,8 +286,8 @@
 		fsl,pins = <
 			MX93_PAD_UART2_TXD__LPUART2_TX		0x31e  /* BT UART TX - Output from iMX93 */
 			MX93_PAD_UART2_RXD__LPUART2_RX		0x31e  /* BT UART RX - Input to iMX93 */
-			MX93_PAD_UART2_RTS__LPUART2_RTS		0x31e  /* BT UART RTS - Request To Send */
-			MX93_PAD_UART2_CTS__LPUART2_CTS		0x31e  /* BT UART CTS - Clear To Send */
+			MX93_PAD_DAP_TMS_SWDIO__LPUART5_RTS_B	0x31e  /* BT UART RTS - Output from iMX93 */
+			MX93_PAD_DAP_TCLK_SWCLK__LPUART5_CTS_B	0x31e  /* BT UART CTS - Input to iMX93 */
 		>;
 	};
 
