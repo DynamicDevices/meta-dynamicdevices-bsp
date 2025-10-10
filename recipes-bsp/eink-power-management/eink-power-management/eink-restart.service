@@ -9,6 +9,8 @@ Type=oneshot
 ExecStart=/usr/bin/eink-restart.sh
 TimeoutStartSec=30
 RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=reboot.target

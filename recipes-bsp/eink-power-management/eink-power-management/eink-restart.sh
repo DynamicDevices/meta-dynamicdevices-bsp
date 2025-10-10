@@ -4,10 +4,8 @@
 
 set -e
 
-LOG_FILE="/tmp/eink-restart.log"
-
 log_message() {
-    echo "$(date): $1" | tee -a "$LOG_FILE"
+    echo "$(date): $1"
 }
 
 # Check if eink-power-cli is available
@@ -115,7 +113,7 @@ execute_power_restart() {
         for attempt in $(seq 1 5); do
             log_message "Board reset attempt $attempt/5..."
             
-            if eink-power-cli board reset 2>&1 | tee -a "$LOG_FILE"; then
+            if eink-power-cli board reset; then
                 log_message "eink-power-cli board reset successful on attempt $attempt"
                 sleep 3  # Give time for power controller to execute reset
                 return 0
