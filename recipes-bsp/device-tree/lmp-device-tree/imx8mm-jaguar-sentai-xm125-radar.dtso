@@ -26,6 +26,7 @@
 /plugin/;
 
 #include <dt-bindings/gpio/gpio.h>
+#include "freescale/imx8mm-pinfunc.h"
 
 &iomuxc {
 	/* XM125 radar GPIO pin configuration - repurpose ECSPI2 and SAI3 pins */
