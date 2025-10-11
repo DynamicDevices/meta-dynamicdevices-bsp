@@ -2,6 +2,7 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
 SRC_URI:append:imx8mm-jaguar-sentai = " \
         file://imx8mm-jaguar-sentai.dts \
+        ${@bb.utils.contains('MACHINE_FEATURES', 'xm125-radar', 'file://imx8mm-jaguar-sentai-xm125-radar.dtso', '', d)} \
 "
 
 COMPATIBLE_MACHINE:imx8mm-jaguar-sentai = ".*"

@@ -1,0 +1,28 @@
+[Unit]
+Description=XM125 Radar Module Firmware Manager
+Documentation=https://developer.acconeer.com/
+After=multi-user.target
+Wants=multi-user.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/xm125-firmware-reset.sh
+ExecReload=/usr/bin/xm125-firmware-reset.sh
+TimeoutStartSec=30
+TimeoutStopSec=10
+
+# Security settings
+User=root
+Group=root
+PrivateNetwork=false
+PrivateDevices=false
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/dev /sys
+
+# Environment
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+[Install]
+WantedBy=multi-user.target

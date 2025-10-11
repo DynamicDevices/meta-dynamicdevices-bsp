@@ -409,6 +409,14 @@
 		>;
 	};
 
+	/* Radar module GPIO pin configuration */
+	pinctrl_radar_gpio: radar_gpio_grp {
+		fsl,pins = <
+			MX93_PAD_GPIO_IO12__GPIO2_IO12		0x31e  /* RADAR_ENABLE - Power/Enable control */
+			MX93_PAD_GPIO_IO13__GPIO2_IO13		0x31e  /* RADAR_RESET - Reset control (Active-Low) */
+		>;
+	};
+
 };
 
 /* GPIO hog configurations for Maya W2 Bluetooth power management
