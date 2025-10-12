@@ -82,35 +82,69 @@ check_dependencies() {
     fi
 }
 
+# Check GPIO availability
+check_gpio_availability() {
+    log "Checking GPIO availability..."
+    
+    # List available GPIO chips
+    log "Available GPIO chips:"
+    if command -v gpiodetect >/dev/null 2>&1; then
+        gpiodetect 2>&1 | while read line; do
+            log "  $line"
+        done
+    else
+        log "  gpiodetect not available"
+        ls /dev/gpiochip* 2>/dev/null | while read chip; do
+            log "  $chip"
+        done
+    fi
+    
+    # Check if our target GPIO chip exists
+    if [ ! -e "/dev/${XM125_GPIO_CHIP}" ]; then
+        log_error "GPIO chip ${XM125_GPIO_CHIP} not found!"
+        log_error "Available chips: $(ls /dev/gpiochip* 2>/dev/null | tr '\n' ' ')"
+        return 1
+    fi
+    
+    log "GPIO chip ${XM125_GPIO_CHIP} found"
+    return 0
+}
+
 # GPIO control functions
 xm125_reset_assert() {
     log "Asserting XM125 reset (active low)"
+    log "DEBUG: gpioset ${XM125_GPIO_CHIP} ${XM125_RESET_LINE}=0"
     gpioset ${XM125_GPIO_CHIP} ${XM125_RESET_LINE}=0
 }
 
 xm125_reset_deassert() {
     log "Deasserting XM125 reset"
+    log "DEBUG: gpioset ${XM125_GPIO_CHIP} ${XM125_RESET_LINE}=1"
     gpioset ${XM125_GPIO_CHIP} ${XM125_RESET_LINE}=1
 }
 
 xm125_bootloader_mode() {
     log "Setting XM125 to bootloader mode (BOOT0 high)"
+    log "DEBUG: gpioset ${XM125_GPIO_CHIP} ${XM125_BOOT_LINE}=1"
     gpioset ${XM125_GPIO_CHIP} ${XM125_BOOT_LINE}=1
 }
 
 xm125_run_mode() {
     log "Setting XM125 to run mode (BOOT0 low)"
+    log "DEBUG: gpioset ${XM125_GPIO_CHIP} ${XM125_BOOT_LINE}=0"
     gpioset ${XM125_GPIO_CHIP} ${XM125_BOOT_LINE}=0
 }
 
 # Wake up control functions
 xm125_wake_assert() {
     log "Asserting XM125 wake up (high)"
+    log "DEBUG: gpioset ${XM125_GPIO_CHIP} ${XM125_WAKE_LINE}=1"
     gpioset ${XM125_GPIO_CHIP} ${XM125_WAKE_LINE}=1
 }
 
 xm125_wake_deassert() {
     log "Deasserting XM125 wake up (low)"
+    log "DEBUG: gpioset ${XM125_GPIO_CHIP} ${XM125_WAKE_LINE}=0"
     gpioset ${XM125_GPIO_CHIP} ${XM125_WAKE_LINE}=0
 }
 
@@ -122,6 +156,7 @@ xm125_wait_for_ready() {
     log "Waiting for XM125 MCU_INT to go HIGH (module ready)..."
     
     while [ $count -lt $timeout ]; do
+        log "DEBUG: gpioget ${XM125_GPIO_CHIP} ${XM125_IRQ_LINE}"
         local mcu_int_status=$(gpioget ${XM125_GPIO_CHIP} ${XM125_IRQ_LINE})
         if [ "$mcu_int_status" = "1" ]; then
             log_success "XM125 module ready (MCU_INT HIGH)"
@@ -411,6 +446,7 @@ main() {
     # Check prerequisites
     check_root
     check_dependencies
+    check_gpio_availability
     
     # Handle different modes
     if [[ "$detect_only" = true ]]; then
