@@ -66,7 +66,7 @@ test_gpio_commands() {
     
     # Test reset GPIO
     log_info "Testing reset GPIO (${XM125_RESET_LINE})..."
-    if gpioset "${XM125_GPIO_CHIP}" "${XM125_RESET_LINE}=0"; then
+    if gpioset --chip "${XM125_GPIO_CHIP}" "${XM125_RESET_LINE}=0"; then
         log_success "Reset assert (low) - OK"
     else
         log_error "Reset assert (low) - FAILED"
@@ -75,7 +75,7 @@ test_gpio_commands() {
     
     sleep 0.1
     
-    if gpioset "${XM125_GPIO_CHIP}" "${XM125_RESET_LINE}=1"; then
+    if gpioset --chip "${XM125_GPIO_CHIP}" "${XM125_RESET_LINE}=1"; then
         log_success "Reset deassert (high) - OK"
     else
         log_error "Reset deassert (high) - FAILED"
@@ -84,7 +84,7 @@ test_gpio_commands() {
     
     # Test boot GPIO
     log_info "Testing boot GPIO (${XM125_BOOT_LINE})..."
-    if gpioset "${XM125_GPIO_CHIP}" "${XM125_BOOT_LINE}=1"; then
+    if gpioset --chip "${XM125_GPIO_CHIP}" "${XM125_BOOT_LINE}=1"; then
         log_success "Boot mode set (high) - OK"
     else
         log_error "Boot mode set (high) - FAILED"
@@ -93,7 +93,7 @@ test_gpio_commands() {
     
     sleep 0.1
     
-    if gpioset "${XM125_GPIO_CHIP}" "${XM125_BOOT_LINE}=0"; then
+    if gpioset --chip "${XM125_GPIO_CHIP}" "${XM125_BOOT_LINE}=0"; then
         log_success "Run mode set (low) - OK"
     else
         log_error "Run mode set (low) - FAILED"
@@ -102,7 +102,7 @@ test_gpio_commands() {
     
     # Test wake GPIO
     log_info "Testing wake GPIO (${XM125_WAKE_LINE})..."
-    if gpioset "${XM125_GPIO_CHIP}" "${XM125_WAKE_LINE}=1"; then
+    if gpioset --chip "${XM125_GPIO_CHIP}" "${XM125_WAKE_LINE}=1"; then
         log_success "Wake assert (high) - OK"
     else
         log_error "Wake assert (high) - FAILED"
@@ -111,7 +111,7 @@ test_gpio_commands() {
     
     sleep 0.1
     
-    if gpioset "${XM125_GPIO_CHIP}" "${XM125_WAKE_LINE}=0"; then
+    if gpioset --chip "${XM125_GPIO_CHIP}" "${XM125_WAKE_LINE}=0"; then
         log_success "Wake deassert (low) - OK"
     else
         log_error "Wake deassert (low) - FAILED"
@@ -128,7 +128,7 @@ test_gpio_read() {
     # Test reading IRQ line
     log_info "Testing IRQ GPIO read (${XM125_IRQ_LINE})..."
     local irq_status
-    if irq_status=$(gpioget "${XM125_GPIO_CHIP}" "${XM125_IRQ_LINE}"); then
+    if irq_status=$(gpioget --chip "${XM125_GPIO_CHIP}" "${XM125_IRQ_LINE}"); then
         log_success "IRQ read - OK (value: $irq_status)"
     else
         log_error "IRQ read - FAILED"

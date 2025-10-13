@@ -68,7 +68,8 @@ PermitEmptyPasswords no
 
 # Change to yes to enable keyboard-interactive authentication (beware issues
 # with some PAM modules and threads)
-KbdInteractiveAuthentication yes
+# FIXED: Disable keyboard-interactive to avoid PAM credential issues
+KbdInteractiveAuthentication no
 
 # Kerberos options (removed - not supported in this OpenSSH build)
 #KerberosOrLocalPasswd yes
@@ -87,7 +88,8 @@ KbdInteractiveAuthentication yes
 # If you just want the PAM account and session checks to run without
 # PAM authentication, then enable this but set PasswordAuthentication
 # and KbdInteractiveAuthentication to 'no'.
-UsePAM yes
+# TEMPORARILY DISABLED: PAM causing credential setting failures
+UsePAM no
 
 # DEVELOPMENT: Enable forwarding features for development convenience
 AllowAgentForwarding yes
