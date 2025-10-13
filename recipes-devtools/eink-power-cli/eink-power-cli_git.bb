@@ -1,7 +1,7 @@
 SUMMARY = "E-ink Power Management CLI Tool"
-DESCRIPTION = "Rust-based command-line interface for controlling the MCXC143VFM power \
+DESCRIPTION = "Rust-based command-line interface for controlling the MCXC143VFM/MCXC144VFM power \
 management microcontroller on imx93-jaguar-eink board. Provides battery monitoring, \
-power sequencing, and system control capabilities."
+power sequencing, and system control capabilities. Compatible with v2.5.0 microcontroller firmware."
 
 HOMEPAGE = "https://github.com/DynamicDevices/eink-power-cli"
 SECTION = "console/utils"
@@ -15,7 +15,7 @@ COMPATIBLE_MACHINE = "imx93-jaguar-eink"
 
 SRCBRANCH = "main"
 SRCREV = "${AUTOREV}"
-PV = "0.1.0+git${SRCPV}"
+PV = "2.5.0+git${SRCPV}"
 
 SRC_URI = "git://github.com/DynamicDevices/eink-power-cli.git;protocol=https;branch=${SRCBRANCH}"
 
@@ -36,7 +36,6 @@ RUSTFLAGS:append = " --remap-path-prefix=${TMPDIR}=/usr/src/debug/tmpdir"
 # Skip QA check for already-stripped - Rust release binaries are pre-stripped
 INSANE_SKIP:${PN} += "already-stripped"
 
-# Installation
 do_install() {
     install -d ${D}${bindir}
     
