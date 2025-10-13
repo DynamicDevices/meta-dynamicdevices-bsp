@@ -144,14 +144,22 @@
                 >;
         };
 
-        pinctrl_ecspi2: ecspi2grp {
+        /* XM125 radar GPIO pin configuration - replaces BGT radar */
+        /* WARNING: This disables BGT 60TR13C radar support for XM125 testing */
+        pinctrl_xm125_radar: xm125_radar_grp {
                 fsl,pins = <
-			MX8MM_IOMUXC_ECSPI2_SS0_GPIO5_IO13	0x96
-                        MX8MM_IOMUXC_ECSPI2_SCLK_ECSPI2_SCLK	0x96
-                        MX8MM_IOMUXC_ECSPI2_MOSI_ECSPI2_MOSI	0x96
-			MX8MM_IOMUXC_ECSPI2_MISO_ECSPI2_MISO	0x96
-			MX8MM_IOMUXC_SAI3_RXC_GPIO4_IO29	0x96  // RADAR_IRQ
-			MX8MM_IOMUXC_SAI3_RXFS_GPIO4_IO28	0x96 // RADAR_RST
+                        /* Bootloader control (BOOT0) - repurpose ECSPI2_SS0 as GPIO */
+                        MX8MM_IOMUXC_ECSPI2_SS0_GPIO5_IO13      0x96
+                        /* Reset control (active-low) - same pin as BGT radar reset */
+                        MX8MM_IOMUXC_SAI3_RXFS_GPIO4_IO28       0x96
+                        /* Wake up control (assert high to wake up) - repurpose ECSPI2_MOSI */
+                        MX8MM_IOMUXC_ECSPI2_MOSI_GPIO5_IO11     0x96
+                        /* MCU interrupt input - repurpose SAI3_RXC */
+                        MX8MM_IOMUXC_SAI3_RXC_GPIO4_IO29        0x96
+                        /* Disable unused SPI pins - hardware team feedback: 
+                         * SCLK and MISO just go to test points on radar board, not used by XM125 */
+                        MX8MM_IOMUXC_ECSPI2_SCLK_GPIO5_IO10     0x96
+                        MX8MM_IOMUXC_ECSPI2_MISO_GPIO5_IO12     0x96
                 >;
         };
 
@@ -556,6 +564,20 @@
 		status = "disabled";
 	};
 
+        /* XM125 Acconeer radar module - I2C communication */
+        /* WARNING: This replaces BGT 60TR13C radar for XM125 testing */
+        xm125: xm125@52 {
+                compatible = "acconeer,xm125";
+                reg = <0x52>;
+                status = "okay";
+                
+                /* GPIO control lines - configured as GPIOs via libgpiod from userspace */
+                /* BOOT0: GPIO5_IO13 (was ECSPI2_SS0) */
+                /* RESET: GPIO4_IO28 (SAI3_RXFS) - active low */
+                /* WAKE:  GPIO5_IO11 (was ECSPI2_MOSI) - assert high to wake */
+                /* IRQ:   GPIO4_IO29 (SAI3_RXC) - interrupt from XM125 */
+        };
+
 };
 
 &sai1 {
@@ -614,21 +636,10 @@
         };
 };
 
-// BGT 60TR13C E6327 radar
+// XM125 Acconeer radar module (replaces BGT 60TR13C)
+// WARNING: This disables BGT 60TR13C radar support for XM125 testing
 &ecspi2 {
-	#address-cells = <1>;
-	#size-cells = <0>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_ecspi2>;
-	cs-gpios = <&gpio5 13 GPIO_ACTIVE_LOW>;
-        fsl,spi-num-chipselects = <1>;
-	status = "okay";
-
-        spidev0: spi@0 {
-		compatible = "rohm,dh2228fv";
-                spi-max-frequency = <50000000>;
-                reg = <0>;
-        };
+	status = "disabled";  /* Disabled for XM125 - uses I2C instead of SPI */
 };
 
 &flexspi {
