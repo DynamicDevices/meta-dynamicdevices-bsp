@@ -114,38 +114,38 @@ check_gpio_availability() {
 xm125_reset_assert() {
     log "Asserting XM125 reset (active low)"
     log "DEBUG: gpioset ${XM125_GPIO_CHIP} ${XM125_RESET_LINE}=0"
-    gpioset ${XM125_GPIO_CHIP} ${XM125_RESET_LINE}=0
+    gpioset "${XM125_GPIO_CHIP}" "${XM125_RESET_LINE}=0"
 }
 
 xm125_reset_deassert() {
     log "Deasserting XM125 reset"
     log "DEBUG: gpioset ${XM125_GPIO_CHIP} ${XM125_RESET_LINE}=1"
-    gpioset ${XM125_GPIO_CHIP} ${XM125_RESET_LINE}=1
+    gpioset "${XM125_GPIO_CHIP}" "${XM125_RESET_LINE}=1"
 }
 
 xm125_bootloader_mode() {
     log "Setting XM125 to bootloader mode (BOOT0 high)"
     log "DEBUG: gpioset ${XM125_GPIO_CHIP} ${XM125_BOOT_LINE}=1"
-    gpioset ${XM125_GPIO_CHIP} ${XM125_BOOT_LINE}=1
+    gpioset "${XM125_GPIO_CHIP}" "${XM125_BOOT_LINE}=1"
 }
 
 xm125_run_mode() {
     log "Setting XM125 to run mode (BOOT0 low)"
     log "DEBUG: gpioset ${XM125_GPIO_CHIP} ${XM125_BOOT_LINE}=0"
-    gpioset ${XM125_GPIO_CHIP} ${XM125_BOOT_LINE}=0
+    gpioset "${XM125_GPIO_CHIP}" "${XM125_BOOT_LINE}=0"
 }
 
 # Wake up control functions
 xm125_wake_assert() {
     log "Asserting XM125 wake up (high)"
     log "DEBUG: gpioset ${XM125_GPIO_CHIP} ${XM125_WAKE_LINE}=1"
-    gpioset ${XM125_GPIO_CHIP} ${XM125_WAKE_LINE}=1
+    gpioset "${XM125_GPIO_CHIP}" "${XM125_WAKE_LINE}=1"
 }
 
 xm125_wake_deassert() {
     log "Deasserting XM125 wake up (low)"
     log "DEBUG: gpioset ${XM125_GPIO_CHIP} ${XM125_WAKE_LINE}=0"
-    gpioset ${XM125_GPIO_CHIP} ${XM125_WAKE_LINE}=0
+    gpioset "${XM125_GPIO_CHIP}" "${XM125_WAKE_LINE}=0"
 }
 
 # MCU interrupt status functions
@@ -157,7 +157,7 @@ xm125_wait_for_ready() {
     
     while [ $count -lt $timeout ]; do
         log "DEBUG: gpioget ${XM125_GPIO_CHIP} ${XM125_IRQ_LINE}"
-        local mcu_int_status=$(gpioget ${XM125_GPIO_CHIP} ${XM125_IRQ_LINE})
+        local mcu_int_status=$(gpioget "${XM125_GPIO_CHIP}" "${XM125_IRQ_LINE}")
         if [ "$mcu_int_status" = "1" ]; then
             log_success "XM125 module ready (MCU_INT HIGH)"
             return 0
@@ -180,7 +180,7 @@ xm125_wait_for_low_power() {
     log "Waiting for XM125 MCU_INT to go LOW (low power ready)..."
     
     while [ $count -lt $timeout ]; do
-        local mcu_int_status=$(gpioget ${XM125_GPIO_CHIP} ${XM125_IRQ_LINE})
+        local mcu_int_status=$(gpioget "${XM125_GPIO_CHIP}" "${XM125_IRQ_LINE}")
         if [ "$mcu_int_status" = "0" ]; then
             log_success "XM125 entered low power mode (MCU_INT LOW)"
             return 0
