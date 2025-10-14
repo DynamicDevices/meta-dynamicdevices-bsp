@@ -34,7 +34,8 @@ INSANE_SKIP = "dev-deps dev-elf"
 inherit systemd
 
 SYSTEMD_SERVICE:${PN} = "radar-presence.service"
-SYSTEMD_AUTO_ENABLE:${PN} = "enable"
+# Disable radar-presence service when XM125 radar is enabled (different radar hardware)
+SYSTEMD_AUTO_ENABLE:${PN} = "${@bb.utils.contains('MACHINE_FEATURES', 'xm125-radar', 'disable', 'enable', d)}"
 
 do_install:append() {
   install -d ${D}${systemd_unitdir}/system
