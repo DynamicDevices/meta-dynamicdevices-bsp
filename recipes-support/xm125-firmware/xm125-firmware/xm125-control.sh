@@ -361,6 +361,135 @@ show_gpio_status() {
     echo ""
 }
 
+# Verify firmware write integrity
+verify_firmware_write() {
+    local firmware_file="$1"
+    local readback_file="/tmp/xm125_readback_$(date +%s).bin"
+    local trimmed_file="/tmp/xm125_trimmed_$(date +%s).bin"
+    
+    if [[ -z "$firmware_file" ]]; then
+        log_error "Firmware file path required for verification"
+        log "Usage: verify_firmware_write <firmware_file_path>"
+        return 1
+    fi
+    
+    if [[ ! -f "$firmware_file" ]]; then
+        log_error "Firmware file not found: $firmware_file"
+        return 1
+    fi
+    
+    log "Starting firmware write verification..."
+    log "Firmware file: $firmware_file"
+    
+    # Get firmware file size
+    local firmware_size=$(stat -c%s "$firmware_file")
+    log "Firmware size: $firmware_size bytes"
+    
+    # Ensure XM125 is in bootloader mode
+    log "Ensuring XM125 is in bootloader mode..."
+    if ! init_gpio; then
+        log_error "Failed to initialize GPIO for verification"
+        return 1
+    fi
+    
+    xm125_reset_to_mode "bootloader"
+    
+    # Wait a moment for bootloader to be ready
+    sleep 1
+    
+    # Check if bootloader is responding
+    if ! i2cdetect -y 2 | grep -q "48"; then
+        log_error "XM125 bootloader not responding at address 0x48"
+        log "Make sure XM125 is properly connected and in bootloader mode"
+        return 1
+    fi
+    
+    log_success "XM125 bootloader detected at address 0x48"
+    
+    # Read back firmware from flash
+    log "Reading firmware from XM125 flash memory..."
+    
+    # Try multiple times with delays as stm32flash can be temperamental
+    local read_attempts=3
+    local attempt=1
+    local read_success=false
+    
+    while [[ $attempt -le $read_attempts && "$read_success" = false ]]; do
+        if [[ $attempt -gt 1 ]]; then
+            log "Read attempt $attempt of $read_attempts..."
+            # Reset bootloader again for retry
+            xm125_reset_to_mode "bootloader"
+            sleep 2
+        fi
+        
+        if stm32flash /dev/i2c-2 -a 0x48 -r "$readback_file" 2>/dev/null; then
+            read_success=true
+            log_success "Firmware read back completed"
+        else
+            log_warning "Read attempt $attempt failed, retrying..."
+            rm -f "$readback_file"  # Clean up partial file
+            ((attempt++))
+            sleep 1
+        fi
+    done
+    
+    if [[ "$read_success" = false ]]; then
+        log_error "Failed to read firmware from XM125 flash after $read_attempts attempts"
+        log_error "This may be due to bootloader communication issues"
+        log "Try running the verification again, or reset the XM125 first"
+        return 1
+    fi
+    
+    # Extract the firmware portion (first N bytes matching original size)
+    log "Extracting firmware portion ($firmware_size bytes)..."
+    if ! dd if="$readback_file" of="$trimmed_file" bs=1 count="$firmware_size" 2>/dev/null; then
+        log_error "Failed to extract firmware portion from readback"
+        rm -f "$readback_file" "$trimmed_file"
+        return 1
+    fi
+    
+    # Calculate and compare checksums
+    log "Calculating checksums for verification..."
+    local original_md5=$(md5sum "$firmware_file" | cut -d' ' -f1)
+    local readback_md5=$(md5sum "$trimmed_file" | cut -d' ' -f1)
+    
+    log "Original firmware MD5:  $original_md5"
+    log "Read-back firmware MD5: $readback_md5"
+    
+    # Compare checksums
+    if [[ "$original_md5" == "$readback_md5" ]]; then
+        log_success "✅ FIRMWARE VERIFICATION SUCCESSFUL!"
+        log_success "Write integrity confirmed - all $firmware_size bytes match perfectly"
+        
+        # Show detailed verification results
+        log ""
+        log "Verification Results:"
+        log "===================="
+        log "Original file:    $firmware_file"
+        log "Firmware size:    $firmware_size bytes"
+        log "Checksum (MD5):   $original_md5"
+        log "Flash integrity:  ✅ VERIFIED"
+        log "Data corruption:  ❌ NONE DETECTED"
+        
+    else
+        log_error "❌ FIRMWARE VERIFICATION FAILED!"
+        log_error "Checksums do not match - possible write corruption"
+        log_error "Original:  $original_md5"
+        log_error "Read-back: $readback_md5"
+        
+        # Keep files for debugging
+        log_warning "Keeping readback files for analysis:"
+        log_warning "  Full readback: $readback_file"
+        log_warning "  Trimmed data:  $trimmed_file"
+        return 1
+    fi
+    
+    # Cleanup temporary files on success
+    rm -f "$readback_file" "$trimmed_file"
+    
+    return 0
+}
+
 # Test GPIO141 bootloader control
 test_bootloader_control() {
     log "Testing XM125 bootloader control..."
@@ -395,6 +524,7 @@ Options:
     --reset-bootloader  Reset XM125 to bootloader mode
     --set-run           Set run mode (without reset)
     --set-bootloader    Set bootloader mode (without reset)
+    --verify <file>     Verify firmware write integrity by reading back and comparing
     -i, --i2c           Check I2C communication only
     -t, --test          Test bootloader pin control
     -f, --fix-gpio      Fix GPIO141 bootloader pin only (Foundries.io workaround)
@@ -408,6 +538,7 @@ Examples:
     $0 --reset-bootloader   # Reset XM125 to bootloader mode (for programming)
     $0 --set-run            # Set run mode without reset
     $0 --set-bootloader     # Set bootloader mode without reset
+    $0 --verify /lib/firmware/acconeer/i2c_presence_detector.bin  # Verify firmware write
     $0 --i2c                # Check I2C communication
     $0 --test               # Test bootloader pin control
     $0 --fix-gpio           # Fix GPIO141 pin availability
@@ -424,6 +555,7 @@ Description:
     3. Reset sequences for both run mode and bootloader mode
     4. I2C communication verification
     5. GPIO status monitoring and testing
+    6. Firmware write verification with byte-perfect integrity checking
     
     The script automatically handles the Foundries.io bootloader override issue
     where the SPI controller claims GPIO141, making it unavailable for XM125
@@ -433,6 +565,14 @@ Hardware Requirements:
     - XM125 module connected to I2C3 (${XM125_I2C_BUS})
     - GPIO pins properly configured in device tree
     - Root privileges for hardware access
+    - stm32flash utility for firmware operations
+
+Firmware Verification:
+    The --verify option provides comprehensive firmware integrity checking:
+    - Reads back firmware from XM125 flash memory
+    - Compares MD5 checksums byte-by-byte
+    - Detects any write corruption or communication errors
+    - Provides detailed verification results
 
 GPIO Mapping:
     Reset (GPIO124):    GPIO4_IO28 (SAI3_RXFS) - Active-low reset
@@ -451,6 +591,8 @@ main() {
     local reset_to_bootloader=false
     local set_run_only=false
     local set_bootloader_only=false
+    local verify_only=false
+    local verify_file=""
     local i2c_only=false
     local test_only=false
     local fix_gpio_only=false
@@ -486,6 +628,16 @@ main() {
             --set-bootloader)
                 set_bootloader_only=true
                 shift
+                ;;
+            --verify)
+                verify_only=true
+                verify_file="$2"
+                if [[ -z "$verify_file" ]]; then
+                    log_error "--verify requires a firmware file path"
+                    show_usage
+                    exit 1
+                fi
+                shift 2
                 ;;
             -i|--i2c)
                 i2c_only=true
@@ -546,6 +698,15 @@ main() {
         xm125_set_bootloader_mode
         show_gpio_status
         exit 0
+    elif [[ "$verify_only" = true ]]; then
+        log "Firmware verification mode..."
+        if verify_firmware_write "$verify_file"; then
+            log_success "Firmware verification completed successfully"
+            exit 0
+        else
+            log_error "Firmware verification failed"
+            exit 1
+        fi
     elif [[ "$reset_only" = true ]]; then
         init_gpio
         xm125_reset
