@@ -569,6 +569,8 @@
         xm125: xm125@52 {
                 compatible = "acconeer,xm125";
                 reg = <0x52>;
+                pinctrl-names = "default";
+                pinctrl-0 = <&pinctrl_xm125_radar>;
                 status = "okay";
                 
                 /* GPIO control lines - configured as GPIOs via libgpiod from userspace */
@@ -640,6 +642,8 @@
 // WARNING: This disables BGT 60TR13C radar support for XM125 testing
 &ecspi2 {
 	status = "disabled";  /* Disabled for XM125 - uses I2C instead of SPI */
+	/delete-property/ pinctrl-names;
+	/delete-property/ pinctrl-0;
 };
 
 &flexspi {

@@ -61,5 +61,17 @@
 };
 
 / {
-	/* No GPIO device tree configuration needed - use libgpiod from userspace */
+	/* XM125 GPIO device node to ensure pinmux is applied */
+	xm125_gpio: xm125-gpio {
+		compatible = "gpio-leds"; /* Use gpio-leds as a simple way to apply pinctrl */
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_xm125_radar>, <&pinctrl_xm125_disabled_spi>;
+		status = "okay";
+		
+		/* Dummy LED entry to make gpio-leds happy - won't actually control LEDs */
+		xm125-pinmux-dummy {
+			gpios = <&gpio5 13 0>; /* Just reference one GPIO to satisfy driver */
+			default-state = "keep"; /* Don't change the state */
+		};
+	};
 };

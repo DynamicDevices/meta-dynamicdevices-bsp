@@ -1,5 +1,5 @@
-SUMMARY = "Acconeer XM125 Radar Module Firmware Management"
-DESCRIPTION = "Firmware files and flashing utilities for the Acconeer XM125 radar module"
+SUMMARY = "Acconeer XM125 Radar Module Control and Firmware Management"
+DESCRIPTION = "Comprehensive control utilities and firmware files for the Acconeer XM125 radar module including GPIO control, reset sequences, and firmware flashing"
 HOMEPAGE = "https://developer.acconeer.com/"
 LICENSE = "CLOSED"
 LIC_FILES_CHKSUM = ""
@@ -10,12 +10,12 @@ RDEPENDS:${PN} = "libgpiod-tools i2c-tools bash stm32flash"
 
 # Version should match the XM125 firmware version
 PV = "1.0.0"
-PR = "r1"
+PR = "r2"
 
 SRC_URI = " \
+    file://xm125-control.sh \
     file://xm125-firmware-flash.sh \
     file://xm125-firmware-manager.service \
-    file://xm125-firmware-reset.sh \
     file://test-gpio-commands.sh \
     file://README-firmware.md \
     file://i2c_presence_detector.bin \
@@ -45,10 +45,10 @@ do_configure[noexec] = "1"
 do_compile[noexec] = "1"
 
 do_install() {
-    # Install firmware management scripts
+    # Install XM125 control and management scripts
     install -d ${D}${bindir}
+    install -m 0755 ${WORKDIR}/xm125-control.sh ${D}${bindir}/
     install -m 0755 ${WORKDIR}/xm125-firmware-flash.sh ${D}${bindir}/
-    install -m 0755 ${WORKDIR}/xm125-firmware-reset.sh ${D}${bindir}/
     install -m 0755 ${WORKDIR}/test-gpio-commands.sh ${D}${bindir}/
     
     # Install systemd service
@@ -69,6 +69,7 @@ do_install() {
 }
 
 FILES:${PN} = " \
+    ${bindir}/xm125-control.sh \
     ${bindir}/xm125-firmware-* \
     ${bindir}/test-gpio-commands.sh \
     ${systemd_unitdir}/system/xm125-firmware-manager.service \
