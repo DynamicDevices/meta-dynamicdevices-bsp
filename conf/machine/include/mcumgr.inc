@@ -23,5 +23,5 @@ MACHINE_EXTRA_RRECOMMENDS:append = " \
 # Configure serial device permissions for mcumgr access
 # Add users to dialout group for serial device access
 EXTRA_USERS_PARAMS:append = " \
-    ${@bb.utils.contains('MACHINE_FEATURES', 'mcumgr', 'groupadd dialout; usermod -a -G dialout root; usermod -a -G dialout fio;', '', d)} \
+    ${@bb.utils.contains('MACHINE_FEATURES', 'mcumgr', 'groupadd dialout; usermod -a -G dialout root;', '', d)} \
 "
