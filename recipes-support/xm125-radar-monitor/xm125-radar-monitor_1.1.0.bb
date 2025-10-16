@@ -92,8 +92,7 @@ FILES:${PN} = " \
     ${bindir}/xm125-radar-monitor \
     ${bindir}/xm125-control \
     ${bindir}/xm125-firmware-flash \
-    ${sysconfdir}/xm125 \
-    ${sysconfdir}/xm125/* \
+    ${sysconfdir}/xm125/ \
     ${docdir}/${PN}/* \
 "
 
