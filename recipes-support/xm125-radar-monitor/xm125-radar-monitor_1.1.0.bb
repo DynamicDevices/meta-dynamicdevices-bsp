@@ -20,13 +20,18 @@ RDEPENDS:${PN} = " \
 "
 
 # Version and source
-PV = "1.1.0"
 SRCBRANCH = "main"
-SRCREV = "${AUTOREV}"
+# SRCREV = "${AUTOREV}"  # Not needed for local files
+PV = "1.1.0+git${SRCPV}"
 
-SRC_URI = "git://github.com/DynamicDevices/xm125-radar-monitor.git;protocol=https;branch=${SRCBRANCH}"
+# Temporary: Use local files until repository is ready
+# SRC_URI = "git://github.com/DynamicDevices/xm125-radar-monitor.git;protocol=https;branch=${SRCBRANCH}"
+SRC_URI = "file://Cargo.toml \
+           file://src/main.rs \
+           file://README.md \
+           file://LICENSE"
 
-S = "${WORKDIR}/git"
+S = "${WORKDIR}"
 
 # Only build for machines with XM125 radar support
 COMPATIBLE_MACHINE = "(imx8mm-jaguar-sentai)"
@@ -38,28 +43,26 @@ python () {
         raise bb.parse.SkipRecipe("XM125 radar feature not enabled for this machine")
 }
 
-# Inherit cargo for Rust builds
-inherit cargo
+# Inherit cargo_bin for Rust binary builds
+inherit cargo_bin
 
-# For now, we'll use network access to download dependencies
-# In production, you would generate proper crate:// URLs from Cargo.lock
-# using cargo-bitbake tool or similar
-do_configure[network] = "1"
+# Enable network for the compile task allowing cargo to download dependencies
 do_compile[network] = "1"
 
-# Cross-compilation setup for ARM64
-CARGO_BUILD_FLAGS = "--release"
+# Fix buildpaths QA warnings by ensuring debug prefix mapping is applied to Rust builds
+RUSTFLAGS:append = " --remap-path-prefix=${WORKDIR}=/usr/src/debug/${PN}/${PV}"
+RUSTFLAGS:append = " --remap-path-prefix=${TMPDIR}=/usr/src/debug/tmpdir"
 
-# Set up cross-compilation environment
-export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER = "${CC}"
-export CC_aarch64_unknown_linux_gnu = "${CC}"
-export CXX_aarch64_unknown_linux_gnu = "${CXX}"
+# Skip QA check for already-stripped - Rust release binaries are pre-stripped
+INSANE_SKIP:${PN} += "already-stripped"
 
 # Install the application
 do_install() {
-    # Install the main binary
     install -d ${D}${bindir}
-    install -m 0755 ${CARGO_TARGET_SUBDIR}/xm125-radar-monitor ${D}${bindir}/
+    
+    # cargo_bin class builds to ${B}/${RUST_TARGET}/release/ for release profile
+    # where B = ${WORKDIR}/target and RUST_TARGET = aarch64-unknown-linux-gnu
+    install -m 755 ${B}/${RUST_TARGET}/release/xm125-radar-monitor ${D}${bindir}/xm125-radar-monitor
     
     # Create symlinks for backward compatibility (replacing shell scripts)
     ln -sf xm125-radar-monitor ${D}${bindir}/xm125-control
@@ -68,10 +71,15 @@ do_install() {
     # Install configuration directory
     install -d ${D}${sysconfdir}/xm125
     
-    # Install documentation
-    install -d ${D}${docdir}/${PN}
-    install -m 0644 ${S}/README.md ${D}${docdir}/${PN}/
-    install -m 0644 ${S}/CHANGELOG.md ${D}${docdir}/${PN}/
+    # Install documentation if it exists
+    if [ -f ${S}/README.md ]; then
+        install -d ${D}${docdir}/${PN}
+        install -m 0644 ${S}/README.md ${D}${docdir}/${PN}/
+    fi
+    if [ -f ${S}/CHANGELOG.md ]; then
+        install -d ${D}${docdir}/${PN}
+        install -m 0644 ${S}/CHANGELOG.md ${D}${docdir}/${PN}/
+    fi
     
     # Install example configuration if it exists
     if [ -f ${S}/config/xm125-config.toml ]; then
