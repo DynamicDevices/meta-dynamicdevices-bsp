@@ -68,9 +68,6 @@ do_install() {
     ln -sf xm125-radar-monitor ${D}${bindir}/xm125-control
     ln -sf xm125-radar-monitor ${D}${bindir}/xm125-firmware-flash
     
-    # Install configuration directory
-    install -d ${D}${sysconfdir}/xm125
-    
     # Install documentation if it exists
     if [ -f ${S}/README.md ]; then
         install -d ${D}${docdir}/${PN}
@@ -83,6 +80,7 @@ do_install() {
     
     # Install example configuration if it exists
     if [ -f ${S}/config/xm125-config.toml ]; then
+        install -d ${D}${sysconfdir}/xm125
         install -m 0644 ${S}/config/xm125-config.toml ${D}${sysconfdir}/xm125/
     fi
 }
@@ -92,7 +90,6 @@ FILES:${PN} = " \
     ${bindir}/xm125-radar-monitor \
     ${bindir}/xm125-control \
     ${bindir}/xm125-firmware-flash \
-    ${sysconfdir}/xm125/ \
     ${docdir}/${PN}/* \
 "
 
