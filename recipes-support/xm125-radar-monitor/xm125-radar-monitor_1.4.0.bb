@@ -5,7 +5,7 @@ with robust Rust implementation."
 
 HOMEPAGE = "https://github.com/DynamicDevices/xm125-radar-monitor"
 LICENSE = "GPL-3.0-or-later"
-LIC_FILES_CHKSUM = "file://LICENSE;md5=bdd5920c05e127c4c6f77cd54ace4253"
+LIC_FILES_CHKSUM = "file://LICENSE;md5=1ebbd3e34237af26da5dc08a4e440464"
 
 SECTION = "base"
 
