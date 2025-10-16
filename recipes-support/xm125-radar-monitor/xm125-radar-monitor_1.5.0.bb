@@ -20,11 +20,14 @@ RDEPENDS:${PN} = " \
 "
 
 # Version and source
-PV = "1.4.0"
+PV = "1.5.0"
 SRCBRANCH = "main"
 SRCREV = "${AUTOREV}"
 
-SRC_URI = "git://github.com/DynamicDevices/xm125-radar-monitor.git;protocol=https;branch=${SRCBRANCH}"
+SRC_URI = "git://github.com/DynamicDevices/xm125-radar-monitor.git;protocol=https;branch=${SRCBRANCH} \
+    file://xm125-control.sh \
+    file://xm125-firmware-flash.sh \
+"
 
 S = "${WORKDIR}/git"
 
@@ -60,9 +63,9 @@ do_install() {
     # where B = ${WORKDIR}/target and RUST_TARGET = aarch64-unknown-linux-gnu
     install -m 755 ${B}/${RUST_TARGET}/release/xm125-radar-monitor ${D}${bindir}/xm125-radar-monitor
     
-    # Create symlinks for backward compatibility (replacing shell scripts)
-    ln -sf xm125-radar-monitor ${D}${bindir}/xm125-control
-    ln -sf xm125-radar-monitor ${D}${bindir}/xm125-firmware-flash
+    # Install GPIO control scripts (required by Rust binary for hardware control)
+    install -m 755 ${WORKDIR}/xm125-control.sh ${D}${bindir}/xm125-control.sh
+    install -m 755 ${WORKDIR}/xm125-firmware-flash.sh ${D}${bindir}/xm125-firmware-flash.sh
     
     # Install documentation if it exists
     if [ -f ${S}/README.md ]; then
@@ -84,16 +87,16 @@ do_install() {
 # Package files
 FILES:${PN} = " \
     ${bindir}/xm125-radar-monitor \
-    ${bindir}/xm125-control \
-    ${bindir}/xm125-firmware-flash \
+    ${bindir}/xm125-control.sh \
+    ${bindir}/xm125-firmware-flash.sh \
     ${docdir}/${PN}/* \
 "
 
 # Package architecture
 PACKAGE_ARCH = "${MACHINE_ARCH}"
 
-# Provides legacy script names for compatibility
-PROVIDES = "xm125-control xm125-firmware-flash"
+# Provides GPIO control scripts for XM125 hardware management
+PROVIDES = "xm125-control-scripts xm125-firmware-flash-scripts"
 
 # Conflicts with old shell script packages if they exist
 CONFLICTS = "xm125-shell-scripts"
