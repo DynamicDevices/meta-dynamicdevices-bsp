@@ -43,8 +43,11 @@ python () {
         raise bb.parse.SkipRecipe("XM125 radar feature not enabled for this machine")
 }
 
-# Inherit cargo_bin for Rust binary builds
-inherit cargo_bin
+# Inherit cargo for Rust builds
+inherit cargo
+
+# Cargo build configuration
+CARGO_BUILD_FLAGS = "--release"
 
 # Enable network for the compile task allowing cargo to download dependencies
 do_compile[network] = "1"
@@ -60,9 +63,8 @@ INSANE_SKIP:${PN} += "already-stripped"
 do_install() {
     install -d ${D}${bindir}
     
-    # cargo_bin class builds to ${B}/${RUST_TARGET}/release/ for release profile
-    # where B = ${WORKDIR}/target and RUST_TARGET = aarch64-unknown-linux-gnu
-    install -m 755 ${B}/${RUST_TARGET}/release/xm125-radar-monitor ${D}${bindir}/xm125-radar-monitor
+    # cargo class builds to ${CARGO_TARGET_SUBDIR} for release profile
+    install -m 755 ${CARGO_TARGET_SUBDIR}/xm125-radar-monitor ${D}${bindir}/xm125-radar-monitor
     
     # Create symlinks for backward compatibility (replacing shell scripts)
     ln -sf xm125-radar-monitor ${D}${bindir}/xm125-control
