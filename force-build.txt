@@ -1,1 +1,2 @@
 # Build trigger for meta-jaguar-sentai-dev-v95 Thu 16 Oct 01:07:14 BST 2025
+2025-10-16 17:30:58 - Sentai build for xm125-radar-monitor v1.5.0 with control script fixes
