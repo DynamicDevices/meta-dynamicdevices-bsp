@@ -20,18 +20,13 @@ RDEPENDS:${PN} = " \
 "
 
 # Version and source
+PV = "1.4.0"
 SRCBRANCH = "main"
-# SRCREV = "${AUTOREV}"  # Not needed for local files
-PV = "1.4.0+git${SRCPV}"
+SRCREV = "${AUTOREV}"
 
-# Temporary: Use local files until repository is ready
-# SRC_URI = "git://github.com/DynamicDevices/xm125-radar-monitor.git;protocol=https;branch=${SRCBRANCH}"
-SRC_URI = "file://Cargo.toml \
-           file://src/main.rs \
-           file://README.md \
-           file://LICENSE"
+SRC_URI = "git://github.com/DynamicDevices/xm125-radar-monitor.git;protocol=https;branch=${SRCBRANCH}"
 
-S = "${WORKDIR}"
+S = "${WORKDIR}/git"
 
 # Only build for machines with XM125 radar support
 COMPATIBLE_MACHINE = "(imx8mm-jaguar-sentai)"
@@ -58,6 +53,11 @@ RUSTFLAGS:append = " --remap-path-prefix=${TMPDIR}=/usr/src/debug/tmpdir"
 
 # Skip QA check for already-stripped - Rust release binaries are pre-stripped
 INSANE_SKIP:${PN} += "already-stripped"
+
+# Cross-compilation environment setup
+export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER = "${CC}"
+export CC_aarch64_unknown_linux_gnu = "${CC}"
+export CXX_aarch64_unknown_linux_gnu = "${CXX}"
 
 # Install the application
 do_install() {
