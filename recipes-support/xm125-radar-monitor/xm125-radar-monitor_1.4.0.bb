@@ -22,7 +22,7 @@ RDEPENDS:${PN} = " \
 # Version and source
 SRCBRANCH = "main"
 # SRCREV = "${AUTOREV}"  # Not needed for local files
-PV = "1.1.0+git${SRCPV}"
+PV = "1.4.0+git${SRCPV}"
 
 # Temporary: Use local files until repository is ready
 # SRC_URI = "git://github.com/DynamicDevices/xm125-radar-monitor.git;protocol=https;branch=${SRCBRANCH}"
