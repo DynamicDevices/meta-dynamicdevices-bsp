@@ -713,25 +713,28 @@
 	pcf2131: rtc@53 {
 		compatible = "nxp,pcf2131";
 		reg = <0x53>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_pcf2131_irq>;
 		interrupt-parent = <&gpio4>;
-		interrupts = <22 IRQ_TYPE_LEVEL_LOW>; /* GPIO4_IO22 - INTA# */
-		wakeup-source;                         /* Enable wake capability */
+		interrupts = <22 IRQ_TYPE_LEVEL_LOW>;
 		
-		/* MINIMAL STANDARD CONFIGURATION:
+		/* ULTRA-MINIMAL BINDING-COMPLIANT CONFIGURATION:
 		 * 
-		 * Using only standard properties that the rtc-pcf2127 driver recognizes.
-		 * Custom properties have been removed to fix "failed to configure interrupt pins" error.
+		 * Based on nxp,pcf2127.yaml binding research, using only properties
+		 * explicitly supported by the standard rtc-pcf2127 driver:
 		 * 
-		 * Hardware connections (validated from schematic):
-		 * - INTA# → GPIO4_IO22 (MX93_PAD_ENET2_RX_CTL) → i.MX93 wake interrupt
+		 * - compatible: "nxp,pcf2131" (supported in updated binding)
+		 * - reg: I2C address 0x53
+		 * - interrupt-parent: GPIO controller reference  
+		 * - interrupts: GPIO pin and trigger type
+		 * 
+		 * REMOVED PROPERTIES (may not be in binding):
+		 * - pinctrl-names/pinctrl-0: GPIO should be configured by bootloader/kernel
+		 * - wakeup-source: May not be recognized by this driver version
+		 * - interrupt-names: Not mentioned in binding documentation
+		 * 
+		 * Hardware connections (validated from schematic 202500r1.pdf):
+		 * - INTA# → GPIO4_IO22 (MX93_PAD_ENET2_RX_CTL) → i.MX93 wake
 		 * - INTB# → RTC_INTB → MCXC143VFM PMU PTC5/LLWU_P9 → PMU wake
-		 * - I2C3_SDA: GPIO_IO28 (Pin J21) → PCF2131 pin 5
-		 * - I2C3_SCL: GPIO_IO29 (Pin J20) → PCF2131 pin 4
-		 * 
-		 * The driver will use default settings for interrupt configuration.
-		 * Advanced configuration can be added later via driver patches if needed.
+		 * - I2C3: LPI2C3 via GPIO_IO28/29 (Pin J21/J20)
 		 */
 	};
 };
