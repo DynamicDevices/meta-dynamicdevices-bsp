@@ -720,11 +720,35 @@
 		interrupt-names = "alarm";
 		wakeup-source;                         /* Enable wake capability */
 		
-		/* DUAL INTERRUPT CONFIGURATION:
-		 * INTA# → GPIO4_IO22 → i.MX93 wake interrupt (configured above)
-		 * INTB# → RTC_INTB → MCXC143VFM PMU PTC5/LLWU_P9 → PMU wake
-		 * Both interrupts can generate alarm and timer events */
-		nxp,dual-interrupt-mode;               /* Enable both INTA# and INTB# outputs */
+		/* CONFIGURABLE INTERRUPT SELECTION:
+		 * 
+		 * Available interrupt outputs:
+		 * - INTA# → GPIO4_IO22 → i.MX93 wake interrupt (configured above)
+		 * - INTB# → RTC_INTB → MCXC143VFM PMU PTC5/LLWU_P9 → PMU wake
+		 * 
+		 * Configuration options:
+		 * - "inta-only": Use only INTA# for i.MX93 wake (default)
+		 * - "intb-only": Use only INTB# for PMU wake  
+		 * - "dual": Use both INTA# and INTB# for redundancy
+		 * - "disabled": Disable both interrupt outputs
+		 */
+		nxp,interrupt-mode = "inta-only";      /* Default: INTA# only for i.MX93 wake */
+		
+		/* INTERRUPT CONFIGURATION OPTIONS:
+		 * Uncomment desired configuration:
+		 * 
+		 * For INTA# only (i.MX93 wake):
+		 * nxp,interrupt-mode = "inta-only";
+		 * 
+		 * For INTB# only (PMU wake):
+		 * nxp,interrupt-mode = "intb-only";
+		 * 
+		 * For dual interrupt mode (both INTA# and INTB#):
+		 * nxp,interrupt-mode = "dual";
+		 * 
+		 * To disable all interrupts:
+		 * nxp,interrupt-mode = "disabled";
+		 */
 		
 		/* Fix interrupt pin configuration - disable auto-configuration */
 		nxp,irq-clear-on-write;
@@ -748,7 +772,7 @@
 		nxp,battery-low-detection;
 		
 		/* ALARM INTERRUPT CONFIGURATION:
-		 * Enable alarm interrupts on both INTA# and INTB# for redundancy */
+		 * Alarm interrupts will be enabled based on nxp,interrupt-mode setting */
 		nxp,alarm-interrupt-enable;
 	};
 };

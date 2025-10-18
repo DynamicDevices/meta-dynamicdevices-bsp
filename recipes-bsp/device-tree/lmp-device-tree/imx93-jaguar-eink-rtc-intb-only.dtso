@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Device Tree Overlay: PCF2131 RTC INTB# Only Configuration
+ * 
+ * This overlay configures the PCF2131 RTC to use only INTB# interrupt
+ * for PMU wake functionality via MCXC143VFM microcontroller.
+ * 
+ * Usage: Apply this overlay to enable INTB# only mode for PMU-based wake
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "fsl,imx93-jaguar-eink", "fsl,imx93";
+	
+	fragment@0 {
+		target = <&pcf2131>;
+		__overlay__ {
+			nxp,interrupt-mode = "intb-only";
+			status = "okay";
+		};
+	};
+};

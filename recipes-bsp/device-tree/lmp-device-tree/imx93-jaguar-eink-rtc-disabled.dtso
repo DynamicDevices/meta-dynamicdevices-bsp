@@ -1,0 +1,25 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Device Tree Overlay: PCF2131 RTC Interrupts Disabled
+ * 
+ * This overlay disables both INTA# and INTB# interrupts on the PCF2131 RTC.
+ * The RTC will still function for timekeeping but won't generate wake interrupts.
+ * 
+ * Usage: Apply this overlay to disable all RTC interrupts
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "fsl,imx93-jaguar-eink", "fsl,imx93";
+	
+	fragment@0 {
+		target = <&pcf2131>;
+		__overlay__ {
+			nxp,interrupt-mode = "disabled";
+			/delete-property/ wakeup-source;
+			status = "okay";
+		};
+	};
+};

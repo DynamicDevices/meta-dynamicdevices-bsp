@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Device Tree Overlay: PCF2131 RTC INTA# Only Configuration
+ * 
+ * This overlay configures the PCF2131 RTC to use only INTA# interrupt
+ * for i.MX93 system wake functionality.
+ * 
+ * Usage: Apply this overlay to enable INTA# only mode
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "fsl,imx93-jaguar-eink", "fsl,imx93";
+	
+	fragment@0 {
+		target = <&pcf2131>;
+		__overlay__ {
+			nxp,interrupt-mode = "inta-only";
+			status = "okay";
+		};
+	};
+};

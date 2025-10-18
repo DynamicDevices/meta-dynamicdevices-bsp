@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Device Tree Overlay: PCF2131 RTC Dual Interrupt Configuration
+ * 
+ * This overlay configures the PCF2131 RTC to use both INTA# and INTB#
+ * interrupts for maximum redundancy and power management flexibility.
+ * 
+ * INTA# → i.MX93 system wake
+ * INTB# → PMU wake via MCXC143VFM
+ * 
+ * Usage: Apply this overlay to enable dual interrupt mode
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "fsl,imx93-jaguar-eink", "fsl,imx93";
+	
+	fragment@0 {
+		target = <&pcf2131>;
+		__overlay__ {
+			nxp,interrupt-mode = "dual";
+			nxp,dual-interrupt-mode;
+			status = "okay";
+		};
+	};
+};
