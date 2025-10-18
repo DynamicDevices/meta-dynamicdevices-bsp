@@ -405,7 +405,7 @@
 	/* PCF2131 RTC interrupt pin configuration */
 	pinctrl_pcf2131_irq: pcf2131_irq_grp {
 		fsl,pins = <
-			MX93_PAD_ENET2_RX_CTL__GPIO4_IO22	0x31e  /* PCF2131 INTA# - Wake interrupt */
+			MX93_PAD_ENET2_RX_CTL__GPIO4_IO22	0x1c4  /* PCF2131 INTA# - Pull-up for open-drain */
 		>;
 	};
 
@@ -713,29 +713,62 @@
 	pcf2131: rtc@53 {
 		compatible = "nxp,pcf2131";
 		reg = <0x53>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_pcf2131_irq>;
 		interrupt-parent = <&gpio4>;
 		interrupts = <22 IRQ_TYPE_LEVEL_LOW>;
+		wakeup-source;
 		
-		/* ULTRA-MINIMAL BINDING-COMPLIANT CONFIGURATION:
+		/* OPTIMIZED BINDING-COMPLIANT CONFIGURATION:
 		 * 
-		 * Based on nxp,pcf2127.yaml binding research, using only properties
-		 * explicitly supported by the standard rtc-pcf2127 driver:
+		 * Based on nxp,pcf2127.yaml binding and i.MX93 wakeup requirements:
 		 * 
+		 * STANDARD BINDING PROPERTIES:
 		 * - compatible: "nxp,pcf2131" (supported in updated binding)
 		 * - reg: I2C address 0x53
 		 * - interrupt-parent: GPIO controller reference  
 		 * - interrupts: GPIO pin and trigger type
 		 * 
-		 * REMOVED PROPERTIES (may not be in binding):
-		 * - pinctrl-names/pinctrl-0: GPIO should be configured by bootloader/kernel
-		 * - wakeup-source: May not be recognized by this driver version
-		 * - interrupt-names: Not mentioned in binding documentation
+		 * WAKEUP CONFIGURATION:
+		 * - pinctrl-0: Configure GPIO4_IO22 with pull-up for open-drain INTA#
+		 * - wakeup-source: Enable system wake capability (testing if supported)
+		 * 
+		 * PAD CONTROL OPTIMIZATION:
+		 * - Changed from 0x31e to 0x1c4 for proper pull-up on open-drain signal
 		 * 
 		 * Hardware connections (validated from schematic 202500r1.pdf):
 		 * - INTA# → GPIO4_IO22 (MX93_PAD_ENET2_RX_CTL) → i.MX93 wake
 		 * - INTB# → RTC_INTB → MCXC143VFM PMU PTC5/LLWU_P9 → PMU wake
 		 * - I2C3: LPI2C3 via GPIO_IO28/29 (Pin J21/J20)
 		 */
+	};
+};
+
+/* 
+ * GPIO Keys for RTC Alarm Wakeup (Backup Wakeup Method)
+ * 
+ * This provides an alternative wakeup mechanism if the RTC driver's
+ * wakeup-source property is not sufficient for deep sleep wake.
+ */
+/ {
+	gpio-keys {
+		compatible = "gpio-keys";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_pcf2131_irq>;
+		
+		rtc-alarm {
+			label = "RTC Alarm Wakeup";
+			gpios = <&gpio4 22 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_WAKEUP>;
+			wakeup-source;
+			debounce-interval = <20>;
+			
+			/* This gpio-key provides system wake capability for:
+			 * - Suspend-to-RAM (S2R)
+			 * - Deep Sleep Mode (DSM)
+			 * - Any low power state where GPIO wake is supported
+			 */
+		};
 	};
 };
 
