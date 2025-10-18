@@ -30,7 +30,7 @@
  *    - Prevents: "fsl_lpspi 44360000.spi: dma setup error -19, use pio"
  * 
  * 5. POWER OPTIMIZATION:
- *    - Primary RTC: PCF2131 (I2C3, 600nA, wake capability)
+ *    - Primary RTC: PCF2131 (LPI2C1, 600nA, wake capability)
  *    - Internal RTC: DISABLED (100µA too high for 5-year battery life)
  *    - PMU RTC: MCXC143VFM (always powered, system management)
  * 
@@ -214,7 +214,7 @@
  * 
  * POWER ARCHITECTURE:
  * - Internal BBNSM RTC: ~100µA (DISABLED - too high for 5-year battery life)
- * - External PCF2131 RTC: 600nA (PRIMARY - ultra-low power, I2C3 @ 0x53)
+ * - External PCF2131 RTC: 600nA (PRIMARY - ultra-low power, LPI2C1 @ 0x53)
  * - MCXC143VFM PMU RTC: Always powered (internal to power management micro)
  * ============================================================================ */
 
@@ -394,11 +394,11 @@
 		>;
 	};
 
-	/* I2C3 pinctrl for PCF2131 RTC - confirmed by schematic */
-	pinctrl_lpi2c3: lpi2c3grp {
+	/* I2C1 pinctrl for PCF2131 RTC - hardware actually on LPI2C1 */
+	pinctrl_lpi2c1: lpi2c1grp {
 		fsl,pins = <
-			MX93_PAD_GPIO_IO28__LPI2C3_SDA		0x40000b9e  /* I2C3_SDA */
-			MX93_PAD_GPIO_IO29__LPI2C3_SCL		0x40000b9e  /* I2C3_SCL */
+			MX93_PAD_GPIO_IO28__LPI2C1_SDA		0x40000b9e  /* I2C1_SDA */
+			MX93_PAD_GPIO_IO29__LPI2C1_SCL		0x40000b9e  /* I2C1_SCL */
 		>;
 	};
 
@@ -681,32 +681,32 @@
 
 
 /* ============================================================================
- * I2C3 Interface for PCF2131 RTC - PRIMARY RTC FOR 5-YEAR BATTERY LIFE
+ * I2C1 Interface for PCF2131 RTC - PRIMARY RTC FOR 5-YEAR BATTERY LIFE
  * ============================================================================
  * 
- * SCHEMATIC CONFIRMED: PCF2131 connects to I2C3_SDA/SCL via GPIO_IO28/29
+ * HARDWARE CONFIRMED: PCF2131 connects to LPI2C1 via GPIO_IO28/29
  * 
  * POWER-OPTIMIZED RTC ARCHITECTURE:
  * - Internal i.MX93 BBNSM RTC: ~100µA (DISABLED - too high for 5-year battery)
  * - External PCF2131 RTC: 600nA (PRIMARY - 166x more efficient!)
  * - MCXC143VFM PMU RTC: Always powered (internal to PMU)
  * 
- * HARDWARE CONNECTIONS (per schematic):
- * - I2C3_SDA: GPIO_IO28 (pin J21) → PCF2131 pin 5
- * - I2C3_SCL: GPIO_IO29 (pin J20) → PCF2131 pin 4
+ * HARDWARE CONNECTIONS (verified on target):
+ * - LPI2C1_SDA: GPIO_IO28 → PCF2131 pin 5 (appears as i2c-2 in Linux)
+ * - LPI2C1_SCL: GPIO_IO29 → PCF2131 pin 4 (appears as i2c-2 in Linux)
  * - INTA#: GPIO4_IO22 → i.MX93 wake interrupt
  * - INTB#: Connected to MCXC143VFM PMU
  * ============================================================================ */
-&lpi2c3 {
+&lpi2c1 {
 	#address-cells = <1>;
 	#size-cells = <0>;
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_lpi2c3>;
+	pinctrl-0 = <&pinctrl_lpi2c1>;
 	status = "okay";
 	clock-frequency = <100000>;  /* 100kHz for low power operation */
 	
-	/* Ensure clocks are properly assigned and enabled - fix "failed to reparent lpi2c3" */
-	assigned-clocks = <&clk IMX93_CLK_LPI2C3>;
+	/* Ensure clocks are properly assigned and enabled - fix "failed to reparent lpi2c1" */
+	assigned-clocks = <&clk IMX93_CLK_LPI2C1>;
 	assigned-clock-parents = <&clk IMX93_CLK_24M>;
 	assigned-clock-rates = <24000000>;
 
