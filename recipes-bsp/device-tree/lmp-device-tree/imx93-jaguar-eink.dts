@@ -394,7 +394,7 @@
 		>;
 	};
 
-	/* I2C3 pinctrl for PCF2131 RTC - confirmed by schematic */
+	/* I2C3 pinctrl for PCF2131 RTC - I2C communication works, interrupt config fails */
 	pinctrl_lpi2c3: lpi2c3grp {
 		fsl,pins = <
 			MX93_PAD_GPIO_IO28__LPI2C3_SDA		0x40000b9e  /* I2C3_SDA */
@@ -684,16 +684,17 @@
  * I2C3 Interface for PCF2131 RTC - PRIMARY RTC FOR 5-YEAR BATTERY LIFE
  * ============================================================================
  * 
- * SCHEMATIC CONFIRMED: PCF2131 connects to I2C3_SDA/SCL via GPIO_IO28/29
+ * ISSUE IDENTIFIED: I2C communication works (driver finds device at 2-0053)
+ * but fails at "configure interrupt pins" step with error -5 (EIO)
  * 
  * POWER-OPTIMIZED RTC ARCHITECTURE:
  * - Internal i.MX93 BBNSM RTC: ~100µA (DISABLED - too high for 5-year battery)
  * - External PCF2131 RTC: 600nA (PRIMARY - 166x more efficient!)
  * - MCXC143VFM PMU RTC: Always powered (internal to PMU)
  * 
- * HARDWARE CONNECTIONS (per schematic):
- * - I2C3_SDA: GPIO_IO28 (pin J21) → PCF2131 pin 5
- * - I2C3_SCL: GPIO_IO29 (pin J20) → PCF2131 pin 4
+ * HARDWARE CONNECTIONS:
+ * - I2C3_SDA: GPIO_IO28 → PCF2131 pin 5 (appears as i2c-2 in Linux)
+ * - I2C3_SCL: GPIO_IO29 → PCF2131 pin 4 (appears as i2c-2 in Linux)
  * - INTA#: GPIO4_IO22 (MX93_PAD_ENET2_RX_CTL) → i.MX93 wake interrupt
  * - INTB#: RTC_INTB → MCXC143VFM PMU PTC5/LLWU_P9 → PMU wake capability
  * ============================================================================ */
@@ -713,19 +714,16 @@
 	pcf2131: rtc@53 {
 		compatible = "nxp,pcf2131";
 		reg = <0x53>;
+		/* DISABLE INTERRUPTS TEMPORARILY TO TEST I2C COMMUNICATION
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_pcf2131_irq>;
 		interrupt-parent = <&gpio4>;
-		interrupts = <22 IRQ_TYPE_LEVEL_LOW>; /* GPIO4_IO22 - INTA# */
+		interrupts = <22 IRQ_TYPE_LEVEL_LOW>;
 		interrupt-names = "alarm";
-		wakeup-source;                         /* Enable wake capability */
-		
-		/* Fix interrupt pin configuration - disable auto-configuration */
+		wakeup-source;
 		nxp,irq-clear-on-write;
 		nxp,irq-output-push-pull;
-		
-		/* DSM POWER MANAGEMENT: Primary wake source for Deep Sleep Mode */
-		/* power-domains = <&wakeupmix_pd>; */    /* TODO: Verify power domain name in kernel 6.6+ */
+		*/
 	};
 };
 
