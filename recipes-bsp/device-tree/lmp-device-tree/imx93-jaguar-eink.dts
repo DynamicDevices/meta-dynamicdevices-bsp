@@ -694,8 +694,8 @@
  * HARDWARE CONNECTIONS (per schematic):
  * - I2C3_SDA: GPIO_IO28 (pin J21) → PCF2131 pin 5
  * - I2C3_SCL: GPIO_IO29 (pin J20) → PCF2131 pin 4
- * - INTA#: GPIO4_IO22 → i.MX93 wake interrupt
- * - INTB#: Connected to MCXC143VFM PMU
+ * - INTA#: GPIO4_IO22 (MX93_PAD_ENET2_RX_CTL) → i.MX93 wake interrupt
+ * - INTB#: RTC_INTB → MCXC143VFM PMU PTC5/LLWU_P9 → PMU wake capability
  * ============================================================================ */
 &lpi2c3 {
 	#address-cells = <1>;
@@ -720,9 +720,20 @@
 		interrupt-names = "alarm";
 		wakeup-source;                         /* Enable wake capability */
 		
+		/* DUAL INTERRUPT CONFIGURATION:
+		 * INTA# → GPIO4_IO22 → i.MX93 wake interrupt (configured above)
+		 * INTB# → RTC_INTB → MCXC143VFM PMU PTC5/LLWU_P9 → PMU wake
+		 * Both interrupts can generate alarm and timer events */
+		nxp,dual-interrupt-mode;               /* Enable both INTA# and INTB# outputs */
+		
 		/* Fix interrupt pin configuration - disable auto-configuration */
 		nxp,irq-clear-on-write;
 		nxp,irq-output-push-pull;
+		
+		/* INTERRUPT ROUTING OPTIMIZATION:
+		 * - INTA# handles system wake from Deep Sleep Mode
+		 * - INTB# handles PMU wake for battery management and power optimization */
+		nxp,irq-output-invert;                 /* Invert output for active-low operation */
 		
 		/* DSM POWER MANAGEMENT: Primary wake source for Deep Sleep Mode */
 		/* power-domains = <&wakeupmix_pd>; */    /* TODO: Verify power domain name in kernel 6.6+ */
@@ -736,8 +747,9 @@
 		/* BATTERY MANAGEMENT: Optimize for 3.3V VBAT operation */
 		nxp,battery-low-detection;
 		
-		/* WAKE OPTIMIZATION: Configure both interrupt outputs */
-		nxp,dual-interrupt-mode;
+		/* ALARM INTERRUPT CONFIGURATION:
+		 * Enable alarm interrupts on both INTA# and INTB# for redundancy */
+		nxp,alarm-interrupt-enable;
 	};
 };
 
