@@ -751,25 +751,6 @@
  * wakeup-source property is not sufficient for deep sleep wake.
  */
 / {
-	gpio-keys {
-		compatible = "gpio-keys";
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_pcf2131_irq>;
-		
-		rtc-alarm {
-			label = "RTC Alarm Wakeup";
-			gpios = <&gpio4 22 GPIO_ACTIVE_LOW>;
-			linux,code = <KEY_WAKEUP>;
-			wakeup-source;
-			debounce-interval = <20>;
-			
-			/* This gpio-key provides system wake capability for:
-			 * - Suspend-to-RAM (S2R)
-			 * - Deep Sleep Mode (DSM)
-			 * - Any low power state where GPIO wake is supported
-			 */
-		};
-	};
 };
 
 /* 
