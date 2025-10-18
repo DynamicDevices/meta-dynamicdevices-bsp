@@ -715,7 +715,7 @@
 		reg = <0x53>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_pcf2131_irq>;
-		interrupt-parent = <&gpio3>;
+		interrupt-parent = <&gpio4>;
 		interrupts = <22 IRQ_TYPE_LEVEL_LOW>;
 		wakeup-source;
 		
