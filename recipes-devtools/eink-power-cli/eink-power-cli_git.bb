@@ -13,9 +13,11 @@ LIC_FILES_CHKSUM = ""
 # Only install on imx93-jaguar-eink machine
 COMPATIBLE_MACHINE = "imx93-jaguar-eink"
 
+# Pin to v2.5.0 release (2025-10-19) - RTC Management & Enhanced Board Control
+# Release notes: https://github.com/DynamicDevices/eink-power-cli/releases/tag/v2.5.0
 SRCBRANCH = "main"
-SRCREV = "${AUTOREV}"
-PV = "2.5.0+git${SRCPV}"
+SRCREV = "9414e048237ec2628e05c15713390948d856cb1c"
+PV = "2.5.0"
 
 SRC_URI = "git://github.com/DynamicDevices/eink-power-cli.git;protocol=https;branch=${SRCBRANCH}"
 
