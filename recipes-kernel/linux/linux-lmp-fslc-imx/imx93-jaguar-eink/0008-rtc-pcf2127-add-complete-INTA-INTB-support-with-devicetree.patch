@@ -13,6 +13,7 @@ independently configured for different interrupt sources. This patch adds:
 2. Device tree property parsing for automatic initialization
 3. Support for PMU integration via INTB# line and system wake via INTA#
 4. Automatic interrupt clearing via TI_TP bit for proper periodic interrupts
+5. Sysfs control for MI/SI periodic interrupts (disabled by default)
 
 Device tree usage:
     pcf2131: rtc@53 {
@@ -31,6 +32,8 @@ Sysfs interface:
     /sys/class/rtc/rtc0/inta_mask2
     /sys/class/rtc/rtc0/intb_mask1
     /sys/class/rtc/rtc0/intb_mask2
+    /sys/class/rtc/rtc0/minute_interrupt  (0=disabled, 1=enabled)
+    /sys/class/rtc/rtc0/second_interrupt  (0=disabled, 1=enabled)
 
 This enables advanced power management scenarios where:
 - INTA# connects to i.MX93 GPIO for system wake
@@ -38,12 +41,12 @@ This enables advanced power management scenarios where:
 
 Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 ---
- drivers/rtc/rtc-pcf2127.c | 229 ++++++++++++++++++++++++++++++++++++++
- 1 file changed, 229 insertions(+)
+ drivers/rtc/rtc-pcf2127.c | 319 ++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 319 insertions(+)
 
 --- a/drivers/rtc/rtc-pcf2127.c
 +++ b/drivers/rtc/rtc-pcf2127.c
-@@ -100,6 +100,15 @@
+@@ -100,6 +100,18 >>
  #define PCF2131_REG_SR_RESET		0x24
  #define PCF2131_REG_DWD_CTL		0x35
  
@@ -57,10 +60,14 @@ Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 +#define PCF2131_REG_WATCHDG_TIM_CTL	0x35
 +#define PCF2131_BIT_WATCHDG_TIM_CTL_TI_TP	BIT(1)
 +
++/* PCF2131 Control_1 register bits for periodic interrupts */
++#define PCF2127_REG_CTRL1_MI		BIT(1)
++#define PCF2127_REG_CTRL1_SI		BIT(0)
++
  /* Control register 1 */
  #define PCF2127_REG_CTRL1_STOP		BIT(5)
  #define PCF2127_REG_CTRL1_TSF1		BIT(4)
-@@ -905,6 +914,200 @@
+@@ -905,6 +917,290 @@
  static DEVICE_ATTR_RW(timestamp2);
  static DEVICE_ATTR_RW(timestamp3);
  
@@ -239,10 +246,102 @@ Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 +static DEVICE_ATTR_RW(intb_mask1);
 +static DEVICE_ATTR_RW(intb_mask2);
 +
++/* PCF2131 periodic interrupt control sysfs interface */
++static ssize_t minute_interrupt_show(struct device *dev,
++				     struct device_attribute *attr, char *buf)
++{
++	struct pcf2127 *pcf2127 = dev_get_drvdata(dev->parent);
++	unsigned int val;
++	int ret;
++
++	if (pcf2127->cfg->type != PCF2131)
++		return -ENOTSUPP;
++
++	ret = regmap_read(pcf2127->regmap, PCF2127_REG_CTRL1, &val);
++	if (ret)
++		return ret;
++
++	return sprintf(buf, "%d\n", !!(val & PCF2127_REG_CTRL1_MI));
++}
++
++static ssize_t minute_interrupt_store(struct device *dev,
++				      struct device_attribute *attr,
++				      const char *buf, size_t count)
++{
++	struct pcf2127 *pcf2127 = dev_get_drvdata(dev->parent);
++	unsigned int val;
++	int ret;
++
++	if (pcf2127->cfg->type != PCF2131)
++		return -ENOTSUPP;
++
++	ret = kstrtouint(buf, 0, &val);
++	if (ret)
++		return ret;
++
++	if (val > 1)
++		return -EINVAL;
++
++	ret = regmap_update_bits(pcf2127->regmap, PCF2127_REG_CTRL1,
++				 PCF2127_REG_CTRL1_MI,
++				 val ? PCF2127_REG_CTRL1_MI : 0);
++	if (ret)
++		return ret;
++
++	return count;
++}
++
++static ssize_t second_interrupt_show(struct device *dev,
++				     struct device_attribute *attr, char *buf)
++{
++	struct pcf2127 *pcf2127 = dev_get_drvdata(dev->parent);
++	unsigned int val;
++	int ret;
++
++	if (pcf2127->cfg->type != PCF2131)
++		return -ENOTSUPP;
++
++	ret = regmap_read(pcf2127->regmap, PCF2127_REG_CTRL1, &val);
++	if (ret)
++		return ret;
++
++	return sprintf(buf, "%d\n", !!(val & PCF2127_REG_CTRL1_SI));
++}
++
++static ssize_t second_interrupt_store(struct device *dev,
++				      struct device_attribute *attr,
++				      const char *buf, size_t count)
++{
++	struct pcf2127 *pcf2127 = dev_get_drvdata(dev->parent);
++	unsigned int val;
++	int ret;
++
++	if (pcf2127->cfg->type != PCF2131)
++		return -ENOTSUPP;
++
++	ret = kstrtouint(buf, 0, &val);
++	if (ret)
++		return ret;
++
++	if (val > 1)
++		return -EINVAL;
++
++	ret = regmap_update_bits(pcf2127->regmap, PCF2127_REG_CTRL1,
++				 PCF2127_REG_CTRL1_SI,
++				 val ? PCF2127_REG_CTRL1_SI : 0);
++	if (ret)
++		return ret;
++
++	return count;
++}
++
++static DEVICE_ATTR_RW(minute_interrupt);
++static DEVICE_ATTR_RW(second_interrupt);
++
  static struct attribute *pcf2127_attrs[] = {
  	&dev_attr_timestamp0.attr,
  	NULL
-@@ -921,6 +1124,10 @@
+@@ -921,6 +1127,12 @@
  	&dev_attr_timestamp1.attr,
  	&dev_attr_timestamp2.attr,
  	&dev_attr_timestamp3.attr,
@@ -250,10 +349,12 @@ Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 +	&dev_attr_inta_mask2.attr,
 +	&dev_attr_intb_mask1.attr,
 +	&dev_attr_intb_mask2.attr,
++	&dev_attr_minute_interrupt.attr,
++	&dev_attr_second_interrupt.attr,
  	NULL
  };
  
-@@ -1126,6 +1333,37 @@
+@@ -1126,6 +1336,46 @@
  	pcf2127->rtc->range_max = RTC_TIMESTAMP_END_2099;
  	pcf2127->rtc->set_start_time = true; /* Sets actual start to 1970 */
  
@@ -307,6 +408,17 @@ Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 +		}
 +		
 +		dev_info(dev, "TI_TP enabled for automatic interrupt clearing\n");
++		
++		/* Disable periodic interrupts by default to prevent interrupt storms */
++		ret = regmap_update_bits(pcf2127->regmap, PCF2127_REG_CTRL1,
++					 PCF2127_REG_CTRL1_MI | PCF2127_REG_CTRL1_SI,
++					 0);
++		if (ret) {
++			dev_err(dev, "failed to disable periodic interrupts\n");
++			return ret;
++		}
++		
++		dev_info(dev, "Periodic interrupts disabled by default (use sysfs to enable)\n");
 +	}
 +
  	/*
