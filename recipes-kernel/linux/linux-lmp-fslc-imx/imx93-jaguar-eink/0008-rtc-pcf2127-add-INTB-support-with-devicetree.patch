@@ -1,27 +1,44 @@
 From 1234567890abcdef1234567890abcdef12345678 Mon Sep 17 00:00:00 2001
 From: Dynamic Devices <support@dynamicdevices.co.uk>
-Date: Mon, 21 Oct 2025 17:00:00 +0000
-Subject: [PATCH] rtc: pcf2127: Add PCF2131 INTB sysfs interface
+Date: Mon, 21 Oct 2025 21:00:00 +0000
+Subject: [PATCH] rtc: pcf2127: Add PCF2131 INTB support with device tree parsing
 
-Add sysfs interface for PCF2131 INTB interrupt mask configuration.
+Add complete INTB support for PCF2131 including sysfs interface and
+automatic device tree configuration parsing.
+
 The PCF2131 supports dual interrupt outputs (INTA# and INTB#) that can be
-independently configured for different interrupt sources.
+independently configured for different interrupt sources. This patch adds:
 
-This enables advanced power management scenarios where:
-- INTA# connects to i.MX93 GPIO for system wake
-- INTB# connects to PMU for deep sleep wake capability
+1. Sysfs interface for runtime configuration
+2. Device tree property parsing for automatic initialization
+3. Support for PMU integration via INTB# line
+
+Device tree usage:
+    pcf2131: rtc@53 {
+        compatible = "nxp,pcf2131";
+        reg = <0x53>;
+        interrupt-parent = <&gpio4>;
+        interrupts = <22 IRQ_TYPE_LEVEL_LOW>, <23 IRQ_TYPE_LEVEL_LOW>;
+        interrupt-names = "inta", "intb";
+        nxp,intb-mask = <0x04 0x0F>;  /* Alarms + timestamps on INTB# */
+        wakeup-source;
+    };
 
 Sysfs interface:
     /sys/class/rtc/rtc0/intb_mask1
     /sys/class/rtc/rtc0/intb_mask2
 
+This enables advanced power management scenarios where:
+- INTA# connects to i.MX93 GPIO for system wake
+- INTB# connects to PMU for deep sleep wake capability
+
 Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 ---
- drivers/drivers/rtc/rtc-pcf2127.c | 90 +++++++++++++++++++++++++++++++++++++++
- 1 file changed, 90 insertions(+)
+ drivers/drivers/rtc/rtc-pcf2127.c | 114 ++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 114 insertions(+)
 
---- drivers/drivers/rtc/rtc-pcf2127.c.orig	2025-10-21 17:51:24.891307724 +0100
-+++ drivers/drivers/rtc/rtc-pcf2127.c	2025-10-21 17:51:41.998092107 +0100
+--- drivers/drivers/rtc/rtc-pcf2127.c.orig	2025-10-21 21:55:08.663047212 +0100
++++ drivers/drivers/rtc/rtc-pcf2127.c	2025-10-21 21:58:35.646878026 +0100
 @@ -905,6 +905,94 @@
  static DEVICE_ATTR_RW(timestamp2);
  static DEVICE_ATTR_RW(timestamp3);
@@ -126,3 +143,35 @@ Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
  	NULL
  };
  
+@@ -1120,6 +1210,31 @@
+ 	pcf2127->rtc->range_max = RTC_TIMESTAMP_END_2099;
+ 	pcf2127->rtc->set_start_time = true; /* Sets actual start to 1970 */
+ 
++	/* Parse INTB mask configuration from device tree for PCF2131 */
++	if (pcf2127->cfg->type == PCF2131) {
++		u32 intb_mask[2];
++		
++		if (!of_property_read_u32_array(dev->of_node, "nxp,intb-mask", intb_mask, 2)) {
++			/* Apply device tree values to hardware registers */
++			ret = regmap_write(pcf2127->regmap, PCF2131_REG_INT_B_MASK1, intb_mask[0]);
++			if (ret) {
++				dev_err(dev, "failed to set INTB mask1 from device tree\n");
++				return ret;
++			}
++			
++			ret = regmap_write(pcf2127->regmap, PCF2131_REG_INT_B_MASK2, intb_mask[1]);
++			if (ret) {
++				dev_err(dev, "failed to set INTB mask2 from device tree\n");
++				return ret;
++			}
++			
++			dev_info(dev, "INTB masks set from device tree: 0x%02x 0x%02x\n", 
++				 intb_mask[0], intb_mask[1]);
++		} else {
++			dev_dbg(dev, "No nxp,intb-mask property found, using defaults\n");
++		}
++	}
++
+ 	/*
+ 	 * PCF2127/29 do not work correctly when setting alarms at 1s intervals.
+ 	 * PCF2131 is ok.
