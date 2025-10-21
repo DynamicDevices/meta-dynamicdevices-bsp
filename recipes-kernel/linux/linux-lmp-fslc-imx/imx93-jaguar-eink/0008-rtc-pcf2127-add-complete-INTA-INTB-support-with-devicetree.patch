@@ -1,17 +1,17 @@
 From 1234567890abcdef1234567890abcdef12345678 Mon Sep 17 00:00:00 2001
 From: Dynamic Devices <support@dynamicdevices.co.uk>
-Date: Mon, 21 Oct 2025 21:00:00 +0000
-Subject: [PATCH] rtc: pcf2127: Add PCF2131 INTB support with device tree parsing
+Date: Mon, 21 Oct 2025 22:00:00 +0000
+Subject: [PATCH] rtc: pcf2127: Add complete PCF2131 INTA/INTB support with device tree parsing
 
-Add complete INTB support for PCF2131 including sysfs interface and
-automatic device tree configuration parsing.
+Add complete dual interrupt support for PCF2131 including sysfs interface and
+automatic device tree configuration parsing for both INTA# and INTB# pins.
 
 The PCF2131 supports dual interrupt outputs (INTA# and INTB#) that can be
 independently configured for different interrupt sources. This patch adds:
 
-1. Sysfs interface for runtime configuration
+1. Sysfs interface for runtime configuration of both interrupt pins
 2. Device tree property parsing for automatic initialization
-3. Support for PMU integration via INTB# line
+3. Support for PMU integration via INTB# line and system wake via INTA#
 
 Device tree usage:
     pcf2131: rtc@53 {
@@ -20,11 +20,14 @@ Device tree usage:
         interrupt-parent = <&gpio4>;
         interrupts = <22 IRQ_TYPE_LEVEL_LOW>, <23 IRQ_TYPE_LEVEL_LOW>;
         interrupt-names = "inta", "intb";
+        nxp,inta-mask = <0x07 0x00>;  /* Alarms + battery on INTA# */
         nxp,intb-mask = <0x04 0x0F>;  /* Alarms + timestamps on INTB# */
         wakeup-source;
     };
 
 Sysfs interface:
+    /sys/class/rtc/rtc0/inta_mask1
+    /sys/class/rtc/rtc0/inta_mask2
     /sys/class/rtc/rtc0/intb_mask1
     /sys/class/rtc/rtc0/intb_mask2
 
@@ -34,15 +37,113 @@ This enables advanced power management scenarios where:
 
 Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 ---
- drivers/drivers/rtc/rtc-pcf2127.c | 114 ++++++++++++++++++++++++++++++++++++++
- 1 file changed, 114 insertions(+)
+ drivers/rtc/rtc-pcf2127.c | 220 ++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 220 insertions(+)
 
---- drivers/drivers/rtc/rtc-pcf2127.c.orig	2025-10-21 21:55:08.663047212 +0100
-+++ drivers/drivers/rtc/rtc-pcf2127.c	2025-10-21 21:58:35.646878026 +0100
-@@ -905,6 +905,94 @@
+--- a/drivers/rtc/rtc-pcf2127.c
++++ b/drivers/rtc/rtc-pcf2127.c
+@@ -100,6 +100,12 @@
+ #define PCF2131_REG_SR_RESET		0x24
+ #define PCF2131_REG_DWD_CTL		0x35
+ 
++/* PCF2131 interrupt mask registers */
++#define PCF2131_REG_INT_A_MASK1		0x31
++#define PCF2131_REG_INT_A_MASK2		0x32
++#define PCF2131_REG_INT_B_MASK1		0x33
++#define PCF2131_REG_INT_B_MASK2		0x34
++
+ /* Control register 1 */
+ #define PCF2127_REG_CTRL1_STOP		BIT(5)
+ #define PCF2127_REG_CTRL1_TSF1		BIT(4)
+@@ -905,6 +911,200 @@
  static DEVICE_ATTR_RW(timestamp2);
  static DEVICE_ATTR_RW(timestamp3);
  
++/* PCF2131 INTA mask sysfs interface */
++static ssize_t inta_mask1_show(struct device *dev,
++			       struct device_attribute *attr, char *buf)
++{
++	struct pcf2127 *pcf2127 = dev_get_drvdata(dev->parent);
++	unsigned int val;
++	int ret;
++
++	if (pcf2127->cfg->type != PCF2131)
++		return -ENOTSUPP;
++
++	ret = regmap_read(pcf2127->regmap, PCF2131_REG_INT_A_MASK1, &val);
++	if (ret)
++		return ret;
++
++	return sprintf(buf, "0x%02x\n", val);
++}
++
++static ssize_t inta_mask1_store(struct device *dev,
++				struct device_attribute *attr,
++				const char *buf, size_t count)
++{
++	struct pcf2127 *pcf2127 = dev_get_drvdata(dev->parent);
++	unsigned int val;
++	int ret;
++
++	if (pcf2127->cfg->type != PCF2131)
++		return -ENOTSUPP;
++
++	ret = kstrtouint(buf, 0, &val);
++	if (ret)
++		return ret;
++
++	if (val > 0xFF)
++		return -EINVAL;
++
++	ret = regmap_write(pcf2127->regmap, PCF2131_REG_INT_A_MASK1, val);
++	if (ret)
++		return ret;
++
++	return count;
++}
++
++static ssize_t inta_mask2_show(struct device *dev,
++			       struct device_attribute *attr, char *buf)
++{
++	struct pcf2127 *pcf2127 = dev_get_drvdata(dev->parent);
++	unsigned int val;
++	int ret;
++
++	if (pcf2127->cfg->type != PCF2131)
++		return -ENOTSUPP;
++
++	ret = regmap_read(pcf2127->regmap, PCF2131_REG_INT_A_MASK2, &val);
++	if (ret)
++		return ret;
++
++	return sprintf(buf, "0x%02x\n", val);
++}
++
++static ssize_t inta_mask2_store(struct device *dev,
++				struct device_attribute *attr,
++				const char *buf, size_t count)
++{
++	struct pcf2127 *pcf2127 = dev_get_drvdata(dev->parent);
++	unsigned int val;
++	int ret;
++
++	if (pcf2127->cfg->type != PCF2131)
++		return -ENOTSUPP;
++
++	ret = kstrtouint(buf, 0, &val);
++	if (ret)
++		return ret;
++
++	if (val > 0xFF)
++		return -EINVAL;
++
++	ret = regmap_write(pcf2127->regmap, PCF2131_REG_INT_A_MASK2, val);
++	if (ret)
++		return ret;
++
++	return count;
++}
++
 +/* PCF2131 INTB mask sysfs interface */
 +static ssize_t intb_mask1_show(struct device *dev,
 +			       struct device_attribute *attr, char *buf)
@@ -128,31 +229,53 @@ Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 +	return count;
 +}
 +
++static DEVICE_ATTR_RW(inta_mask1);
++static DEVICE_ATTR_RW(inta_mask2);
 +static DEVICE_ATTR_RW(intb_mask1);
 +static DEVICE_ATTR_RW(intb_mask2);
 +
  static struct attribute *pcf2127_attrs[] = {
  	&dev_attr_timestamp0.attr,
  	NULL
-@@ -915,6 +1003,8 @@
+@@ -921,6 +1115,10 @@
  	&dev_attr_timestamp1.attr,
  	&dev_attr_timestamp2.attr,
  	&dev_attr_timestamp3.attr,
++	&dev_attr_inta_mask1.attr,
++	&dev_attr_inta_mask2.attr,
 +	&dev_attr_intb_mask1.attr,
 +	&dev_attr_intb_mask2.attr,
  	NULL
  };
  
-@@ -1120,6 +1210,31 @@
+@@ -1126,6 +1324,28 @@
  	pcf2127->rtc->range_max = RTC_TIMESTAMP_END_2099;
  	pcf2127->rtc->set_start_time = true; /* Sets actual start to 1970 */
  
-+	/* Parse INTB mask configuration from device tree for PCF2131 */
++	/* Parse INTA and INTB mask configuration from device tree for PCF2131 */
 +	if (pcf2127->cfg->type == PCF2131) {
-+		u32 intb_mask[2];
++		u32 inta_mask[2], intb_mask[2];
 +		
++		/* Configure INTA mask registers from device tree */
++		if (!of_property_read_u32_array(dev->of_node, "nxp,inta-mask", inta_mask, 2)) {
++			ret = regmap_write(pcf2127->regmap, PCF2131_REG_INT_A_MASK1, inta_mask[0]);
++			if (ret) {
++				dev_err(dev, "failed to set INTA mask1 from device tree\n");
++				return ret;
++			}
++			
++			ret = regmap_write(pcf2127->regmap, PCF2131_REG_INT_A_MASK2, inta_mask[1]);
++			if (ret) {
++				dev_err(dev, "failed to set INTA mask2 from device tree\n");
++				return ret;
++			}
++			
++			dev_info(dev, "INTA masks set from device tree: 0x%02x 0x%02x\n", 
++				 inta_mask[0], inta_mask[1]);
++		}
++		
++		/* Configure INTB mask registers from device tree */
 +		if (!of_property_read_u32_array(dev->of_node, "nxp,intb-mask", intb_mask, 2)) {
-+			/* Apply device tree values to hardware registers */
 +			ret = regmap_write(pcf2127->regmap, PCF2131_REG_INT_B_MASK1, intb_mask[0]);
 +			if (ret) {
 +				dev_err(dev, "failed to set INTB mask1 from device tree\n");
@@ -167,8 +290,6 @@ Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 +			
 +			dev_info(dev, "INTB masks set from device tree: 0x%02x 0x%02x\n", 
 +				 intb_mask[0], intb_mask[1]);
-+		} else {
-+			dev_dbg(dev, "No nxp,intb-mask property found, using defaults\n");
 +		}
 +	}
 +
