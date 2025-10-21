@@ -809,7 +809,7 @@
 		interrupts = <22 IRQ_TYPE_LEVEL_LOW>, <23 IRQ_TYPE_LEVEL_LOW>;
 		interrupt-names = "inta", "intb";
 		nxp,inta-mask = <0x07 0x00>;  /* Alarms + battery on INTA# (i.MX93) */
-		nxp,intb-mask = <0x00 0x0F>;  /* Timestamps on INTB# (PMU) */
+		nxp,intb-mask = <0x04 0x0F>;  /* Alarms + timestamps on INTB# (PMU) */
 		wakeup-source;
 		nxp,irq-clear-on-write;
 		nxp,irq-output-push-pull;
