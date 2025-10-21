@@ -1,0 +1,128 @@
+From 1234567890abcdef1234567890abcdef12345678 Mon Sep 17 00:00:00 2001
+From: Dynamic Devices <support@dynamicdevices.co.uk>
+Date: Mon, 21 Oct 2025 17:00:00 +0000
+Subject: [PATCH] rtc: pcf2127: Add PCF2131 INTB sysfs interface
+
+Add sysfs interface for PCF2131 INTB interrupt mask configuration.
+The PCF2131 supports dual interrupt outputs (INTA# and INTB#) that can be
+independently configured for different interrupt sources.
+
+This enables advanced power management scenarios where:
+- INTA# connects to i.MX93 GPIO for system wake
+- INTB# connects to PMU for deep sleep wake capability
+
+Sysfs interface:
+    /sys/class/rtc/rtc0/intb_mask1
+    /sys/class/rtc/rtc0/intb_mask2
+
+Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
+---
+ drivers/drivers/rtc/rtc-pcf2127.c | 90 +++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 90 insertions(+)
+
+--- drivers/drivers/rtc/rtc-pcf2127.c.orig	2025-10-21 17:51:24.891307724 +0100
++++ drivers/drivers/rtc/rtc-pcf2127.c	2025-10-21 17:51:41.998092107 +0100
+@@ -905,6 +905,94 @@
+ static DEVICE_ATTR_RW(timestamp2);
+ static DEVICE_ATTR_RW(timestamp3);
+ 
++/* PCF2131 INTB mask sysfs interface */
++static ssize_t intb_mask1_show(struct device *dev,
++			       struct device_attribute *attr, char *buf)
++{
++	struct pcf2127 *pcf2127 = dev_get_drvdata(dev->parent);
++	unsigned int val;
++	int ret;
++
++	if (pcf2127->cfg->type != PCF2131)
++		return -ENOTSUPP;
++
++	ret = regmap_read(pcf2127->regmap, PCF2131_REG_INT_B_MASK1, &val);
++	if (ret)
++		return ret;
++
++	return sprintf(buf, "0x%02x\n", val);
++}
++
++static ssize_t intb_mask1_store(struct device *dev,
++				struct device_attribute *attr,
++				const char *buf, size_t count)
++{
++	struct pcf2127 *pcf2127 = dev_get_drvdata(dev->parent);
++	unsigned int val;
++	int ret;
++
++	if (pcf2127->cfg->type != PCF2131)
++		return -ENOTSUPP;
++
++	ret = kstrtouint(buf, 0, &val);
++	if (ret)
++		return ret;
++
++	if (val > 0xFF)
++		return -EINVAL;
++
++	ret = regmap_write(pcf2127->regmap, PCF2131_REG_INT_B_MASK1, val);
++	if (ret)
++		return ret;
++
++	return count;
++}
++
++static ssize_t intb_mask2_show(struct device *dev,
++			       struct device_attribute *attr, char *buf)
++{
++	struct pcf2127 *pcf2127 = dev_get_drvdata(dev->parent);
++	unsigned int val;
++	int ret;
++
++	if (pcf2127->cfg->type != PCF2131)
++		return -ENOTSUPP;
++
++	ret = regmap_read(pcf2127->regmap, PCF2131_REG_INT_B_MASK2, &val);
++	if (ret)
++		return ret;
++
++	return sprintf(buf, "0x%02x\n", val);
++}
++
++static ssize_t intb_mask2_store(struct device *dev,
++				struct device_attribute *attr,
++				const char *buf, size_t count)
++{
++	struct pcf2127 *pcf2127 = dev_get_drvdata(dev->parent);
++	unsigned int val;
++	int ret;
++
++	if (pcf2127->cfg->type != PCF2131)
++		return -ENOTSUPP;
++
++	ret = kstrtouint(buf, 0, &val);
++	if (ret)
++		return ret;
++
++	if (val > 0xFF)
++		return -EINVAL;
++
++	ret = regmap_write(pcf2127->regmap, PCF2131_REG_INT_B_MASK2, val);
++	if (ret)
++		return ret;
++
++	return count;
++}
++
++static DEVICE_ATTR_RW(intb_mask1);
++static DEVICE_ATTR_RW(intb_mask2);
++
+ static struct attribute *pcf2127_attrs[] = {
+ 	&dev_attr_timestamp0.attr,
+ 	NULL
+@@ -915,6 +1003,8 @@
+ 	&dev_attr_timestamp1.attr,
+ 	&dev_attr_timestamp2.attr,
+ 	&dev_attr_timestamp3.attr,
++	&dev_attr_intb_mask1.attr,
++	&dev_attr_intb_mask2.attr,
+ 	NULL
+ };
+ 
