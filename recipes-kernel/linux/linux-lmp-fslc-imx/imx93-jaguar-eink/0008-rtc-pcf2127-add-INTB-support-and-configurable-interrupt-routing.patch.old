@@ -1,15 +1,21 @@
 From 1234567890abcdef1234567890abcdef12345678 Mon Sep 17 00:00:00 2001
 From: Dynamic Devices <support@dynamicdevices.co.uk>
-Date: Mon, 21 Oct 2025 15:55:00 +0000
-Subject: [PATCH] rtc: pcf2127: Add PCF2131 dual interrupt support (INTA/INTB)
+Date: Sat, 19 Oct 2025 21:10:00 +0000
+Subject: [PATCH] rtc: pcf2127: Add sysfs interface for PCF2131 dual interrupt
+ configuration
 
-Add support for PCF2131 dual interrupt configuration via sysfs interface.
-The PCF2131 supports two interrupt outputs (INTA# and INTB#) that can be
-independently configured for different interrupt sources.
+The PCF2131 already supports dual interrupts (INTA# and INTB#) in the driver,
+but lacks a user-friendly interface to configure interrupt routing at runtime.
 
-This enables advanced power management scenarios where:
-- INTA# connects to i.MX93 GPIO for system wake
-- INTB# connects to PMU for deep sleep wake capability
+This patch adds:
+1. Sysfs interface for runtime interrupt mask configuration
+2. Device tree properties for initial interrupt routing setup
+3. Proper dual interrupt mode detection and setup
+
+The PCF2131 has interrupt mask registers that control which interrupt sources
+are routed to INTA# vs INTB# outputs, enabling flexible power management
+scenarios where different interrupt types can be handled by different
+processors or power management units.
 
 Device tree usage:
     pcf2131: rtc@53 {
@@ -18,12 +24,12 @@ Device tree usage:
         interrupt-parent = <&gpio4>;
         interrupts = <22 IRQ_TYPE_LEVEL_LOW>, <23 IRQ_TYPE_LEVEL_LOW>;
         interrupt-names = "inta", "intb";
-        nxp,inta-mask = <0x07 0x00>;
-        nxp,intb-mask = <0x00 0x0F>;
+        nxp,inta-mask = <0x07 0x00>;  /* Alarms + battery on INTA# */
+        nxp,intb-mask = <0x00 0x0F>;  /* Timestamps on INTB# */
         wakeup-source;
     };
 
-Sysfs interface:
+Userspace control:
     /sys/class/rtc/rtc0/inta_mask1
     /sys/class/rtc/rtc0/inta_mask2
     /sys/class/rtc/rtc0/intb_mask1
@@ -31,43 +37,44 @@ Sysfs interface:
 
 Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 ---
- drivers/rtc/rtc-pcf2127.c | 120 ++++++++++++++++++++++++++++++++++++++
- 1 file changed, 120 insertions(+)
+ drivers/rtc/rtc-pcf2127.c | 161 +++++++++++++++++++++++++++++++++++++
+ 1 file changed, 161 insertions(+)
 
 diff --git a/drivers/rtc/rtc-pcf2127.c b/drivers/rtc/rtc-pcf2127.c
-index abcdef123456..fedcba654321 100644
+index 123456789abc..fedcba987654 100644
 --- a/drivers/rtc/rtc-pcf2127.c
 +++ b/drivers/rtc/rtc-pcf2127.c
-@@ -50,6 +50,16 @@
- #define PCF2127_REG_WD_CTL		0x10
- #define PCF2127_REG_WD_VAL		0x11
- 
-+/* PCF2131 interrupt mask registers */
-+#define PCF2131_REG_INT_A_MASK1		0x31
-+#define PCF2131_REG_INT_A_MASK2		0x32
-+#define PCF2131_REG_INT_B_MASK1		0x33
-+#define PCF2131_REG_INT_B_MASK2		0x34
-+
-+struct pcf2131_interrupt_config {
-+	u8 inta_mask1, inta_mask2;
-+	u8 intb_mask1, intb_mask2;
-+};
- 
- /* Control register 1 */
- #define PCF2127_BIT_CTRL1_POR_OVRD	BIT(3)
-@@ -130,6 +140,7 @@ struct pcf2127 {
- 	struct rtc_device *rtc;
- 	struct watchdog_device wdd;
- 	struct regmap *regmap;
-+	struct pcf2131_interrupt_config int_config;
- 	time64_t ts[PCF2127_MAX_TS_SUPPORTED];
- 	bool ts_valid[PCF2127_MAX_TS_SUPPORTED];
- 	const struct pcf21xx_config *cfg;
-@@ -500,6 +511,95 @@ static const struct attribute_group pcf2127_attr_group = {
- 	.attrs	= pcf2127_attrs,
+@@ -178,6 +178,13 @@ enum pcf21xx_type {
+ 	PCF21XX_LAST_ID
  };
  
-+/* PCF2131 dual interrupt sysfs interface */
++struct pcf2131_interrupt_config {
++	u8 inta_mask1;
++	u8 inta_mask2;
++	u8 intb_mask1;
++	u8 intb_mask2;
++};
++
+ struct pcf21xx_ts_config {
+ 	u8 reg_base; /* Base register to read timestamp values. */
+ 
+@@ -207,6 +214,8 @@ struct pcf2127 {
+ 	bool irq_enabled;
+ 	time64_t ts[PCF2127_MAX_TS_SUPPORTED]; /* Timestamp values. */
+ 	bool ts_valid[PCF2127_MAX_TS_SUPPORTED];  /* Timestamp valid indication. */
++	struct pcf2131_interrupt_config int_config;
++	bool dual_interrupt_mode;
+ };
+ 
+ /*
+@@ -919,6 +928,138 @@ static struct attribute *pcf2131_attrs[] = {
+ 	NULL
+ };
+ 
++/*
++ * PCF2131 dual interrupt sysfs interface
++ */
++
 +static ssize_t inta_mask1_show(struct device *dev, struct device_attribute *attr, char *buf)
 +{
 +	struct pcf2127 *pcf2127 = dev_get_drvdata(dev);
@@ -96,6 +103,7 @@ index abcdef123456..fedcba654321 100644
 +	if (ret)
 +		return ret;
 +
++	dev_info(dev, "INTA_MASK1 updated to 0x%02x\n", val);
 +	return count;
 +}
 +
@@ -127,6 +135,7 @@ index abcdef123456..fedcba654321 100644
 +	if (ret)
 +		return ret;
 +
++	dev_info(dev, "INTA_MASK2 updated to 0x%02x\n", val);
 +	return count;
 +}
 +
@@ -158,6 +167,7 @@ index abcdef123456..fedcba654321 100644
 +	if (ret)
 +		return ret;
 +
++	dev_info(dev, "INTB_MASK1 updated to 0x%02x\n", val);
 +	return count;
 +}
 +
@@ -189,6 +199,7 @@ index abcdef123456..fedcba654321 100644
 +	if (ret)
 +		return ret;
 +
++	dev_info(dev, "INTB_MASK2 updated to 0x%02x\n", val);
 +	return count;
 +}
 +
@@ -197,48 +208,59 @@ index abcdef123456..fedcba654321 100644
 +static DEVICE_ATTR_RW(intb_mask1);
 +static DEVICE_ATTR_RW(intb_mask2);
 +
-+static struct attribute *pcf2131_attrs[] = {
-+	&dev_attr_inta_mask1.attr,
-+	&dev_attr_inta_mask2.attr,
-+	&dev_attr_intb_mask1.attr,
-+	&dev_attr_intb_mask2.attr,
-+	NULL
-+};
+ static struct pcf21xx_config pcf21xx_cfg[] = {
+ 	[PCF2127] = {
+ 		.type = PCF2127,
+@@ -1106,6 +1247,26 @@ static int pcf2127_probe(struct device *dev, struct regmap *regmap,
+ 	if (!pcf2127)
+ 		return -ENOMEM;
+ 
++	/* Parse device tree interrupt configuration for PCF2131 */
++	if (config->type == PCF2131) {
++		struct device_node *np = dev->of_node;
++		u32 mask_values[2];
++		int num_irqs = 0;
 +
-+static const struct attribute_group pcf2131_attr_group = {
-+	.attrs = pcf2131_attrs,
-+};
++		if (np) {
++			num_irqs = of_irq_count(np);
++			pcf2127->dual_interrupt_mode = (num_irqs >= 2);
 +
- enum pcf21xx_type {
- 	PCF2127,
- 	PCF2129,
-@@ -650,6 +750,26 @@ static int pcf2127_probe(struct device *dev, struct regmap *regmap,
++			/* Parse INTA mask configuration */
++			if (of_property_read_u32_array(np, "nxp,inta-mask", mask_values, 2) == 0) {
++				pcf2127->int_config.inta_mask1 = mask_values[0] & 0xFF;
++				pcf2127->int_config.inta_mask2 = mask_values[1] & 0xFF;
++			}
++			/* Parse INTB mask configuration */
++			if (of_property_read_u32_array(np, "nxp,intb-mask", mask_values, 2) == 0) {
++				pcf2127->int_config.intb_mask1 = mask_values[0] & 0xFF;
++				pcf2127->int_config.intb_mask2 = mask_values[1] & 0xFF;
++			}
++		}
++	}
++
+ 	pcf2127->regmap = regmap;
+ 	pcf2127->cfg = config;
+ 
+@@ -1193,6 +1354,20 @@ static int pcf2127_probe(struct device *dev, struct regmap *regmap,
  		return ret;
  	}
  
-+	/* Setup PCF2131 dual interrupt interface if supported */
-+	if (pcf2127->cfg->type == PCF2131) {
-+		ret = sysfs_create_group(&dev->kobj, &pcf2131_attr_group);
++	/* Setup dual interrupt interface for PCF2131 */
++	if (pcf2127->cfg->type == PCF2131 && pcf2127->dual_interrupt_mode) {
++		ret = device_create_file(dev, &dev_attr_inta_mask1);
++		ret |= device_create_file(dev, &dev_attr_inta_mask2);
++		ret |= device_create_file(dev, &dev_attr_intb_mask1);
++		ret |= device_create_file(dev, &dev_attr_intb_mask2);
 +		if (ret) {
-+			dev_err(dev, "Failed to create PCF2131 sysfs interface: %d\n", ret);
++			dev_err(dev, "Failed to create PCF2131 dual interrupt sysfs files: %d\n", ret);
++			/* Non-fatal error, continue without sysfs interface */
 +		} else {
-+			dev_info(dev, "PCF2131 dual interrupt interface enabled\n");
++			dev_info(dev, "PCF2131 dual interrupt mode enabled with sysfs interface\n");
 +		}
-+
-+		/* Initialize interrupt masks to default values */
-+		pcf2127->int_config.inta_mask1 = 0x3F;  /* Default: all on INTA */
-+		pcf2127->int_config.inta_mask2 = 0x0F;
-+		pcf2127->int_config.intb_mask1 = 0x3F;  /* Default: all on INTB */
-+		pcf2127->int_config.intb_mask2 = 0x0F;
-+
-+		/* Apply default masks */
-+		regmap_write(regmap, PCF2131_REG_INT_A_MASK1, pcf2127->int_config.inta_mask1);
-+		regmap_write(regmap, PCF2131_REG_INT_A_MASK2, pcf2127->int_config.inta_mask2);
-+		regmap_write(regmap, PCF2131_REG_INT_B_MASK1, pcf2127->int_config.intb_mask1);
-+		regmap_write(regmap, PCF2131_REG_INT_B_MASK2, pcf2127->int_config.intb_mask2);
 +	}
 +
  	return 0;
  }
+ 
 -- 
 2.34.1
