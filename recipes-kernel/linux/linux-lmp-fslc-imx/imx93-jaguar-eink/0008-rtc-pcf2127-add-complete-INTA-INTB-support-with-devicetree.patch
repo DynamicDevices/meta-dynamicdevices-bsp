@@ -42,12 +42,27 @@ This enables advanced power management scenarios where:
 
 Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 ---
- drivers/rtc/rtc-pcf2127.c | 328 ++++++++++++++++++++++++++++++++++++++
- 1 file changed, 328 insertions(+)
+ drivers/rtc/rtc-pcf2127.c | 335 ++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 335 insertions(+)
 
 --- a/drivers/rtc/rtc-pcf2127.c
 +++ b/drivers/rtc/rtc-pcf2127.c
-@@ -100,6 +100,18 >>
+@@ -85,6 +85,14 >>
+ enum pcf2127_type {
+ 	PCF2127,
+ 	PCF2129,
+ 	PCF21XX,
++	PCF2131,
+ };
+ 
+ struct pcf2127_cfg {
+@@ -95,6 +103,10 >>
++static const struct pcf2127_cfg pcf2131_cfg = {
++	.type = PCF2131,
++	.max_register = 0x36,
++};
++
++@@ -100,6 +112,18 >>
  #define PCF2131_REG_SR_RESET		0x24
  #define PCF2131_REG_DWD_CTL		0x35
  
@@ -440,3 +455,21 @@ Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
  	/*
  	 * PCF2127/29 do not work correctly when setting alarms at 1s intervals.
  	 * PCF2131 is ok.
+@@ -1400,6 +1456,9 >>
+ 	{
+ 		.compatible = "nxp,pcf21xx",
+ 		.data = &pcf21xx_cfg
++	}, {
++		.compatible = "nxp,pcf2131",
++		.data = &pcf2131_cfg
+ 	},
+ 	{}
+ };
+@@ -1410,6 +1469,7 >>
+ 	{"pcf2127", (kernel_ulong_t)&pcf2127_cfg},
+ 	{"pcf2129", (kernel_ulong_t)&pcf2129_cfg},
+ 	{"pcf21xx", (kernel_ulong_t)&pcf21xx_cfg},
++	{"pcf2131", (kernel_ulong_t)&pcf2131_cfg},
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(i2c, pcf2127_i2c_id);
