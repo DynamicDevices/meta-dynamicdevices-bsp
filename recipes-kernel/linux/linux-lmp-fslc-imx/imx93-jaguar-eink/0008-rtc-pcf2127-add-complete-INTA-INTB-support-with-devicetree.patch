@@ -14,6 +14,7 @@ independently configured for different interrupt sources. This patch adds:
 3. Support for PMU integration via INTB# line and system wake via INTA#
 4. Automatic interrupt clearing via TI_TP bit for proper periodic interrupts
 5. Sysfs control for MI/SI periodic interrupts (disabled by default)
+6. Ultra-low power optimization (TC_DIS=1, 100TH_S_DIS=1, ~400nA)
 
 Device tree usage:
     pcf2131: rtc@53 {
@@ -41,8 +42,8 @@ This enables advanced power management scenarios where:
 
 Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 ---
- drivers/rtc/rtc-pcf2127.c | 319 ++++++++++++++++++++++++++++++++++++++
- 1 file changed, 319 insertions(+)
+ drivers/rtc/rtc-pcf2127.c | 328 ++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 328 insertions(+)
 
 --- a/drivers/rtc/rtc-pcf2127.c
 +++ b/drivers/rtc/rtc-pcf2127.c
@@ -64,10 +65,14 @@ Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 +#define PCF2127_REG_CTRL1_MI		BIT(1)
 +#define PCF2127_REG_CTRL1_SI		BIT(0)
 +
++/* PCF2131 power optimization bits */
++#define PCF2127_REG_CTRL1_TC_DIS	BIT(6)
++#define PCF2127_REG_CTRL1_100TH_S_DIS	BIT(3)
++
  /* Control register 1 */
  #define PCF2127_REG_CTRL1_STOP		BIT(5)
  #define PCF2127_REG_CTRL1_TSF1		BIT(4)
-@@ -905,6 +917,290 @@
+@@ -905,6 +919,290 @@
  static DEVICE_ATTR_RW(timestamp2);
  static DEVICE_ATTR_RW(timestamp3);
  
@@ -354,7 +359,7 @@ Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
  	NULL
  };
  
-@@ -1126,6 +1336,46 @@
+@@ -1126,6 +1338,55 @@
  	pcf2127->rtc->range_max = RTC_TIMESTAMP_END_2099;
  	pcf2127->rtc->set_start_time = true; /* Sets actual start to 1970 */
  
@@ -419,6 +424,17 @@ Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 +		}
 +		
 +		dev_info(dev, "Periodic interrupts disabled by default (use sysfs to enable)\n");
++		
++		/* Enable ultra-low power mode for 5-year battery life */
++		ret = regmap_update_bits(pcf2127->regmap, PCF2127_REG_CTRL1,
++					 PCF2127_REG_CTRL1_TC_DIS | PCF2127_REG_CTRL1_100TH_S_DIS,
++					 PCF2127_REG_CTRL1_TC_DIS | PCF2127_REG_CTRL1_100TH_S_DIS);
++		if (ret) {
++			dev_err(dev, "failed to enable ultra-low power mode\n");
++			return ret;
++		}
++		
++		dev_info(dev, "Ultra-low power mode enabled (TC_DIS=1, 100TH_S_DIS=1, ~400nA)\n");
 +	}
 +
  	/*
