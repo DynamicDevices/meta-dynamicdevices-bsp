@@ -132,6 +132,7 @@ SRC_URI:append:imx93-jaguar-eink = " \
 		file://imx93-jaguar-eink/config-conflicts-fix.cfg \
 		file://imx93-jaguar-eink/module-signing.cfg \
 		file://imx93-jaguar-eink/dsm-power-management.cfg \
+		file://imx93-jaguar-eink/0007-rtc-pcf2127-add-support-for-PCF2131-RTC.patch \
 		file://imx93-jaguar-eink/0008-rtc-pcf2127-add-INTB-support-and-configurable-interrupt-routing.patch \
 		${@bb.utils.contains('ENABLE_BOOT_PROFILING', '1', 'file://boot-profiling.cfg', '', d)} \
 "
