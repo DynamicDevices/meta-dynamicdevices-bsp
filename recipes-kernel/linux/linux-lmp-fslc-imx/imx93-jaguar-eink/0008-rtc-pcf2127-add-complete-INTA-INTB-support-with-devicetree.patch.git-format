@@ -1,18 +1,9 @@
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From 1234567890abcdef1234567890abcdef12345678 Mon Sep 17 00:00:00 2001
 From: Dynamic Devices <support@dynamicdevices.co.uk>
 Date: Mon, 21 Oct 2025 22:00:00 +0000
 Subject: [PATCH] rtc: pcf2127: Add PCF2131 ultra-low power support
 
-Add PCF2131 device type and ultra-low power optimization for 5-year battery life.
-
-This patch adds support for the PCF2131 RTC with ultra-low power configuration:
-- Device type detection and configuration structure
-- Ultra-low power mode (TC_DIS=1, 100TH_S_DIS=1) for ~400nA consumption
-- Automatic interrupt clearing via TI_TP bit
-- Device tree compatibility for "nxp,pcf2131"
-
-The ultra-low power mode disables temperature compensation and 1/100 seconds
-counter to achieve 5-year battery life while maintaining acceptable accuracy.
+Add PCF2131 device type and ultra-low power optimization.
 
 Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 ---
@@ -20,7 +11,7 @@ Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
  1 file changed, 50 insertions(+)
 
 diff --git a/drivers/rtc/rtc-pcf2127.c b/drivers/rtc/rtc-pcf2127.c
-index 1234567..abcdef1 100644
+index 123456789abc..def0123456789 100644
 --- a/drivers/rtc/rtc-pcf2127.c
 +++ b/drivers/rtc/rtc-pcf2127.c
 @@ -85,6 +85,7 @@ enum pcf2127_type {
