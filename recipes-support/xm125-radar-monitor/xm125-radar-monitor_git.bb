@@ -1,7 +1,7 @@
-SUMMARY = "XM125 Radar Monitor - Production CLI Tool"
-DESCRIPTION = "Production-ready CLI tool for Acconeer XM125 radar modules with automatic firmware management, \
-multi-mode detection (distance, presence, breathing), and GPIO control. Replaces legacy shell scripts \
-with robust Rust implementation."
+SUMMARY = "XM125 Radar Monitor - Development Version"
+DESCRIPTION = "Development version of production-ready CLI tool for Acconeer XM125 radar modules with automatic \
+firmware management, multi-mode detection (distance, presence, breathing), and GPIO control. Uses latest \
+upstream code from main branch for testing new features."
 
 HOMEPAGE = "https://github.com/DynamicDevices/xm125-radar-monitor"
 LICENSE = "GPL-3.0-or-later"
@@ -19,8 +19,8 @@ RDEPENDS:${PN} = " \
     bash \
 "
 
-# Version and source
-PV = "1.5.0"
+# Version and source - using latest upstream development code
+PV = "1.6.2+git${SRCPV}"
 SRCBRANCH = "main"
 SRCREV = "${AUTOREV}"
 
