@@ -29,23 +29,26 @@ Device tree usage:
     };
 
 Sysfs interface:
-    /sys/class/rtc/rtc0/device/inta_mask1
-    /sys/class/rtc/rtc0/device/inta_mask2
-    /sys/class/rtc/rtc0/device/intb_mask1
-    /sys/class/rtc/rtc0/device/intb_mask2
-    /sys/class/rtc/rtc0/device/minute_interrupt
-    /sys/class/rtc/rtc0/device/second_interrupt
+    /sys/class/rtc/rtc0/inta_mask1
+    /sys/class/rtc/rtc0/inta_mask2
+    /sys/class/rtc/rtc0/intb_mask1
+    /sys/class/rtc/rtc0/intb_mask2
+    /sys/class/rtc/rtc0/minute_interrupt  (0=disabled, 1=enabled)
+    /sys/class/rtc/rtc0/second_interrupt  (0=disabled, 1=enabled)
+
+This enables advanced power management scenarios where:
+- INTA# connects to i.MX93 GPIO for system wake
+- INTB# connects to PMU for deep sleep wake capability
 
 Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 ---
- drivers/rtc/rtc-pcf2127.c | 365 +++++++++++++++++++++++++++++++++++++
- 1 file changed, 365 insertions(+)
+ drivers/rtc/rtc-pcf2127.c | 335 ++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 335 insertions(+)
 
-diff --git a/drivers/rtc/rtc-pcf2127.c b/drivers/rtc/rtc-pcf2127.c
-index 123456789abc..def0123456789 100644
 --- a/drivers/rtc/rtc-pcf2127.c
 +++ b/drivers/rtc/rtc-pcf2127.c
-@@ -85,6 +85,7 @@ enum pcf2127_type {
+@@ -85,6 +85,14 @@
+ enum pcf2127_type {
  	PCF2127,
  	PCF2129,
  	PCF21XX,
@@ -53,19 +56,13 @@ index 123456789abc..def0123456789 100644
  };
  
  struct pcf2127_cfg {
-@@ -95,6 +96,10 @@ static const struct pcf2127_cfg pcf21xx_cfg = {
- 	.max_register = 0x1d,
- };
- 
+@@ -95,6 +103,10 @@
 +static const struct pcf2127_cfg pcf2131_cfg = {
 +	.type = PCF2131,
 +	.max_register = 0x36,
 +};
 +
- /* Control register 1 */
- #define PCF2127_REG_CTRL1		0x00
- #define PCF2127_REG_CTRL1_STOP		BIT(5)
-@@ -100,6 +105,18 @@ static const struct pcf2127_cfg pcf21xx_cfg = {
+@@ -100,6 +112,18 @@
  #define PCF2131_REG_SR_RESET		0x24
  #define PCF2131_REG_DWD_CTL		0x35
  
@@ -90,7 +87,7 @@ index 123456789abc..def0123456789 100644
  /* Control register 1 */
  #define PCF2127_REG_CTRL1_STOP		BIT(5)
  #define PCF2127_REG_CTRL1_TSF1		BIT(4)
-@@ -905,6 +918,290 @@ static DEVICE_ATTR_RW(timestamp1);
+@@ -905,6 +919,290 @@
  static DEVICE_ATTR_RW(timestamp2);
  static DEVICE_ATTR_RW(timestamp3);
  
@@ -364,7 +361,7 @@ index 123456789abc..def0123456789 100644
  static struct attribute *pcf2127_attrs[] = {
  	&dev_attr_timestamp0.attr,
  	NULL
-@@ -921,6 +1218,12 @@ static struct attribute *pcf2131_attrs[] = {
+@@ -921,6 +1127,12 @@
  	&dev_attr_timestamp1.attr,
  	&dev_attr_timestamp2.attr,
  	&dev_attr_timestamp3.attr,
@@ -377,7 +374,7 @@ index 123456789abc..def0123456789 100644
  	NULL
  };
  
-@@ -1126,6 +1429,68 @@ static int pcf2127_probe(struct device *dev, struct regmap *regmap,
+@@ -1126,6 +1338,55 @@
  	pcf2127->rtc->range_max = RTC_TIMESTAMP_END_2099;
  	pcf2127->rtc->set_start_time = true; /* Sets actual start to 1970 */
  
@@ -458,7 +455,7 @@ index 123456789abc..def0123456789 100644
  	/*
  	 * PCF2127/29 do not work correctly when setting alarms at 1s intervals.
  	 * PCF2131 is ok.
-@@ -1400,6 +1765,9 @@ static const struct of_device_id pcf2127_of_match[] = {
+@@ -1400,6 +1456,9 @@
  	{
  		.compatible = "nxp,pcf21xx",
  		.data = &pcf21xx_cfg
@@ -468,7 +465,7 @@ index 123456789abc..def0123456789 100644
  	},
  	{}
  };
-@@ -1410,6 +1778,7 @@ static const struct i2c_device_id pcf2127_i2c_id[] = {
+@@ -1410,6 +1469,7 @@
  	{"pcf2127", (kernel_ulong_t)&pcf2127_cfg},
  	{"pcf2129", (kernel_ulong_t)&pcf2129_cfg},
  	{"pcf21xx", (kernel_ulong_t)&pcf21xx_cfg},
@@ -476,5 +473,3 @@ index 123456789abc..def0123456789 100644
  	{ }
  };
  MODULE_DEVICE_TABLE(i2c, pcf2127_i2c_id);
--- 
-2.34.1
