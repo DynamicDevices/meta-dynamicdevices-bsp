@@ -20,7 +20,7 @@ Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
  #define PCF2127_BIT_CTRL1_TSF1			BIT(4)
  #define PCF2127_BIT_CTRL1_STOP			BIT(5)
  /* Control register 2 */
-@@ -1235,6 +1238,20 @@
+@@ -1225,6 +1228,20 @@
  
  	pcf2127_watchdog_init(dev, pcf2127);
  
