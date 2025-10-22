@@ -1,110 +1,40 @@
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: Dynamic Devices <support@dynamicdevices.co.uk>
-Date: Mon, 21 Oct 2025 22:00:00 +0000
-Subject: [PATCH] rtc: pcf2127: Add PCF2131 ultra-low power support
-
-Add PCF2131 device type and ultra-low power optimization for 5-year battery life.
-
-This patch adds support for the PCF2131 RTC with ultra-low power configuration:
-- Device type detection and configuration structure
-- Ultra-low power mode (TC_DIS=1, 100TH_S_DIS=1) for ~400nA consumption
-- Automatic interrupt clearing via TI_TP bit
-- Device tree compatibility for "nxp,pcf2131"
-
-The ultra-low power mode disables temperature compensation and 1/100 seconds
-counter to achieve 5-year battery life while maintaining acceptable accuracy.
-
-Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
----
- drivers/rtc/rtc-pcf2127.c | 50 ++++++++++++++++++++++++++++++++++++++
- 1 file changed, 50 insertions(+)
-
-diff --git a/drivers/rtc/rtc-pcf2127.c b/drivers/rtc/rtc-pcf2127.c
-index 1234567..abcdef1 100644
 --- a/drivers/rtc/rtc-pcf2127.c
 +++ b/drivers/rtc/rtc-pcf2127.c
-@@ -85,6 +85,7 @@ enum pcf2127_type {
- 	PCF2127,
- 	PCF2129,
- 	PCF21XX,
-+	PCF2131,
- };
- 
- struct pcf2127_cfg {
-@@ -95,6 +96,10 @@ static const struct pcf2127_cfg pcf21xx_cfg = {
- 	.max_register = 0x1d,
- };
- 
-+static const struct pcf2127_cfg pcf2131_cfg = {
-+	.type = PCF2131,
-+	.max_register = 0x36,
-+};
-+
- /* Control register 1 */
- #define PCF2127_REG_CTRL1		0x00
- #define PCF2127_REG_CTRL1_STOP		BIT(5)
-@@ -100,6 +105,12 @@ static const struct pcf2127_cfg pcf21xx_cfg = {
- #define PCF2131_REG_SR_RESET		0x24
- #define PCF2131_REG_DWD_CTL		0x35
- 
+@@ -34,6 +34,9 @@
+ #define PCF2127_BIT_CTRL1_POR_OVRD		BIT(3)
+ #define PCF2127_BIT_CTRL1_TSF1			BIT(4)
+ #define PCF2127_BIT_CTRL1_STOP			BIT(5)
 +/* PCF2131 power optimization bits */
-+#define PCF2127_REG_CTRL1_TC_DIS	BIT(6)
-+#define PCF2127_REG_CTRL1_100TH_S_DIS	BIT(3)
-+
-+/* PCF2131 watchdog timer control register */
-+#define PCF2131_REG_WATCHDG_TIM_CTL	0x35
-+#define PCF2131_BIT_WATCHDG_TIM_CTL_TI_TP	BIT(1)
-+
- /* Control register 1 */
- #define PCF2127_REG_CTRL1_STOP		BIT(5)
- #define PCF2127_REG_CTRL1_TSF1		BIT(4)
-@@ -1126,6 +1137,35 @@ static int pcf2127_probe(struct device *dev, struct regmap *regmap,
- 	pcf2127->rtc->range_max = RTC_TIMESTAMP_END_2099;
- 	pcf2127->rtc->set_start_time = true; /* Sets actual start to 1970 */
++#define PCF2127_BIT_CTRL1_TC_DIS		BIT(6)
++#define PCF2127_BIT_CTRL1_100TH_S_DIS		BIT(3)
+ /* Control register 2 */
+ #define PCF2127_REG_CTRL2		0x01
+ #define PCF2127_BIT_CTRL2_AIE			BIT(1)
+@@ -1225,6 +1228,27 @@
  
-+	/* Enable ultra-low power mode for PCF2131 */
+ 	pcf2127_watchdog_init(dev, pcf2127);
+ 
++	/* Enable ultra-low power mode for PCF2131 (5-year battery life) */
 +	if (pcf2127->cfg->type == PCF2131) {
-+		/* Enable TI_TP for automatic interrupt clearing */
-+		ret = regmap_update_bits(pcf2127->regmap, PCF2131_REG_WATCHDG_TIM_CTL,
-+					 PCF2131_BIT_WATCHDG_TIM_CTL_TI_TP,
-+					 PCF2131_BIT_WATCHDG_TIM_CTL_TI_TP);
-+		if (ret) {
-+			dev_err(dev, "failed to enable TI_TP\n");
-+			return ret;
-+		}
-+		
-+		/* Enable ultra-low power mode for 5-year battery life */
 +		ret = regmap_update_bits(pcf2127->regmap, PCF2127_REG_CTRL1,
-+					 PCF2127_REG_CTRL1_TC_DIS | PCF2127_REG_CTRL1_100TH_S_DIS,
-+					 PCF2127_REG_CTRL1_TC_DIS | PCF2127_REG_CTRL1_100TH_S_DIS);
++					 PCF2127_BIT_CTRL1_TC_DIS | PCF2127_BIT_CTRL1_100TH_S_DIS,
++					 PCF2127_BIT_CTRL1_TC_DIS | PCF2127_BIT_CTRL1_100TH_S_DIS);
 +		if (ret) {
 +			dev_err(dev, "failed to enable ultra-low power mode\n");
 +			return ret;
 +		}
-+		
++
 +		dev_info(dev, "PCF2131 ultra-low power mode enabled (TC_DIS=1, 100TH_S_DIS=1, ~400nA)\n");
++
++		/* Read back and verify the settings */
++		ret = regmap_read(pcf2127->regmap, PCF2127_REG_CTRL1, &val);
++		if (ret == 0) {
++			dev_info(dev, "PCF2131 Control_1 register: 0x%02x (expected: 0x48 for ultra-low power)\n", val);
++		} else {
++			dev_warn(dev, "failed to read back Control_1 register\n");
++		}
 +	}
 +
  	/*
- 	 * PCF2127/29 do not work correctly when setting alarms at 1s intervals.
- 	 * PCF2131 is ok.
-@@ -1400,6 +1440,9 @@ static const struct of_device_id pcf2127_of_match[] = {
- 	{
- 		.compatible = "nxp,pcf21xx",
- 		.data = &pcf21xx_cfg
-+	}, {
-+		.compatible = "nxp,pcf2131",
-+		.data = &pcf2131_cfg
- 	},
- 	{}
- };
-@@ -1410,6 +1453,7 @@ static const struct i2c_device_id pcf2127_i2c_id[] = {
- 	{"pcf2127", (kernel_ulong_t)&pcf2127_cfg},
- 	{"pcf2129", (kernel_ulong_t)&pcf2129_cfg},
- 	{"pcf21xx", (kernel_ulong_t)&pcf21xx_cfg},
-+	{"pcf2131", (kernel_ulong_t)&pcf2131_cfg},
- 	{ }
- };
- MODULE_DEVICE_TABLE(i2c, pcf2127_i2c_id);
--- 
-2.34.1
+ 	 * Disable battery low/switch-over timestamp and interrupts.
+ 	 * Clear battery interrupt flags which can block new trigger events.
