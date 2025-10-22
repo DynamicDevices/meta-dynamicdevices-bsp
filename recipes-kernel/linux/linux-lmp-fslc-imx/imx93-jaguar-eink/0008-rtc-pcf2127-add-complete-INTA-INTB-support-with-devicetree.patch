@@ -1,40 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Dynamic Devices <support@dynamicdevices.co.uk>
+Date: Mon, 21 Oct 2025 22:00:00 +0000
+Subject: [PATCH] rtc: pcf2127: Add PCF2131 ultra-low power optimization
+
+Add ultra-low power mode for PCF2131 to achieve 5-year battery life.
+
+This patch adds power optimization for the PCF2131 RTC by disabling
+temperature compensation (TC_DIS) and 1/100 seconds counter (100TH_S_DIS)
+to reduce power consumption from ~770nA to ~400nA.
+
+The optimization is automatically applied during probe for PCF2131 devices.
+
+Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
+---
+ drivers/rtc/rtc-pcf2127.c | 25 +++++++++++++++++++++++++
+ 1 file changed, 25 insertions(+)
+
+diff --git a/drivers/rtc/rtc-pcf2127.c b/drivers/rtc/rtc-pcf2127.c
+index 1111111111111111111111111111111111111111..2222222222222222222222222222222222222222 100644
 --- a/drivers/rtc/rtc-pcf2127.c
 +++ b/drivers/rtc/rtc-pcf2127.c
-@@ -34,6 +34,9 @@
- #define PCF2127_BIT_CTRL1_POR_OVRD		BIT(3)
+@@ -30,6 +30,11 @@
  #define PCF2127_BIT_CTRL1_TSF1			BIT(4)
  #define PCF2127_BIT_CTRL1_STOP			BIT(5)
+ 
 +/* PCF2131 power optimization bits */
 +#define PCF2127_BIT_CTRL1_TC_DIS		BIT(6)
 +#define PCF2127_BIT_CTRL1_100TH_S_DIS		BIT(3)
++
  /* Control register 2 */
  #define PCF2127_REG_CTRL2		0x01
  #define PCF2127_BIT_CTRL2_AIE			BIT(1)
-@@ -1225,6 +1228,27 @@
+@@ -1200,6 +1205,26 @@ static int pcf2127_probe(struct device *dev, struct regmap *regmap,
  
  	pcf2127_watchdog_init(dev, pcf2127);
  
 +	/* Enable ultra-low power mode for PCF2131 (5-year battery life) */
-+	if (pcf2127->cfg->type == PCF2131) {
++	if (pcf2127->cfg && pcf2127->cfg->type == PCF2131) {
 +		ret = regmap_update_bits(pcf2127->regmap, PCF2127_REG_CTRL1,
 +					 PCF2127_BIT_CTRL1_TC_DIS | PCF2127_BIT_CTRL1_100TH_S_DIS,
 +					 PCF2127_BIT_CTRL1_TC_DIS | PCF2127_BIT_CTRL1_100TH_S_DIS);
 +		if (ret) {
 +			dev_err(dev, "failed to enable ultra-low power mode\n");
-+			return ret;
-+		}
-+
-+		dev_info(dev, "PCF2131 ultra-low power mode enabled (TC_DIS=1, 100TH_S_DIS=1, ~400nA)\n");
-+
-+		/* Read back and verify the settings */
-+		ret = regmap_read(pcf2127->regmap, PCF2127_REG_CTRL1, &val);
-+		if (ret == 0) {
-+			dev_info(dev, "PCF2131 Control_1 register: 0x%02x (expected: 0x48 for ultra-low power)\n", val);
 +		} else {
-+			dev_warn(dev, "failed to read back Control_1 register\n");
++			dev_info(dev, "PCF2131 ultra-low power mode enabled (~400nA)\n");
++			
++			/* Read back and verify the settings */
++			ret = regmap_read(pcf2127->regmap, PCF2127_REG_CTRL1, &val);
++			if (ret == 0) {
++				dev_info(dev, "PCF2131 Control_1: 0x%02x (TC_DIS=%d, 100TH_S_DIS=%d)\n", 
++					val, !!(val & PCF2127_BIT_CTRL1_TC_DIS), !!(val & PCF2127_BIT_CTRL1_100TH_S_DIS));
++			}
 +		}
++		ret = 0; /* Don't fail probe if power optimization fails */
 +	}
 +
  	/*
  	 * Disable battery low/switch-over timestamp and interrupts.
  	 * Clear battery interrupt flags which can block new trigger events.
+-- 
+2.34.1
