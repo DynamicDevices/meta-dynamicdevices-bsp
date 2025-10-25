@@ -1,17 +1,65 @@
-Add SYSFS interface for PCF2131 interrupt control
+Add complete SYSFS interface for PCF2131 interrupt control
 
 This patch adds SYSFS attributes for runtime control of PCF2131
-interrupt masks and periodic interrupts.
+interrupt masks and periodic interrupts:
+
+- inta_mask: Read/write INTA interrupt mask register (0x31)
+- intb_mask: Read/write INTB interrupt mask register (0x33)  
+- minute_interrupt: Enable/disable minute periodic interrupts
+- second_interrupt: Enable/disable second periodic interrupts
+
+All interfaces are PCF2131-specific and return -ENOTSUPP for other devices.
 
 Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 
 --- a/drivers/rtc/rtc-pcf2127.c
 +++ b/drivers/rtc/rtc-pcf2127.c
-@@ -1102,6 +1102,80 @@
+@@ -1102,6 +1102,130 @@
  	return ret;
  }
  
 +/* SYSFS interface for PCF2131 interrupt control */
++static ssize_t inta_mask_show(struct device *dev, struct device_attribute *attr, char *buf)
++{
++	struct pcf2127 *pcf2127 = dev_get_drvdata(dev);
++	unsigned int val;
++	int ret;
++
++	if (pcf2127->cfg->type != PCF2131)
++		return -ENOTSUPP;
++
++	ret = regmap_read(pcf2127->regmap, PCF2127_REG_INT_A_MASK1, &val);
++	if (ret)
++		return ret;
++
++	return sprintf(buf, "0x%02x\n", val);
++}
++
++static ssize_t inta_mask_store(struct device *dev, struct device_attribute *attr,
++			       const char *buf, size_t count)
++{
++	struct pcf2127 *pcf2127 = dev_get_drvdata(dev);
++	unsigned int val;
++	int ret;
++
++	if (pcf2127->cfg->type != PCF2131)
++		return -ENOTSUPP;
++
++	ret = kstrtouint(buf, 0, &val);
++	if (ret)
++		return ret;
++
++	if (val > 0xFF)
++		return -EINVAL;
++
++	ret = regmap_write(pcf2127->regmap, PCF2127_REG_INT_A_MASK1, val);
++	if (ret)
++		return ret;
++
++	dev_info(dev, "INTA mask set to 0x%02x\n", val);
++	return count;
++}
++
 +static ssize_t intb_mask_show(struct device *dev, struct device_attribute *attr, char *buf)
 +{
 +	struct pcf2127 *pcf2127 = dev_get_drvdata(dev);
@@ -96,12 +144,59 @@ Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 +	return count;
 +}
 +
++static ssize_t second_interrupt_show(struct device *dev, struct device_attribute *attr, char *buf)
++{
++	struct pcf2127 *pcf2127 = dev_get_drvdata(dev);
++	unsigned int val;
++	int ret;
++
++	if (pcf2127->cfg->type != PCF2131)
++		return -ENOTSUPP;
++
++	ret = regmap_read(pcf2127->regmap, PCF2127_REG_CTRL1, &val);
++	if (ret)
++		return ret;
++
++	return sprintf(buf, "%d\n", !!(val & PCF2127_BIT_CTRL1_SI));
++}
++
++static ssize_t second_interrupt_store(struct device *dev, struct device_attribute *attr,
++				      const char *buf, size_t count)
++{
++	struct pcf2127 *pcf2127 = dev_get_drvdata(dev);
++	unsigned int val;
++	int ret;
++
++	if (pcf2127->cfg->type != PCF2131)
++		return -ENOTSUPP;
++
++	ret = kstrtouint(buf, 0, &val);
++	if (ret)
++		return ret;
++
++	if (val > 1)
++		return -EINVAL;
++
++	ret = regmap_update_bits(pcf2127->regmap, PCF2127_REG_CTRL1,
++				 PCF2127_BIT_CTRL1_SI,
++				 val ? PCF2127_BIT_CTRL1_SI : 0);
++	if (ret)
++		return ret;
++
++	dev_info(dev, "Second interrupt %s\n", val ? "enabled" : "disabled");
++	return count;
++}
++
++static DEVICE_ATTR_RW(inta_mask);
 +static DEVICE_ATTR_RW(intb_mask);
 +static DEVICE_ATTR_RW(minute_interrupt);
++static DEVICE_ATTR_RW(second_interrupt);
 +
 +static struct attribute *pcf2131_sysfs_attrs[] = {
++	&dev_attr_inta_mask.attr,
 +	&dev_attr_intb_mask.attr,
 +	&dev_attr_minute_interrupt.attr,
++	&dev_attr_second_interrupt.attr,
 +	NULL
 +};
 +
@@ -112,7 +207,7 @@ Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
  static int pcf2127_probe(struct device *dev, struct regmap *regmap,
  			 int alarm_irq, const struct pcf21xx_config *config)
  {
-@@ -1277,7 +1351,15 @@
+@@ -1277,7 +1401,15 @@
  		return ret;
  	}
  
