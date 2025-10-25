@@ -1,0 +1,131 @@
+Add SYSFS interface for PCF2131 interrupt control
+
+This patch adds SYSFS attributes for runtime control of PCF2131
+interrupt masks and periodic interrupts.
+
+Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
+
+--- a/drivers/rtc/rtc-pcf2127.c
++++ b/drivers/rtc/rtc-pcf2127.c
+@@ -1102,6 +1102,80 @@
+ 	return ret;
+ }
+ 
++/* SYSFS interface for PCF2131 interrupt control */
++static ssize_t intb_mask_show(struct device *dev, struct device_attribute *attr, char *buf)
++{
++	struct pcf2127 *pcf2127 = dev_get_drvdata(dev);
++	unsigned int val;
++	int ret;
++
++	if (pcf2127->cfg->type != PCF2131)
++		return -ENOTSUPP;
++
++	ret = regmap_read(pcf2127->regmap, PCF2127_REG_INT_B_MASK1, &val);
++	if (ret)
++		return ret;
++
++	return sprintf(buf, "0x%02x\n", val);
++}
++
++static ssize_t intb_mask_store(struct device *dev, struct device_attribute *attr,
++			       const char *buf, size_t count)
++{
++	struct pcf2127 *pcf2127 = dev_get_drvdata(dev);
++	unsigned int val;
++	int ret;
++
++	if (pcf2127->cfg->type != PCF2131)
++		return -ENOTSUPP;
++
++	ret = kstrtouint(buf, 0, &val);
++	if (ret)
++		return ret;
++
++	if (val > 0xFF)
++		return -EINVAL;
++
++	ret = regmap_write(pcf2127->regmap, PCF2127_REG_INT_B_MASK1, val);
++	if (ret)
++		return ret;
++
++	dev_info(dev, "INTB mask set to 0x%02x\n", val);
++	return count;
++}
++
++static ssize_t minute_interrupt_show(struct device *dev, struct device_attribute *attr, char *buf)
++{
++	struct pcf2127 *pcf2127 = dev_get_drvdata(dev);
++	unsigned int val;
++	int ret;
++
++	if (pcf2127->cfg->type != PCF2131)
++		return -ENOTSUPP;
++
++	ret = regmap_read(pcf2127->regmap, PCF2127_REG_CTRL1, &val);
++	if (ret)
++		return ret;
++
++	return sprintf(buf, "%d\n", !!(val & PCF2127_BIT_CTRL1_MI));
++}
++
++static ssize_t minute_interrupt_store(struct device *dev, struct device_attribute *attr,
++				      const char *buf, size_t count)
++{
++	struct pcf2127 *pcf2127 = dev_get_drvdata(dev);
++	unsigned int val;
++	int ret;
++
++	if (pcf2127->cfg->type != PCF2131)
++		return -ENOTSUPP;
++
++	ret = kstrtouint(buf, 0, &val);
++	if (ret)
++		return ret;
++
++	if (val > 1)
++		return -EINVAL;
++
++	ret = regmap_update_bits(pcf2127->regmap, PCF2127_REG_CTRL1,
++				 PCF2127_BIT_CTRL1_MI,
++				 val ? PCF2127_BIT_CTRL1_MI : 0);
++	if (ret)
++		return ret;
++
++	dev_info(dev, "Minute interrupt %s\n", val ? "enabled" : "disabled");
++	return count;
++}
++
++static DEVICE_ATTR_RW(intb_mask);
++static DEVICE_ATTR_RW(minute_interrupt);
++
++static struct attribute *pcf2131_sysfs_attrs[] = {
++	&dev_attr_intb_mask.attr,
++	&dev_attr_minute_interrupt.attr,
++	NULL
++};
++
++static const struct attribute_group pcf2131_sysfs_group = {
++	.attrs = pcf2131_sysfs_attrs,
++};
++
+ static int pcf2127_probe(struct device *dev, struct regmap *regmap,
+ 			 int alarm_irq, const struct pcf21xx_config *config)
+ {
+@@ -1277,7 +1351,15 @@
+ 		return ret;
+ 	}
+ 
+-	return devm_rtc_register_device(pcf2127->rtc);
++	ret = devm_rtc_register_device(pcf2127->rtc);
++	if (ret)
++		return ret;
++
++	/* Register SYSFS attributes for PCF2131 */
++	if (pcf2127->cfg->type == PCF2131)
++		ret = sysfs_create_group(&dev->kobj, &pcf2131_sysfs_group);
++
++	return ret;
+ }
+ 
+ #ifdef CONFIG_OF
