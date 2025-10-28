@@ -15,6 +15,12 @@ do_install:append() {
     ln -sf ${datadir}/dynamic-devices/banner ${D}${sysconfdir}/ssh/banner
 }
 
+do_install:append:imx8mm-jaguar-sentai() {
+    # Use existing Sentai SSH banner for MOTD on Sentai machine
+    rm -f ${D}${sysconfdir}/motd
+    ln -sf ${sysconfdir}/ssh/banner ${D}${sysconfdir}/motd
+}
+
 FILES:${PN} += " \
     ${datadir}/dynamic-devices/banner \
     ${sysconfdir}/motd \
