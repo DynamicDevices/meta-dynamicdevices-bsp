@@ -129,9 +129,16 @@
 			MX8MM_IOMUXC_SAI1_RXD4_GPIO4_IO6	0x140  // SLMB_0
                         MX8MM_IOMUXC_SAI1_RXD7_GPIO4_IO9        0x140  // LED_ENABLE
                         MX8MM_IOMUXC_SAI1_TXFS_GPIO4_IO10       0x140  // CODEC_IRQ#
-                        MX8MM_IOMUXC_SAI2_RXC_GPIO4_IO22        0x140  // ZB_INT
                         MX8MM_IOMUXC_SPDIF_RX_GPIO5_IO4         0x140  // CODEC_SD#
-                        MX8MM_IOMUXC_SD1_STROBE_GPIO2_IO11      0x140  // ZB_RST#
+			// ZB_INT and ZB_RST# removed from hog - managed by ZBoss muxer
+		>;
+	};
+
+	// Zigbee GPIO pins - not hogged, available for ZBoss muxer
+	pinctrl_zigbee: zigbeegrp {
+		fsl,pins = <
+			MX8MM_IOMUXC_SAI2_RXC_GPIO4_IO22        0x140  // ZB_INT
+			MX8MM_IOMUXC_SD1_STROBE_GPIO2_IO11      0x140  // ZB_RST#
 		>;
 	};
 
@@ -626,7 +633,7 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_ecspi1>;
+	pinctrl-0 = <&pinctrl_ecspi1>, <&pinctrl_zigbee>;
 	cs-gpios = <&gpio5 9 GPIO_ACTIVE_LOW>;
         fsl,spi-num-chipselects = <1>;
 	status = "okay";
