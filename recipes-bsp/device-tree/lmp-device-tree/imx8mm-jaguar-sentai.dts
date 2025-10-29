@@ -645,7 +645,7 @@
 
         spidev1: spi@0 {
 		compatible = "rohm,dh2228fv";
-                spi-max-frequency = <100000>;   // Reduce to 100kHz for stability
+                spi-max-frequency = <1000000>;  // 1MHz - within 10MHz spec limit
                 spi-mode = <0>;                 // SPI Mode 0 (CPOL=0, CPHA=0)
                 reg = <0>;
         };
