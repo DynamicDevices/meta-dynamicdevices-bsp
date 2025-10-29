@@ -144,10 +144,10 @@
 
         pinctrl_ecspi1: ecspi1grp {
                 fsl,pins = <
-			MX8MM_IOMUXC_ECSPI1_SS0_GPIO5_IO9	0x13
-                        MX8MM_IOMUXC_ECSPI1_SCLK_ECSPI1_SCLK	0x13
-                        MX8MM_IOMUXC_ECSPI1_MISO_ECSPI1_MISO	0x13
-                        MX8MM_IOMUXC_ECSPI1_MOSI_ECSPI1_MOSI	0x13
+			MX8MM_IOMUXC_ECSPI1_SS0_GPIO5_IO9	0x140  // Increased drive strength
+                        MX8MM_IOMUXC_ECSPI1_SCLK_ECSPI1_SCLK	0x140  // Increased drive strength
+                        MX8MM_IOMUXC_ECSPI1_MISO_ECSPI1_MISO	0x140  // Increased drive strength
+                        MX8MM_IOMUXC_ECSPI1_MOSI_ECSPI1_MOSI	0x140  // Increased drive strength
                 >;
         };
 
@@ -636,11 +636,15 @@
 	pinctrl-0 = <&pinctrl_ecspi1>, <&pinctrl_zigbee>;
 	cs-gpios = <&gpio5 9 GPIO_ACTIVE_LOW>;
         fsl,spi-num-chipselects = <1>;
+        // Add DMA channels for better performance (optional)
+        dmas = <&sdma1 3 7 1>, <&sdma1 4 7 2>;
+        dma-names = "rx", "tx";
 	status = "okay";
 
         spidev1: spi@0 {
 		compatible = "rohm,dh2228fv";
-                spi-max-frequency = <12000000>;
+                spi-max-frequency = <1000000>;  // Match OpenThread working speed
+                spi-mode = <0>;                 // SPI Mode 0 (CPOL=0, CPHA=0)
                 reg = <0>;
         };
 };
