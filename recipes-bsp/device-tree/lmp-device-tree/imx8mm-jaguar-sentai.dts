@@ -636,9 +636,9 @@
 	pinctrl-0 = <&pinctrl_ecspi1>, <&pinctrl_zigbee>;
 	cs-gpios = <&gpio5 9 GPIO_ACTIVE_LOW>;
         fsl,spi-num-chipselects = <1>;
-        // Disable DMA due to timeout issues, use PIO mode
-        // dmas = <&sdma1 3 7 1>, <&sdma1 4 7 2>;
-        // dma-names = "rx", "tx";
+        // Force PIO mode by removing DMA properties entirely
+        /delete-property/ dmas;
+        /delete-property/ dma-names;
         // Increase timeout for SPI transfers
         fsl,spi-rdy-drctl = <0>;
 	status = "okay";
