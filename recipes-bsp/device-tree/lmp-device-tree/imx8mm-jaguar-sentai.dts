@@ -641,6 +641,8 @@
         /delete-property/ dma-names;
         // Increase timeout for SPI transfers
         fsl,spi-rdy-drctl = <0>;
+        // Disable burst mode to fix 16-byte buffer alignment issue
+        fsl,spi-disable-burst;
 	status = "okay";
 
         spidev1: spi@0 {
