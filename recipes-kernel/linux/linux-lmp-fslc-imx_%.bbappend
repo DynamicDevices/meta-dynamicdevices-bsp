@@ -132,10 +132,11 @@ SRC_URI:append:imx93-jaguar-eink = " \
 		file://imx93-jaguar-eink/config-conflicts-fix.cfg \
 		file://imx93-jaguar-eink/module-signing.cfg \
 		file://imx93-jaguar-eink/dsm-power-management.cfg \
-		# TEMPORARILY DISABLED FOR BOOT DEBUGGING - PCF2131 patch causing boot failures
-		# file://imx93-jaguar-eink/0008-rtc-pcf2127-add-complete-INTA-INTB-support-with-devicetree.patch \
 		${@bb.utils.contains('ENABLE_BOOT_PROFILING', '1', 'file://boot-profiling.cfg', '', d)} \
 "
+
+# TEMPORARILY DISABLED FOR BOOT DEBUGGING - PCF2131 patch causing boot failures
+# file://imx93-jaguar-eink/0008-rtc-pcf2127-add-complete-INTA-INTB-support-with-devicetree.patch
 
 # NOTE: Device tree is handled by lmp-device-tree recipe, not kernel recipe
 
