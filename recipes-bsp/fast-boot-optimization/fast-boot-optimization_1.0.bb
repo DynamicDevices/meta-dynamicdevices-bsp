@@ -45,6 +45,9 @@ do_install() {
 
 SYSTEMD_SERVICE:${PN} = "wifi-priority.service delayed-components.service"
 
+# TEMPORARILY DISABLED FOR BOOT DEBUGGING - These services may be causing boot failures
+SYSTEMD_AUTO_ENABLE = "disable"
+
 inherit systemd
 
 FILES:${PN} += " \

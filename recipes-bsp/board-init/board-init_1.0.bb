@@ -6,7 +6,8 @@ LIC_FILES_CHKSUM ?= "file://${COMMON_LICENSE_DIR}/GPL-3.0-or-later;md5=1c76c4cc3
 inherit systemd
 
 SYSTEMD_SERVICE:${PN} = "board-init.service"
-SYSTEMD_AUTO_ENABLE:${PN} = "enable"
+# TEMPORARILY DISABLED FOR BOOT DEBUGGING - Board init may be causing boot failures
+SYSTEMD_AUTO_ENABLE:${PN} = "disable"
 
 SRC_URI = "file://board-init.sh \
            file://board-init.service \

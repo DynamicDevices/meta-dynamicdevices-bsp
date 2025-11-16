@@ -32,7 +32,8 @@ SYSTEMD_SERVICE:${PN} = "setup-wowlan.service eink-restart.service eink-shutdown
 # - eink-shutdown.service: Custom power-optimized shutdown handling via eink-power-cli
 # - wifi-suspend.service: WiFi interface shutdown before system suspend
 # - wifi-resume.service: WiFi interface restoration after system resume
-SYSTEMD_AUTO_ENABLE = "enable"
+# TEMPORARILY DISABLED FOR BOOT DEBUGGING - These services may be causing boot failures
+SYSTEMD_AUTO_ENABLE = "disable"
 
 do_install() {
     # Install systemd services

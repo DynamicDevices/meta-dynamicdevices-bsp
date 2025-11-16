@@ -13,7 +13,8 @@ SRC_URI:append:imx93-jaguar-eink = " file://0001-nxp-wlan-disable-scan-progress-
 inherit systemd
 
 SYSTEMD_SERVICE:${PN}:imx8mm-jaguar-sentai = "enable-wifi.service"
-SYSTEMD_AUTO_ENABLE:${PN}:imx8mm-jaguar-sentai = "enable"
+# TEMPORARILY DISABLED FOR BOOT DEBUGGING - WiFi services may be causing boot failures
+SYSTEMD_AUTO_ENABLE:${PN}:imx8mm-jaguar-sentai = "disable"
 
 SRC_URI:append:imx8mm-jaguar-sentai = "\
     file://enable-wifi.sh \
