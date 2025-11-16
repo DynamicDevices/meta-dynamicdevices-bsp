@@ -116,11 +116,12 @@ SRC_URI:append:imx8mm-jaguar-phasora = " \
 		file://0006-usb-dwc3-synopsys-load-firmware-support.patch \
 "
 
-# REVERTED TO WORKING BUILD 2211 STATE - Minimal kernel configuration
+# PHASE 1.1: Adding back basic kernel configs - Starting with core system support
 SRC_URI:append:imx93-jaguar-eink = " \
 		file://imx93-jaguar-eink.dts \
 		file://i2c-dev-interface.cfg \
 		file://gpio-keys.cfg \
+		file://imx93-jaguar-eink/imx93-core-system.cfg \
 "
 
 # TEMPORARILY DISABLED FOR BOOT DEBUGGING - PCF2131 patch causing boot failures
