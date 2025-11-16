@@ -800,6 +800,11 @@
 	pinctrl-0 = <&pinctrl_lpi2c3>;
 	status = "okay";
 
+	/* TEMPORARILY DISABLED FOR BOOT DEBUGGING - PCF2131 RTC causing boot failures
+	 * This complex interrupt configuration may be causing boot hangs in Build 2482
+	 * TODO: Re-enable with simplified configuration once boot issue is resolved
+	 */
+	/*
 	pcf2131: rtc@53 {
 		compatible = "nxp,pcf2131";
 		reg = <0x53>;
@@ -808,12 +813,13 @@
 		interrupt-parent = <&gpio4>;
 		interrupts = <22 IRQ_TYPE_LEVEL_LOW>, <23 IRQ_TYPE_LEVEL_LOW>;
 		interrupt-names = "inta", "intb";
-		nxp,inta-mask = <0x07 0x00>;  /* Alarms + battery on INTA# (i.MX93) */
-		nxp,intb-mask = <0x04 0x0F>;  /* Alarms + timestamps on INTB# (PMU) */
+		nxp,inta-mask = <0x07 0x00>;
+		nxp,intb-mask = <0x04 0x0F>;
 		wakeup-source;
 		nxp,irq-clear-on-write;
 		nxp,irq-output-push-pull;
 	};
+	*/
 };
 
 /* GPIO pins are available for userspace control via your application */
