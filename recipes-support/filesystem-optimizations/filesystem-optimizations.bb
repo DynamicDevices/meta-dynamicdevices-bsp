@@ -9,8 +9,8 @@ SRC_URI = " \
 
 S = "${WORKDIR}"
 
-# TEMPORARILY DISABLED FOR BOOT DEBUGGING - Filesystem optimizations may be causing boot failures
-SYSTEMD_AUTO_ENABLE = "disable"
+# Re-enabled for testing - filesystem optimizations for power efficiency
+# SYSTEMD_AUTO_ENABLE = "disable"
 SYSTEMD_SERVICE:${PN} = "filesystem-optimizations.service"
 
 inherit systemd
