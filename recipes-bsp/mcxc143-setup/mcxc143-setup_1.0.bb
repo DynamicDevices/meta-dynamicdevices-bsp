@@ -22,8 +22,8 @@ RDEPENDS:${PN} = "bash coreutils"
 inherit systemd
 
 SYSTEMD_SERVICE:${PN} = "mcxc143-first-boot.service lpuart7-keep-active.service"
-# TEMPORARILY DISABLED FOR BOOT DEBUGGING - MCXC143 setup may be causing boot failures
-SYSTEMD_AUTO_ENABLE = "disable"
+# PHASE 5.2: Re-enabling MCXC143VFM power microcontroller setup services
+SYSTEMD_AUTO_ENABLE = "enable"
 
 do_install() {
     # Install setup script
