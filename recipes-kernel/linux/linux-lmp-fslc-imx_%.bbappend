@@ -116,7 +116,7 @@ SRC_URI:append:imx8mm-jaguar-phasora = " \
 		file://0006-usb-dwc3-synopsys-load-firmware-support.patch \
 "
 
-# PHASE 1.2-4.4: Adding back Very Low + Low + Medium + Most High Risk configs (12 changes)
+# PHASE 1.2-4.6: Adding back Very Low + Low + Medium + All High Risk configs (14 changes)
 SRC_URI:append:imx93-jaguar-eink = " \
 		file://imx93-jaguar-eink.dts \
 		file://i2c-dev-interface.cfg \
@@ -134,6 +134,7 @@ SRC_URI:append:imx93-jaguar-eink = " \
 		file://imx93-jaguar-eink/imx93-power-management.cfg \
 		file://imx93-jaguar-eink/dsm-power-management.cfg \
 		file://imx93-jaguar-eink/delayed-components.cfg \
+		file://imx93-jaguar-eink/safe-boot-params.cfg \
 "
 
 # TEMPORARILY DISABLED FOR BOOT DEBUGGING - PCF2131 patch causing boot failures

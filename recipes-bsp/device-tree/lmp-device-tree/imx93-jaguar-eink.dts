@@ -800,26 +800,25 @@
 	pinctrl-0 = <&pinctrl_lpi2c3>;
 	status = "okay";
 
-	/* TEMPORARILY DISABLED FOR BOOT DEBUGGING - PCF2131 RTC causing boot failures
-	 * This complex interrupt configuration may be causing boot hangs in Build 2482
-	 * TODO: Re-enable with simplified configuration once boot issue is resolved
+	/* SIMPLIFIED PCF2131 RTC - Removed complex interrupt configuration for boot safety
+	 * Basic RTC functionality without interrupt handling to prevent boot hangs
+	 * TODO: Add back interrupt support after confirming basic RTC works
 	 */
-	/*
 	pcf2131: rtc@53 {
 		compatible = "nxp,pcf2131";
 		reg = <0x53>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_pcf2131_irq>;
-		interrupt-parent = <&gpio4>;
-		interrupts = <22 IRQ_TYPE_LEVEL_LOW>, <23 IRQ_TYPE_LEVEL_LOW>;
-		interrupt-names = "inta", "intb";
-		nxp,inta-mask = <0x07 0x00>;
-		nxp,intb-mask = <0x04 0x0F>;
-		wakeup-source;
-		nxp,irq-clear-on-write;
-		nxp,irq-output-push-pull;
+		/* SIMPLIFIED: No interrupt configuration for boot safety */
+		/* pinctrl-names = "default"; */
+		/* pinctrl-0 = <&pinctrl_pcf2131_irq>; */
+		/* interrupt-parent = <&gpio4>; */
+		/* interrupts = <22 IRQ_TYPE_LEVEL_LOW>, <23 IRQ_TYPE_LEVEL_LOW>; */
+		/* interrupt-names = "inta", "intb"; */
+		/* nxp,inta-mask = <0x07 0x00>; */
+		/* nxp,intb-mask = <0x04 0x0F>; */
+		/* wakeup-source; */
+		/* nxp,irq-clear-on-write; */
+		/* nxp,irq-output-push-pull; */
 	};
-	*/
 };
 
 /* GPIO pins are available for userspace control via your application */
