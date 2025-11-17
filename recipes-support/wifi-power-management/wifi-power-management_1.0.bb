@@ -21,8 +21,8 @@ inherit systemd
 
 SYSTEMD_SERVICE:${PN} = "wifi-power-management.service"
 SYSTEMD_SERVICE:${PN}:imx8mm-jaguar-sentai = "imx8mm-jaguar-sentai-wifi-pm.service"
-# TEMPORARILY DISABLED FOR BOOT DEBUGGING - WiFi power management may be causing boot failures
-SYSTEMD_AUTO_ENABLE = "disable"
+# Re-enabled for Phase 5.2 testing - WiFi power management for battery optimization
+# SYSTEMD_AUTO_ENABLE = "disable"
 
 do_install() {
     # Install systemd service
