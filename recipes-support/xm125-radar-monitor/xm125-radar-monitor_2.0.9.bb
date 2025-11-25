@@ -1,7 +1,8 @@
-SUMMARY = "XM125 Radar Monitor - Production CLI Tool"
+SUMMARY = "XM125 Radar Monitor - Production CLI Tool v2.0.9"
 DESCRIPTION = "Production-ready CLI tool for Acconeer XM125 radar modules with automatic firmware management, \
-multi-mode detection (distance, presence, breathing), and GPIO control. Replaces legacy shell scripts \
-with robust Rust implementation."
+multi-mode detection (distance, presence, breathing), GPIO control, and FIFO integration. Features spi-lib \
+compatibility, 7m detection range, modular architecture, and comprehensive testing status documentation. \
+Replaces legacy shell scripts with robust Rust implementation."
 
 HOMEPAGE = "https://github.com/DynamicDevices/xm125-radar-monitor"
 LICENSE = "GPL-3.0-or-later"
@@ -16,17 +17,15 @@ RDEPENDS:${PN} = " \
     i2c-tools \
     stm32flash \
     xm125-firmware \
-    bash \
 "
 
-# Version and source
-PV = "1.5.0"
+# Version and source - Updated to v2.0.9 with FIFO integration and code quality improvements
+PV = "2.0.9"
 SRCBRANCH = "main"
-SRCREV = "${AUTOREV}"
+SRCREV = "ff8284f20e818fff15f765145c47d39bccc42b37"
 
 SRC_URI = "git://github.com/DynamicDevices/xm125-radar-monitor.git;protocol=https;branch=${SRCBRANCH} \
-    file://xm125-control.sh \
-    file://xm125-firmware-flash.sh \
+           file://xm125-radar-monitor.service \
 "
 
 S = "${WORKDIR}/git"
@@ -41,8 +40,13 @@ python () {
         raise bb.parse.SkipRecipe("XM125 radar feature not enabled for this machine")
 }
 
-# Inherit cargo_bin for Rust binary builds
-inherit cargo_bin
+# Inherit cargo_bin for Rust binary builds and systemd for service management
+inherit cargo_bin systemd
+
+# Systemd service configuration
+SYSTEMD_SERVICE:${PN} = "xm125-radar-monitor.service"
+# Enable service by default when XM125 radar feature is present
+SYSTEMD_AUTO_ENABLE:${PN} = "${@bb.utils.contains('MACHINE_FEATURES', 'xm125-radar', 'enable', 'disable', d)}"
 
 # Enable network for the compile task allowing cargo to download dependencies
 do_compile[network] = "1"
@@ -63,40 +67,29 @@ do_install() {
     # where B = ${WORKDIR}/target and RUST_TARGET = aarch64-unknown-linux-gnu
     install -m 755 ${B}/${RUST_TARGET}/release/xm125-radar-monitor ${D}${bindir}/xm125-radar-monitor
     
-    # Install GPIO control scripts (required by Rust binary for hardware control)
-    install -m 755 ${WORKDIR}/xm125-control.sh ${D}${bindir}/xm125-control.sh
-    install -m 755 ${WORKDIR}/xm125-firmware-flash.sh ${D}${bindir}/xm125-firmware-flash.sh
+    # Install systemd service
+    install -d ${D}${systemd_unitdir}/system
+    install -m 0644 ${WORKDIR}/xm125-radar-monitor.service ${D}${systemd_unitdir}/system/xm125-radar-monitor.service
     
-    # Install documentation if it exists
-    if [ -f ${S}/README.md ]; then
-        install -d ${D}${docdir}/${PN}
-        install -m 0644 ${S}/README.md ${D}${docdir}/${PN}/
-    fi
-    if [ -f ${S}/CHANGELOG.md ]; then
-        install -d ${D}${docdir}/${PN}
-        install -m 0644 ${S}/CHANGELOG.md ${D}${docdir}/${PN}/
-    fi
-    
-    # Install example configuration if it exists
-    if [ -f ${S}/config/xm125-config.toml ]; then
-        install -d ${D}${sysconfdir}/xm125
-        install -m 0644 ${S}/config/xm125-config.toml ${D}${sysconfdir}/xm125/
-    fi
+    # Install documentation
+    install -d ${D}${docdir}/${PN}
+    install -m 0644 ${S}/README.md ${D}${docdir}/${PN}/
+    install -m 0644 ${S}/CHANGELOG.md ${D}${docdir}/${PN}/
+    install -m 0644 ${S}/PROJECT_CONTEXT.md ${D}${docdir}/${PN}/
 }
 
 # Package files
 FILES:${PN} = " \
     ${bindir}/xm125-radar-monitor \
-    ${bindir}/xm125-control.sh \
-    ${bindir}/xm125-firmware-flash.sh \
+    ${systemd_unitdir}/system/xm125-radar-monitor.service \
     ${docdir}/${PN}/* \
 "
 
 # Package architecture
 PACKAGE_ARCH = "${MACHINE_ARCH}"
 
-# Provides GPIO control scripts for XM125 hardware management
-PROVIDES = "xm125-control-scripts xm125-firmware-flash-scripts"
+# Modern Rust implementation with internal GPIO control
+PROVIDES = "xm125-radar-monitor"
 
 # Conflicts with old shell script packages if they exist
 CONFLICTS = "xm125-shell-scripts"
