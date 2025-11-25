@@ -41,6 +41,17 @@ SRCREV = "d8ab072eb711de2e1399b9c5af0058eb8c7eecfb"
 
 S = "${WORKDIR}/git"
 
+# Only build for machines with bgt60 (Infineon radar) feature enabled
+# Note: XM125 radar uses different recipes (xm125-radar-monitor)
+COMPATIBLE_MACHINE = "(.*)"
+
+# Check for bgt60 radar feature
+python () {
+    machine_features = d.getVar('MACHINE_FEATURES') or ''
+    if 'bgt60' not in machine_features:
+        raise bb.parse.SkipRecipe("bgt60 radar feature not enabled for this machine")
+}
+
 inherit cmake
 
 # Specify any options you want to pass to cmake using EXTRA_OECMAKE:
