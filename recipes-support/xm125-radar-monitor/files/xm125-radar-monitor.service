@@ -1,15 +1,13 @@
 [Unit]
 Description=XM125 Radar Monitor - Presence Detection Service
 Documentation=https://github.com/DynamicDevices/xm125-radar-monitor
-Before=basic.target
-After=local-fs.target sysinit.target
-DefaultDependencies=no
-StartLimitIntervalSec=0
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
 User=root
-ExecStart=/usr/bin/xm125-radar-monitor presence --continuous --fifo-output --fifo-format simple --fifo-interval 5.0 --quiet
+ExecStart=/usr/bin/xm125-radar-monitor --fifo-output --fifo-format simple --fifo-interval 5.0 --quiet presence --continuous
 Restart=always
 RestartSec=5s
 StandardOutput=journal
@@ -24,6 +22,7 @@ ProtectHome=true
 ProtectSystem=strict
 ReadWritePaths=/tmp /var/log
 NoNewPrivileges=true
+CapabilityBoundingSet=CAP_SYS_RAWIO CAP_SYS_ADMIN CAP_NET_ADMIN CAP_NET_RAW CAP_DAC_OVERRIDE
 
 [Install]
-WantedBy=basic.target
+WantedBy=multi-user.target
