@@ -48,11 +48,13 @@ do_install:append:imx8mm-jaguar-sentai() {
     # Use insecure firmware (.bin) only when explicitly requested for development
     if [ "${NXP_WIFI_INSECURE_FIRMWARE}" = "1" ]; then
         # Use standard firmware for development builds (when explicitly requested)
+        # Remove .se extension if present
         sed -i '/SDIW612 = {/,/^}/ s|fw_name=nxp/sduart_nw61x_v1\.bin\.se|fw_name=nxp/sduart_nw61x_v1.bin|g' ${D}${nonarch_base_libdir}/firmware/nxp/wifi_mod_para.conf
         bbwarn "Using insecure NXP WiFi firmware (.bin files) - development mode"
     else
         # Default: Use secure firmware for production cloud builds
-        sed -i '/SDIW612 = {/,/^}/ s|fw_name=nxp/sduart_nw61x_v1\.bin|fw_name=nxp/sduart_nw61x_v1.bin.se|g' ${D}${nonarch_base_libdir}/firmware/nxp/wifi_mod_para.conf
+        # Only add .se extension if not already present
+        sed -i '/SDIW612 = {/,/^}/ s|fw_name=nxp/sduart_nw61x_v1\.bin\([^.]\|$\)|fw_name=nxp/sduart_nw61x_v1.bin.se|g' ${D}${nonarch_base_libdir}/firmware/nxp/wifi_mod_para.conf
         bbwarn "Using secure NXP WiFi firmware (.se files) - production mode"
     fi
 }
@@ -106,11 +108,13 @@ do_install:append:imx93-jaguar-eink() {
     # Use insecure firmware (.bin) only when explicitly requested for development
     if [ "${NXP_WIFI_INSECURE_FIRMWARE}" = "1" ]; then
         # Use standard firmware for development builds (when explicitly requested)
+        # Remove .se extension if present
         sed -i '/SDIW612 = {/,/^}/ s|fw_name=nxp/sduart_nw61x_v1\.bin\.se|fw_name=nxp/sduart_nw61x_v1.bin|g' ${D}${nonarch_base_libdir}/firmware/nxp/wifi_mod_para.conf
         bbwarn "imx93-jaguar-eink: Using insecure NXP WiFi firmware (.bin files) - development mode"
     else
         # Default: Use secure firmware for production cloud builds
-        sed -i '/SDIW612 = {/,/^}/ s|fw_name=nxp/sduart_nw61x_v1\.bin|fw_name=nxp/sduart_nw61x_v1.bin.se|g' ${D}${nonarch_base_libdir}/firmware/nxp/wifi_mod_para.conf
+        # Only add .se extension if not already present
+        sed -i '/SDIW612 = {/,/^}/ s|fw_name=nxp/sduart_nw61x_v1\.bin\([^.]\|$\)|fw_name=nxp/sduart_nw61x_v1.bin.se|g' ${D}${nonarch_base_libdir}/firmware/nxp/wifi_mod_para.conf
         bbwarn "imx93-jaguar-eink: Using secure NXP WiFi firmware (.se files) - production mode"
     fi
 }
