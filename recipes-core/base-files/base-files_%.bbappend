@@ -16,7 +16,7 @@ do_install:append() {
 }
 
 do_install:append:imx8mm-jaguar-sentai() {
-    # Use existing Sentai SSH banner for MOTD on Sentai machine
+    # For Sentai machine, use SSH banner (installed by openssh recipe) for MOTD
     rm -f ${D}${sysconfdir}/motd
     ln -sf ${sysconfdir}/ssh/banner ${D}${sysconfdir}/motd
 }
