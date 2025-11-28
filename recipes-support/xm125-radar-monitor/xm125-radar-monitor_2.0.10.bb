@@ -77,9 +77,6 @@ do_install() {
     install -m 0644 ${S}/README.md ${D}${docdir}/${PN}/
     install -m 0644 ${S}/CHANGELOG.md ${D}${docdir}/${PN}/
     install -m 0644 ${S}/docs/PROJECT_CONTEXT.md ${D}${docdir}/${PN}/
-    
-    # Install additional documentation from docs folder
-    install -m 0644 ${S}/docs/XM125_FIFO_INTERFACE_SPECIFICATION.md ${D}${docdir}/${PN}/
 }
 
 # Package files
