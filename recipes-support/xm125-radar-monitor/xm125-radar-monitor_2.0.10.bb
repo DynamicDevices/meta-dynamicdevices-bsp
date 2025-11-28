@@ -1,8 +1,9 @@
-SUMMARY = "XM125 Radar Monitor - Production CLI Tool v2.0.9"
-DESCRIPTION = "Production-ready CLI tool for Acconeer XM125 radar modules with automatic firmware management, \
-multi-mode detection (distance, presence, breathing), GPIO control, and FIFO integration. Features spi-lib \
-compatibility, 7m detection range, modular architecture, and comprehensive testing status documentation. \
-Replaces legacy shell scripts with robust Rust implementation."
+SUMMARY = "XM125 Radar Monitor - Auto-Initialization Reliability Release v2.0.10"
+DESCRIPTION = "Production-ready CLI tool for Acconeer XM125 radar modules with automatic hardware initialization, \
+multi-mode detection (distance, presence, breathing), GPIO control, and FIFO integration. Features automatic \
+XM125 GPIO initialization on I2C failures, eliminating service startup timing issues. Includes spi-lib \
+compatibility, 7m detection range, modular architecture, and robust error recovery. \
+Replaces legacy shell scripts with reliable Rust implementation."
 
 HOMEPAGE = "https://github.com/DynamicDevices/xm125-radar-monitor"
 LICENSE = "GPL-3.0-or-later"
@@ -19,10 +20,10 @@ RDEPENDS:${PN} = " \
     xm125-firmware \
 "
 
-# Version and source - Updated to v2.0.9 with FIFO integration and code quality improvements
-PV = "2.0.9"
+# Version and source - Updated to v2.0.10 with auto-initialization reliability fix
+PV = "2.0.10"
 SRCBRANCH = "main"
-SRCREV = "ff8284f20e818fff15f765145c47d39bccc42b37"
+SRCREV = "59070df87937198c39d33abddcbcd9d63c0e6d05"
 
 SRC_URI = "git://github.com/DynamicDevices/xm125-radar-monitor.git;protocol=https;branch=${SRCBRANCH} \
            file://xm125-radar-monitor.service \
@@ -88,7 +89,7 @@ FILES:${PN} = " \
 # Package architecture
 PACKAGE_ARCH = "${MACHINE_ARCH}"
 
-# Modern Rust implementation with internal GPIO control
+# Modern Rust implementation with automatic hardware initialization
 PROVIDES = "xm125-radar-monitor"
 
 # Conflicts with old shell script packages if they exist
