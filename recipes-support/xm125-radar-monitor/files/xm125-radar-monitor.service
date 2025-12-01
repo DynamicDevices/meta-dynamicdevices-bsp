@@ -7,7 +7,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=root
-ExecStart=/usr/bin/xm125-radar-monitor --fifo-output --fifo-format json --fifo-interval 5.0 --quiet presence --continuous
+ExecStart=/usr/bin/xm125-radar-monitor --fifo-output --fifo-format json --fifo-interval 5.0 --quiet presence --min-range 0.5 --max-range 7.0 --continuous
 Restart=always
 RestartSec=5s
 StandardOutput=journal
