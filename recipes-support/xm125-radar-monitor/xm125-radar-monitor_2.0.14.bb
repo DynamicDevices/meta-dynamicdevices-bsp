@@ -24,7 +24,7 @@ RDEPENDS:${PN} = " \
 # Version and source - Updated to v2.0.14 with reset pin control fix
 PV = "2.0.14"
 SRCBRANCH = "main"
-SRCREV = "b73f929ad61e46a8698d1362f811de0411337205"
+SRCREV = "752864bef045117ae41b8f7b335d33651df8002d"
 
 SRC_URI = "git://github.com/DynamicDevices/xm125-radar-monitor.git;protocol=https;branch=${SRCBRANCH} \
            file://xm125-radar-monitor.service \
