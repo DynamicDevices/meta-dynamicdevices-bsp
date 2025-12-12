@@ -50,17 +50,17 @@ if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
 then
     echo -e "You should see red, green, blue and white LEDs cycling\n"
     test-leds-hb.sh
-elif [[ "$response" =~ ^([yY][eE][yY])$ ]]
-then
-    echo TEST FAILED
-    exit 1
-fi
-
-echo -e "\n"
-read -r -p "Did you see the correct LED colours with none missing? [y/N] " response
-if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
-then
+    
     echo -e "\n"
+    read -r -p "Did you see the correct LED colours with none missing? [y/N] " response
+    if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
+    then
+        echo -e "\n"
+    elif [[ "$response" =~ ^([yY][eE][yY])$ ]]
+    then
+        echo TEST FAILED
+        exit 1
+    fi
 elif [[ "$response" =~ ^([yY][eE][yY])$ ]]
 then
     echo TEST FAILED
@@ -74,17 +74,17 @@ if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
 then
     echo -e "\n"
     sensors || true
-elif [[ "$response" =~ ^([yY][eE][yY])$ ]]
-then
-    echo TEST FAILED
-    exit 1
-fi
-
-echo -e "\n"
-read -r -p "Did a reasonable temperature and humidity value display? [y/N] " response
-if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
-then
+    
     echo -e "\n"
+    read -r -p "Did a reasonable temperature and humidity value display? [y/N] " response
+    if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
+    then
+        echo -e "\n"
+    elif [[ "$response" =~ ^([yY][eE][yY])$ ]]
+    then
+        echo TEST FAILED
+        exit 1
+    fi
 elif [[ "$response" =~ ^([yY][eE][yY])$ ]]
 then
     echo TEST FAILED
@@ -98,17 +98,17 @@ if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
 then
     echo -e "\n"
     stusb4500-utils write --file /lib/firmware/stusb4500.dat
-elif [[ "$response" =~ ^([yY][eE][yY])$ ]]
-then
-    echo TEST FAILED
-    exit 1
-fi
-
-echo -e "\n"
-read -r -p "Did the programming step complete successfully ? [y/N] " response
-if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
-then
+    
     echo -e "\n"
+    read -r -p "Did the programming step complete successfully ? [y/N] " response
+    if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
+    then
+        echo -e "\n"
+    elif [[ "$response" =~ ^([yY][eE][yY])$ ]]
+    then
+        echo TEST FAILED
+        exit 1
+    fi
 elif [[ "$response" =~ ^([yY][eE][yY])$ ]]
 then
     echo TEST FAILED
@@ -148,20 +148,26 @@ read -r -p "(6) Perform Audio Testing [y/N] " response
 if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
 then
     echo -e "Setting the audio levels\n\n"
-    su -c "pactl set-sink-mute 0 0" fio
-    su -c "pactl set-sink-volume 0 60%" fio
-    amixer -c 0 set 'CH0' 100
-    amixer -c 0 set 'CH1' 100
-    amixer -c 0 set 'CH2' 0
-    amixer -c 0 set 'CH3' 0
-    amixer -c 0 set 'CH4' 0
-    amixer -c 0 set 'CH5' 0
-    amixer -c 0 set 'CH6' 0
-    amixer -c 0 set 'CH7' 0
+    echo "Fixing speaker hardware gains (do NOT change during calls)"
+    amixer -c tas2563audio set 'Digital Volume Control' 110
+    amixer -c tas2563audio set 'Amp Gain' 20dB
+    
+    echo "Configuring MICFIL input"
+    amixer -c micfilaudio cset name='MICFIL Quality Select' 'High'
+    amixer -c micfilaudio set 'CH0' 10
+    amixer -c micfilaudio set 'CH1' 10
+    amixer -c micfilaudio set 'CH2' 0
+    amixer -c micfilaudio set 'CH3' 0
+    amixer -c micfilaudio set 'CH4' 0
+    amixer -c micfilaudio set 'CH5' 0
+    amixer -c micfilaudio set 'CH6' 0
+    amixer -c micfilaudio set 'CH7' 0
+    
+    
     echo -e "Done setting the audio levels\n\n"
 
     echo -e "Now playing an audio sample\n"
-    su -c "paplay /usr/share/board-scripts/board-testing-now-starting-up.wav" fio
+    su -c "aplay -Dhw:1,0 /usr/share/board-scripts/board-testing-now-starting-up-stereo.wav" fio
     read -r -p "Did you hear the audio play back [y/N] " response
     if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
     then
@@ -171,19 +177,19 @@ then
         exit 1
     fi
 
-    amixer -c 0 set 'CH0' 100
-    amixer -c 0 set 'CH1' 0
+    amixer -c micfilaudio set 'CH0' 15
+    amixer -c micfilaudio set 'CH1' 0
 
     echo -e "\n\nNow recording 5s audio on FIRST microphone channel\n"
     read -r -p "Press RETURN key to start recording and then start counting up in a clear voice"
     echo -e "\nStarted recording...\n"
 
-    su -c "arecord -Dhw:0 -c2 -f s16_le -r48000 -d5 test-l.wav" fio
+    su -c "arecord -Dhw:2,0 -c2 -f s16_le -r48000 -d5 test-l-stereo.wav && python3 /usr/share/board-scripts/extract_channel.py test-l-stereo.wav test-l.wav 0 && rm -f test-l-stereo.wav" fio
 
     read -r -p "Done recording. Press RETURN key to play back recording"
 
     echo -e "\n\nNow playing back recording\n"
-    su -c "paplay test-l.wav" fio
+    su -c "aplay -Dplughw:1,0 test-l.wav" fio
     rm -f test-l.wav
 
     read -r -p "Did you hear the audio play back [y/N] " response
@@ -195,23 +201,21 @@ then
         exit 1
     fi
 
-    amixer -c 0 set 'CH0' 0
-    amixer -c 0 set 'CH1' 100
+    amixer -c micfilaudio set 'CH0' 0
+    amixer -c micfilaudio set 'CH1' 15
 
     echo -e "\n\nNow recording 5s audio on SECOND microphone channel\n"
     read -r -p "Press RETURN key to start recording and then start counting up in a clear voice"
     echo -e "\nStarted recording...\n"
 
-    su -c "arecord -Dhw:0 -c2 -f s16_le -r48000 -d5 test-r.wav" fio
+    su -c "arecord -Dhw:2,0 -c2 -f s16_le -r48000 -d5 test-r-stereo.wav && python3 /usr/share/board-scripts/extract_channel.py test-r-stereo.wav test-r.wav 1 && rm -f test-r-stereo.wav" fio
 
     read -r -p "Done recording. Press RETURN key to play back recording"
 
-    sox test-r.wav -c 1 test-r-1chan.wav
 
     echo -e "\n\nNow playing back recording\n"
-    su -c "paplay test-r-1chan.wav" fio
+    su -c "aplay -Dplughw:1,0 test-r.wav" fio
     rm -f test-r.wav
-    rm -f test-r-1chan.wav
 
     read -r -p "Did you hear the audio play back [y/N] " response
     if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
@@ -237,17 +241,143 @@ then
     bluetoothctl --timeout 5 scan on
     bluetoothctl power off
     echo -e "\n^^^ You should have seen a number of MAC addresses and device names\n"
+    
+    echo -e "\n"
+    read -r -p "Did you see a number of bluetooth MAC addresses and device names ? [y/N] " response
+    if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
+    then
+        echo -e "\n"
+    elif [[ "$response" =~ ^([yY][eE][yY])$ ]]
+    then
+        echo TEST FAILED
+        exit 1
+    fi
 elif [[ "$response" =~ ^([yY][eE][yY])$ ]]
 then
     echo TEST FAILED
     exit 1
 fi
 
+# (8) Radar Testing
 echo -e "\n"
-read -r -p "Did you see a number of bluetooth MAC addresses and device names ? [y/N] " response
+read -r -p "(8) Perform Radar Testing [y/N] " response
 if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
 then
-    echo -e "\n"
+    echo -e "Checking radar service status...\n"
+    if ! systemctl is-active --quiet xm125-radar-monitor.service; then
+        echo "TEST FAILED - xm125-radar-monitor service is not running"
+        exit 1
+    fi
+    
+    if [ ! -p /tmp/presence ]; then
+        echo "TEST FAILED - /tmp/presence FIFO does not exist"
+        exit 1
+    fi
+    
+    echo -e "Testing for presence detection...\n"
+    echo -e "IMPORTANT: You must be present in front of the sensor for this test\n"
+    echo -e "Reading radar data (waiting up to 10 seconds for presence detection)...\n"
+    
+    # Keep reading from FIFO for up to 10 seconds until presence is detected
+    PRESENCE_DETECTED=0
+    PRESENCE_DATA=""
+    START_TIME=$(date +%s)
+    TIMEOUT=10
+    
+    while [ $(( $(date +%s) - START_TIME )) -lt $TIMEOUT ]; do
+        # Read one line from FIFO (non-blocking with timeout)
+        READ_DATA=$(timeout 2 cat /tmp/presence 2>&1) || true
+        if [ -n "$READ_DATA" ] && ! echo "$READ_DATA" | grep -q "timeout: cannot run command"; then
+            PRESENCE_DATA="$READ_DATA"
+            # Extract and display presence status
+            PRESENCE_STATUS=$(echo "$PRESENCE_DATA" | grep -o '"presence_detected":[^,}]*' | cut -d':' -f2 | tr -d ' ')
+            PRESENCE_DISTANCE=$(echo "$PRESENCE_DATA" | grep -o '"presence_distance_m":[^,}]*' | cut -d':' -f2 | tr -d ' ')
+            SIGNAL_QUALITY=$(echo "$PRESENCE_DATA" | grep -o '"signal_quality":"[^"]*' | cut -d'"' -f4)
+            
+            echo -e "Radar Status:\n"
+            echo -e "  Presence Detected: ${PRESENCE_STATUS}"
+            if [ -n "$PRESENCE_DISTANCE" ]; then
+                echo -e "  Distance: ${PRESENCE_DISTANCE} m"
+            fi
+            if [ -n "$SIGNAL_QUALITY" ]; then
+                echo -e "  Signal Quality: ${SIGNAL_QUALITY}\n"
+            fi
+            
+            # Check if presence is detected
+            if echo "$PRESENCE_DATA" | grep -q '"presence_detected":true'; then
+                PRESENCE_DETECTED=1
+                echo -e "✓ Presence detected - sensor is working\n"
+                break
+            fi
+        fi
+        sleep 0.5
+    done
+    
+    # Check if we detected presence within the timeout
+    if [ $PRESENCE_DETECTED -eq 0 ]; then
+        if [ -z "$PRESENCE_DATA" ]; then
+            echo "TEST FAILED - No data received from radar FIFO"
+            exit 1
+        else
+            echo "TEST FAILED - No presence detected after ${TIMEOUT} seconds. You must be present in front of the sensor for this test."
+            exit 1
+        fi
+    fi
+
+    echo -e "Please cover the radar sensor with your hand or an object\n"
+    read -r -p "Press RETURN when you have covered the sensor..."
+    
+    echo -e "\nTesting for absence of presence...\n"
+    echo -e "Reading radar data (waiting up to 10 seconds to verify no presence)...\n"
+
+    # Keep reading from FIFO for up to 10 seconds to verify no presence is detected
+    PRESENCE_STILL_DETECTED=0
+    NO_PRESENCE_DATA=""
+    START_TIME=$(date +%s)
+    TIMEOUT=10
+
+    while [ $(( $(date +%s) - START_TIME )) -lt $TIMEOUT ]; do
+        # Read one line from FIFO (non-blocking with timeout)
+        READ_DATA=$(timeout 2 cat /tmp/presence 2>&1) || true
+        if [ -n "$READ_DATA" ] && ! echo "$READ_DATA" | grep -q "timeout: cannot run command"; then
+            NO_PRESENCE_DATA="$READ_DATA"
+            # Extract and display presence status
+            NO_PRESENCE_STATUS=$(echo "$NO_PRESENCE_DATA" | grep -o '"presence_detected":[^,}]*' | cut -d':' -f2 | tr -d ' ')
+            NO_PRESENCE_DISTANCE=$(echo "$NO_PRESENCE_DATA" | grep -o '"presence_distance_m":[^,}]*' | cut -d':' -f2 | tr -d ' ')
+            NO_SIGNAL_QUALITY=$(echo "$NO_PRESENCE_DATA" | grep -o '"signal_quality":"[^"]*' | cut -d'"' -f4)
+
+            echo -e "Radar Status (after covering):\n"
+            echo -e "  Presence Detected: ${NO_PRESENCE_STATUS}"
+            if [ -n "$NO_PRESENCE_DISTANCE" ]; then
+                echo -e "  Distance: ${NO_PRESENCE_DISTANCE} m"
+            fi
+            if [ -n "$NO_SIGNAL_QUALITY" ]; then
+                echo -e "  Signal Quality: ${NO_SIGNAL_QUALITY}\n"
+            fi
+
+            # Check if presence is still detected (this is a failure)
+            if echo "$NO_PRESENCE_DATA" | grep -q '"presence_detected":true'; then
+                PRESENCE_STILL_DETECTED=1
+                echo "TEST FAILED - Sensor still detecting presence when covered"
+                exit 1
+            elif echo "$NO_PRESENCE_DATA" | grep -q '"presence_detected":false'; then
+                # Success - no presence detected, we can exit immediately
+                echo -e "✓ No presence detected - sensor correctly detected coverage\n"
+                echo -e "Radar test PASSED\n"
+                break
+            fi
+        fi
+        sleep 1
+    done
+
+    # Check if we got valid data and no presence was detected
+    if [ -z "$NO_PRESENCE_DATA" ]; then
+        echo "TEST FAILED - No data received from radar FIFO"
+        exit 1
+    elif [ $PRESENCE_STILL_DETECTED -eq 0 ]; then
+        echo -e "✓ No presence detected - sensor correctly detected coverage\n"
+        echo -e "Radar test PASSED\n"
+    fi
 elif [[ "$response" =~ ^([yY][eE][yY])$ ]]
 then
     echo TEST FAILED
@@ -256,7 +386,7 @@ fi
 
 # Check we are on the Foundries cloud
 
-# (8) Unmask update service
+# (9) Unmask update service
 #echo -e "\n"
 #read -r -p "(8) Are you ready to enable the Foundries.io update service [y/N] " response
 #if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
@@ -270,9 +400,9 @@ fi
 #    exit 1
 #fi
 
-# (8) Secure device
+# (9) Secure device
 echo -e "\n"
-read -r -p "(8) Are you ready to secure the device? NOTE YOU CAN ONLY DO THIS ONCE [y/N] " response
+read -r -p "(9) Are you ready to secure the device? NOTE YOU CAN ONLY DO THIS ONCE [y/N] " response
 if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
 then
     echo -e "\n"
@@ -295,5 +425,5 @@ fi
 
 echo -e "Production test successful\n"
 date > /etc/.production-test-successful
-su -c "paplay /usr/share/board-scripts/tests-all-completed.wav" fio
+su -c "aplay -Dhw:1,0 /usr/share/board-scripts/tests-all-completed-stereo.wav" fio
 exit 0

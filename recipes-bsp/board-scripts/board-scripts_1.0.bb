@@ -17,6 +17,7 @@ SRC_URI:append:imx8mm-jaguar-sentai = " \
   file://test-audio-play-and-record.sh \
   file://production-test.sh \
   file://pipeline_monitor.sh \
+  file://extract_channel.py \
   file://dtmf-182846.wav \
   file://board-testing-now-starting-up.wav \
   file://tests-all-completed.wav \
@@ -48,6 +49,7 @@ do_install() {
 do_install:append:imx8mm-jaguar-sentai() {
     install -d ${D}${datadir}/${PN}
     install -m 0755 ${WORKDIR}/*.wav ${D}${datadir}/${PN}
+    install -m 0755 ${WORKDIR}/extract_channel.py ${D}${datadir}/${PN}
 }
 
 # Runtime dependencies for all machines (board-info.sh and production-test.sh use bash)
