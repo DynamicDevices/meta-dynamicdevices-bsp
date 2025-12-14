@@ -19,7 +19,7 @@ COMPATIBLE_MACHINE = "imx93-jaguar-eink"
 # Using commit dd28bb5 which has correct version 2.6.0 in Cargo.toml
 # Release notes: https://github.com/DynamicDevices/eink-power-cli/releases/tag/v2.6.0
 SRCBRANCH = "main"
-SRCREV = "dd28bb504c0a9f696b42cb6b06369999db8e46cd"
+SRCREV = "${AUTOREV}"
 PV = "2.6.0"
 
 SRC_URI = "git://github.com/DynamicDevices/eink-power-cli.git;protocol=https;branch=${SRCBRANCH}"
