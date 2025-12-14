@@ -1,7 +1,7 @@
 SUMMARY = "E-ink Power Management CLI Tool"
 DESCRIPTION = "Rust-based command-line interface for controlling the MCXC143VFM/MCXC144VFM power \
 management microcontroller on imx93-jaguar-eink board. Provides battery monitoring, \
-power sequencing, and system control capabilities. Compatible with v2.5.0 microcontroller firmware."
+power sequencing, and system control capabilities. Compatible with v2.6.0 microcontroller firmware."
 
 HOMEPAGE = "https://github.com/DynamicDevices/eink-power-cli"
 SECTION = "console/utils"
@@ -13,11 +13,12 @@ LIC_FILES_CHKSUM = ""
 # Only install on imx93-jaguar-eink machine
 COMPATIBLE_MACHINE = "imx93-jaguar-eink"
 
-# Pin to v2.5.0 release (2025-10-19) - RTC Management & Enhanced Board Control
-# Release notes: https://github.com/DynamicDevices/eink-power-cli/releases/tag/v2.5.0
+# Pin to v2.6.0 release - Comprehensive PMU firmware shell command support
+# Includes: pm sleep with --alloff, --pmic, --wifi, --disp options, VLLS0/1/2/3 support
+# Release notes: https://github.com/DynamicDevices/eink-power-cli/releases/tag/v2.6.0
 SRCBRANCH = "main"
-SRCREV = "9414e048237ec2628e05c15713390948d856cb1c"
-PV = "2.5.0"
+SRCREV = "0c9a5340e853bff6cf5ed6cdcb464455039b61eb"
+PV = "2.6.0"
 
 SRC_URI = "git://github.com/DynamicDevices/eink-power-cli.git;protocol=https;branch=${SRCBRANCH}"
 
