@@ -13,13 +13,14 @@ LIC_FILES_CHKSUM = ""
 # Only install on imx93-jaguar-eink machine
 COMPATIBLE_MACHINE = "imx93-jaguar-eink"
 
-# Pin to commit with comprehensive PMU firmware shell command support
+# Pin to v2.6.0 release - Comprehensive PMU firmware shell command support
 # Includes: pm sleep with --alloff, --pmic, --wifi, --disp options, VLLS0/1/2/3 support
-# NOTE: Source code Cargo.toml has version "2.5.0" - binary version comes from Cargo.toml, not PV
-# The binary will report v2.5.0 until Cargo.toml is updated in the source repository
+# NOTE: v2.6.0 tag (0c9a534) incorrectly has version 2.5.0 in Cargo.toml
+# Using commit dd28bb5 which has correct version 2.6.0 in Cargo.toml
+# Release notes: https://github.com/DynamicDevices/eink-power-cli/releases/tag/v2.6.0
 SRCBRANCH = "main"
-SRCREV = "0c9a5340e853bff6cf5ed6cdcb464455039b61eb"
-PV = "2.5.0+git${SRCPV}"
+SRCREV = "dd28bb504c0a9f696b42cb6b06369999db8e46cd"
+PV = "2.6.0"
 
 SRC_URI = "git://github.com/DynamicDevices/eink-power-cli.git;protocol=https;branch=${SRCBRANCH}"
 
