@@ -368,21 +368,26 @@
 	 * GPIO3_IOx = 544 + x  (gpiochip1)
 	 * GPIO4_IOx = 576 + x  (gpiochip2)
 	 *
-	 * E-Ink Control Signals (Hardware-Verified):
+	 * E-Ink Control Signals (Hardware-Verified per pinout table):
 	 *   - RES_DIS# (GPIO 526): GPIO2_IO14 = 512+14 = 526 - Reset (Active-Low)
+	 *     Physical pin: GPIO_IO14
 	 *   - D/C#_DIS (GPIO 527): GPIO2_IO15 = 512+15 = 527 - Data/Command (LO=Cmd, HI=Data)
-	 *   - L#R_SEL_DIS (GPIO 528): GPIO2_IO16 = 512+16 = 528 - Chip Select Routing (LO=Left, HI=Right)
-	 *   - BUSY_DIS# (GPIO 529): GPIO2_IO17 = 512+17 = 529 - Busy Status (LO=Busy, Input)
-	 *   - CS1 (GPIO 619): GPIO1_IO11 = 608+11 = 619 - Chip Select 1 (Right half)
+	 *     Physical pin: GPIO_IO15
+	 *   - BUSY_DIS# (GPIO 528): GPIO2_IO16 = 512+16 = 528 - Busy Status (LO=Busy, Input)
+	 *     Physical pin: GPIO_IO17
+	 *   - SPI_CS0 (GPIO 529): GPIO2_IO17 = 512+17 = 529 - Chip Select 0 (Left half)
+	 *     Physical pin: GPIO_IO16
+	 *   - SPI_CS1 (GPIO 619): GPIO1_IO11 = 608+11 = 619 - Chip Select 1 (Right half)
+	 *     Physical pin: SAI1_TXFS
 	 *   - NO POWER ENABLE GPIO (power managed by MCXC143VFM microcontroller)
 	 */
 	pinctrl_eink_gpio: eink_gpio_grp {
 		fsl,pins = <
 			MX93_PAD_GPIO_IO14__GPIO2_IO14		0x31e  /* RES_DIS# - Reset (Active-Low) - GPIO 526 */
 			MX93_PAD_GPIO_IO15__GPIO2_IO15		0x31e  /* D/C#_DIS - Data/Command (LO=Cmd, HI=Data) - GPIO 527 */
-			MX93_PAD_GPIO_IO16__GPIO2_IO16		0x31e  /* L#R_SEL_DIS - Chip Select Routing (LO=Left, HI=Right) - GPIO 528 */
-			MX93_PAD_GPIO_IO17__GPIO2_IO17		0x31e  /* CS0 - Chip Select 0 (Left half) - GPIO 529 */
-			MX93_PAD_SAI1_TXFS__GPIO1_IO11		0x31e  /* CS1 - Chip Select 1 (Right half) - GPIO 619 */
+			MX93_PAD_GPIO_IO16__GPIO2_IO17		0x31e  /* SPI_CS0 - Chip Select 0 (Left half) - GPIO 529 */
+			MX93_PAD_GPIO_IO17__GPIO2_IO16		0x31e  /* BUSY_DIS# - Busy Status (LO=Busy, Input) - GPIO 528 */
+			MX93_PAD_SAI1_TXFS__GPIO1_IO11		0x31e  /* SPI_CS1 - Chip Select 1 (Right half) - GPIO 619 */
 		>;
 	};
 
@@ -531,23 +536,26 @@
 /*
  * E-Ink Display SPI Configuration - Spectra 6 EL133UF1
  * 
- * Both QSPI and regular SPI interfaces are enabled by default for maximum flexibility:
+ * FlexSPI1 (QSPI) - DISABLED:
+ *   - FlexSPI uses MTD subsystem, not spidev
+ *   - Would use SD3 pins (SD3_CLK, SD3_CMD, SD3_DATA0-3)
+ *   - Status: disabled (incompatible with spidev tools)
  * 
- * FlexSPI1 (QSPI) - Primary Option:
- *   - Device: /dev/spidev0.0
- *   - Speed: Up to 80 MHz
- *   - 4-bit data width (quad mode)
- *   - Uses SD3 pins (SD3_CLK, SD3_CMD, SD3_DATA0-3)
- *   - Compatible: "spectra6,el133uf1-qspi", "spidev" (fallback for testing)
- * 
- * LPSPI1 (Regular SPI) - Backup/Alternative Option:
- *   - Device: /dev/spidev1.0  
+ * LPSPI1 (Regular SPI) - PRIMARY INTERFACE:
+ *   - Device: /dev/spidev0.0 (LPSPI1 becomes spi0 when FlexSPI1 is disabled)
  *   - Speed: Up to 10 MHz (conservative)
  *   - 1-bit data width (standard SPI)
  *   - Uses SAI1 pins (SAI1_TXC, SAI1_RXD0, SAI1_TXD0, SAI1_TXFS)
  *   - Compatible: "spectra6,el133uf1-spi", "spidev" (fallback for testing)
+ *   - Status: enabled (primary interface for E-Ink display)
  * 
- * Both interfaces share the same GPIO control pins (reset, busy, dc) and power supply.
+ * GPIO Control Pins (shared by all interfaces):
+ *   - RES_DIS#: GPIO 526 (GPIO2_IO14, physical pin GPIO_IO14)
+ *   - D/C#_DIS: GPIO 527 (GPIO2_IO15, physical pin GPIO_IO15)
+ *   - BUSY_DIS#: GPIO 528 (GPIO2_IO16, physical pin GPIO_IO17)
+ *   - SPI_CS0: GPIO 529 (GPIO2_IO17, physical pin GPIO_IO16)
+ *   - SPI_CS1: GPIO 619 (GPIO1_IO11, physical pin SAI1_TXFS)
+ * 
  * The spidev fallback compatible string enables /dev/spidev* devices for testing
  * and development while preserving the ability to load custom E-Ink drivers.
  */
