@@ -16,8 +16,9 @@ COMPATIBLE_MACHINE = "imx93-jaguar-eink"
 # Pin to v2.6.0 release - Comprehensive PMU firmware shell command support
 # Includes: pm sleep with --alloff, --pmic, --wifi, --disp options, VLLS0/1/2/3 support
 # Release notes: https://github.com/DynamicDevices/eink-power-cli/releases/tag/v2.6.0
+# Note: main branch HEAD is at v2.6.0 (tag and main point to same commit)
 SRCBRANCH = "main"
-SRCREV = "053d1be77e4fd41d59d1b6c7f7566658e3dea66b"
+SRCREV = "0c9a5340e853bff6cf5ed6cdcb464455039b61eb"
 PV = "2.6.0"
 
 SRC_URI = "git://github.com/DynamicDevices/eink-power-cli.git;protocol=https;branch=${SRCBRANCH}"
