@@ -374,9 +374,9 @@
 	 *   - D/C#_DIS (GPIO 527): GPIO2_IO15 = 512+15 = 527 - Data/Command (LO=Cmd, HI=Data)
 	 *     Physical pin: GPIO_IO15
 	 *   - BUSY_DIS# (GPIO 528): GPIO2_IO16 = 512+16 = 528 - Busy Status (LO=Busy, Input)
-	 *     Physical pin: GPIO_IO17
+	 *     Physical pin: GPIO_IO16 (NOTE: Hardware pinout shows GPIO_IO17, but pinmux requires GPIO_IO16->GPIO2_IO16)
 	 *   - SPI_CS0 (GPIO 529): GPIO2_IO17 = 512+17 = 529 - Chip Select 0 (Left half)
-	 *     Physical pin: GPIO_IO16
+	 *     Physical pin: GPIO_IO17 (NOTE: Hardware pinout shows GPIO_IO16, but pinmux requires GPIO_IO17->GPIO2_IO17)
 	 *   - SPI_CS1 (GPIO 619): GPIO1_IO11 = 608+11 = 619 - Chip Select 1 (Right half)
 	 *     Physical pin: SAI1_TXFS
 	 *   - NO POWER ENABLE GPIO (power managed by MCXC143VFM microcontroller)
@@ -385,8 +385,8 @@
 		fsl,pins = <
 			MX93_PAD_GPIO_IO14__GPIO2_IO14		0x31e  /* RES_DIS# - Reset (Active-Low) - GPIO 526 */
 			MX93_PAD_GPIO_IO15__GPIO2_IO15		0x31e  /* D/C#_DIS - Data/Command (LO=Cmd, HI=Data) - GPIO 527 */
-			MX93_PAD_GPIO_IO16__GPIO2_IO17		0x31e  /* SPI_CS0 - Chip Select 0 (Left half) - GPIO 529 */
-			MX93_PAD_GPIO_IO17__GPIO2_IO16		0x31e  /* BUSY_DIS# - Busy Status (LO=Busy, Input) - GPIO 528 */
+			MX93_PAD_GPIO_IO16__GPIO2_IO16		0x31e  /* BUSY_DIS# - Busy Status (LO=Busy, Input) - GPIO 528 */
+			MX93_PAD_GPIO_IO17__GPIO2_IO17		0x31e  /* SPI_CS0 - Chip Select 0 (Left half) - GPIO 529 */
 			MX93_PAD_SAI1_TXFS__GPIO1_IO11		0x31e  /* SPI_CS1 - Chip Select 1 (Right half) - GPIO 619 */
 		>;
 	};
