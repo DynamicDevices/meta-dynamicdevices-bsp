@@ -21,8 +21,10 @@ SRC_URI:append:imx8mm-jaguar-sentai = " \
   file://dtmf-182846.wav \
   file://board-testing-now-starting-up.wav \
   file://board-testing-now-starting-up-stereo.wav \
+  file://board-testing-now-starting-up-stereo-48k.wav \
   file://tests-all-completed.wav \
   file://tests-all-completed-stereo.wav \
+  file://tests-all-completed-stereo-48k.wav \
   file://AudioTest-Microphone-One.wav \
   file://AudioTest-Microphone-Two.wav \
   file://AudioTest-Recording-Will-Now-Play-Back.wav \

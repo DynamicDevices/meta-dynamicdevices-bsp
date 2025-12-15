@@ -35,7 +35,7 @@ if [ "$EUID" -ne 0 ]
 fi
 
 echo -e "Stopping Sentai application\n"
-docker stop sentaispeaker-SentaiSpeaker-1
+docker stop sentaispeaker-SentaiSpeaker-1 2>/dev/null || true
 
 echo -e "Running Sentai Production Test - Version ${VERSION}\n"
 
@@ -50,12 +50,12 @@ if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
 then
     echo -e "You should see red, green, blue and white LEDs cycling\n"
     test-leds-hb.sh
-    
+
+echo -e "\n"
+read -r -p "Did you see the correct LED colours with none missing? [y/N] " response
+if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
+then
     echo -e "\n"
-    read -r -p "Did you see the correct LED colours with none missing? [y/N] " response
-    if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
-    then
-        echo -e "\n"
     elif [[ "$response" =~ ^([yY][eE][yY])$ ]]
     then
         echo TEST FAILED
@@ -74,12 +74,12 @@ if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
 then
     echo -e "\n"
     sensors || true
-    
+
+echo -e "\n"
+read -r -p "Did a reasonable temperature and humidity value display? [y/N] " response
+if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
+then
     echo -e "\n"
-    read -r -p "Did a reasonable temperature and humidity value display? [y/N] " response
-    if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
-    then
-        echo -e "\n"
     elif [[ "$response" =~ ^([yY][eE][yY])$ ]]
     then
         echo TEST FAILED
@@ -98,12 +98,12 @@ if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
 then
     echo -e "\n"
     stusb4500-utils write --file /lib/firmware/stusb4500.dat
-    
+
+echo -e "\n"
+read -r -p "Did the programming step complete successfully ? [y/N] " response
+if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
+then
     echo -e "\n"
-    read -r -p "Did the programming step complete successfully ? [y/N] " response
-    if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
-    then
-        echo -e "\n"
     elif [[ "$response" =~ ^([yY][eE][yY])$ ]]
     then
         echo TEST FAILED
@@ -167,7 +167,7 @@ then
     echo -e "Done setting the audio levels\n\n"
 
     echo -e "Now playing an audio sample\n"
-    su -c "aplay -Dhw:1,0 /usr/share/board-scripts/board-testing-now-starting-up-stereo.wav" fio
+    su -c "aplay -Dhw:1,0 /usr/share/board-scripts/board-testing-now-starting-up-stereo-48k.wav" fio
     read -r -p "Did you hear the audio play back [y/N] " response
     if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
     then
@@ -188,8 +188,8 @@ then
 
     read -r -p "Done recording. Press RETURN key to play back recording"
 
-    echo -e "\n\nNow playing back recording\n"
-    su -c "aplay -Dplughw:1,0 test-l.wav" fio
+      echo -e "\n\nNow playing back recording\n"
+      su -c "aplay -Dhw:1,0 test-l.wav" fio
     rm -f test-l.wav
 
     read -r -p "Did you hear the audio play back [y/N] " response
@@ -213,8 +213,8 @@ then
     read -r -p "Done recording. Press RETURN key to play back recording"
 
 
-    echo -e "\n\nNow playing back recording\n"
-    su -c "aplay -Dplughw:1,0 test-r.wav" fio
+      echo -e "\n\nNow playing back recording\n"
+      su -c "aplay -Dhw:1,0 test-r.wav" fio
     rm -f test-r.wav
 
     read -r -p "Did you hear the audio play back [y/N] " response
@@ -425,5 +425,5 @@ fi
 
 echo -e "Production test successful\n"
 date > /etc/.production-test-successful
-su -c "aplay -Dhw:1,0 /usr/share/board-scripts/tests-all-completed-stereo.wav" fio
+su -c "aplay -Dhw:1,0 /usr/share/board-scripts/tests-all-completed-stereo-48k.wav" fio
 exit 0
