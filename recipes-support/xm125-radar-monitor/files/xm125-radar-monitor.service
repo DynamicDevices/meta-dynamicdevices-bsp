@@ -1,12 +1,16 @@
 [Unit]
 Description=XM125 Radar Monitor - Presence Detection Service
 Documentation=https://github.com/DynamicDevices/xm125-radar-monitor
-After=network-online.target
+After=network-online.target sys-kernel-config.mount
 Wants=network-online.target
+Requires=sys-kernel-config.mount
 
 [Service]
 Type=simple
 User=root
+# Initialize XM125 GPIO and ensure device is in run mode before starting main service
+# Use '-' prefix to make this optional - GPIO initialization will still run even if there's a transient issue
+ExecStartPre=-/usr/bin/xm125-radar-monitor gpio reset-run
 ExecStart=/usr/bin/xm125-radar-monitor --fifo-output --fifo-format json --fifo-interval 5.0 --quiet presence --min-range 0.5 --max-range 7.0 --continuous
 Restart=always
 RestartSec=5s
@@ -20,7 +24,8 @@ Environment=RUST_LOG=info
 PrivateDevices=false
 ProtectHome=true
 ProtectSystem=strict
-ReadWritePaths=/tmp /var/log
+ReadWritePaths=/tmp /var/log /sys/class/gpio /sys/devices
+BindReadOnlyPaths=/sys/class/gpiochip /sys/devices/platform
 NoNewPrivileges=true
 CapabilityBoundingSet=CAP_SYS_RAWIO CAP_SYS_ADMIN CAP_NET_ADMIN CAP_NET_RAW CAP_DAC_OVERRIDE
 

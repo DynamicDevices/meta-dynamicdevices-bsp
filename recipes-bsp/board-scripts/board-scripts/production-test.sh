@@ -264,6 +264,10 @@ then
     echo -e "Checking radar service status...\n"
     if ! systemctl is-active --quiet xm125-radar-monitor.service; then
         echo "TEST FAILED - xm125-radar-monitor service is not running"
+        echo -e "\nService status:"
+        systemctl status xm125-radar-monitor.service --no-pager -l || true
+        echo -e "\nRecent service logs (last 20 lines):"
+        journalctl -u xm125-radar-monitor.service -n 20 --no-pager || true
         exit 1
     fi
     
