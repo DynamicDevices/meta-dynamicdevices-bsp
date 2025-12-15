@@ -189,8 +189,7 @@ then
     read -r -p "Done recording. Press RETURN key to play back recording"
 
       echo -e "\n\nNow playing back recording\n"
-      su -c "aplay -Dhw:1,0 test-l.wav" fio
-    rm -f test-l.wav
+      su -c "python3 /usr/share/board-scripts/mono_to_stereo.py test-l.wav test-l-stereo.wav && aplay -Dhw:1,0 test-l-stereo.wav && rm -f test-l.wav test-l-stereo.wav" fio
 
     read -r -p "Did you hear the audio play back [y/N] " response
     if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
@@ -214,8 +213,7 @@ then
 
 
       echo -e "\n\nNow playing back recording\n"
-      su -c "aplay -Dhw:1,0 test-r.wav" fio
-    rm -f test-r.wav
+      su -c "python3 /usr/share/board-scripts/mono_to_stereo.py test-r.wav test-r-stereo.wav && aplay -Dhw:1,0 test-r-stereo.wav && rm -f test-r.wav test-r-stereo.wav" fio
 
     read -r -p "Did you hear the audio play back [y/N] " response
     if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]

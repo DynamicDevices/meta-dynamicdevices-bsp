@@ -18,6 +18,7 @@ SRC_URI:append:imx8mm-jaguar-sentai = " \
   file://production-test.sh \
   file://pipeline_monitor.sh \
   file://extract_channel.py \
+  file://mono_to_stereo.py \
   file://dtmf-182846.wav \
   file://board-testing-now-starting-up.wav \
   file://board-testing-now-starting-up-stereo.wav \
@@ -54,6 +55,7 @@ do_install:append:imx8mm-jaguar-sentai() {
     install -d ${D}${datadir}/${PN}
     install -m 0755 ${WORKDIR}/*.wav ${D}${datadir}/${PN}
     install -m 0755 ${WORKDIR}/extract_channel.py ${D}${datadir}/${PN}
+    install -m 0755 ${WORKDIR}/mono_to_stereo.py ${D}${datadir}/${PN}
 }
 
 # Runtime dependencies for all machines (board-info.sh and production-test.sh use bash)
