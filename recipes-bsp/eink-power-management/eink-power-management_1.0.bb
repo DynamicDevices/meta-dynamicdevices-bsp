@@ -103,10 +103,7 @@ FILES:${PN} = " \
     ${bindir}/eink-shutdown.sh \
     ${bindir}/wifi-suspend.sh \
     ${bindir}/wifi-resume.sh \
-    ${libdir}/systemd/system-sleep/ \
     ${libdir}/systemd/system-sleep/wifi-power-management \
-    ${sysconfdir}/NetworkManager/ \
-    ${sysconfdir}/NetworkManager/conf.d/ \
     ${sysconfdir}/NetworkManager/conf.d/99-disable-mac-randomization.conf \
 "
 
