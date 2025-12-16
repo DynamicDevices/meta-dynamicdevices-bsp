@@ -25,7 +25,6 @@ PrivateDevices=false
 ProtectHome=true
 ProtectSystem=strict
 ReadWritePaths=/tmp /var/log /sys/class/gpio /sys/devices
-BindReadOnlyPaths=/sys/class/gpiochip /sys/devices/platform
 NoNewPrivileges=true
 CapabilityBoundingSet=CAP_SYS_RAWIO CAP_SYS_ADMIN CAP_NET_ADMIN CAP_NET_RAW CAP_DAC_OVERRIDE
 
