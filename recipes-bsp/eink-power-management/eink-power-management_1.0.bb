@@ -68,8 +68,8 @@ do_install() {
     fi
 
     # Install systemd system-sleep hook
-    install -d ${D}${prefix}/lib/systemd/system-sleep
-    install -m 0755 ${WORKDIR}/wifi-power-management ${D}${prefix}/lib/systemd/system-sleep/
+    install -d ${D}${libdir}/systemd/system-sleep
+    install -m 0755 ${WORKDIR}/wifi-power-management ${D}${libdir}/systemd/system-sleep/
 
     # Install NetworkManager configuration to disable MAC randomization
     install -d ${D}${sysconfdir}/NetworkManager/conf.d
@@ -87,7 +87,7 @@ FILES:${PN} = " \
     ${bindir}/eink-shutdown.sh \
     ${bindir}/wifi-suspend.sh \
     ${bindir}/wifi-resume.sh \
-    ${prefix}/lib/systemd/system-sleep/wifi-power-management \
+    ${libdir}/systemd/system-sleep/wifi-power-management \
     ${sysconfdir}/NetworkManager/conf.d/99-disable-mac-randomization.conf \
 "
 
