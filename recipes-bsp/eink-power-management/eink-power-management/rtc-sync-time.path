@@ -1,0 +1,15 @@
+[Unit]
+Description=Monitor systemd-timesyncd for time synchronization events
+Documentation=https://github.com/DynamicDevices/meta-dynamicdevices
+After=systemd-timesyncd.service
+
+[Path]
+# Trigger when systemd-timesyncd state file changes (indicates time sync)
+# This path is created/updated when timesyncd synchronizes time
+PathChanged=/run/systemd/timesync/synchronized
+# Also trigger on service state changes
+Unit=systemd-timesyncd.service
+
+[Install]
+WantedBy=multi-user.target
+

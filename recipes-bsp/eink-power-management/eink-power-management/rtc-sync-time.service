@@ -1,0 +1,26 @@
+[Unit]
+Description=Sync System Time to RTC After NTP Update
+Documentation=https://github.com/DynamicDevices/meta-dynamicdevices
+# Run after systemd-timesyncd has synchronized time
+After=systemd-timesyncd.service network-online.target
+Wants=systemd-timesyncd.service
+# Only run if RTC device exists
+ConditionPathExists=/dev/rtc0
+
+[Service]
+Type=oneshot
+# Wait for timesyncd to be active and synchronized
+# Check if timesyncd has synchronized (Status shows "Contacted time server")
+ExecStartPre=/bin/bash -c 'timeout=60; elapsed=0; while [ $elapsed -lt $timeout ]; do if systemctl is-active systemd-timesyncd.service >/dev/null 2>&1; then status=$(systemctl show systemd-timesyncd.service -p StatusText --value 2>/dev/null); if echo "$status" | grep -qi "contacted\|synchronized"; then break; fi; fi; sleep 2; elapsed=$((elapsed+2)); done'
+# Sync system time to RTC (systohc = system time to hardware clock)
+# This writes the current system time (from NTP) to the RTC
+# --noadjfile prevents hwclock from using /etc/adjtime (which might have bad drift data)
+ExecStart=/sbin/hwclock --systohc --noadjfile
+StandardOutput=journal
+StandardError=journal
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target
+

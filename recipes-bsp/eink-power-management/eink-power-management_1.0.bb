@@ -17,6 +17,8 @@ SRC_URI = " \
     file://wifi-resume.service \
     file://wifi-power-management \
     file://99-disable-mac-randomization.conf \
+    file://rtc-sync-time.service \
+    file://rtc-sync-time.path \
 "
 
 # WiFi connect service for imx93-jaguar-eink only
@@ -28,9 +30,9 @@ RDEPENDS:${PN} = "bash iw wireless-tools eink-power-cli"
 
 inherit systemd
 
-SYSTEMD_SERVICE:${PN} = "setup-wowlan.service eink-restart.service eink-shutdown.service wifi-suspend.service wifi-resume.service"
+SYSTEMD_SERVICE:${PN} = "setup-wowlan.service eink-restart.service eink-shutdown.service wifi-suspend.service wifi-resume.service rtc-sync-time.service rtc-sync-time.path"
 # WiFi connect service for imx93-jaguar-eink only (ensures prompt WiFi connection on boot)
-SYSTEMD_SERVICE:${PN}:imx93-jaguar-eink = "setup-wowlan.service eink-restart.service eink-shutdown.service wifi-suspend.service wifi-resume.service wifi-connect.service cpu-power-optimize.service"
+SYSTEMD_SERVICE:${PN}:imx93-jaguar-eink = "setup-wowlan.service eink-restart.service eink-shutdown.service wifi-suspend.service wifi-resume.service wifi-connect.service cpu-power-optimize.service rtc-sync-time.service rtc-sync-time.path"
 # Active services:
 # - setup-wowlan.service: WiFi wake-on-LAN functionality (magic packets only)
 # - eink-restart.service: Custom power-optimized restart handling via eink-power-cli
@@ -38,10 +40,15 @@ SYSTEMD_SERVICE:${PN}:imx93-jaguar-eink = "setup-wowlan.service eink-restart.ser
 # - wifi-suspend.service: WiFi interface shutdown before system suspend
 # - wifi-resume.service: WiFi interface restoration after system resume
 # - wifi-connect.service: Ensure WiFi connection on boot (imx93-jaguar-eink only, bypasses NetworkManager retry delay)
+# - rtc-sync-time.service: Sync system time (from NTP) to RTC hardware clock after NTP updates
+# - rtc-sync-time.path: Monitor timesyncd for time sync events and trigger RTC sync
 # PHASE 5.3: Re-enabling E-Ink power management services - WoL, restart/shutdown handlers, WiFi suspend/resume
 SYSTEMD_AUTO_ENABLE = "enable"
 # Disable CPU power optimization service - not helping reduce power but slowing down boot
 SYSTEMD_AUTO_ENABLE:cpu-power-optimize.service = "disable"
+# Enable RTC sync service and path unit to sync NTP time to RTC
+SYSTEMD_AUTO_ENABLE:rtc-sync-time.service = "enable"
+SYSTEMD_AUTO_ENABLE:rtc-sync-time.path = "enable"
 
 do_install() {
     # Install systemd services
@@ -76,6 +83,11 @@ do_install() {
     # Install NetworkManager configuration to disable MAC randomization
     install -d ${D}${sysconfdir}/NetworkManager/conf.d
     install -m 0644 ${WORKDIR}/99-disable-mac-randomization.conf ${D}${sysconfdir}/NetworkManager/conf.d/
+    
+    # Install RTC sync service and path unit
+    install -d ${D}${systemd_system_unitdir}
+    install -m 0644 ${WORKDIR}/rtc-sync-time.service ${D}${systemd_system_unitdir}/
+    install -m 0644 ${WORKDIR}/rtc-sync-time.path ${D}${systemd_system_unitdir}/
 }
 
 FILES:${PN} = " \
@@ -84,6 +96,8 @@ FILES:${PN} = " \
     ${systemd_system_unitdir}/eink-shutdown.service \
     ${systemd_system_unitdir}/wifi-suspend.service \
     ${systemd_system_unitdir}/wifi-resume.service \
+    ${systemd_system_unitdir}/rtc-sync-time.service \
+    ${systemd_system_unitdir}/rtc-sync-time.path \
     ${bindir}/setup-wowlan.sh \
     ${bindir}/eink-restart.sh \
     ${bindir}/eink-shutdown.sh \
