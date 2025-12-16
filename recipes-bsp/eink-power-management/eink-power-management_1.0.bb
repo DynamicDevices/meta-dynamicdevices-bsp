@@ -20,7 +20,7 @@ SRC_URI = " \
 "
 
 # WiFi connect service for imx93-jaguar-eink only
-SRC_URI:append:imx93-jaguar-eink = " file://wifi-connect.service"
+SRC_URI:append:imx93-jaguar-eink = " file://wifi-connect.service file://cpu-power-optimize.sh file://cpu-power-optimize.service"
 
 S = "${WORKDIR}"
 
@@ -30,7 +30,7 @@ inherit systemd
 
 SYSTEMD_SERVICE:${PN} = "setup-wowlan.service eink-restart.service eink-shutdown.service wifi-suspend.service wifi-resume.service"
 # WiFi connect service for imx93-jaguar-eink only (ensures prompt WiFi connection on boot)
-SYSTEMD_SERVICE:${PN}:imx93-jaguar-eink = "setup-wowlan.service eink-restart.service eink-shutdown.service wifi-suspend.service wifi-resume.service wifi-connect.service"
+SYSTEMD_SERVICE:${PN}:imx93-jaguar-eink = "setup-wowlan.service eink-restart.service eink-shutdown.service wifi-suspend.service wifi-resume.service wifi-connect.service cpu-power-optimize.service"
 # Active services:
 # - setup-wowlan.service: WiFi wake-on-LAN functionality (magic packets only)
 # - eink-restart.service: Custom power-optimized restart handling via eink-power-cli
@@ -49,9 +49,10 @@ do_install() {
     install -m 0644 ${WORKDIR}/eink-shutdown.service ${D}${systemd_system_unitdir}/
     install -m 0644 ${WORKDIR}/wifi-suspend.service ${D}${systemd_system_unitdir}/
     install -m 0644 ${WORKDIR}/wifi-resume.service ${D}${systemd_system_unitdir}/
-    # WiFi connect service for imx93-jaguar-eink only
+    # WiFi connect service and CPU power optimization for imx93-jaguar-eink only
     if [ "${MACHINE}" = "imx93-jaguar-eink" ]; then
         install -m 0644 ${WORKDIR}/wifi-connect.service ${D}${systemd_system_unitdir}/
+        install -m 0644 ${WORKDIR}/cpu-power-optimize.service ${D}${systemd_system_unitdir}/
     fi
 
     # Install scripts
@@ -61,6 +62,10 @@ do_install() {
     install -m 0755 ${WORKDIR}/eink-shutdown.sh ${D}${bindir}/
     install -m 0755 ${WORKDIR}/wifi-suspend.sh ${D}${bindir}/
     install -m 0755 ${WORKDIR}/wifi-resume.sh ${D}${bindir}/
+    # CPU power optimization script for imx93-jaguar-eink only
+    if [ "${MACHINE}" = "imx93-jaguar-eink" ]; then
+        install -m 0755 ${WORKDIR}/cpu-power-optimize.sh ${D}${bindir}/
+    fi
 
     # Install systemd system-sleep hook
     install -d ${D}${prefix}/lib/systemd/system-sleep
@@ -86,5 +91,5 @@ FILES:${PN} = " \
     ${sysconfdir}/NetworkManager/conf.d/99-disable-mac-randomization.conf \
 "
 
-# WiFi connect service for imx93-jaguar-eink only
-FILES:${PN}:imx93-jaguar-eink += "${systemd_system_unitdir}/wifi-connect.service"
+# WiFi connect service and CPU power optimization for imx93-jaguar-eink only
+FILES:${PN}:imx93-jaguar-eink += "${systemd_system_unitdir}/wifi-connect.service ${systemd_system_unitdir}/cpu-power-optimize.service ${bindir}/cpu-power-optimize.sh"

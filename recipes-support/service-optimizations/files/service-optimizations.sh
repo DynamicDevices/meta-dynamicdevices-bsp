@@ -36,8 +36,14 @@ CRITICAL_SERVICES=(
     "fioconfig.service"             # Foundries.io configuration - ESSENTIAL
     "systemd-timesyncd.service"     # Time synchronization - NEEDED
     "tee-supplicant.service"        # Hardware security (EdgeLock) - ESSENTIAL
-    "wifi-power-management.service" # Our power optimization - ESSENTIAL
     "filesystem-optimizations.service" # Our FS optimization - ESSENTIAL
+)
+
+# Optional services (may be disabled for specific boards)
+# wifi-power-management.service is intentionally disabled for imx93-jaguar-eink
+# because it interferes with WiFi connection reliability
+OPTIONAL_SERVICES=(
+    "wifi-power-management.service" # Power optimization - OPTIONAL (disabled for eink board)
 )
 
 disable_unnecessary_services() {
@@ -90,6 +96,7 @@ verify_critical_services() {
     
     local issues_found=0
     
+    # Check critical services (must be enabled)
     for service in "${CRITICAL_SERVICES[@]}"; do
         if systemctl list-unit-files "$service" >/dev/null 2>&1; then
             if ! systemctl is-enabled "$service" >/dev/null 2>&1; then
@@ -97,6 +104,19 @@ verify_critical_services() {
                 ((issues_found++))
             else
                 log_info "✓ $service is properly enabled"
+            fi
+        else
+            log_info "Note: $service not found (may be optional)"
+        fi
+    done
+    
+    # Check optional services (informational only - disabled is OK)
+    for service in "${OPTIONAL_SERVICES[@]}"; do
+        if systemctl list-unit-files "$service" >/dev/null 2>&1; then
+            if systemctl is-enabled "$service" >/dev/null 2>&1; then
+                log_info "✓ $service is enabled (optional)"
+            else
+                log_info "Note: $service is disabled (this is OK for some boards)"
             fi
         else
             log_info "Note: $service not found (may be optional)"

@@ -1,0 +1,19 @@
+[Unit]
+Description=CPU Power Optimization for E-Ink Board
+Documentation=https://github.com/DynamicDevices/meta-dynamicdevices
+# Run after system is fully booted but before user services
+After=multi-user.target
+Wants=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/cpu-power-optimize.sh
+StandardOutput=journal
+StandardError=journal
+RemainAfterExit=yes
+# Don't fail if optimizations aren't available (LPM driver may not be enabled)
+SuccessExitStatus=0 1
+
+[Install]
+WantedBy=multi-user.target
+
