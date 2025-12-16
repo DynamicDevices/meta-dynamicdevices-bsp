@@ -1,7 +1,15 @@
 [Unit]
 Description=WiFi Power Management for E-ink Board
-After=network.target
-Wants=network.target
+# Wait for WiFi connection to be established before applying power management
+# This prevents interference with initial connection attempts
+After=network-online.target NetworkManager.service
+Wants=network-online.target
+# Only start if WiFi interface exists
+ConditionPathExists=/sys/class/net/wlan0
+# Wait for WiFi connection to be established (not just connecting) before applying power management
+# This prevents interference with initial connection attempts
+# Timeout after 60 seconds to avoid hanging indefinitely
+ExecStartPre=/bin/bash -c 'timeout=60; elapsed=0; while [ $elapsed -lt $timeout ]; do state=$(nmcli -t -f STATE device show wlan0 2>/dev/null | cut -d: -f2); if [ "$state" = "connected" ] || [ "$state" = "CONNECTED" ]; then exit 0; fi; sleep 1; elapsed=$((elapsed+1)); done; echo "WiFi not connected after ${timeout}s, starting power management anyway"; exit 0'
 
 [Service]
 Type=oneshot

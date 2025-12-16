@@ -23,6 +23,8 @@ SYSTEMD_SERVICE:${PN} = "wifi-power-management.service"
 SYSTEMD_SERVICE:${PN}:imx8mm-jaguar-sentai = "imx8mm-jaguar-sentai-wifi-pm.service"
 # Re-enabled for Phase 5.2 testing - WiFi power management for battery optimization
 # SYSTEMD_AUTO_ENABLE = "disable"
+# Disable wifi-power-management service for eink board - interferes with WiFi connection reliability
+SYSTEMD_AUTO_ENABLE:${PN}:imx93-jaguar-eink = "disable"
 
 do_install() {
     # Install systemd service
