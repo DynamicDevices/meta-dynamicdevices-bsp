@@ -13,10 +13,11 @@ Type=oneshot
 # Wait for WiFi interface to be ready (NetworkManager may need time to initialize)
 # Check every 3 seconds for faster response (30s timeout = 10 checks)
 ExecStartPre=/bin/bash -c 'timeout=30; elapsed=0; while [ $elapsed -lt $timeout ]; do if [ -d /sys/class/net/wlan0 ] && nmcli -t -f STATE device show wlan0 2>/dev/null | grep -qE "disconnected|unavailable"; then break; fi; sleep 3; elapsed=$((elapsed+3)); done'
-# Trigger immediate connection attempt for GrosnyIoT (bypasses NetworkManager's long retry delay)
+# Trigger immediate connection attempt for highest-priority WiFi connection (bypasses NetworkManager's long retry delay)
 # NetworkManager's internal retry delay is ~60 seconds, which is too long for headless devices
 # This ensures connection happens promptly on boot (within ~30 seconds)
-ExecStart=/bin/bash -c 'if ! nmcli -t -f STATE connection show GrosnyIoT 2>/dev/null | grep -q "activated"; then echo "Triggering immediate GrosnyIoT connection (bypassing autoconnect delay)..."; nmcli connection up GrosnyIoT || true; else echo "GrosnyIoT already connected"; fi'
+# Find the highest priority WiFi connection with autoconnect enabled, or first WiFi connection if no priorities set
+ExecStart=/bin/bash -c 'WIFI_CONN=$(nmcli -t -f NAME,TYPE,autoconnect,autoconnect-priority connection show | grep -E "wifi|802-11-wireless" | grep ":yes:" | sort -t: -k4 -rn | head -1 | cut -d: -f1); if [ -z "$WIFI_CONN" ]; then WIFI_CONN=$(nmcli -t -f NAME,TYPE connection show | grep -E "wifi|802-11-wireless" | head -1 | cut -d: -f1); fi; if [ -n "$WIFI_CONN" ]; then if ! nmcli -t -f STATE connection show "$WIFI_CONN" 2>/dev/null | grep -q "activated"; then echo "Triggering immediate WiFi connection to $WIFI_CONN (bypassing autoconnect delay)..."; nmcli connection up "$WIFI_CONN" || true; else echo "WiFi connection $WIFI_CONN already active"; fi; else echo "No WiFi connection configured"; fi'
 StandardOutput=journal
 StandardError=journal
 TimeoutStartSec=60
