@@ -15,7 +15,8 @@ ExecStartPre=/bin/bash -c 'timeout=60; elapsed=0; while [ $elapsed -lt $timeout 
 # Sync system time to RTC (systohc = system time to hardware clock)
 # This writes the current system time (from NTP) to the RTC
 # --noadjfile prevents hwclock from using /etc/adjtime (which might have bad drift data)
-ExecStart=/sbin/hwclock --systohc --noadjfile
+# --utc specifies that system time is in UTC (required when using --noadjfile)
+ExecStart=/sbin/hwclock --systohc --noadjfile --utc
 StandardOutput=journal
 StandardError=journal
 User=root
