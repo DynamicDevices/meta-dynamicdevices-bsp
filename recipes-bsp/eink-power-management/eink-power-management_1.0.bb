@@ -40,6 +40,8 @@ SYSTEMD_SERVICE:${PN}:imx93-jaguar-eink = "setup-wowlan.service eink-restart.ser
 # - wifi-connect.service: Ensure WiFi connection on boot (imx93-jaguar-eink only, bypasses NetworkManager retry delay)
 # PHASE 5.3: Re-enabling E-Ink power management services - WoL, restart/shutdown handlers, WiFi suspend/resume
 SYSTEMD_AUTO_ENABLE = "enable"
+# Disable CPU power optimization service - not helping reduce power but slowing down boot
+SYSTEMD_AUTO_ENABLE:cpu-power-optimize.service = "disable"
 
 do_install() {
     # Install systemd services
