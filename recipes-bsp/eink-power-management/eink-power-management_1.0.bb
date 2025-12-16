@@ -90,11 +90,17 @@ do_install() {
     install -m 0644 ${WORKDIR}/rtc-sync-time.path ${D}${systemd_system_unitdir}/
 }
 
-FILES:${PN} += " \
-    ${bindir}/ \
-    ${libdir}/systemd/ \
-    ${sysconfdir}/ \
+FILES:${PN} = " \
+    ${bindir}/setup-wowlan.sh \
+    ${bindir}/eink-restart.sh \
+    ${bindir}/eink-shutdown.sh \
+    ${bindir}/wifi-suspend.sh \
+    ${bindir}/wifi-resume.sh \
+    ${libdir}/systemd/system-sleep/wifi-power-management \
+    ${sysconfdir}/NetworkManager/conf.d/99-disable-mac-randomization.conf \
 "
 
 # WiFi connect service and CPU power optimization for imx93-jaguar-eink only
-FILES:${PN}:imx93-jaguar-eink += "${systemd_system_unitdir}/wifi-connect.service ${systemd_system_unitdir}/cpu-power-optimize.service ${bindir}/cpu-power-optimize.sh"
+FILES:${PN}:append:imx93-jaguar-eink = " \
+    ${bindir}/cpu-power-optimize.sh \
+"
