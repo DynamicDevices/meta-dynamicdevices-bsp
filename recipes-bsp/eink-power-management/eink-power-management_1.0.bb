@@ -91,20 +91,9 @@ do_install() {
 }
 
 FILES:${PN} += " \
-    ${systemd_system_unitdir}/setup-wowlan.service \
-    ${systemd_system_unitdir}/eink-restart.service \
-    ${systemd_system_unitdir}/eink-shutdown.service \
-    ${systemd_system_unitdir}/wifi-suspend.service \
-    ${systemd_system_unitdir}/wifi-resume.service \
-    ${systemd_system_unitdir}/rtc-sync-time.service \
-    ${systemd_system_unitdir}/rtc-sync-time.path \
-    ${bindir}/setup-wowlan.sh \
-    ${bindir}/eink-restart.sh \
-    ${bindir}/eink-shutdown.sh \
-    ${bindir}/wifi-suspend.sh \
-    ${bindir}/wifi-resume.sh \
-    ${libdir}/systemd/system-sleep/* \
-    ${sysconfdir}/NetworkManager/conf.d/* \
+    ${bindir}/ \
+    ${libdir}/systemd/ \
+    ${sysconfdir}/ \
 "
 
 # WiFi connect service and CPU power optimization for imx93-jaguar-eink only
