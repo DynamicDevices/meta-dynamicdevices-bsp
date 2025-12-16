@@ -101,6 +101,7 @@ do_install:append:imx93-jaguar-eink() {
     install -D -m 0644 ${WORKDIR}/99-ignore-uap.conf ${D}${sysconfdir}/NetworkManager/conf.d/99-ignore-uap.conf
     
     # Install custom WiFi module parameters for IW612
+    # Machine-specific file in imx93-jaguar-eink/ directory has power save enabled
     install -D -m 0644 ${WORKDIR}/wifi_mod_para.conf ${D}${nonarch_base_libdir}/firmware/nxp/wifi_mod_para.conf
     
     # Configure firmware type based on build configuration
@@ -117,6 +118,7 @@ do_install:append:imx93-jaguar-eink() {
         sed -i '/SDIW612 = {/,/^}/ s|fw_name=nxp/sduart_nw61x_v1\.bin\([^.]\|$\)|fw_name=nxp/sduart_nw61x_v1.bin.se|g' ${D}${nonarch_base_libdir}/firmware/nxp/wifi_mod_para.conf
         bbwarn "imx93-jaguar-eink: Using secure NXP WiFi firmware (.se files) - production mode"
     fi
+    bbwarn "imx93-jaguar-eink: WiFi power save enabled (ps_mode=1, auto_ds=1) for TWT support"
 }
 
 FILES:${PN} += "${sysconfdir}/NetworkManager/conf.d/99-ignore-uap.conf"
