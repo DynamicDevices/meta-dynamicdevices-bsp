@@ -104,9 +104,11 @@ FILES:${PN} = " \
     ${bindir}/wifi-suspend.sh \
     ${bindir}/wifi-resume.sh \
     ${libdir}/systemd/system-sleep/wifi-power-management \
+    ${libdir}/systemd/system-sleep \
     ${sysconfdir}/NetworkManager/conf.d/99-disable-mac-randomization.conf \
     ${sysconfdir}/NetworkManager/conf.d \
     ${sysconfdir}/NetworkManager \
+    ${sysconfdir} \
 "
 
 # WiFi connect service and CPU power optimization for imx93-jaguar-eink only
