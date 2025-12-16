@@ -19,6 +19,9 @@ SRC_URI = " \
     file://99-disable-mac-randomization.conf \
 "
 
+# WiFi connect service for imx93-jaguar-eink only
+SRC_URI:append:imx93-jaguar-eink = " file://wifi-connect.service"
+
 S = "${WORKDIR}"
 
 RDEPENDS:${PN} = "bash iw wireless-tools eink-power-cli"
@@ -26,12 +29,15 @@ RDEPENDS:${PN} = "bash iw wireless-tools eink-power-cli"
 inherit systemd
 
 SYSTEMD_SERVICE:${PN} = "setup-wowlan.service eink-restart.service eink-shutdown.service wifi-suspend.service wifi-resume.service"
+# WiFi connect service for imx93-jaguar-eink only (ensures prompt WiFi connection on boot)
+SYSTEMD_SERVICE:${PN}:imx93-jaguar-eink = "setup-wowlan.service eink-restart.service eink-shutdown.service wifi-suspend.service wifi-resume.service wifi-connect.service"
 # Active services:
 # - setup-wowlan.service: WiFi wake-on-LAN functionality (magic packets only)
 # - eink-restart.service: Custom power-optimized restart handling via eink-power-cli
 # - eink-shutdown.service: Custom power-optimized shutdown handling via eink-power-cli
 # - wifi-suspend.service: WiFi interface shutdown before system suspend
 # - wifi-resume.service: WiFi interface restoration after system resume
+# - wifi-connect.service: Ensure WiFi connection on boot (imx93-jaguar-eink only, bypasses NetworkManager retry delay)
 # PHASE 5.3: Re-enabling E-Ink power management services - WoL, restart/shutdown handlers, WiFi suspend/resume
 SYSTEMD_AUTO_ENABLE = "enable"
 
@@ -43,6 +49,10 @@ do_install() {
     install -m 0644 ${WORKDIR}/eink-shutdown.service ${D}${systemd_system_unitdir}/
     install -m 0644 ${WORKDIR}/wifi-suspend.service ${D}${systemd_system_unitdir}/
     install -m 0644 ${WORKDIR}/wifi-resume.service ${D}${systemd_system_unitdir}/
+    # WiFi connect service for imx93-jaguar-eink only
+    if [ "${MACHINE}" = "imx93-jaguar-eink" ]; then
+        install -m 0644 ${WORKDIR}/wifi-connect.service ${D}${systemd_system_unitdir}/
+    fi
 
     # Install scripts
     install -d ${D}${bindir}
@@ -75,3 +85,6 @@ FILES:${PN} = " \
     ${prefix}/lib/systemd/system-sleep/wifi-power-management \
     ${sysconfdir}/NetworkManager/conf.d/99-disable-mac-randomization.conf \
 "
+
+# WiFi connect service for imx93-jaguar-eink only
+FILES:${PN}:imx93-jaguar-eink += "${systemd_system_unitdir}/wifi-connect.service"

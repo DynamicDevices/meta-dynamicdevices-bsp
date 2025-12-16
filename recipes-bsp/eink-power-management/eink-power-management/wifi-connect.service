@@ -1,0 +1,27 @@
+[Unit]
+Description=Ensure WiFi Connection for E-Ink Board
+Documentation=https://github.com/DynamicDevices/meta-dynamicdevices
+# Wait for NetworkManager to be ready (NOT network-online.target - we're trying to establish connection!)
+# network-online.target requires an active connection, which defeats the purpose
+After=NetworkManager.service
+Wants=NetworkManager.service
+# Only start if WiFi interface exists
+ConditionPathExists=/sys/class/net/wlan0
+
+[Service]
+Type=oneshot
+# Wait for WiFi interface to be ready (NetworkManager may need time to initialize)
+# Check every 3 seconds for faster response (30s timeout = 10 checks)
+ExecStartPre=/bin/bash -c 'timeout=30; elapsed=0; while [ $elapsed -lt $timeout ]; do if [ -d /sys/class/net/wlan0 ] && nmcli -t -f STATE device show wlan0 2>/dev/null | grep -qE "disconnected|unavailable"; then break; fi; sleep 3; elapsed=$((elapsed+3)); done'
+# Trigger immediate connection attempt for GrosnyIoT (bypasses NetworkManager's long retry delay)
+# NetworkManager's internal retry delay is ~60 seconds, which is too long for headless devices
+# This ensures connection happens promptly on boot (within ~30 seconds)
+ExecStart=/bin/bash -c 'if ! nmcli -t -f STATE connection show GrosnyIoT 2>/dev/null | grep -q "activated"; then echo "Triggering immediate GrosnyIoT connection (bypassing autoconnect delay)..."; nmcli connection up GrosnyIoT || true; else echo "GrosnyIoT already connected"; fi'
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=60
+TimeoutStopSec=10
+
+[Install]
+WantedBy=multi-user.target
+
