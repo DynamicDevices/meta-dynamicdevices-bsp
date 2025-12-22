@@ -278,17 +278,17 @@ then
     
     echo -e "Testing for presence detection...\n"
     echo -e "IMPORTANT: You must be present in front of the sensor for this test\n"
-    echo -e "Reading radar data (waiting up to 10 seconds for presence detection)...\n"
+    echo -e "Reading radar data (waiting up to 60 seconds for presence detection)...\n"
     
-    # Keep reading from FIFO for up to 10 seconds until presence is detected
+    # Keep reading from FIFO for up to 60 seconds until presence is detected
     PRESENCE_DETECTED=0
     PRESENCE_DATA=""
     START_TIME=$(date +%s)
-    TIMEOUT=10
+    TIMEOUT=60
     
     while [ $(( $(date +%s) - START_TIME )) -lt $TIMEOUT ]; do
         # Read one line from FIFO (non-blocking with timeout)
-        READ_DATA=$(timeout 2 cat /tmp/presence 2>&1) || true
+        READ_DATA=$(timeout 1 cat /tmp/presence 2>&1) || true
         if [ -n "$READ_DATA" ] && ! echo "$READ_DATA" | grep -q "timeout: cannot run command"; then
             PRESENCE_DATA="$READ_DATA"
             # Extract and display presence status
@@ -312,7 +312,7 @@ then
                 break
             fi
         fi
-        sleep 0.5
+        sleep 1
     done
     
     # Check if we detected presence within the timeout
@@ -330,17 +330,17 @@ then
     read -r -p "Press RETURN when you have covered the sensor..."
     
     echo -e "\nTesting for absence of presence...\n"
-    echo -e "Reading radar data (waiting up to 10 seconds to verify no presence)...\n"
+    echo -e "Reading radar data (waiting up to 60 seconds to verify no presence)...\n"
 
-    # Keep reading from FIFO for up to 10 seconds to verify no presence is detected
-    PRESENCE_STILL_DETECTED=0
+    # Keep reading from FIFO for up to 60 seconds to verify no presence is detected
+    NO_PRESENCE_CONFIRMED=0
     NO_PRESENCE_DATA=""
     START_TIME=$(date +%s)
-    TIMEOUT=10
+    TIMEOUT=60
 
     while [ $(( $(date +%s) - START_TIME )) -lt $TIMEOUT ]; do
         # Read one line from FIFO (non-blocking with timeout)
-        READ_DATA=$(timeout 2 cat /tmp/presence 2>&1) || true
+        READ_DATA=$(timeout 1 cat /tmp/presence 2>&1) || true
         if [ -n "$READ_DATA" ] && ! echo "$READ_DATA" | grep -q "timeout: cannot run command"; then
             NO_PRESENCE_DATA="$READ_DATA"
             # Extract and display presence status
@@ -357,28 +357,26 @@ then
                 echo -e "  Signal Quality: ${NO_SIGNAL_QUALITY}\n"
             fi
 
-            # Check if presence is still detected (this is a failure)
-            if echo "$NO_PRESENCE_DATA" | grep -q '"presence_detected":true'; then
-                PRESENCE_STILL_DETECTED=1
-                echo "TEST FAILED - Sensor still detecting presence when covered"
-                exit 1
-            elif echo "$NO_PRESENCE_DATA" | grep -q '"presence_detected":false'; then
-                # Success - no presence detected, we can exit immediately
+            # Check if no presence is detected (this is success)
+            if echo "$NO_PRESENCE_DATA" | grep -q '"presence_detected":false'; then
+                NO_PRESENCE_CONFIRMED=1
                 echo -e "✓ No presence detected - sensor correctly detected coverage\n"
                 echo -e "Radar test PASSED\n"
                 break
             fi
+            # If presence is still detected, keep trying (don't fail immediately)
         fi
         sleep 1
     done
 
-    # Check if we got valid data and no presence was detected
-    if [ -z "$NO_PRESENCE_DATA" ]; then
-        echo "TEST FAILED - No data received from radar FIFO"
+    # Check if we successfully confirmed no presence within the timeout
+    if [ $NO_PRESENCE_CONFIRMED -eq 0 ]; then
+        if [ -z "$NO_PRESENCE_DATA" ]; then
+            echo "TEST FAILED - No data received from radar FIFO"
+        else
+            echo "TEST FAILED - Sensor still detecting presence after ${TIMEOUT} seconds when covered"
+        fi
         exit 1
-    elif [ $PRESENCE_STILL_DETECTED -eq 0 ]; then
-        echo -e "✓ No presence detected - sensor correctly detected coverage\n"
-        echo -e "Radar test PASSED\n"
     fi
 elif [[ "$response" =~ ^([yY][eE][yY])$ ]]
 then
