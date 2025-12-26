@@ -4,6 +4,7 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 SRC_URI:append:imx8mm-jaguar-sentai = " file://imx8mm-jaguar-sentai/lmp-device-auto-register"
 SRC_URI:append:imx8mm-jaguar-handheld = " file://imx8mm-jaguar-handheld/lmp-device-auto-register"
 SRC_URI:append:imx93-jaguar-eink = " file://imx93-jaguar-eink/lmp-device-auto-register"
+SRC_URI:append:imx93-jaguar-eink-prod = " file://imx93-jaguar-eink-prod/lmp-device-auto-register"
 
 do_install:append() {
     # Install machine-specific device registration script if available
