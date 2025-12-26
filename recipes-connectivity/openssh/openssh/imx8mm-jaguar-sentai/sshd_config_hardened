@@ -88,8 +88,9 @@ KbdInteractiveAuthentication no
 # If you just want the PAM account and session checks to run without
 # PAM authentication, then enable this but set PasswordAuthentication
 # and KbdInteractiveAuthentication to 'no'.
-# TEMPORARILY DISABLED: PAM causing credential setting failures
-UsePAM no
+# ENABLED: Required for pam_mkhomedir to create home directory on SSH login
+# PAM session processing is needed even if authentication is via keys
+UsePAM yes
 
 # DEVELOPMENT: Enable forwarding features for development convenience
 AllowAgentForwarding yes
