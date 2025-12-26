@@ -7,8 +7,7 @@ After=systemd-timesyncd.service
 # Trigger when systemd-timesyncd state file changes (indicates time sync)
 # This path is created/updated when timesyncd synchronizes time
 PathChanged=/run/systemd/timesync/synchronized
-# Also trigger on service state changes
-Unit=systemd-timesyncd.service
+# When path changes, activate rtc-sync-time.service (default behavior)
 
 [Install]
 WantedBy=multi-user.target
