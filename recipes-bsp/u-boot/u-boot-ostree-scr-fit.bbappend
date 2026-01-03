@@ -6,6 +6,10 @@ SRC_URI:append:imx8mm-jaguar-sentai = " \
     file://boot.cmd \
 "
 
+SRC_URI:append:imx8mm-jaguar-dt510 = " \
+    file://boot.cmd \
+"
+
 SRC_URI:append:imx8mm-jaguar-inst = " \
     file://boot.cmd \
 "

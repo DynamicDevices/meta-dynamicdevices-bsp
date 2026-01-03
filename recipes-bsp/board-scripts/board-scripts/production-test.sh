@@ -11,6 +11,11 @@ set -e
 #
 #    # sudo production-test.sh [enter password]
 #
+#  - Command line options:
+#    --ignore-container-errors  Ignore errors when stopping containers (debug mode)
+#                                Normal operation requires containers to stop successfully
+#                                to verify unit has registered with Foundries platform
+#
 # Process:
 #
 # - Flash current manufacturing image. NOTE: THIS MUST NOT BE RELEASED TO CUSTOMER WITHOUT SECURING
@@ -23,6 +28,35 @@ set -e
 #
 
 VERSION=0.1
+IGNORE_CONTAINER_ERRORS=0
+
+#
+# Parse command line arguments
+#
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --ignore-container-errors)
+            IGNORE_CONTAINER_ERRORS=1
+            shift
+            ;;
+        -h|--help)
+            echo "Usage: $0 [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --ignore-container-errors  Ignore errors when stopping containers (debug mode)"
+            echo "                             Normal operation requires containers to stop successfully"
+            echo "                             to verify unit has registered with Foundries platform"
+            echo "  -h, --help                 Show this help message"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
 
 #
 # Test script
@@ -35,7 +69,22 @@ if [ "$EUID" -ne 0 ]
 fi
 
 echo -e "Stopping Sentai application\n"
-docker stop sentaispeaker-SentaiSpeaker-1 2>/dev/null || true
+if [ $IGNORE_CONTAINER_ERRORS -eq 1 ]; then
+    # Debug mode: ignore errors stopping containers
+    docker stop sentaispeaker-SentaiSpeaker-1 2>/dev/null || true
+    echo "DEBUG: Ignoring container stop errors (--ignore-container-errors flag set)"
+else
+    # Normal operation: container must stop successfully to verify Foundries registration
+    if ! docker stop sentaispeaker-SentaiSpeaker-1 2>/dev/null; then
+        echo "ERROR: Failed to stop Sentai container 'sentaispeaker-SentaiSpeaker-1'"
+        echo "This indicates the unit may not have registered with the Foundries platform."
+        echo "Container must be running for registration to succeed."
+        echo ""
+        echo "If you need to debug this issue, use --ignore-container-errors flag:"
+        echo "  sudo production-test.sh --ignore-container-errors"
+        exit 1
+    fi
+fi
 
 echo -e "Running Sentai Production Test - Version ${VERSION}\n"
 

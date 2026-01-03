@@ -12,6 +12,10 @@ SRC_URI:append:imx8mm-jaguar-sentai = " \
     file://imx8mm-jaguar-sentai-wifi-pm.service \
     file://imx8mm-jaguar-sentai-wifi-pm.sh \
 "
+SRC_URI:append:imx8mm-jaguar-dt510 = " \
+    file://imx8mm-jaguar-sentai-wifi-pm.service \
+    file://imx8mm-jaguar-sentai-wifi-pm.sh \
+"
 
 S = "${WORKDIR}"
 
@@ -21,6 +25,7 @@ inherit systemd
 
 SYSTEMD_SERVICE:${PN} = "wifi-power-management.service"
 SYSTEMD_SERVICE:${PN}:imx8mm-jaguar-sentai = "imx8mm-jaguar-sentai-wifi-pm.service"
+SYSTEMD_SERVICE:${PN}:imx8mm-jaguar-dt510 = "imx8mm-jaguar-sentai-wifi-pm.service"
 # Re-enabled for Phase 5.2 testing - WiFi power management for battery optimization
 # SYSTEMD_AUTO_ENABLE = "disable"
 # Disable wifi-power-management service for eink board - interferes with WiFi connection reliability
@@ -42,12 +47,24 @@ do_install:append:imx8mm-jaguar-sentai() {
     install -m 0755 ${WORKDIR}/imx8mm-jaguar-sentai-wifi-pm.sh ${D}${bindir}/
 }
 
+do_install:append:imx8mm-jaguar-dt510() {
+    # Install imx8mm-jaguar-dt510 specific service and script
+    # TODO: Using sentai WiFi power management for demo purposes - update when ublox MAYA-W2 hardware arrives
+    install -m 0644 ${WORKDIR}/imx8mm-jaguar-sentai-wifi-pm.service ${D}${systemd_system_unitdir}/
+    install -m 0755 ${WORKDIR}/imx8mm-jaguar-sentai-wifi-pm.sh ${D}${bindir}/
+}
+
 FILES:${PN} = " \
     ${systemd_system_unitdir}/wifi-power-management.service \
     ${bindir}/wifi-power-management.sh \
 "
 
 FILES:${PN}:append:imx8mm-jaguar-sentai = " \
+    ${systemd_system_unitdir}/imx8mm-jaguar-sentai-wifi-pm.service \
+    ${bindir}/imx8mm-jaguar-sentai-wifi-pm.sh \
+"
+
+FILES:${PN}:append:imx8mm-jaguar-dt510 = " \
     ${systemd_system_unitdir}/imx8mm-jaguar-sentai-wifi-pm.service \
     ${bindir}/imx8mm-jaguar-sentai-wifi-pm.sh \
 "

@@ -47,6 +47,45 @@ do_configure:append:imx8mm-jaguar-sentai(){
 # NOTE: Device tree is now provided by the BSP layer lmp-device-tree recipe
 #       This ensures consistent DTS across all build types (lmp, lmp-base, CI)
 
+SRC_URI:append:imx8mm-jaguar-dt510 = " \
+		file://i2c-dev-interface.cfg \
+		file://imx8mm-jaguar-dt510/lp50xx-led-driver.cfg \
+		file://usb-modem-support.cfg \
+		file://gpio-keys.cfg \
+		file://imx8mm-jaguar-dt510/stts22h-temperature-sensor.cfg \
+		file://imx8mm-jaguar-dt510/lis2dh-accelerometer.cfg \
+		file://imx8mm-jaguar-dt510/sht4x-humidity-sensor.cfg \
+		file://imx8mm-jaguar-dt510/video-disable.cfg \
+		file://imx8mm-jaguar-dt510/tas2562-audio-codec.cfg \
+		file://imx8mm-jaguar-dt510/wifi-power-management.cfg \
+		file://lis2dh12-sensor.cfg \
+		file://usb-gadgets.cfg \
+		${@bb.utils.contains('DISTRO', 'lmp-mfgtool', '', 'file://imx8mm-jaguar-dt510/usb-audio-gadget.cfg', d)} \
+		file://0001-wireless-remove-nl80211-regdom-warning.patch \
+		file://0004-dts-imx8mm-evkb-fix-duplicate-label.patch \
+		file://0005-dts-imx8mm-evkb-fix-lp50xx-led-driver.patch \
+		file://0003-wireless-wilc1000-disable-scan-progress-message.patch \
+		file://imx8mm-jaguar-dt510/0006-leds-lp50xx-set-default-configuration.patch \
+		file://0002-asoc-tas2781-add-tas2563-codec-support.patch \
+		${@bb.utils.contains('MACHINE_FEATURES', 'tas2562', 'file://0008-asoc-tas2562-fix-format-definition.patch', '', d)} \
+		${@bb.utils.contains('MACHINE_FEATURES', 'tas2562', 'file://tas2562-driver.cfg', '', d)} \
+		${@bb.utils.contains('ENABLE_BOOT_PROFILING', '1', 'file://boot-profiling.cfg', '', d)} \
+		file://imx8mm-jaguar-dt510/rdc-driver.cfg \
+		file://imx8mm-jaguar-dt510.dts \
+"
+
+# NOTE: This DTB file is created as a default for use with local development
+#       when building lmp-base. It is NOT used by the lmp build or under CI
+#       which uses the DTS in lmp-device-tree
+do_configure:append:imx8mm-jaguar-dt510(){
+ if [ -f ${WORKDIR}/imx8mm-jaguar-dt510.dts ]; then
+     cp ${WORKDIR}/imx8mm-jaguar-dt510.dts ${S}/arch/arm64/boot/dts
+     echo "dtb-y += imx8mm-jaguar-dt510.dtb" >> ${S}/arch/arm64/boot/dts/Makefile
+ else
+     bbwarn "imx8mm-jaguar-dt510.dts not found in ${WORKDIR}, skipping DTS copy"
+ fi
+}
+
 SRC_URI:append:imx8mm-jaguar-inst = " \
 		file://i2c-dev-interface.cfg \
                 file://usb-modem-support.cfg \

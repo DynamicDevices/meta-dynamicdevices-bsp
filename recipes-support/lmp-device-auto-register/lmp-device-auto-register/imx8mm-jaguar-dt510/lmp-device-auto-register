@@ -2,11 +2,11 @@
 
 USE_HOSTNAME=1
 TOKEN_FILE=${TOKEN_FILE-/etc/lmp-device-register-token}
-TAG="main-imx93-jaguar-eink-prod"
+TAG="dev"
 HSM=""
 NAME=""
 APPS=${APPS-""}
-GROUP="eink-prod"
+GROUP="dev"
 
 if [ -f /etc/sota/tag ] ; then
 	# tag file should contain only one tag
@@ -59,12 +59,3 @@ else
 fi
 
 /usr/bin/lmp-device-register -g ${GROUP} -T ${TOKEN} ${NAME} ${TAG} ${APPS} ${HSM}
-
-
-
-
-
-
-
-
-

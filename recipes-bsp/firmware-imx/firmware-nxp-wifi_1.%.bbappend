@@ -35,6 +35,10 @@ SRC_URI:append:imx93-jaguar-eink = "\
     file://99-ignore-uap.conf \
     file://wifi_mod_para.conf \
 "
+SRC_URI:append:imx8mm-jaguar-dt510 = "\
+    file://99-ignore-uap.conf \
+    file://wifi_mod_para.conf \
+"
 
 do_install:append:imx8mm-jaguar-sentai() {
     install -d ${D}${sysconfdir}/NetworkManager/conf.d
@@ -72,6 +76,30 @@ do_install:append:imx8mm-jaguar-handheld() {
 do_install:append:imx8mm-jaguar-phasora() {
     install -d ${D}${sysconfdir}/NetworkManager/conf.d
     install -D -m 0644 ${WORKDIR}/99-ignore-uap.conf ${D}${sysconfdir}/NetworkManager/conf.d/99-ignore-uap.conf
+}
+
+do_install:append:imx8mm-jaguar-dt510() {
+    install -d ${D}${sysconfdir}/NetworkManager/conf.d
+    install -D -m 0644 ${WORKDIR}/99-ignore-uap.conf ${D}${sysconfdir}/NetworkManager/conf.d/99-ignore-uap.conf
+    
+    # Install custom WiFi module parameters for dt510 (same as sentai for demo purposes)
+    # TODO: Update when ublox MAYA-W2 hardware arrives
+    install -D -m 0644 ${WORKDIR}/wifi_mod_para.conf ${D}${nonarch_base_libdir}/firmware/nxp/wifi_mod_para.conf
+    
+    # Configure firmware type based on build configuration
+    # Default to secure firmware (.se) for production cloud builds
+    # Use insecure firmware (.bin) only when explicitly requested for development
+    if [ "${NXP_WIFI_INSECURE_FIRMWARE}" = "1" ]; then
+        # Use standard firmware for development builds (when explicitly requested)
+        # Remove .se extension if present
+        sed -i '/SDIW612 = {/,/^}/ s|fw_name=nxp/sduart_nw61x_v1\.bin\.se|fw_name=nxp/sduart_nw61x_v1.bin|g' ${D}${nonarch_base_libdir}/firmware/nxp/wifi_mod_para.conf
+        bbwarn "Using insecure NXP WiFi firmware (.bin files) - development mode"
+    else
+        # Default: Use secure firmware for production cloud builds
+        # Only add .se extension if not already present
+        sed -i '/SDIW612 = {/,/^}/ s|fw_name=nxp/sduart_nw61x_v1\.bin\([^.]\|$\)|fw_name=nxp/sduart_nw61x_v1.bin.se|g' ${D}${nonarch_base_libdir}/firmware/nxp/wifi_mod_para.conf
+        bbwarn "Using secure NXP WiFi firmware (.se files) - production mode"
+    fi
 }
 
 do_install:append() {

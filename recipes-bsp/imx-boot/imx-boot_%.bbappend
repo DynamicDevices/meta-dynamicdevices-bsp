@@ -5,6 +5,8 @@
 # Disable OP-TEE for imx8mm mfgtool builds (OP-TEE is optional)
 TEE_BINARY:lmp-mfgtool:imx8mm-jaguar-sentai = ""
 DEPLOY_OPTEE:lmp-mfgtool:imx8mm-jaguar-sentai = "false"
+TEE_BINARY:lmp-mfgtool:imx8mm-jaguar-dt510 = ""
+DEPLOY_OPTEE:lmp-mfgtool:imx8mm-jaguar-dt510 = "false"
 
 # For imx93 mfgtool builds, OP-TEE is REQUIRED - do NOT disable it
 # No TEE_BINARY or DEPLOY_OPTEE overrides for imx93-jaguar-eink

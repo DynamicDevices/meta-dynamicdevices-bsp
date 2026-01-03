@@ -5,6 +5,7 @@ SRC_URI:append:imx8mm-jaguar-sentai = " file://0001-nxp-wlan-disable-scan-progre
 SRC_URI:append:imx8mm-jaguar-inst = " file://0001-nxp-wlan-disable-scan-progress-warning.patch"
 SRC_URI:append:imx8mm-jaguar-handheld = " file://0001-nxp-wlan-disable-scan-progress-warning.patch"
 SRC_URI:append:imx8mm-jaguar-phasora = " file://0001-nxp-wlan-disable-scan-progress-warning.patch"
+SRC_URI:append:imx8mm-jaguar-dt510 = " file://0001-nxp-wlan-disable-scan-progress-warning.patch"
 SRC_URI:append:imx93-jaguar-eink = " file://0001-nxp-wlan-disable-scan-progress-warning.patch"
 
 # Configure WiFi module parameters for imx93-jaguar-eink
@@ -14,6 +15,8 @@ inherit systemd
 
 SYSTEMD_SERVICE:${PN}:imx8mm-jaguar-sentai = "enable-wifi.service"
 SYSTEMD_AUTO_ENABLE:${PN}:imx8mm-jaguar-sentai = "enable"
+SYSTEMD_SERVICE:${PN}:imx8mm-jaguar-dt510 = "enable-wifi.service"
+SYSTEMD_AUTO_ENABLE:${PN}:imx8mm-jaguar-dt510 = "enable"
 
 SRC_URI:append:imx8mm-jaguar-sentai = "\
     file://enable-wifi.sh \
@@ -31,6 +34,23 @@ do_install:append:imx8mm-jaguar-sentai() {
 }
 
 FILES:${PN}:imx8mm-jaguar-sentai += "${systemd_unitdir}/system/*.service ${bindir}/*.sh ${sysconfdir}/NetworkManager/conf.d/99-ignore-uap.conf"
+
+SRC_URI:append:imx8mm-jaguar-dt510 = "\
+    file://enable-wifi.sh \
+    file://enable-wifi.service \
+    file://99-ignore-uap.conf \
+"
+
+do_install:append:imx8mm-jaguar-dt510() {
+    install -d ${D}/${bindir}
+    install -D -m 0755 ${WORKDIR}/*.sh ${D}${bindir}
+    install -d ${D}/${systemd_unitdir}/system
+    install -m 0644 ${WORKDIR}/*.service ${D}/${systemd_unitdir}/system
+    install -d ${D}${sysconfdir}/NetworkManager/conf.d
+    install -D -m 0644 ${WORKDIR}/99-ignore-uap.conf ${D}${sysconfdir}/NetworkManager/conf.d/99-ignore-uap.conf
+}
+
+FILES:${PN}:imx8mm-jaguar-dt510 += "${systemd_unitdir}/system/*.service ${bindir}/*.sh ${sysconfdir}/NetworkManager/conf.d/99-ignore-uap.conf"
 
 # Add WiFi interface management configurations and udev rules for imx93-jaguar-eink
 SRC_URI:append:imx93-jaguar-eink = " file://99-ignore-secondary-wifi.conf file://70-wifi-interface-rename.rules file://71-wifi-mlan0-down.rules"

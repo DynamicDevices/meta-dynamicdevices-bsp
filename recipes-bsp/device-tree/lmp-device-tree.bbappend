@@ -5,7 +5,12 @@ SRC_URI:append:imx8mm-jaguar-sentai = " \
         ${@bb.utils.contains('MACHINE_FEATURES', 'xm125-radar', 'file://imx8mm-jaguar-sentai-xm125-radar.dtso', '', d)} \
 "
 
+SRC_URI:append:imx8mm-jaguar-dt510 = " \
+        file://imx8mm-jaguar-dt510.dts \
+"
+
 COMPATIBLE_MACHINE:imx8mm-jaguar-sentai = ".*"
+COMPATIBLE_MACHINE:imx8mm-jaguar-dt510 = ".*"
 
 SRC_URI:append:imx8mm-jaguar-inst = " \
         file://imx8mm-jaguar-inst.dts \

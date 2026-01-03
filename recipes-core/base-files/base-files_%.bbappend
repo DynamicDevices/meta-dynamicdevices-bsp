@@ -2,6 +2,7 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
 SRC_URI += "file://dynamic-devices-banner"
 SRC_URI:append:imx8mm-jaguar-sentai = " file://sentai-banner"
+SRC_URI:append:imx8mm-jaguar-dt510 = " file://dt510-banner"
 
 do_install:append() {
     # Install shared Dynamic Devices banner
@@ -20,6 +21,12 @@ do_install:append:imx8mm-jaguar-sentai() {
     # For Sentai machine, install Sentai-specific banner
     install -m 644 ${WORKDIR}/sentai-banner ${D}${datadir}/dynamic-devices/banner
     install -m 644 ${WORKDIR}/sentai-banner ${D}${sysconfdir}/ssh/banner
+}
+
+do_install:append:imx8mm-jaguar-dt510() {
+    # For DT510 machine, install DT510-specific banner
+    install -m 644 ${WORKDIR}/dt510-banner ${D}${datadir}/dynamic-devices/banner
+    install -m 644 ${WORKDIR}/dt510-banner ${D}${sysconfdir}/ssh/banner
 }
 
 FILES:${PN} += " \

@@ -6,6 +6,7 @@ LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda
 
 # Only apply udev rules for Dynamic Devices i.MX machines
 SRC_URI:append:imx8mm-jaguar-sentai = " file://20-jaguar.rules"
+SRC_URI:append:imx8mm-jaguar-dt510 = " file://20-jaguar.rules"
 SRC_URI:append:imx8mm-jaguar-inst = " file://20-jaguar.rules"
 SRC_URI:append:imx8mm-jaguar-handheld = " file://20-jaguar.rules"
 SRC_URI:append:imx8mm-jaguar-phasora = " file://20-jaguar.rules"
