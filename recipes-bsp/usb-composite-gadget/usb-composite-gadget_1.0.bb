@@ -38,5 +38,5 @@ FILES:${PN} = " \
     ${sysconfdir}/systemd/system/docker.service.d/usb-gadget-dependency.conf \
 "
 
-# Only install on imx8mm-jaguar-sentai machine
-COMPATIBLE_MACHINE = "imx8mm-jaguar-sentai"
+# Only install on imx8mm-jaguar machines with USB gadget support
+COMPATIBLE_MACHINE = "(imx8mm-jaguar-sentai|imx8mm-jaguar-dt510)"

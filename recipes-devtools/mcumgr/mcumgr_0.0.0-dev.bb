@@ -133,7 +133,7 @@ FILES:${PN} = "${bindir}/mcumgr \
                ${bindir}/mcumgr-setup"
 
 # Compatible machines
-COMPATIBLE_MACHINE = "(imx8mm-jaguar-sentai|imx93-jaguar-eink)"
+COMPATIBLE_MACHINE = "(imx8mm-jaguar-sentai|imx8mm-jaguar-dt510|imx93-jaguar-eink)"
 
 # Recommended packages for serial communication
 RRECOMMENDS:${PN} = "screen minicom"

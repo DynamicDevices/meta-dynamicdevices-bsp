@@ -10,7 +10,7 @@ S = "${WORKDIR}"
 RDEPENDS:${PN} = ""
 
 # Only install on machines with USB gadget support
-COMPATIBLE_MACHINE = "imx8mm-jaguar-sentai"
+COMPATIBLE_MACHINE = "(imx8mm-jaguar-sentai|imx8mm-jaguar-dt510)"
 
 do_install() {
     install -d ${D}${bindir}
