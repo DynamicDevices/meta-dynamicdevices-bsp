@@ -7,7 +7,7 @@ index f27da09c655..62c0baf74bf 100644
  
  	if (!is_bd71837)
 -		env_set("fdt_file", "imx8mm-evk.dtb");
-+		env_set("fdt_file", "imx8mm-jaguar-sentai.dtb");
++		env_set("fdt_file", "imx8mm-jaguar-dt510.dtb");
  	else
  		env_set("fdt_file", "imx8mm-evk-qca-wifi.dtb");
  }
