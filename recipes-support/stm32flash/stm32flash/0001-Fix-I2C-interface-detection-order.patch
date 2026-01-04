@@ -1,0 +1,47 @@
+--- a/port.c
++++ b/port.c
+@@ -20,6 +20,7 @@
+ 
+ #include <stdint.h>
+ #include <stdio.h>
++#include <string.h>
+ 
+ #include "serial.h"
+ #include "port.h"
+@@ -27,15 +28,25 @@
+ extern struct port_interface port_serial;
+ extern struct port_interface port_i2c;
+ 
+-static struct port_interface *ports[] = {
+-	&port_serial,
+-	&port_i2c,
+-	NULL,
+-};
++static struct port_interface *ports_default[] = {
++	&port_serial,
++	&port_i2c,
++	NULL,
++};
++
++static struct port_interface *ports_i2c_first[] = {
++	&port_i2c,
++	&port_serial,
++	NULL,
++};
+ 
+ 
+ port_err_t port_open(struct port_options *ops, struct port_interface **outport)
+ {
+ 	int ret;
+ 	static struct port_interface **port;
++	struct port_interface **ports;
++
++	/* If device path contains "i2c", try I2C interface first */
++	if (ops->device && strstr(ops->device, "i2c") != NULL) {
++		ports = ports_i2c_first;
++	} else {
++		ports = ports_default;
++	}
+ 
+ 	for (port = ports; *port; port++) {
+ 		ret = (*port)->open(*port, ops);
