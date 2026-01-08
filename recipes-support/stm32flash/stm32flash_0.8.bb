@@ -8,7 +8,7 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
 SRC_URI = "git://github.com/DynamicDevices/stm32flash.git;protocol=https;branch=master"
 
-SRCREV = "441411a5dcf931f129d145cb2489f2477f15687f"
+SRCREV = "5face6516a7273d7b3edab3581dda094479bef12"
 
 S = "${WORKDIR}/git"
 
