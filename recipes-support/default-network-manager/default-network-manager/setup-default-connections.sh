@@ -24,16 +24,24 @@ if [ -f "${CONFIG_FILE}" ]; then
     fi
     
     # Create the WiFi connection
+    # ⚠️  CRITICAL: wifi-sec.psk-flags 0 is REQUIRED for the NetworkManager patch
+    # (0001-wifi-dont-clear-secrets-if-stored-in-keyfile.patch) to work correctly.
+    # Without this, the patch will not activate and connections may fail permanently
+    # after 4-way handshake failures.
+    # See: meta-dynamicdevices-distro/recipes-connectivity/networkmanager/networkmanager/README_PATCH_REQUIREMENTS.md
     echo "Creating WiFi connection '${WIFI_CONNECTION_NAME}' for SSID '${WIFI_SSID}'..."
     nmcli con add type wifi con-name "${WIFI_CONNECTION_NAME}" \
         ssid "${WIFI_SSID}" \
         wifi-sec.key-mgmt wpa-psk \
         wifi-sec.psk "${WIFI_PASSWORD}" \
+        wifi-sec.psk-flags 0 \
         connection.autoconnect "${WIFI_AUTOCONNECT}" \
         connection.autoconnect-priority "${WIFI_PRIORITY}"
     
     if [ $? -eq 0 ]; then
         echo "WiFi connection '${WIFI_CONNECTION_NAME}' created successfully"
+        # Save connection to keyfile to ensure secrets are persisted (REQUIRED)
+        nmcli connection save "${WIFI_CONNECTION_NAME}"
         echo "Attempting to connect..."
         nmcli con up "${WIFI_CONNECTION_NAME}"
     else
