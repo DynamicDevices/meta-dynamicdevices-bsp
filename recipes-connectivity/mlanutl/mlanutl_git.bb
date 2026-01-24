@@ -4,10 +4,9 @@ LICENSE = "GPL-2.0-only"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/GPL-2.0-only;md5=801f80980d171dd6425610833a22dbe6"
 
 # Use the same repository as the WiFi driver
-SRC_URI = "git://github.com/nxp-imx/mwifiex-iw612.git;protocol=https;branch=lf-6.6.52_2.x.x"
-# For kernel 6.6.52, adjust branch name as needed
-# Alternative: use AUTOREV to get latest
-# SRCREV = "${AUTOREV}"
+# Note: mlanutl is a userspace utility and works with any kernel version
+# Using lf-5.15.71_2.2.0 branch (latest available)
+SRC_URI = "git://github.com/nxp-imx/mwifiex-iw612.git;protocol=https;branch=lf-5.15.71_2.2.0"
 SRCREV = "${AUTOREV}"
 
 S = "${WORKDIR}/git/mapp/mlanutl"
