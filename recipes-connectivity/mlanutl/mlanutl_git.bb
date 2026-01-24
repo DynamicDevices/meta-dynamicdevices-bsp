@@ -14,11 +14,11 @@ SRCREV = "${AUTOREV}"
 
 S = "${WORKDIR}/git/mapp/mlanutl"
 
-# Build dependencies
-DEPENDS = "libnl-3.0 libnl-genl-3.0"
+# Build dependencies - use recipe names
+DEPENDS = "libnl"
 
-# Runtime dependencies
-RDEPENDS:${PN} = "libnl-3 libnl-genl-3"
+# Runtime dependencies - use actual package names
+RDEPENDS:${PN} = "libnl-3-200 libnl-genl-3-200"
 
 # Cross-compilation setup
 EXTRA_OEMAKE = " \
