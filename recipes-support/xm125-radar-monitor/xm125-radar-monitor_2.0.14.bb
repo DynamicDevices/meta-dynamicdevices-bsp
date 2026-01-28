@@ -29,6 +29,8 @@ SRCREV = "b73f929ad61e46a8698d1362f811de0411337205"
 SRC_URI = "git://github.com/DynamicDevices/xm125-radar-monitor.git;protocol=https;branch=${SRCBRANCH} \
            file://xm125-radar-monitor.service \
            file://xm125-service-startup.sh \
+           file://xm125-control.sh \
+           file://xm125-presence.conf \
 "
 
 S = "${WORKDIR}/git"
@@ -73,6 +75,13 @@ do_install() {
     # Install startup script (firmware programming and GPIO init before main service)
     install -m 0755 ${WORKDIR}/xm125-service-startup.sh ${D}${bindir}/xm125-service-startup.sh
     
+    # Install control script (GPIO/firmware management wrapper)
+    install -m 0755 ${WORKDIR}/xm125-control.sh ${D}${bindir}/xm125-control.sh
+    
+    # Install tmpfiles.d config to create /tmp/presence FIFO at boot (before services)
+    install -d ${D}${sysconfdir}/tmpfiles.d
+    install -m 0644 ${WORKDIR}/xm125-presence.conf ${D}${sysconfdir}/tmpfiles.d/
+    
     # Install systemd service
     install -d ${D}${systemd_unitdir}/system
     install -m 0644 ${WORKDIR}/xm125-radar-monitor.service ${D}${systemd_unitdir}/system/xm125-radar-monitor.service
@@ -88,7 +97,9 @@ do_install() {
 FILES:${PN} = " \
     ${bindir}/xm125-radar-monitor \
     ${bindir}/xm125-service-startup.sh \
+    ${bindir}/xm125-control.sh \
     ${systemd_unitdir}/system/xm125-radar-monitor.service \
+    ${sysconfdir}/tmpfiles.d/xm125-presence.conf \
     ${docdir}/${PN}/* \
 "
 
