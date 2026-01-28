@@ -17,13 +17,15 @@ S = "${WORKDIR}/git/mapp/mlanutl"
 # Build dependencies - use recipe names
 DEPENDS = "libnl"
 
-# Runtime dependencies - use actual package names
-RDEPENDS:${PN} = "libnl-3-200 libnl-genl-3-200"
+# Runtime dependencies - use package names from OE libnl recipe (openembedded-core)
+# libnl recipe PACKAGES: libnl, libnl-genl, libnl-cli, libnl-idiag, libnl-nf, libnl-route, libnl-xfrm
+RDEPENDS:${PN} = "libnl libnl-genl"
 
-# Cross-compilation setup
+# Cross-compilation setup: build from mapp/mlanutl with same defines as
+# upstream top-level Makefile (CONFIG_STA_SUPPORT=y). No source patches.
 EXTRA_OEMAKE = " \
     CC='${CC}' \
-    CFLAGS='${CFLAGS} -I${STAGING_INCDIR}/libnl3' \
+    CFLAGS='${CFLAGS} -I${STAGING_INCDIR}/libnl3 -DSTA_SUPPORT' \
     LDFLAGS='${LDFLAGS} -L${STAGING_LIBDIR}' \
     LIBS='-lnl-3 -lnl-genl-3' \
 "
