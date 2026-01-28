@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # SPDX-License-Identifier: GPL-2.0
 #
 # Acconeer XM125 Radar Module Complete Management Script
@@ -32,24 +32,24 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 log() {
-    echo -e "${BLUE}[$(date '+%H:%M:%S')] xm125:${NC} $1"
+    printf '%b\n' "${BLUE}[$(date '+%H:%M:%S')] xm125:${NC} $1"
 }
 
 log_error() {
-    echo -e "${RED}[$(date '+%H:%M:%S')] xm125 ERROR:${NC} $1" >&2
+    printf '%b\n' "${RED}[$(date '+%H:%M:%S')] xm125 ERROR:${NC} $1" >&2
 }
 
 log_success() {
-    echo -e "${GREEN}[$(date '+%H:%M:%S')] xm125:${NC} $1"
+    printf '%b\n' "${GREEN}[$(date '+%H:%M:%S')] xm125:${NC} $1"
 }
 
 log_warning() {
-    echo -e "${YELLOW}[$(date '+%H:%M:%S')] xm125 WARNING:${NC} $1"
+    printf '%b\n' "${YELLOW}[$(date '+%H:%M:%S')] xm125 WARNING:${NC} $1"
 }
 
 # Check if running as root
 check_root() {
-    if [[ $EUID -ne 0 ]]; then
+    if [ "$(id -u)" -ne 0 ]; then
         log_error "This script must be run as root for GPIO and hardware access"
         exit 1
     fi
@@ -263,7 +263,7 @@ xm125_reset() {
 xm125_reset_to_mode() {
     local target_mode=$1  # "run" or "bootloader"
     
-    if [[ "$target_mode" = "bootloader" ]]; then
+    if [ "$target_mode" = "bootloader" ]; then
         log "Performing XM125 reset to BOOTLOADER mode..."
         # Set bootloader pin HIGH for bootloader mode
         set_gpio_value "${XM125_BOOT_GPIO}" "1" "Bootloader (bootloader mode)"
@@ -290,7 +290,7 @@ xm125_reset_to_mode() {
     set_gpio_value "${XM125_WAKE_GPIO}" "1" "Wake Up (awake)"
     sleep 0.1   # Additional time for wake-up
     
-    if [[ "$target_mode" = "bootloader" ]]; then
+    if [ "$target_mode" = "bootloader" ]; then
         log_success "Reset to BOOTLOADER mode completed - ready for firmware programming"
     else
         log_success "Reset to RUN mode completed - ready for normal operation"
@@ -367,13 +367,13 @@ verify_firmware_write() {
     local readback_file="/tmp/xm125_readback_$(date +%s).bin"
     local trimmed_file="/tmp/xm125_trimmed_$(date +%s).bin"
     
-    if [[ -z "$firmware_file" ]]; then
+    if [ -z "$firmware_file" ]; then
         log_error "Firmware file path required for verification"
         log "Usage: verify_firmware_write <firmware_file_path>"
         return 1
     fi
     
-    if [[ ! -f "$firmware_file" ]]; then
+    if [ ! -f "$firmware_file" ]; then
         log_error "Firmware file not found: $firmware_file"
         return 1
     fi
@@ -414,8 +414,11 @@ verify_firmware_write() {
     local attempt=1
     local read_success=false
     
-    while [[ $attempt -le $read_attempts && "$read_success" = false ]]; do
-        if [[ $attempt -gt 1 ]]; then
+    while [ $attempt -le $read_attempts ]; do
+        if [ "$read_success" = true ]; then
+            break
+        fi
+        if [ $attempt -gt 1 ]; then
             log "Read attempt $attempt of $read_attempts..."
             # Reset bootloader again for retry
             xm125_reset_to_mode "bootloader"
@@ -428,12 +431,12 @@ verify_firmware_write() {
         else
             log_warning "Read attempt $attempt failed, retrying..."
             rm -f "$readback_file"  # Clean up partial file
-            ((attempt++))
+            attempt=$((attempt + 1))
             sleep 1
         fi
     done
     
-    if [[ "$read_success" = false ]]; then
+    if [ "$read_success" = false ]; then
         log_error "Failed to read firmware from XM125 flash after $read_attempts attempts"
         log_error "This may be due to bootloader communication issues"
         log "Try running the verification again, or reset the XM125 first"
@@ -457,7 +460,7 @@ verify_firmware_write() {
     log "Read-back firmware MD5: $readback_md5"
     
     # Compare checksums
-    if [[ "$original_md5" == "$readback_md5" ]]; then
+    if [ "$original_md5" = "$readback_md5" ]; then
         log_success "✅ FIRMWARE VERIFICATION SUCCESSFUL!"
         log_success "Write integrity confirmed - all $firmware_size bytes match perfectly"
         
@@ -599,7 +602,7 @@ main() {
     local verbose=false
     
     # Parse arguments
-    while [[ $# -gt 0 ]]; do
+    while [ $# -gt 0 ]; do
         case $1 in
             -h|--help)
                 show_usage
@@ -632,7 +635,7 @@ main() {
             --verify)
                 verify_only=true
                 verify_file="$2"
-                if [[ -z "$verify_file" ]]; then
+                if [ -z "$verify_file" ]; then
                     log_error "--verify requires a firmware file path"
                     show_usage
                     exit 1
@@ -676,7 +679,7 @@ main() {
     check_root
     
     # Handle different modes
-    if [[ "$fix_gpio_only" = true ]]; then
+    if [ "$fix_gpio_only" = true ]; then
         log "GPIO141 fix mode - applying Foundries.io workaround..."
         if fix_gpio141_bootloader_pin; then
             log_success "GPIO141 bootloader pin fix completed successfully"
@@ -685,20 +688,20 @@ main() {
             log_error "GPIO141 bootloader pin fix failed"
             exit 1
         fi
-    elif [[ "$status_only" = true ]]; then
+    elif [ "$status_only" = true ]; then
         show_gpio_status
         exit 0
-    elif [[ "$set_run_only" = true ]]; then
+    elif [ "$set_run_only" = true ]; then
         init_gpio
         xm125_set_run_mode
         show_gpio_status
         exit 0
-    elif [[ "$set_bootloader_only" = true ]]; then
+    elif [ "$set_bootloader_only" = true ]; then
         init_gpio
         xm125_set_bootloader_mode
         show_gpio_status
         exit 0
-    elif [[ "$verify_only" = true ]]; then
+    elif [ "$verify_only" = true ]; then
         log "Firmware verification mode..."
         if verify_firmware_write "$verify_file"; then
             log_success "Firmware verification completed successfully"
@@ -707,28 +710,28 @@ main() {
             log_error "Firmware verification failed"
             exit 1
         fi
-    elif [[ "$reset_only" = true ]]; then
+    elif [ "$reset_only" = true ]; then
         init_gpio
         xm125_reset
         show_gpio_status
         exit 0
-    elif [[ "$reset_to_run" = true ]]; then
+    elif [ "$reset_to_run" = true ]; then
         init_gpio
         xm125_reset_to_mode "run"
         show_gpio_status
         exit 0
-    elif [[ "$reset_to_bootloader" = true ]]; then
+    elif [ "$reset_to_bootloader" = true ]; then
         init_gpio
         xm125_reset_to_mode "bootloader"
         show_gpio_status
         log_success "XM125 ready for firmware programming via I2C or UART"
         exit 0
-    elif [[ "$i2c_only" = true ]]; then
+    elif [ "$i2c_only" = true ]; then
         # Need GPIO initialization for I2C check
         init_gpio
         check_i2c_communication
         exit $?
-    elif [[ "$test_only" = true ]]; then
+    elif [ "$test_only" = true ]; then
         init_gpio
         test_bootloader_control
         show_gpio_status
