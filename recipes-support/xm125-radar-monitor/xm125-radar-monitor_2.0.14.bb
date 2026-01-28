@@ -1,4 +1,4 @@
-SUMMARY = "XM125 Radar Monitor - Reset Pin Control Fix v2.0.14"
+SUMMARY = "XM125 Radar Monitor - Reset Pin Control Fix v2.0.14 (service: tmp.mount + startup script)"
 DESCRIPTION = "Production-ready CLI tool for Acconeer XM125 radar modules with automatic hardware initialization, \
 multi-mode detection (distance, presence, breathing), GPIO control, and FIFO integration. Features automatic \
 XM125 GPIO initialization on I2C failures with improved post-reset timing and retry logic. Includes spi-lib \
@@ -28,6 +28,7 @@ SRCREV = "b73f929ad61e46a8698d1362f811de0411337205"
 
 SRC_URI = "git://github.com/DynamicDevices/xm125-radar-monitor.git;protocol=https;branch=${SRCBRANCH} \
            file://xm125-radar-monitor.service \
+           file://xm125-service-startup.sh \
 "
 
 S = "${WORKDIR}/git"
@@ -69,6 +70,9 @@ do_install() {
     # where B = ${WORKDIR}/target and RUST_TARGET = aarch64-unknown-linux-gnu
     install -m 755 ${B}/${RUST_TARGET}/release/xm125-radar-monitor ${D}${bindir}/xm125-radar-monitor
     
+    # Install startup script (firmware programming and GPIO init before main service)
+    install -m 0755 ${WORKDIR}/xm125-service-startup.sh ${D}${bindir}/xm125-service-startup.sh
+    
     # Install systemd service
     install -d ${D}${systemd_unitdir}/system
     install -m 0644 ${WORKDIR}/xm125-radar-monitor.service ${D}${systemd_unitdir}/system/xm125-radar-monitor.service
@@ -83,6 +87,7 @@ do_install() {
 # Package files
 FILES:${PN} = " \
     ${bindir}/xm125-radar-monitor \
+    ${bindir}/xm125-service-startup.sh \
     ${systemd_unitdir}/system/xm125-radar-monitor.service \
     ${docdir}/${PN}/* \
 "

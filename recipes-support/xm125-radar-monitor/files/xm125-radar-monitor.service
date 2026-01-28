@@ -1,16 +1,18 @@
 [Unit]
 Description=XM125 Radar Monitor - Presence Detection Service
 Documentation=https://github.com/DynamicDevices/xm125-radar-monitor
-After=network-online.target sys-kernel-config.mount
-Wants=network-online.target
+After=network-online.target sys-kernel-config.mount tmp.mount
+Wants=network-online.target tmp.mount
 Requires=sys-kernel-config.mount
 
 [Service]
 Type=simple
 User=root
-# Initialize XM125 GPIO and ensure device is in run mode before starting main service
-# Use '-' prefix to make this optional - GPIO initialization will still run even if there's a transient issue
-ExecStartPre=-/usr/bin/xm125-radar-monitor gpio reset-run
+# Set timeout to allow firmware programming to complete (firmware update can take 30-60 seconds)
+TimeoutStartSec=3min
+# Run startup script to program firmware and initialize GPIO before starting main service
+# Use '-' prefix to make this optional - startup will still run even if there's a transient issue
+ExecStartPre=-/usr/bin/xm125-service-startup.sh
 ExecStart=/usr/bin/xm125-radar-monitor --fifo-output --fifo-format json --fifo-interval 5.0 --quiet presence --min-range 0.5 --max-range 7.0 --continuous
 Restart=always
 RestartSec=5s
@@ -18,14 +20,19 @@ StandardOutput=journal
 StandardError=journal
 
 # Environment
-Environment=RUST_LOG=info
+# Use debug level to see stm32flash output during firmware programming
+Environment=RUST_LOG=debug
 
 # Security and resource limits
+# PrivateDevices=false allows access to /dev/i2c-* devices
 PrivateDevices=false
 ProtectHome=true
-ProtectSystem=strict
-ReadWritePaths=/tmp /var/log /sys/class/gpio /sys/devices
+# ProtectSystem=full (less restrictive than strict) to allow I2C device access
+# ReadWritePaths=/dev allows access to I2C character devices
+ProtectSystem=full
+ReadWritePaths=/tmp /var/log /sys/class/gpio /sys/devices /dev /dev/i2c-2
 NoNewPrivileges=true
+# CAP_SYS_RAWIO is required for I2C device access
 CapabilityBoundingSet=CAP_SYS_RAWIO CAP_SYS_ADMIN CAP_NET_ADMIN CAP_NET_RAW CAP_DAC_OVERRIDE
 
 [Install]
