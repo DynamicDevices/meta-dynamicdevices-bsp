@@ -1,6 +1,6 @@
 [Unit]
 Description=Run miscellaneous board init scripts
-Before=basic.target
+# Before=sysinit.target
 After=local-fs.target sysinit.target
 DefaultDependencies=no
 
@@ -8,6 +8,7 @@ DefaultDependencies=no
 Type=oneshot
 User=root
 ExecStart=/usr/sbin/board-init.sh
+RemainAfterExit=yes
 
 [Install]
 WantedBy=basic.target
