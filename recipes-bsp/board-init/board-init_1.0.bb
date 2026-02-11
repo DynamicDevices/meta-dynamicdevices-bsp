@@ -27,9 +27,3 @@ do_install:append:imx8mm-jaguar-sentai() {
   install -d ${D}${sysconfdir}/udev/rules.d
   install -m 0644 ${WORKDIR}/99-leds-early-on.rules ${D}${sysconfdir}/udev/rules.d/
 }
-
-do_install:append:imx8mm-jaguar-dt510() {
-  install -d ${D}${sysconfdir}/udev/rules.d
-  install -m 0644 ${WORKDIR}/99-leds-early-on.rules ${D}${sysconfdir}/udev/rules.d/
-}
-

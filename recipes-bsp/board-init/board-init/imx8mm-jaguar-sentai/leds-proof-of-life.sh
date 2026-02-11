@@ -1,11 +1,11 @@
 #!/bin/sh
 #
-# Orange round-robin loading animation on LEDs (led0..led5).
+# Orange round-robin loading animation on LEDs (led0..led4, 5 LEDs).
 # One LED lit at a time, cycling for a "loading" effect.
 #
 
 ORANGE="255 165 0"
-NUM_LEDS=6
+NUM_LEDS=5
 
 # Run until board-init is considered done (optional: run forever with while true)
 while true
