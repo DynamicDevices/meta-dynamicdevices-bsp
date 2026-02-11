@@ -1,0 +1,3 @@
+# Turn on LEDs as soon as the kernel creates them (LP50xx / sys/class/leds).
+# This gives visible "power on" feedback within 1–2 seconds instead of after full boot.
+ACTION=="add", SUBSYSTEM=="leds", KERNEL=="led[0-9]*", RUN+="/usr/sbin/led-early-on.sh %k"

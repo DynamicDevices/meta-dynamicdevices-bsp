@@ -1,22 +1,33 @@
 #!/bin/sh
-
 #
-# Test LEDS rotate RGBW colours
+# Orange round-robin loading animation on LEDs (led0..led5).
+# One LED lit at a time, cycling for a "loading" effect.
 #
 
-# Set colour
-BRIGHTNESS=0
-while [ $BRIGHTNESS -le 255 ]
+ORANGE="255 165 0"
+NUM_LEDS=6
+
+# Run until board-init is considered done (optional: run forever with while true)
+while true
 do
   x=0
-  while [ $x -le 5 ]
+  while [ $x -lt $NUM_LEDS ]
   do
+    # Turn off all LEDs
+    i=0
+    while [ $i -lt $NUM_LEDS ]
+    do
+      path="/sys/class/leds/led${i}"
+      [ -d "$path" ] && echo 0 > "$path/brightness" 2>/dev/null || true
+      i=$(( i + 1 ))
+    done
+    # Light current LED orange
     path="/sys/class/leds/led${x}"
-    echo -e "$BRIGHTNESS" > $path/brightness
-    echo "255 255 255" > $path/multi_intensity
-    x=$(( $x + 1 ))
+    if [ -d "$path" ]; then
+      echo "$ORANGE" > "$path/multi_intensity" 2>/dev/null || true
+      echo 255 > "$path/brightness" 2>/dev/null || true
+    fi
+    x=$(( x + 1 ))
+    sleep 0.12
   done
-
-  BRIGHTNESS=$(( $BRIGHTNESS + 1 ))
-  sleep 0.01
 done

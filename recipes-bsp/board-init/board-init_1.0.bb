@@ -13,13 +13,23 @@ SRC_URI = "file://board-init.sh \
            file://board-init.service \
 "
 
-SRC_URI:append:imx8mm-jaguar-sentai = "file://leds-proof-of-life.sh"
-SRC_URI:append:imx8mm-jaguar-dt510 = "file://leds-proof-of-life.sh"
+SRC_URI:append:imx8mm-jaguar-sentai = "file://leds-proof-of-life.sh file://led-early-on.sh file://99-leds-early-on.rules"
+SRC_URI:append:imx8mm-jaguar-dt510 = "file://leds-proof-of-life.sh file://led-early-on.sh file://99-leds-early-on.rules"
 
 do_install() {
   install -d ${D}${sbindir}
   install -m 755 ${WORKDIR}/*.sh ${D}${sbindir}
-  install -d ${D}${systemd_unitdir}/system 	
+  install -d ${D}${systemd_unitdir}/system
   install -m 0644 ${WORKDIR}/board-init.service ${D}${systemd_unitdir}/system/board-init.service
+}
+
+do_install:append:imx8mm-jaguar-sentai() {
+  install -d ${D}${sysconfdir}/udev/rules.d
+  install -m 0644 ${WORKDIR}/99-leds-early-on.rules ${D}${sysconfdir}/udev/rules.d/
+}
+
+do_install:append:imx8mm-jaguar-dt510() {
+  install -d ${D}${sysconfdir}/udev/rules.d
+  install -m 0644 ${WORKDIR}/99-leds-early-on.rules ${D}${sysconfdir}/udev/rules.d/
 }
 
