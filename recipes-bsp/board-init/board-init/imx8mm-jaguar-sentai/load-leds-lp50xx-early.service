@@ -1,0 +1,12 @@
+[Unit]
+Description=Load LP50xx LED module and turn on LEDs early (no udev rule)
+After=local-fs.target
+DefaultDependencies=no
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/load-leds-lp50xx-early.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=sysinit.target
