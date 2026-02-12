@@ -407,22 +407,27 @@
                 #size-cells = <0>;
 		label = "led5";
                 reg = <0>;
-                default-intensity = <255 165 0>;  /* orange: R G B, LED on at probe */
+                //default-intensity = <255 165 0>;  /* orange */
                 color = <LED_COLOR_ID_RGB>;
                 function = LED_FUNCTION_INDICATOR;
+                linux,default-trigger = "default-on";
+                default-state = "on";
                 led@0 {
                      reg = <0>;
                      color = <LED_COLOR_ID_RED>;
+                     default-brightness = <255>;
                 };
 
                 led@1 {
                      reg = <1>;
                      color = <LED_COLOR_ID_GREEN>;
+                     default-brightness = <165>;
                 };
 
                 led@2 {
                      reg = <2>;
                      color = <LED_COLOR_ID_BLUE>;
+                     default-brightness = <0>;
                 };
             };
 
@@ -431,7 +436,7 @@
                 #size-cells = <0>;
 		label = "led1";
                 reg = <1>;
-                default-intensity = <255 165 0>;  /* orange */
+                //default-intensity = <255 165 0>;  /* orange */
                 color = <LED_COLOR_ID_RGB>;
                 function = LED_FUNCTION_INDICATOR;
                 led@0 {
@@ -455,7 +460,7 @@
                 #size-cells = <0>;
 		label = "led2";
                 reg = <2>;
-                default-intensity = <255 165 0>;  /* orange */
+                //default-intensity = <255 165 0>;  /* orange */
                 color = <LED_COLOR_ID_RGB>;
                 function = LED_FUNCTION_INDICATOR;
                 led@0 {
@@ -479,7 +484,7 @@
                 #size-cells = <0>;
 		label = "led3";
                 reg = <3>;
-                default-intensity = <255 165 0>;  /* orange */
+                //default-intensity = <255 165 0>;  /* orange */
                 color = <LED_COLOR_ID_RGB>;
                 function = LED_FUNCTION_INDICATOR;
                 led@0 {
@@ -503,7 +508,7 @@
                 #size-cells = <0>;
 		label = "led4";
                 reg = <4>;
-                default-intensity = <255 165 0>;  /* orange */
+                //default-intensity = <255 165 0>;  /* orange */
                 color = <LED_COLOR_ID_RGB>;
                 function = LED_FUNCTION_INDICATOR;
                 led@0 {
@@ -527,7 +532,7 @@
                 #size-cells = <0>;
 		label = "led0";
                 reg = <5>;
-                default-intensity = <255 165 0>;  /* orange */
+                //default-intensity = <255 165 0>;  /* orange */
                 color = <LED_COLOR_ID_RGB>;
                 function = LED_FUNCTION_INDICATOR;
                 led@0 {
