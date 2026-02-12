@@ -6,6 +6,7 @@ DefaultDependencies=no
 [Service]
 Type=oneshot
 User=root
+Nice=-20
 ExecStart=/usr/sbin/board-init.sh
 RemainAfterExit=yes
 
