@@ -1,14 +1,13 @@
 [Unit]
 Description=Run miscellaneous board init scripts
-After=local-fs.target sysinit.target
+After=systemd-udevd.service
 DefaultDependencies=no
+Before=sysinit.target
 
 [Service]
 Type=oneshot
-User=root
-Nice=-20
 ExecStart=/usr/sbin/board-init.sh
 RemainAfterExit=yes
 
 [Install]
-WantedBy=basic.target
+WantedBy=sysinit.target
