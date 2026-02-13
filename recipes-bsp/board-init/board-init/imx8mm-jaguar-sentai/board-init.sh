@@ -6,4 +6,25 @@
 mkfifo -m666 /tmp/presence || 1
 
 # Show some life to the user
-leds-proof-of-life.sh &
+# leds-proof-of-life.sh &
+
+for x in 0 1 2 3 4 5
+do
+  path="/sys/class/leds/led${x}"
+  echo "255" > $path/brightness
+  echo "255 165 0" > $path/multi_intensity
+  sleep 0.001
+done
+
+# echo "255" > /sys/class/leds/led0/brightness
+# echo "255 165 0" > /sys/class/leds/led0/multi_intensity
+# echo "255" > /sys/class/leds/led1/brightness
+# echo "255 165 0" > /sys/class/leds/led1/multi_intensity
+# echo "255" > /sys/class/leds/led2/brightness
+# echo "255 165 0" > /sys/class/leds/led2/multi_intensity
+# echo "255" > /sys/class/leds/led3/brightness
+# echo "255 165 0" > /sys/class/leds/led3/multi_intensity
+# echo "255" > /sys/class/leds/led4/brightness
+# echo "255 165 0" > /sys/class/leds/led4/multi_intensity
+# echo "255" > /sys/class/leds/led5/brightness
+# echo "255 165 0" > /sys/class/leds/led5/multi_intensity
