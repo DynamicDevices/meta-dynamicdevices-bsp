@@ -13,7 +13,6 @@ SRC_URI = "file://board-init.sh \
            file://board-init.service \
 "
 
-SRC_URI:append:imx8mm-jaguar-sentai = "file://leds-proof-of-life.sh"
 SRC_URI:append:imx8mm-jaguar-dt510 = "file://leds-proof-of-life.sh"
 
 do_install() {
