@@ -1,6 +1,8 @@
 #!/bin/sh
 # USB Dual Audio Gadget Setup Script for imx8mm-jaguar-dt510
-# Creates two UAC2 audio functions for testing (e.g. AVM + EVC paths)
+# Creates two UAC2 audio functions for bus audio:
+#   - Driver: bidirectional (output to driver, input from driver)
+#   - Passengers: output to passengers
 # Uses UAC2 (available in LMP kernel). Host sees one USB device with two audio interfaces.
 #
 # Usage: setup-usb-dual-audio-gadget {setup|stop|status|restart}
@@ -35,25 +37,28 @@ add_acm_function() {
 }
 
 # Function to add UAC2 audio function (for capture/playback)
+# $1 = instance id (configfs dir, e.g. driver)
+# $2 = display name (USB/ALSA string, e.g. Driver)
 add_uac2_function() {
-    function_name="$1"
+    instance_id="$1"
+    display_name="$2"
 
-    mkdir "$FUNCTIONS/uac2.$function_name" || echo "  Couldn't create $FUNCTIONS/uac2.$function_name"
+    mkdir "$FUNCTIONS/uac2.$instance_id" || echo "  Couldn't create $FUNCTIONS/uac2.$instance_id"
 
-    echo "$PRODUCT $function_name" > "$FUNCTIONS/uac2.$function_name/function_name"
-    echo $SAMPLE_RATE > "$FUNCTIONS/uac2.$function_name/c_srate"
-    echo $SAMPLE_RATE > "$FUNCTIONS/uac2.$function_name/p_srate"
-    echo $SAMPLE_SIZE > "$FUNCTIONS/uac2.$function_name/c_ssize"
-    echo $SAMPLE_SIZE > "$FUNCTIONS/uac2.$function_name/p_ssize"
+    echo "$PRODUCT $display_name" > "$FUNCTIONS/uac2.$instance_id/function_name"
+    echo $SAMPLE_RATE > "$FUNCTIONS/uac2.$instance_id/c_srate"
+    echo $SAMPLE_RATE > "$FUNCTIONS/uac2.$instance_id/p_srate"
+    echo $SAMPLE_SIZE > "$FUNCTIONS/uac2.$instance_id/c_ssize"
+    echo $SAMPLE_SIZE > "$FUNCTIONS/uac2.$instance_id/p_ssize"
     # Use adaptive sync (no feedback endpoint) to fit 2x UAC2 + ACM within endpoint limit
-    echo "adaptive" > "$FUNCTIONS/uac2.$function_name/c_sync"
-    echo $CHANNELS > "$FUNCTIONS/uac2.$function_name/c_chmask"
-    echo $CHANNELS > "$FUNCTIONS/uac2.$function_name/p_chmask"
-    echo 1 > "$FUNCTIONS/uac2.$function_name/c_hs_bint" 2>/dev/null || true
-    echo 1 > "$FUNCTIONS/uac2.$function_name/p_hs_bint" 2>/dev/null || true
-    echo 4 > "$FUNCTIONS/uac2.$function_name/req_number" 2>/dev/null || true
+    echo "adaptive" > "$FUNCTIONS/uac2.$instance_id/c_sync"
+    echo $CHANNELS > "$FUNCTIONS/uac2.$instance_id/c_chmask"
+    echo $CHANNELS > "$FUNCTIONS/uac2.$instance_id/p_chmask"
+    echo 1 > "$FUNCTIONS/uac2.$instance_id/c_hs_bint" 2>/dev/null || true
+    echo 1 > "$FUNCTIONS/uac2.$instance_id/p_hs_bint" 2>/dev/null || true
+    echo 4 > "$FUNCTIONS/uac2.$instance_id/req_number" 2>/dev/null || true
 
-    ln -s "$FUNCTIONS/uac2.$function_name" "$CONFIG" || echo "  Couldn't symlink uac2.$function_name"
+    ln -s "$FUNCTIONS/uac2.$instance_id" "$CONFIG" || echo "  Couldn't symlink uac2.$instance_id"
 }
 
 # Function to create gadget configuration
@@ -96,9 +101,9 @@ setup_gadget() {
     # Add CDC ACM function for serial communication
     add_acm_function "debug"
 
-    # Add two UAC2 audio functions (host sees two audio interfaces)
-    add_uac2_function "audio1"
-    add_uac2_function "audio2"
+    # Add two UAC2 audio functions: Driver (bidirectional) and Passengers (output)
+    add_uac2_function "driver" "Driver"
+    add_uac2_function "passengers" "Passengers"
 
     echo "USB Dual Audio Gadget configured successfully!"
 }
@@ -117,7 +122,7 @@ enable_gadget() {
     echo "$udc_device" > "$GADGET/UDC" || echo "  Couldn't write UDC"
 
     echo "USB Dual Audio Gadget enabled!"
-    echo "Host will see two audio interfaces (audio1, audio2) - run arecord -l / aplay -l on host"
+    echo "Host will see: Driver (bidirectional), Passengers (output) - run arecord -l / aplay -l on host"
 }
 
 # Function to disable the gadget
@@ -218,10 +223,10 @@ case "$1" in
         echo ""
         echo "DT510-specific: Creates USB gadget with two UAC2 audio interfaces."
         echo "  - CDC ACM Serial (/dev/ttyGS0)"
-        echo "  - UAC2 audio1 (capture + playback)"
-        echo "  - UAC2 audio2 (capture + playback)"
+        echo "  - Driver: bidirectional (output to driver, input from driver)"
+        echo "  - Passengers: output to passengers"
         echo ""
-        echo "Host sees one USB device with two audio interfaces for testing."
+        echo "Host sees one USB device with Driver and Passengers audio interfaces."
         exit 1
         ;;
 esac
