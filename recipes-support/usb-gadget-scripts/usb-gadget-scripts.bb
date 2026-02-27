@@ -6,6 +6,7 @@ LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
 SRC_URI = " \
+    file://setup-usb-serial-gadget.sh \
     file://setup-usb-mixed-audio-gadget \
     file://setup-fixed-uac2.sh \
     file://start-fixed-usb-audio.sh \
@@ -27,12 +28,16 @@ RDEPENDS:${PN} = "bash"
 inherit systemd
 
 SYSTEMD_SERVICE:${PN} = "usb-composite-gadget-fixed.service"
-SYSTEMD_SERVICE:${PN}:append:imx8mm-jaguar-dt510 = " usb-dual-audio-gadget-dt510.service"
+# DT510 uses dual audio gadget only (2x UAC2 + CDC)
+SYSTEMD_SERVICE:${PN}:imx8mm-jaguar-dt510 = "usb-dual-audio-gadget-dt510.service"
 SYSTEMD_AUTO_ENABLE:${PN} = "disable"
+# Enable dual USB audio gadget at boot for DT510 (2x UAC2 + CDC)
+SYSTEMD_AUTO_ENABLE:${PN}:imx8mm-jaguar-dt510 = "enable"
 
 do_install() {
     # Install USB gadget setup scripts
     install -d ${D}${bindir}
+    install -m 0755 ${WORKDIR}/setup-usb-serial-gadget.sh ${D}${bindir}/setup-usb-serial-gadget
     install -m 0755 ${WORKDIR}/setup-usb-mixed-audio-gadget ${D}${bindir}/setup-usb-mixed-audio-gadget
     install -m 0755 ${WORKDIR}/setup-fixed-uac2.sh ${D}${bindir}/setup-fixed-uac2.sh
     install -m 0755 ${WORKDIR}/start-fixed-usb-audio.sh ${D}${bindir}/start-fixed-usb-audio.sh
@@ -56,6 +61,7 @@ do_install:append:imx8mm-jaguar-dt510() {
 }
 
 FILES:${PN} += " \
+    ${bindir}/setup-usb-serial-gadget \
     ${bindir}/setup-usb-mixed-audio-gadget \
     ${bindir}/setup-fixed-uac2.sh \
     ${bindir}/start-fixed-usb-audio.sh \
