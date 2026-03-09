@@ -1,13 +1,11 @@
 [Unit]
 Description=Run miscellaneous board init scripts
-Before=basic.target
-After=local-fs.target sysinit.target
 DefaultDependencies=no
+Before=sysinit.target
 
 [Service]
 Type=oneshot
-User=root
 ExecStart=/usr/sbin/board-init.sh
 
 [Install]
-WantedBy=basic.target
+WantedBy=sysinit.target
