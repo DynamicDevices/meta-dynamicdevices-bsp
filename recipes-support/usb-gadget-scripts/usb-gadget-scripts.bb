@@ -15,7 +15,7 @@ SRC_URI = " \
     file://uac2-module-test.sh \
 "
 
-# DT510-specific: dual USB audio gadget (2x UAC1 for testing)
+# DT510-specific: dual USB audio gadget (2x UAC2 only, no ACM)
 SRC_URI:append:imx8mm-jaguar-dt510 = " \
     file://setup-usb-dual-audio-gadget \
     file://usb-dual-audio-gadget-dt510.service \
@@ -28,10 +28,10 @@ RDEPENDS:${PN} = "bash"
 inherit systemd
 
 SYSTEMD_SERVICE:${PN} = "usb-composite-gadget-fixed.service"
-# DT510 uses dual audio gadget only (2x UAC2 + CDC)
+# DT510: dual UAC2 gadget at boot (no CDC ACM — endpoint limit)
 SYSTEMD_SERVICE:${PN}:imx8mm-jaguar-dt510 = "usb-dual-audio-gadget-dt510.service"
 SYSTEMD_AUTO_ENABLE:${PN} = "disable"
-# Enable dual USB audio gadget at boot for DT510 (2x UAC2 + CDC)
+# Enable dual USB audio gadget at boot for DT510
 SYSTEMD_AUTO_ENABLE:${PN}:imx8mm-jaguar-dt510 = "enable"
 
 do_install() {
@@ -55,7 +55,7 @@ do_install() {
 }
 
 do_install:append:imx8mm-jaguar-dt510() {
-    # DT510-specific: dual USB audio gadget (2x UAC1)
+    # DT510-specific: dual USB audio gadget (2x UAC2)
     install -m 0755 ${WORKDIR}/setup-usb-dual-audio-gadget ${D}${bindir}/setup-usb-dual-audio-gadget
     install -m 0644 ${WORKDIR}/usb-dual-audio-gadget-dt510.service ${D}${systemd_system_unitdir}/
 }
