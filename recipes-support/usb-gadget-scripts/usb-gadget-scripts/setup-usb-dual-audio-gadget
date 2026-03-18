@@ -1,232 +1,175 @@
-#!/bin/sh
-# USB Dual Audio Gadget Setup Script for imx8mm-jaguar-dt510
-# Creates two UAC2 audio functions for bus audio:
-#   - Driver: bidirectional (output to driver, input from driver)
-#   - Passengers: output to passengers
-# Uses UAC2 (available in LMP kernel). Host sees one USB device with two audio interfaces.
+#!/bin/bash
+# Dual UAC2 setup for DT510 (Driver + Passengers). Run as root.
 #
-# Usage: setup-usb-dual-audio-gadget {setup|stop|status|restart}
+# FIX: ci_hdrc has limited endpoints. ACM + 2x UAC2 exhausts them (afunc_bind -19).
+# Omit CDC ACM so only 2x UAC2 use the 4 endpoints - dual audio then works.
+# Use c_chmask=3, p_chmask=3 (stereo). Link UAC2 only (no ACM).
+#
+# Usage: sudo ./setup-usb-dual-audio-gadget {setup|stop|status|diagnose}
+#   (ACM omitted by default; no serial /dev/ttyGS0 - use network/SSH instead)
+#
+# Env:
+#   UDC=name   Force UDC (see /sys/class/udc). Otherwise first listed UDC.
+#   UDC_WAIT_SEC=max seconds to wait for UDC at boot (default 90).
 
 CONFIGFS=/sys/kernel/config/usb_gadget
 GADGET_NAME="g_dual_audio"
-
-# Ensure libcomposite is loaded (creates usb_gadget in configfs)
-modprobe libcomposite 2>/dev/null || true
 GADGET=$CONFIGFS/$GADGET_NAME
 CONFIG=$GADGET/configs/c.1
 FUNCTIONS=$GADGET/functions
 
-# USB Device Descriptor
-VID="0x1d6b"  # Linux Foundation
-PID="0x0105"  # Different PID to distinguish from single-audio gadget
+VID="0x1d6b"
+PID="0x0105"
 SERIALNUMBER="$(cat /sys/devices/soc0/serial_number 2>/dev/null || cat /etc/machine-id 2>/dev/null || echo 'DD-DT510-UNKNOWN')"
 MANUFACTURER="Dynamic Devices Ltd"
 PRODUCT="Jaguar DT510 Dual Audio Device"
-
-# Audio Configuration
 SAMPLE_RATE=16000
-SAMPLE_SIZE=2  # 16-bit (2 bytes)
-CHANNELS=2     # Stereo (chmask 3)
+SAMPLE_SIZE=2
+UDC_WAIT_SEC="${UDC_WAIT_SEC:-90}"
 
-# Function to add CDC ACM function
-add_acm_function() {
-    function_name="$1"
-
-    mkdir "$FUNCTIONS/acm.$function_name" || echo "  Couldn't create $FUNCTIONS/acm.$function_name"
-    ln -s "$FUNCTIONS/acm.$function_name" "$CONFIG" || echo "  Couldn't symlink acm.$function_name"
-}
-
-# Function to add UAC2 audio function (for capture/playback)
-# $1 = instance id (configfs dir, e.g. driver)
-# $2 = display name (USB/ALSA string, e.g. Driver)
-add_uac2_function() {
-    instance_id="$1"
-    display_name="$2"
-
-    mkdir "$FUNCTIONS/uac2.$instance_id" || echo "  Couldn't create $FUNCTIONS/uac2.$instance_id"
-
-    echo "$PRODUCT $display_name" > "$FUNCTIONS/uac2.$instance_id/function_name"
-    echo $SAMPLE_RATE > "$FUNCTIONS/uac2.$instance_id/c_srate"
-    echo $SAMPLE_RATE > "$FUNCTIONS/uac2.$instance_id/p_srate"
-    echo $SAMPLE_SIZE > "$FUNCTIONS/uac2.$instance_id/c_ssize"
-    echo $SAMPLE_SIZE > "$FUNCTIONS/uac2.$instance_id/p_ssize"
-    # Use adaptive sync (no feedback endpoint) to fit 2x UAC2 + ACM within endpoint limit
-    echo "adaptive" > "$FUNCTIONS/uac2.$instance_id/c_sync"
-    echo $CHANNELS > "$FUNCTIONS/uac2.$instance_id/c_chmask"
-    echo $CHANNELS > "$FUNCTIONS/uac2.$instance_id/p_chmask"
-    echo 1 > "$FUNCTIONS/uac2.$instance_id/c_hs_bint" 2>/dev/null || true
-    echo 1 > "$FUNCTIONS/uac2.$instance_id/p_hs_bint" 2>/dev/null || true
-    echo 4 > "$FUNCTIONS/uac2.$instance_id/req_number" 2>/dev/null || true
-
-    ln -s "$FUNCTIONS/uac2.$instance_id" "$CONFIG" || echo "  Couldn't symlink uac2.$instance_id"
-}
-
-# Function to create gadget configuration
-create_config() {
-    config_name="$1"
-
-    # Check if ConfigFS is available
-    if ! [ -e "$CONFIGFS" ]; then
-        echo "  $CONFIGFS does not exist, skipping configfs usb gadget"
+ensure_configfs() {
+    if [ ! -d "$CONFIGFS" ]; then
+        echo "  configfs not at $CONFIGFS — trying mount..."
+        mountpoint -q /sys/kernel/config 2>/dev/null || mount -t configfs none /sys/kernel/config 2>/dev/null || true
+    fi
+    if [ ! -d "$CONFIGFS" ]; then
+        echo "  ERROR: $CONFIGFS missing (configfs not mounted?)"
         return 1
     fi
+    return 0
+}
 
-    # Create USB gadget configuration
-    mkdir "$GADGET" || echo "  Couldn't create $GADGET"
+wait_for_udc() {
+    local udc=""
+    local i=0
+    local max="${UDC_WAIT_SEC:-90}"
+    if [ -n "${UDC:-}" ]; then
+        if [ -d "/sys/class/udc/$UDC" ]; then
+            echo "$UDC"
+            return 0
+        fi
+        echo "  Waiting for UDC '$UDC' (up to ${max}s)..." >&2
+    else
+        echo "  Waiting for any UDC under /sys/class/udc (up to ${max}s)..." >&2
+    fi
+    while [ "$i" -lt "$max" ]; do
+        if [ -n "${UDC:-}" ]; then
+            [ -d "/sys/class/udc/$UDC" ] && { echo "$UDC"; return 0; }
+        else
+            udc="$(ls /sys/class/udc 2>/dev/null | head -1)"
+            [ -n "$udc" ] && { echo "$udc"; return 0; }
+        fi
+        if [ $((i % 15)) -eq 0 ] && [ "$i" -gt 0 ]; then
+            echo "  ... still no UDC after ${i}s (ls /sys/class/udc: $(ls /sys/class/udc 2>/dev/null | tr '\n' ' '))" >&2
+        fi
+        sleep 1
+        i=$((i + 1))
+    done
+    echo "  ERROR: No UDC after ${max}s. USB controller may not be in peripheral mode or driver not loaded." >&2
+    return 1
+}
+
+stop_gadget() {
+    echo "Stopping USB Dual Audio Gadget..."
+    ensure_configfs || true
+    for g in "$CONFIGFS"/g_*; do
+        [ -d "$g" ] && echo "" > "$g/UDC" 2>/dev/null || true
+    done
+    sleep 2
+    [ ! -d "$GADGET" ] && { echo "  Gadget not configured."; return 0; }
+    rm -f "$CONFIG"/uac2.* "$CONFIG"/acm.* 2>/dev/null || true
+    for f in "$FUNCTIONS"/uac2.* "$FUNCTIONS"/acm.*; do
+        [ -d "$f" ] && rmdir "$f" 2>/dev/null || true
+    done
+    rmdir "$CONFIG/strings/0x409" 2>/dev/null || true
+    rmdir "$CONFIG" 2>/dev/null || true
+    rmdir "$GADGET/strings/0x409" 2>/dev/null || true
+    rmdir "$GADGET" 2>/dev/null || true
+    echo "  Stopped."
+}
+
+setup_gadget() {
+    echo "Setting up Dual UAC2 (c_chmask=3, p_chmask=3)..."
+    ensure_configfs || return 1
+    modprobe libcomposite 2>/dev/null || true
+
+    mkdir -p "$GADGET" || { echo "  Failed to create gadget"; return 1; }
     echo $VID > "$GADGET/idVendor"
     echo $PID > "$GADGET/idProduct"
-
-    mkdir "$GADGET/strings/0x409" || echo "  Couldn't create $GADGET/strings/0x409"
+    mkdir -p "$GADGET/strings/0x409"
     echo "$SERIALNUMBER" > "$GADGET/strings/0x409/serialnumber"
     echo "$MANUFACTURER" > "$GADGET/strings/0x409/manufacturer"
     echo "$PRODUCT" > "$GADGET/strings/0x409/product"
 
-    # Create configuration instance for the gadget
-    mkdir "$CONFIG" || echo "  Couldn't create $CONFIG"
-    mkdir "$CONFIG/strings/0x409" || echo "  Couldn't create $CONFIG/strings/0x409"
-    echo "$config_name" > "$CONFIG/strings/0x409/configuration" || echo "  Couldn't write configuration name"
+    mkdir -p "$CONFIG/strings/0x409"
+    echo "USB Dual Audio" > "$CONFIG/strings/0x409/configuration"
+    echo 0x80 > "$CONFIG/bmAttributes"
+    echo 250 > "$CONFIG/MaxPower"
 
-    # Set configuration attributes
-    echo 0x80 > "$CONFIG/bmAttributes"  # Bus-powered
-    echo 250 > "$CONFIG/MaxPower"       # 500mA max power
-}
-
-# Function to setup USB dual audio gadget
-setup_gadget() {
-    echo "Setting up USB Dual Audio Gadget for DT510 (CDC Serial + 2x UAC2 Audio)..."
-
-    # Create gadget configuration
-    create_config "USB Dual Audio Device"
-
-    # Add CDC ACM function for serial communication
-    add_acm_function "debug"
-
-    # Add two UAC2 audio functions: Driver (bidirectional) and Passengers (output)
-    add_uac2_function "driver" "Driver"
-    add_uac2_function "passengers" "Passengers"
-
-    echo "USB Dual Audio Gadget configured successfully!"
-}
-
-# Function to enable the gadget
-enable_gadget() {
-    # Check if there's a USB Device Controller
-    if [ -z "$(ls /sys/class/udc 2>/dev/null)" ]; then
-        echo "  No USB Device Controller available"
-        return 1
-    fi
-
-    # Activate the gadget
-    udc_device="$(find /sys/class/udc -maxdepth 1 -type l | head -1 | xargs basename 2>/dev/null)"
-    echo "Enabling USB Dual Audio Gadget on $udc_device..."
-    echo "$udc_device" > "$GADGET/UDC" || echo "  Couldn't write UDC"
-
-    echo "USB Dual Audio Gadget enabled!"
-    echo "Host will see: Driver (bidirectional), Passengers (output) - run arecord -l / aplay -l on host"
-}
-
-# Function to disable the gadget
-disable_gadget() {
-    echo "Disabling USB Dual Audio Gadget..."
-
-    if [ -d "$GADGET" ]; then
-        # Unbind from UDC first
-        echo "" > "$GADGET/UDC" 2>/dev/null || true
-
-        # Remove function symlinks from configuration
-        rm -f "$CONFIG"/acm.* 2>/dev/null || true
-        rm -f "$CONFIG"/uac2.* 2>/dev/null || true
-
-        # Remove configuration
-        rm -rf "$CONFIG/strings/0x409" 2>/dev/null || true
-        rm -rf "$CONFIG" 2>/dev/null || true
-
-        # Remove functions
-        rm -rf "${FUNCTIONS:?}"/* 2>/dev/null || true
-
-        # Remove strings and gadget
-        rm -rf "$GADGET/strings/0x409" 2>/dev/null || true
-        rm -rf "$GADGET" 2>/dev/null || true
-
-        echo "USB Dual Audio Gadget disabled!"
-    else
-        echo "USB Dual Audio Gadget is not configured."
-    fi
-}
-
-# Function to show status
-show_status() {
-    echo "USB Dual Audio Gadget Status (DT510):"
-    echo "====================================="
-
-    if [ -d "$GADGET" ]; then
-        echo "Gadget: CONFIGURED (2x UAC2)"
-        echo "UDC: $(cat "$GADGET/UDC" 2>/dev/null || echo 'Not bound')"
-
-        echo ""
-        echo "Functions:"
-        for func in "$FUNCTIONS"/*; do
-            if [ -d "$func" ]; then
-                func_name="$(basename "$func")"
-                echo "  $func_name: Available"
-
-                # Show specific details for audio functions
-                if echo "$func_name" | grep -q "uac2"; then
-                    echo "    Sample Rate: $(cat "$func/p_srate" 2>/dev/null || echo 'N/A') Hz"
-                    echo "    Channels: $(cat "$func/p_chmask" 2>/dev/null || echo 'N/A')"
-                fi
-            fi
-        done
-    else
-        echo "Gadget: NOT CONFIGURED"
-    fi
-}
-
-# Function to cleanup existing gadgets
-cleanup_existing() {
-    echo "Cleaning up existing USB gadgets..."
-
-    # Disable existing gadgets
-    for gadget_dir in "$CONFIGFS"/g_*; do
-        if [ -d "$gadget_dir" ]; then
-            gadget_name=$(basename "$gadget_dir")
-            echo "  Disabling $gadget_name..."
-            echo "" > "$gadget_dir/UDC" 2>/dev/null || true
-        fi
+    for name in audio1 audio2; do
+        mkdir -p "$FUNCTIONS/uac2.$name"
+        echo "$PRODUCT $name" > "$FUNCTIONS/uac2.$name/function_name"
+        echo $SAMPLE_RATE > "$FUNCTIONS/uac2.$name/c_srate"
+        echo $SAMPLE_RATE > "$FUNCTIONS/uac2.$name/p_srate"
+        echo $SAMPLE_SIZE > "$FUNCTIONS/uac2.$name/c_ssize"
+        echo $SAMPLE_SIZE > "$FUNCTIONS/uac2.$name/p_ssize"
+        echo "async" > "$FUNCTIONS/uac2.$name/c_sync"
+        echo 3 > "$FUNCTIONS/uac2.$name/c_chmask"
+        echo 3 > "$FUNCTIONS/uac2.$name/p_chmask"
+        echo 1 > "$FUNCTIONS/uac2.$name/c_hs_bint" 2>/dev/null || true
+        echo 1 > "$FUNCTIONS/uac2.$name/p_hs_bint" 2>/dev/null || true
+        ln -sf "$FUNCTIONS/uac2.$name" "$CONFIG/"
     done
 
-    sleep 1
+    local udc
+    udc="$(wait_for_udc)" || return 1
+    # On OTG ports the role switch may default to "none"; force device so the host sees us.
+    local role_switch="/sys/class/usb_role/${udc}-role-switch/role"
+    if [ -f "$role_switch" ] && [ "$(cat "$role_switch" 2>/dev/null)" = "none" ]; then
+        echo "  Forcing USB role to device (was none)"
+        echo "device" > "$role_switch" 2>/dev/null || true
+        sleep 1
+    fi
+    if echo "$udc" > "$GADGET/UDC" 2>/dev/null; then
+        # If still not attached, try role one more time after bind (OTG can need role then link).
+        if [ -f "$role_switch" ] && [ "$(cat /sys/class/udc/$udc/state 2>/dev/null)" = "not attached" ]; then
+            echo "device" > "$role_switch" 2>/dev/null && sleep 1 && echo "  Set role to device"
+        fi
+        echo "  Enabled on UDC $udc — host should enumerate (lsusb: $MANUFACTURER / $PRODUCT)"
+        return 0
+    fi
+    echo "  ERROR: UDC bind failed writing '$udc' to $GADGET/UDC"
+    dmesg 2>/dev/null | tail -25 | grep -iE 'usb|gadget|udc|dwc|ci_hdrc|error' || dmesg 2>/dev/null | tail -15
+    return 1
 }
 
-# Main script logic
-case "$1" in
-    "setup"|"start")
-        cleanup_existing
-        disable_gadget
+run_diagnose() {
+    echo "=== USB gadget diagnose ==="
+    echo "configfs: $CONFIGFS"
+    ls -la "$CONFIGFS" 2>/dev/null || echo "  (missing)"
+    echo "UDCs:"
+    ls -la /sys/class/udc 2>/dev/null || echo "  (none — peripheral USB not ready)"
+    echo "g_dual_audio UDC bind:"
+    cat "$GADGET/UDC" 2>/dev/null || echo "  (gadget not present or not bound)"
+    echo "ALSA UAC2:"
+    aplay -l 2>/dev/null | grep -iE 'UAC2|card' || echo "  (no UAC2 cards)"
+    echo "Recent kernel USB lines:"
+    dmesg 2>/dev/null | grep -iE 'usb|gadget|udc|dwc|ci_hdrc|peripheral' | tail -20 || true
+    echo "==========================="
+}
+
+case "${1:-setup}" in
+    setup|start)
+        stop_gadget
+        sleep 2
         setup_gadget
-        enable_gadget
+        exit $?
         ;;
-    "stop"|"disable")
-        disable_gadget
+    stop) stop_gadget ;;
+    status)
+        [ -d "$GADGET" ] && echo "Configured. UDC: $(cat "$GADGET/UDC" 2>/dev/null || echo 'not bound')" || echo "Not configured"
+        aplay -l 2>/dev/null | grep -E "UAC2|card" || true
         ;;
-    "status")
-        show_status
-        ;;
-    "restart")
-        cleanup_existing
-        disable_gadget
-        setup_gadget
-        enable_gadget
-        ;;
-    *)
-        echo "Usage: $0 {setup|start|stop|disable|status|restart}"
-        echo ""
-        echo "DT510-specific: Creates USB gadget with two UAC2 audio interfaces."
-        echo "  - CDC ACM Serial (/dev/ttyGS0)"
-        echo "  - Driver: bidirectional (output to driver, input from driver)"
-        echo "  - Passengers: output to passengers"
-        echo ""
-        echo "Host sees one USB device with Driver and Passengers audio interfaces."
-        exit 1
-        ;;
+    diagnose) run_diagnose ;;
+    *) echo "Usage: $0 {setup|stop|status|diagnose}"; exit 1 ;;
 esac
