@@ -19,6 +19,7 @@ SRC_URI = " \
 SRC_URI:append:imx8mm-jaguar-dt510 = " \
     file://setup-usb-dual-audio-gadget \
     file://usb-dual-audio-gadget-dt510.service \
+    file://60-usb-gadget-libcomposite.conf \
 "
 
 S = "${WORKDIR}"
@@ -58,6 +59,8 @@ do_install:append:imx8mm-jaguar-dt510() {
     # DT510-specific: dual USB audio gadget (2x UAC2)
     install -m 0755 ${WORKDIR}/setup-usb-dual-audio-gadget ${D}${bindir}/setup-usb-dual-audio-gadget
     install -m 0644 ${WORKDIR}/usb-dual-audio-gadget-dt510.service ${D}${systemd_system_unitdir}/
+    install -d ${D}${sysconfdir}/modules-load.d
+    install -m 0644 ${WORKDIR}/60-usb-gadget-libcomposite.conf ${D}${sysconfdir}/modules-load.d/
 }
 
 FILES:${PN} += " \
@@ -76,4 +79,5 @@ FILES:${PN} += " \
 FILES:${PN}:append:imx8mm-jaguar-dt510 = " \
     ${bindir}/setup-usb-dual-audio-gadget \
     ${systemd_system_unitdir}/usb-dual-audio-gadget-dt510.service \
+    ${sysconfdir}/modules-load.d/60-usb-gadget-libcomposite.conf \
 "
