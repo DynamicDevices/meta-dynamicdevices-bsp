@@ -367,9 +367,7 @@
 };
 
 &i2c2 {
-        ptn5110: tcpc@50 {
-                status = "disabled";
-	};
+	/* TAC5301 @ 0x50 per SSOT — no PTN5110 TCPC on DT510 (removed; not populated). */
 
 	// Audio Amp with Dual Hardware Support
         tas2563: tas2563@4C {
@@ -678,7 +676,9 @@
 	status = "disabled";
 };
 
-// USB-C port - Device mode (STUSB4500 UFP, no PTN5110 role switching)
+/* USB OTG1: peripheral mode for USB gadget / lab dual-UAC2 (see DT510-USB-DUAL-AUDIO.md).
+ * No STUSB4500 USB-PD controller on DT510 — not USB-C powered; no TCPC. Sentai-only PD path.
+ */
 &usbotg1 {
 	dr_mode = "peripheral";
         status = "okay";

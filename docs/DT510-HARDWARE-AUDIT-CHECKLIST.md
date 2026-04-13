@@ -2,13 +2,43 @@
 
 **Purpose:** Track each major block from the [VIX DT510 hardware SSOT](https://docs.google.com/document/d/1dlVcfW7SrOifR-rGjkJnVbnQBO4uU8HeS1MEfDmgcYE/edit?usp=sharing) against **`imx8mm-jaguar-dt510.dts`** and kernel fragments. Update as the doc or board changes.
 
-**Related:** [`DT510-BSP-PROJECT-PLAN.md`](DT510-BSP-PROJECT-PLAN.md) · Tool reference: [`reference/dt510-ollie-tool-generated/`](reference/dt510-ollie-tool-generated/)
+**Related:** [`DT510-BSP-PROJECT-PLAN.md`](DT510-BSP-PROJECT-PLAN.md) · Tool reference: [`reference/dt510-ollie-tool-generated/`](reference/dt510-ollie-tool-generated/) · **Sentai vs DT510:** [§ below](#sentai-vs-dt510-product-clarification)
 
 **Legend — BSP status:** present | partial | missing | placeholder | conflict | N/A
 
+---
+
+## Sentai vs DT510: product clarification
+
+Machine: **`imx8mm-jaguar-sentai`** vs **`imx8mm-jaguar-dt510`**. Use this when triaging “is this hardware only on Sentai?” or [meta-dynamicdevices-bsp#2](https://github.com/DynamicDevices/meta-dynamicdevices-bsp/issues/2). **BSP references:** `conf/machine/imx8mm-jaguar-sentai.conf`, `conf/machine/imx8mm-jaguar-dt510.conf`, `recipes-bsp/device-tree/lmp-device-tree/imx8mm-jaguar-sentai.dts`, `imx8mm-jaguar-dt510.dts`.
+
+### Different by design in the BSP
+
+| Topic | Sentai | DT510 |
+|--------|--------|--------|
+| **Acconeer XM125 radar** | `MACHINE_FEATURES` includes **`xm125-radar`**; DTS **`xm125@52`** enabled; **`xm125-radar-monitor`** recipe is **`COMPATIBLE_MACHINE = imx8mm-jaguar-sentai`** only | XM125 **not populated**; node **`disabled`**; no **`xm125-radar`** feature |
+| **USB dual UAC2 gadget autostart** | Not a DT510-specific machine feature | **`dt510-usb-dual-audio-autostart`** — toggles **boot** autostart of the lab/simulated gadget path (see [`DT510-USB-DUAL-AUDIO.md`](DT510-USB-DUAL-AUDIO.md)) |
+| **Charger / HDMI placeholders** | Not in the DT510-vs-Sentai DTS diff as matching disabled nodes | DTS has **disabled** **`bq25792@6b`** and **`lt9611@39`** placeholders — confirm **BOM and bus** on DT510 vs Sentai from schematic (not inferrable from `MACHINE_FEATURES` alone) |
+| **STUSB4500 / USB‑C PD** | `MACHINE_FEATURES` **`stusb4500`**; PD firmware / distro feature | **Not on DT510** — IC not populated; **`stusb4500`** removed from `imx8mm-jaguar-dt510.conf` |
+| **PTN5110 / TCPC @ `0x50`** | Legacy **`tcpc@50`** in Jaguar DTS variants | **Not on DT510** — node **removed** from `imx8mm-jaguar-dt510.dts`; **`0x50`** reserved for **TAC5301** per SSOT |
+
+### Same `MACHINE_FEATURES` stack in both machine configs (not Sentai-only)
+
+Both append **`nxpiw612-sdio`**, **`zigbee`**, **`tas2562`**, and the same **`se05x`** / **`SE05X_OEFID`** pattern (when not local-dev). **Sentai** also enables **`stusb4500`** (`MACHINE_FEATURES`); **DT510 does not** — no STUSB4500 USB‑PD IC on board (not USB‑C powered). Wi‑Fi, Zigbee, amp, and SE050-class bring-up are not Sentai-only; **USB‑PD** is.
+
+**Product check:** `imx8mm-jaguar-dt510.conf` notes Wi‑Fi may still follow **Sentai for demo** until new hardware — confirm whether DT510 **hardware** matches Sentai or only the **software** profile.
+
+### Historical (Sentai DTS comments only)
+
+Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during bring-up. That is **lineage** on older Sentai work, not an assumption for DT510. Useful when reconciling **old Sentai boards** vs current BOM.
+
+### Open by SKU (use the table below + project plan)
+
+**CAN, GNSS, Ethernet switch, full audio codec set, HDMI** depend on **what is fitted** — not a single global “Sentai yes / DT510 no” flag. **ECSPI2:** on Sentai the XM125 GPIO story used those pins; on DT510 **`&ecspi2`** is **free for CAN** (e.g. MCP2518xx) when ready — see plan tiers C4/C5.
+
 | SSOT block | Bus / address (SSOT) | BSP status | Notes / DT / driver | Plan tier |
 |------------|----------------------|------------|----------------------|-----------|
-| Analog audio **TAC5301** | I2C2 `0x50` | conflict | `tcpc@50` (PTN5110) disabled at same address — **resolve** SSOT vs USB-C TCPC before enabling TAC5301 | C2 |
+| Analog audio **TAC5301** | I2C2 `0x50` | missing | **No TCPC on DT510** — legacy `tcpc@50` **removed** from DTS; address free for TAC5301 per SSOT (enable Tier C2 when ready) | C2 |
 | Driver speaker **TAS2563** | I2C2 `0x4C`, SAI3 | present | `tas2563@4C`, `sound-tas2563`, `&sai3` | — |
 | Mic **TAA5412** | I2C2 `0x51` | missing | SAI5 — not in DTS | C2 |
 | Class-D **TAS6424** | I2C2 `0x6A`, SAI1 | missing | `&sai1` disabled | C2 |
@@ -22,7 +52,7 @@
 | **CP2108** quad-UART | GPIO reset | missing | USB enumeration; optional reset GPIO | B3 |
 | Digital I/O | GPIO1 | missing | Tier B2 | B2 |
 | **MAYA-W276** (Wi‑Fi / BT / 802.15.4) | SDIO, SPI, UART, SAI2 | partial | `&usdhc2`, `&ecspi1`, `&uart1`, `&sai2` etc. | — |
-| **STUSB4500** / USB-C | (see I2C conflict) | partial | Distro `stusb4500`; pinctrl vs TAC5301 @ `0x50` | C2 |
+| **STUSB4500** / USB‑C PD | — | **N/A (DT510)** | **Not populated** — no `stusb4500` machine feature; gadget uses **`&usbotg1`** peripheral only (see `DT510-USB-DUAL-AUDIO.md`). **Sentai** retains STUSB4500. | — |
 | **USB dual UAC2 gadget** | `usbotg1` peripheral + systemd | present | **Simulated / lab** path — see [`DT510-USB-DUAL-AUDIO.md`](DT510-USB-DUAL-AUDIO.md); feature `dt510-usb-dual-audio-autostart` | — |
 | **XM125** radar | — | **N/A (DT510)** | **Sentai only** — not on DT510; DTS node `@52` **disabled** | — |
 
@@ -32,11 +62,11 @@
 
 ## Next actions (from this audit)
 
-1. **Resolve I2C2 `0x50`:** one of TAC5301 vs TCPC / STUSB story — hardware + SSOT update.
+1. **TAC5301 @ I2C2 `0x50`:** TCPC placeholder **removed** from DTS — add/enable **TAC5301** node when Tier C2 audio work lands (SSOT + Ollie order: after TAS6424 / TAA5412 per lab).
 2. **Tier B1:** Enable BQ25792 + GPIO interrupt + fragment when lab-ready.
 3. **Tier C3:** LT9611 + reset/int pinctrl from SSOT.
 4. **Tier B4:** Optional explicit `&i2c4` + SE050 DT node for kernel; OpTEE path already uses **I2C4** — see [`DT510-SE050.md`](DT510-SE050.md).
 
 ---
 
-*Last updated: 2026-04-13*
+*Last updated: 2026-04-13 — TCPC/STUSB4500 removed from DT510 BSP (Ollie: no TCPC, no STUSB4500 on DT510).*

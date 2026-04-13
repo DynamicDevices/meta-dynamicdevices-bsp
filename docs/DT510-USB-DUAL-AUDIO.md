@@ -51,6 +51,8 @@ sudo systemctl stop usb-dual-audio-gadget-dt510
 
 Gadget mode requires **`&usbotg1`** **peripheral** mode (already set in `imx8mm-jaguar-dt510.dts`). Disabling the systemd unit does not change DT; it only skips creating the configfs gadget at boot.
 
+**USB‑C / PD:** DT510 does **not** use an **STUSB4500** (or TCPC) — the board is **not** USB‑C powered; there is no `stusb4500` machine feature on `imx8mm-jaguar-dt510`. The OTG link is for **USB gadget / device** behaviour (including this lab dual‑UAC2 path), not ST‑micro PD negotiation. **Sentai** retains STUSB4500 in its machine config.
+
 ## See also
 
 - [`DT510-BSP-PROJECT-PLAN.md`](DT510-BSP-PROJECT-PLAN.md) — phased hardware bring-up.
@@ -58,4 +60,4 @@ Gadget mode requires **`&usbotg1`** **peripheral** mode (already set in `imx8mm-
 
 ---
 
-*Last updated: 2026-04-13*
+*Last updated: 2026-04-13 — noted no STUSB4500 on DT510.*

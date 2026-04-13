@@ -19,6 +19,8 @@ Working document for aligning **Ollie Hull’s DT510 pinout / hardware specifica
 
 **Rule:** Electrical / mechanical reality wins. The Google Doc is the **first-cut SSOT**; if we find errors on schematic or bring-up, **update the doc** (or an errata section here) and then change the BSP.
 
+**Sentai vs DT510 (what is only on Sentai in the BSP, shared features, and open BOM questions):** see [**`DT510-HARDWARE-AUDIT-CHECKLIST.md` — Sentai vs DT510**](DT510-HARDWARE-AUDIT-CHECKLIST.md#sentai-vs-dt510-product-clarification). Use it for issue #2 and hardware handoff.
+
 ---
 
 ## 3. Repositories & where things live
@@ -90,7 +92,7 @@ Work **in order** within each tier unless a dependency forces otherwise.
 | ID | Task | Notes |
 |----|------|--------|
 | C1 | **Ethernet — `&fec1` + KSZ9896** | RGMII + MDIO/DSA as per design; risk of boot hang if PHY/MDIO wrong — incremental bring-up (link up before full bridge). |
-| C2 | **Audio vs SSOT** | Spec: TAC5301 (SAI6), TAA5412 (SAI5), TAS6424 (SAI1), plus existing **TAS2563** (SAI3). Current DTS disables SAI1 and does not describe full codec set — **requires architecture decision** and I2C `0x50` resolution vs legacy TCPC node. |
+| C2 | **Audio vs SSOT** | Spec: TAC5301 (SAI6), TAA5412 (SAI5), TAS6424 (SAI1), plus existing **TAS2563** (SAI3). Current DTS disables SAI1 and does not describe full codec set. **I2C2 `0x50`:** legacy **TCPC removed** from DT510 DTS — free for **TAC5301** (no PTN5110 on DT510). |
 | C3 | **HDMI — LT9611** (I2C3 `0x72`) | Reset/int/fault lines per doc; check pinctrl vs other GPIO users. |
 | C4 | **CAN — MCP2518xx on ECSPI2** | **DT510 has no XM125** (Sentai only). `&ecspi2` free for CAN bring-up when ready. |
 | C5 | **GNSS** | Reset line per SSOT — no XM125/radar GPIO contention on DT510. |
@@ -122,7 +124,7 @@ Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md)
 |------|------------|---------------------|
 | Driver speaker | TAS2563 @ `0x4C`, SAI3 | Present |
 | Analog / mic / class-D | TAC5301, TAA5412, TAS6424 on I2C2 + SAI5/6/1 | Not fully described; SAI1 disabled |
-| I2C `0x50` | TAC5301 | Legacy TCPC placeholder @ `0x50` (disabled) — **resolve** |
+| I2C `0x50` | TAC5301 | **TCPC node removed** from DT510 DTS — address free for TAC5301 when Tier C2 enables it |
 | Charger | BQ25792 @ `0x6B` | Placeholder `bq25792@6b` **disabled** — enable Tier B1 |
 | HDMI | LT9611 (`0x72` 8-bit → `0x39` 7-bit) | Placeholder `lt9611@39` **disabled** — enable Tier C3 |
 | Ethernet | KSZ9896 RGMII | `fec1` disabled |
@@ -144,6 +146,8 @@ Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md)
 | Date | Change |
 |------|--------|
 | 2026-04-13 | Tier A3 audit checklist; A4 I2C3 placeholders; plan §3/§7 synced. |
+| 2026-04-13 | Linked §2 to **Sentai vs DT510** clarification in `DT510-HARDWARE-AUDIT-CHECKLIST.md` (issue #2 / product questions). |
+| 2026-04-13 | DT510: **removed** `tcpc@50` from DTS; **`stusb4500`** from `MACHINE_FEATURES` (no TCPC / STUSB4500 on board per Ollie). Docs + `production-test.sh` + `stusb4500-nvm` bbappend aligned. |
 | *earlier* | Initial plan from engineering review. |
 
 ---
