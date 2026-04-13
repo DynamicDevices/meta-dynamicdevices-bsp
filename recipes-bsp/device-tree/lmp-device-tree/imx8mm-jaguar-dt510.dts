@@ -220,16 +220,6 @@
                 >;
         };
 
-	pinctrl_pdm: pdmgrp {
-		fsl,pins = <
-			MX8MM_IOMUXC_SAI1_MCLK_PDM_CLK		0xd6
-			MX8MM_IOMUXC_SAI1_RXD0_PDM_DATA0	0xd6
-			MX8MM_IOMUXC_SAI1_RXD1_PDM_DATA1	0xd6
-			MX8MM_IOMUXC_SAI1_RXD2_PDM_DATA2	0xd6
-			MX8MM_IOMUXC_SAI1_RXD3_PDM_DATA3	0xd6
-		>;
-	};
-
         pinctrl_sai2: sai2grp {
                 fsl,pins = <
                         MX8MM_IOMUXC_SAI2_MCLK_SAI2_MCLK        0xd6
