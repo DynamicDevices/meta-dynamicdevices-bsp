@@ -146,9 +146,72 @@ After each BSP change set:
 
 | Role | Name | Notes |
 |------|------|--------|
-| Hardware SSOT | Ollie Hull | Pinout / schematic clarifications |
-| BSP / DT | Alex Lennon | `meta-dynamicdevices-bsp` |
+| Hardware SSOT | Ollie Hull | Pinout / schematic clarifications; **lab verification** on DT510 hardware |
+| BSP / DT | Alex Lennon | `meta-dynamicdevices-bsp`; implements changes and **posts handoff** on the tracking issue |
 | Factory / apps | *assign* | `vixdt` / containers as needed |
+
+---
+
+## 11. Keeping the tracking issue up to date (BSP ↔ lab)
+
+**Tracking issue:** [DynamicDevices/meta-dynamicdevices-bsp#2](https://github.com/DynamicDevices/meta-dynamicdevices-bsp/issues/2)
+
+Use that issue as the **running thread** for “what landed” and “what was verified on hardware.” This markdown file stays the **structured plan**; the issue holds **time-ordered** handoffs and results so nothing relies on chat memory.
+
+### Roles
+
+| Who | Responsibility |
+|-----|----------------|
+| **Alex (BSP)** | After each meaningful change (or stack of small commits): add an **Implementation** comment on #2 (use template below). Link the **PR or commit SHA** and name the **tier ID** (e.g. A1). Flash/build instructions if non-obvious. |
+| **Ollie (lab)** | When a build is available, run **agreed checks** on the DT510 in the hardware lab and add a **Lab result** reply on **the same thread** (template below). Note **PASS / FAIL / PARTIAL**, anomalies, and whether the pinout doc needs errata. |
+
+### Cadence (lightweight)
+
+1. **Implement** → merge to `main` (or share a PR build for early test).
+2. **Comment on #2** (Implementation) — same day.
+3. **Ollie tests** when the image is on the bench — **Lab result** comment.
+4. **Update this doc** (PR): errata (§8), **lab log** (below), or tier notes — so the repo stays auditable.
+
+### Comment template — Implementation (Alex)
+
+Paste into [#2](https://github.com/DynamicDevices/meta-dynamicdevices-bsp/issues/2):
+
+```text
+### Implementation — [Tier XX] short title
+
+- **Commit / PR:** `<sha>` / `#<pr>`
+- **Scope:** (1–3 bullets: what changed in DT / kernel / recipes)
+- **Image / artifact:** (e.g. Foundries build #, local WIC path, OTA target — whatever Ollie should flash)
+- **Please verify in lab:**
+  - [ ] Boot / serial or SSH
+  - [ ] (specific checks for this change, e.g. `i2cdetect`, interface up, audio path)
+- **Risks if any:** (regressions to watch)
+```
+
+### Comment template — Lab result (Ollie)
+
+Reply under the matching Implementation thread (or quote it):
+
+```text
+### Lab result — [same Tier / title]
+
+- **Build tested:** `<how identified — commit/sha/build #>`
+- **Outcome:** PASS | FAIL | PARTIAL
+- **Notes:** (what worked, what failed, `dmesg` snippets if useful)
+- **Pinout doc / schematic:** OK | needs errata — (details)
+```
+
+### Lab verification log (update via PR to this file)
+
+| Date | Tier | Commit / ref | Summary | Lab outcome |
+|------|------|--------------|---------|-------------|
+| *—* | *—* | *—* | *Fill as you go.* | *—* |
+
+### Tips
+
+- **One Implementation comment per “testable slice”** — avoids Ollie guessing what changed.
+- If a change is **software-only** (no lab needed), say so in the Implementation comment and still log “N/A lab” in the table when you update the doc.
+- For **FAIL**, open a **sub-issue** or reply with `@mention` only if you need a follow-up fix; keep #2 as the parent tracker.
 
 ---
 
