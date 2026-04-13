@@ -109,6 +109,7 @@ Work **in order** within each tier unless a dependency forces otherwise.
 
 **TAA5412 — kernel driver status (investigated 2026-04-14)**
 
+- **Step-by-step backport plan (phases, rollback, firmware):** [`docs/DT510-TAA5412-PCM6240-BACKPORT-PLAN.md`](DT510-TAA5412-PCM6240-BACKPORT-PLAN.md) (note: **PCM6240**, not PCM6420 — confirm part if unsure).
 - **Factory / LmP kernel** is **`linux-lmp-fslc-imx`** → NXP **`linux-fslc`** at **`SRCREV_machine`** pinned by **meta-lmp** (e.g. **`e0f9e2afd4cff3f02d71891244b4aa5899dfc786`**, **`LINUX_VERSION ?= 6.6.52`**, branch **`6.6-2.2.x-imx`** on **`meta-lmp`** `4dffdff79b4df49c683c9a7faea406595cb7e9ca`).
 - At that commit: **no** `sound/soc/codecs/pcm6240.c`; **no** `CONFIG_SND_SOC_PCM6240` / **`ti,taa5412`** in `sound/soc/codecs/Kconfig`.
 - **Mainline** carries **`ti,taa5412`** in **`sound/soc/codecs/pcm6240.c`** from **Linux 6.10** onward (same file covers PCM6240 family devices).
