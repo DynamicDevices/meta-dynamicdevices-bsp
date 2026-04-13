@@ -207,7 +207,7 @@ Reply under the matching Implementation thread (or quote it):
 
 | Date | Tier | Commit / ref | Summary | Lab outcome |
 |------|------|--------------|---------|-------------|
-| 2026-04-13 | A1–A2 | `e6388b8` | Single DTS symlink + SSOT header; no hardware change. | N/A — confirm next image builds / boots unchanged. |
+| 2026-04-13 | A1–A2 | `d78fe3b` | Single DTS symlink + SSOT header; no hardware change. | N/A — confirm next image builds / boots unchanged. |
 
 ### Tips
 
