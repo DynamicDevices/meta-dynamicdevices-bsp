@@ -35,6 +35,8 @@ Working document for aligning **Ollie Hull’s DT510 pinout / hardware specifica
 
 **Single-DTS policy:** Those two files must **not** diverge. Today they are **duplicate files** (same content); **replace one with a symlink** to the other (see §6) so edits happen in one place only.
 
+**Reference (not built):** Tool-generated / review-only DTS snapshots from hardware (e.g. Ollie’s generator output) live under **`docs/reference/dt510-ollie-tool-generated/`**. Use them for **requirements review and diffs** only — not as the shipping device tree until merged deliberately into the recipes above.
+
 ---
 
 ## 4. Guiding principles
