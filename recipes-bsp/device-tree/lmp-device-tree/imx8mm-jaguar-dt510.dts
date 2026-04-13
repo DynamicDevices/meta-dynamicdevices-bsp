@@ -24,6 +24,7 @@
         compatible = "fsl,imx8mm-jaguar-dt510", "fsl,imx8mm-evk", "fsl,imx8mm";
 
 	// Regulators
+	/* TAS6424 DVDD: 3.3 V placeholder — **@ohull456 to confirm** nominal vs schematic (SSOT). */
 	vddext: regulator-vddext {
 		compatible = "regulator-fixed";
 		regulator-name = "VDDEXT_3V3";
@@ -32,9 +33,9 @@
 	};
 
 	/*
-	 * TAS6424: driver requires vbat + pvdd (Linux supply names) in addition to dvdd.
-	 * Single placeholder for the high-voltage amp rail — **replace voltage / topology with SSOT**
-	 * (PMIC net names, separate VBAT vs PVDD, always-on vs switched) after schematic review.
+	 * TAS6424 VBAT + PVDD: driver requires distinct phandles; single fixed rail for both.
+	 * **12 V placeholder — @ohull456 to confirm** net names / nominal voltage per BOM.
+	 * Ollie (issue #2): rails always-on, no software sequencing — regulator-always-on is OK.
 	 */
 	tas6424_hi_rail: regulator-tas6424-hi {
 		compatible = "regulator-fixed";
@@ -463,7 +464,9 @@
 
 	/*
 	 * TAS6424E-Q1 @ 0x6A — class-D on SAI1 (Tier C2).
-	 * standby-gpios / mute-gpios: add when AMP_STBY# / AMP_MUTE# are confirmed in SSOT (optional in driver).
+	 * AMP_STBY# / AMP_MUTE#: Ollie — high for normal operation, not muxed to other functions.
+	 * Add **standby-gpios** / **mute-gpios** here only if those nets are routed to **SoC GPIOs**.
+	 * If the PCB **straps them high** (no GPIO), omit those properties — no ball→GPIO list needed in DTS.
 	 */
 	tas6424: tas6424@6a {
 		compatible = "ti,tas6424";
