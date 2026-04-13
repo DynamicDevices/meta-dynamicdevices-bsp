@@ -47,6 +47,8 @@ Typical layout: that repo lives beside other factory checkouts (e.g. under a **`
 
 **Hardware audit (SSOT ↔ BSP):** Living checklist — [`docs/DT510-HARDWARE-AUDIT-CHECKLIST.md`](DT510-HARDWARE-AUDIT-CHECKLIST.md).
 
+**USB dual audio (gadget) vs codecs:** [`docs/DT510-USB-DUAL-AUDIO.md`](DT510-USB-DUAL-AUDIO.md) — **`dt510-usb-dual-audio-autostart`** machine feature toggles boot-time gadget; remove it when moving to codec-first images; use **`systemctl start usb-dual-audio-gadget-dt510`** for simulated USB tests without autostart.
+
 ---
 
 ## 4. Guiding principles

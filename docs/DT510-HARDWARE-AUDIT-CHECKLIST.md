@@ -23,6 +23,7 @@
 | Digital I/O | GPIO1 | missing | Tier B2 | B2 |
 | **MAYA-W276** (Wi‑Fi / BT / 802.15.4) | SDIO, SPI, UART, SAI2 | partial | `&usdhc2`, `&ecspi1`, `&uart1`, `&sai2` etc. | — |
 | **STUSB4500** / USB-C | (see I2C conflict) | partial | Distro `stusb4500`; pinctrl vs TAC5301 @ `0x50` | C2 |
+| **USB dual UAC2 gadget** | `usbotg1` peripheral + systemd | present | **Simulated / lab** path — see [`DT510-USB-DUAL-AUDIO.md`](DT510-USB-DUAL-AUDIO.md); feature `dt510-usb-dual-audio-autostart` | — |
 | **XM125** radar | I2C3 `0x52` | present | Product may choose radar vs CAN — SSOT | — |
 
 \* SSOT “0x72” for LT9611 is treated as **8-bit** address; Linux `reg` uses **7-bit** `0x39`.
