@@ -76,13 +76,13 @@ Work **in order** within each tier unless a dependency forces otherwise.
 | A1 | **Single DTS source** | **Done:** `linux-lmp-fslc-imx/imx8mm-jaguar-dt510.dts` → symlink to `lmp-device-tree/imx8mm-jaguar-dt510.dts` (canonical). |
 | A2 | **SSOT header in DTS** | **Done:** Comment block after NXP copyright in canonical DTS (SSOT pointer, symlink note, plan + reference folder). |
 | A3 | **Audit spreadsheet / checklist** | **Done:** [`docs/DT510-HARDWARE-AUDIT-CHECKLIST.md`](DT510-HARDWARE-AUDIT-CHECKLIST.md) — SSOT blocks vs BSP; update as doc/hardware changes. |
-| A4 | **Placeholder nodes** | **Done (partial):** `&i2c3` — `bq25792@6b`, `lt9611@39` **disabled** (no pinctrl change). **SE050 / `&i2c4`** deferred until bus present in DT. |
+| A4 | **Placeholder nodes** | **Done (partial):** `&i2c3` — **`bq25792@6b` enabled (Tier B1)**; `lt9611@39` **disabled**. **SE050 / `&i2c4`** deferred until bus present in DT. |
 
 ### Tier B — Medium priority (important features, moderate risk)
 
 | ID | Task | Notes |
 |----|------|--------|
-| B1 | **BQ25792** (charger, I2C3 `0x6B`, `CHGR_INT#`) | Power path; validate GPIO polarity and I2C before enabling charge policies in userspace. |
+| B1 | **BQ25792** (charger, I2C3 `0x6B`, `CHGR_INT#`) | **DT:** `battery-dt510` + `bq25792@6b` **okay**, `monitored-battery` set; **IRQ** pending SSOT. **Kernel:** upstream charger driver for `ti,bq25792` not in Linux **6.6.x** — no `CONFIG_*` fragment yet; lab: `i2cget`/`i2cdetect` on `i2c-3`. |
 | B2 | **Digital I/O** (GPIO1 per doc) | GPIO hog or consumer drivers; verify no clash with other `GPIO1` uses. |
 | B3 | **CP2108** quad-UART | Often USB-enumerated; DT may only need **reset GPIO** if required. |
 | B4 | **SE050** (I2C4 `0x48`) | Aligns with `se05x` / OpTEE story; **coordinate** with security/TEE bring-up — wrong wiring can affect trusted boot. |
@@ -125,7 +125,7 @@ Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md)
 | Driver speaker | TAS2563 @ `0x4C`, SAI3 | Present |
 | Analog / mic / class-D | TAC5301, TAA5412, TAS6424 on I2C2 + SAI5/6/1 | Not fully described; SAI1 disabled |
 | I2C `0x50` | TAC5301 | **TCPC node removed** from DT510 DTS — address free for TAC5301 when Tier C2 enables it |
-| Charger | BQ25792 @ `0x6B` | Placeholder `bq25792@6b` **disabled** — enable Tier B1 |
+| Charger | BQ25792 @ `0x6B` | **DT enabled** — kernel charger driver pending suitable upstream/kernel version |
 | HDMI | LT9611 (`0x72` 8-bit → `0x39` 7-bit) | Placeholder `lt9611@39` **disabled** — enable Tier C3 |
 | Ethernet | KSZ9896 RGMII | `fec1` disabled |
 | SE050 | I2C4 `0x48` | **OpTEE/Sentai-aligned** — see [`DT510-SE050.md`](DT510-SE050.md); optional explicit DT child |
@@ -148,6 +148,7 @@ Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md)
 | 2026-04-13 | Tier A3 audit checklist; A4 I2C3 placeholders; plan §3/§7 synced. |
 | 2026-04-13 | Linked §2 to **Sentai vs DT510** clarification in `DT510-HARDWARE-AUDIT-CHECKLIST.md` (issue #2 / product questions). |
 | 2026-04-13 | DT510: **removed** `tcpc@50` from DTS; **`stusb4500`** from `MACHINE_FEATURES` (no TCPC / STUSB4500 on board per Ollie). Docs + `production-test.sh` + `stusb4500-nvm` bbappend aligned. |
+| 2026-04-13 | **Tier B1:** `battery-dt510` + `bq25792@6b` enabled in DTS; CHGR_INT# + in-tree kernel driver **TBD**. |
 | *earlier* | Initial plan from engineering review. |
 
 ---

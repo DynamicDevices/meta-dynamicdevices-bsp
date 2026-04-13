@@ -42,7 +42,7 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 | Driver speaker **TAS2563** | I2C2 `0x4C`, SAI3 | present | `tas2563@4C`, `sound-tas2563`, `&sai3` | — |
 | Mic **TAA5412** | I2C2 `0x51` | missing | SAI5 — not in DTS | C2 |
 | Class-D **TAS6424** | I2C2 `0x6A`, SAI1 | missing | `&sai1` disabled | C2 |
-| Charger **BQ25792** | I2C3 `0x6B`, `CHGR_INT#` | placeholder | `bq25792@6b` **disabled** in DTS — enable Tier B1 | B1 |
+| Charger **BQ25792** | I2C3 `0x6B`, `CHGR_INT#` | **partial** | **`bq25792@6b` enabled** + `simple-battery` (`battery-dt510`). **CHGR_INT#** not wired in DTS yet (SSOT). **Kernel 6.6.x:** no upstream `ti,bq25792` charger driver in-tree — DT ready for future kernel/backport; use `i2c-dev` for lab. | B1 |
 | HDMI **LT9611** | I2C3 — SSOT `0x72` (8-bit) → DT **7-bit `0x39`** | placeholder | `lt9611@39` **disabled** in DTS — enable Tier C3 | C3 |
 | Auth **SE050** | I2C4 `0x48` | **aligned with stack** | OpTEE **`CFG_CORE_SE05X_I2C_BUS=3`** = **`&i2c4`** (same as Sentai). Machine `se05x` + OEFID set. Optional: explicit DT node — see [`DT510-SE050.md`](DT510-SE050.md) | B4 |
 | **MCP2518xx** CAN | ECSPI2 + GPIO | missing | `&ecspi2` disabled — **not** XM125 on DT510 (Sentai only); enable for CAN when ready | C4 |
@@ -63,7 +63,7 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 ## Next actions (from this audit)
 
 1. **TAC5301 @ I2C2 `0x50`:** TCPC placeholder **removed** from DTS — add/enable **TAC5301** node when Tier C2 audio work lands (SSOT + Ollie order: after TAS6424 / TAA5412 per lab).
-2. **Tier B1:** Enable BQ25792 + GPIO interrupt + fragment when lab-ready.
+2. **Tier B1 (follow-up):** Add **CHGR_INT#** to DTS when GPIO is in SSOT; enable **CONFIG_CHARGER_BQ25790** / **CONFIG_CHARGER_BQ257XX** when factory kernel ships a matching driver (not in 6.6.x mainline as used by LmP today).
 3. **Tier C3:** LT9611 + reset/int pinctrl from SSOT.
 4. **Tier B4:** Optional explicit `&i2c4` + SE050 DT node for kernel; OpTEE path already uses **I2C4** — see [`DT510-SE050.md`](DT510-SE050.md).
 
