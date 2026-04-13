@@ -104,8 +104,15 @@ Work **in order** within each tier unless a dependency forces otherwise.
 | Step | Part | Bus | Audio link (SSOT / tool mux) | BSP focus |
 |------|------|-----|------------------------------|-----------|
 | 1 | **TAS6424** (class-D) | I2C2 `0x6A` | **SAI1** (+ SAI6 pins muxed via `pinctrl_sai1_tas6424`) | Validate rails + GPIOs + `CONFIG_SND_SOC_TAS6424`; TDM vs I2S decision (#2). |
-| 2 | **TAA5412** (mic) | I2C2 `0x51` | **SAI5** — *not in shipping DTS yet* | Add **`&sai5`** + SSOT `pinctrl` (see `docs/reference/dt510-ollie-tool-generated/pin_mux.dts` SAI5 block); codec node + `sound-*` card; upstream uses **`ti,taa5412`** under **`CONFIG_SND_SOC_PCM6240`** (newer kernels) — confirm vs **6.6.x** LmP line and add fragment/backport as needed. |
+| 2 | **TAA5412** (mic) | I2C2 `0x51` | **SAI5** — *not in shipping DTS yet* | Add **`&sai5`** + SSOT `pinctrl`; codec **`compatible = "ti,taa5412"`**; **`CONFIG_SND_SOC_PCM6240`** — **not** in current factory i.MX 6.6 kernel (see **TAA5412 kernel status** below); backport/patch or kernel advance before `status = "okay"`. |
 | 3 | **TAC5301** (analog audio) | I2C2 `0x50` | Per SSOT (enable after **0x50** free — TCPC already removed) | Node + supplies/MCLK/`simple-audio-card` link; align with kernel `CONFIG_*` when driver story is clear. |
+
+**TAA5412 — kernel driver status (investigated 2026-04-14)**
+
+- **Factory / LmP kernel** is **`linux-lmp-fslc-imx`** → NXP **`linux-fslc`** at **`SRCREV_machine`** pinned by **meta-lmp** (e.g. **`e0f9e2afd4cff3f02d71891244b4aa5899dfc786`**, **`LINUX_VERSION ?= 6.6.52`**, branch **`6.6-2.2.x-imx`** on **`meta-lmp`** `4dffdff79b4df49c683c9a7faea406595cb7e9ca`).
+- At that commit: **no** `sound/soc/codecs/pcm6240.c`; **no** `CONFIG_SND_SOC_PCM6240` / **`ti,taa5412`** in `sound/soc/codecs/Kconfig`.
+- **Mainline** carries **`ti,taa5412`** in **`sound/soc/codecs/pcm6240.c`** from **Linux 6.10** onward (same file covers PCM6240 family devices).
+- **Practical options:** (1) **Backport** pcm6240 + `Kconfig`/`Makefile` + DT binding from **mainline ≥ 6.10** into a **`linux-lmp-fslc-imx`** `.bbappend` patch series (review for merge conflicts with NXP delta); (2) **Advance** factory kernel to a revision that already includes pcm6240 (if/when NXP/imx ships it); (3) **Out-of-tree** module recipe until (1) or (2). **Do not** enable the codec in DT for production until one path is chosen and probe is verified.
 
 **Cross-links:** [`DT510-HARDWARE-AUDIT-CHECKLIST.md`](DT510-HARDWARE-AUDIT-CHECKLIST.md) table rows; **I2C2** also carries **TAS2563** @ `0x4C` (already enabled).
 
@@ -164,6 +171,7 @@ Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md)
 | 2026-04-13 | **Tier C2 step 1:** TAS6424 — `&sai1` + SSOT `pinctrl_sai1_tas6424`; `tas6424@6a` **disabled** pending supplies/GPIO; micfil off; **`MACHINE_FEATURES` `tas6424`** gates `tas6424-audio-codec.cfg` (same pattern as **`tas2562`**). |
 | 2026-04-13 | **Tier C2 step 2:** TAS6424 — `sound-tas6424` + **`tas6424@6a` okay**; **`tas6424_hi_rail`** placeholder (12V) for vbat+pvdd; **`tas6424-audio-codec.cfg`** uses active `CONFIG_SND_SOC_TAS6424=m` (not commented). |
 | 2026-04-14 | **Tier C2 scope:** Documented codec order **TAS6424 → TAA5412 (SAI5, `0x51`) → TAC5301 (`0x50`, last)** for prototype bring-up; cross-links checklist. |
+| 2026-04-14 | **TAA5412:** Confirmed **no `pcm6240` / `CONFIG_SND_SOC_PCM6240`** in **linux-fslc** @ LmP-pinned **`SRCREV`** (6.6.52); driver is **mainline ≥ 6.10** — backport, kernel advance, or out-of-tree (see plan §5 Tier C2). |
 | *earlier* | Initial plan from engineering review. |
 
 ---
