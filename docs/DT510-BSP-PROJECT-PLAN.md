@@ -26,14 +26,22 @@ Working document for aligning **Ollie Hull’s DT510 pinout / hardware specifica
 | Repo | Role |
 |------|------|
 | **`DynamicDevices/meta-dynamicdevices-bsp`** (this repo) | Board DTS, kernel `*.cfg` fragments, `linux-lmp-fslc-imx_%.bbappend`, `lmp-device-tree.bbappend`, machine `imx8mm-jaguar-dt510.conf`, userspace recipes tied to the board. **This document lives here.** |
-| **`vixdt` / Foundries factory** | Factory images, containers, `vix-apps`; not the primary place for kernel DTS, but coordinates with BSP for OTA and apps. |
+| **`vixdt` / Foundries factory** | Factory images, containers, `vix-apps`; coordinates with BSP for OTA and apps. |
+
+### Foundries: how DT510 images get built and tested
+
+The LmP manifest pulls **`meta-dynamicdevices-bsp`** (e.g. `main` from GitHub) into the factory build. **To trigger a Foundries build** for the DT510 factory line, the team **commits and pushes** to **`meta-subscriber-overrides`** on the active factory branch (e.g. **`main-imx8mm-jaguar-dt510`**) — remote **`source.foundries.io/factories/vixdt/meta-subscriber-overrides`**.
+
+Typical layout: that repo lives beside other factory checkouts (e.g. under a **`vixdt`** workspace as `meta-subscriber-overrides/`). A small commit there (even a doc or comment bump) starts the pipeline that **repo syncs** layers and builds **`imx8mm-jaguar-dt510`**.
+
+**Ordering:** Merge BSP changes to **`DynamicDevices/meta-dynamicdevices-bsp`** `main` first, **then** push **`meta-subscriber-overrides`** so the factory build picks up the new BSP revision (manifest tracks BSP `main` unless pinned otherwise).
 
 **Key paths inside this BSP layer (relative to repo root):**
 
 - Canonical DT for Factory/LmP flows: `recipes-bsp/device-tree/lmp-device-tree/imx8mm-jaguar-dt510.dts`
-- Kernel recipe also carries a copy: `recipes-kernel/linux/linux-lmp-fslc-imx/imx8mm-jaguar-dt510.dts`
+- Kernel recipe: `recipes-kernel/linux/linux-lmp-fslc-imx/imx8mm-jaguar-dt510.dts` → **symlink** to the canonical file (Tier A1).
 
-**Single-DTS policy:** Those two files must **not** diverge. Today they are **duplicate files** (same content); **replace one with a symlink** to the other (see §6) so edits happen in one place only.
+**Single-DTS policy:** One file on disk; the kernel recipe path must remain a symlink to the `lmp-device-tree` copy (see §6).
 
 **Reference (not built):** Tool-generated / review-only DTS snapshots from hardware (e.g. Ollie’s generator output) live under **`docs/reference/dt510-ollie-tool-generated/`**. Use them for **requirements review and diffs** only — not as the shipping device tree until merged deliberately into the recipes above.
 
