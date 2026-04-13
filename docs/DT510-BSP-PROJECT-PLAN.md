@@ -180,6 +180,7 @@ Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md)
 | 2026-04-14 | **TAA5412:** Confirmed **no `pcm6240` / `CONFIG_SND_SOC_PCM6240`** in **linux-fslc** @ LmP-pinned **`SRCREV`** (6.6.52); driver is **mainline ≥ 6.10** — backport, kernel advance, or out-of-tree (see plan §5 Tier C2). |
 | 2026-04-14 | **DT510 `&i2c2`:** **`/delete-node/ tcpc@50;`** — drop EVK-inherited PTN5110 TCPC; frees **0x50** for TAC5301 per SSOT. |
 | 2026-04-14 | **Factory / §3:** Documented **follow `meta-dynamicdevices-bsp` `main`** for build testing; **Tier C2:** lock **I2S** for initial TAS6424 test (TDM later). |
+| 2026-04-14 | **Lab log / #10:** Logged @ohull456 **TAS6424** input (always-on rails; **AMP_STBY#** / **AMP_MUTE#** pending ball→GPIO); **I2C3** GPIOs for charger/HDMI **deferred**. |
 | *earlier* | Initial plan from engineering review. |
 
 ---
@@ -273,6 +274,7 @@ Reply under the matching Implementation thread (or quote it):
 
 | Date | Tier | Commit / ref | Summary | Lab outcome |
 |------|------|--------------|---------|-------------|
+| 2026-04-14 | C2 / HW | [#2](https://github.com/DynamicDevices/meta-dynamicdevices-bsp/issues/2) @ohull456 | **TAS6424:** rails always-on (no SW sequencing); **AMP_STBY#** / **AMP_MUTE#** high for run, no pulls, no other use; **ball→GPIO TBD** for DTS. **I2C3** charger/HDMI GPIOs deferred (low pri). | N/A lab until GPIO mapping + prototype bench. |
 | 2026-04-13 | A1–A2 | `d78fe3b` | Single DTS symlink + SSOT header; no hardware change. | N/A — confirm next image builds / boots unchanged. |
 | 2026-04-13 | A3–A4 | `66d5c1f` | Audit checklist + disabled `bq25792` / `lt9611` placeholders on `&i2c3`. | Expect boot unchanged; `i2cdetect` may show `6b` / `39` if bus scanned. |
 
