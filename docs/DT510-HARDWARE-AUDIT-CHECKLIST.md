@@ -16,7 +16,7 @@ Machine: **`imx8mm-jaguar-sentai`** vs **`imx8mm-jaguar-dt510`**. Use this when 
 
 | Topic | Sentai | DT510 |
 |--------|--------|--------|
-| **Acconeer XM125 radar** | `MACHINE_FEATURES` includes **`xm125-radar`**; DTS **`xm125@52`** enabled; **`xm125-radar-monitor`** recipe is **`COMPATIBLE_MACHINE = imx8mm-jaguar-sentai`** only | XM125 **not populated**; node **`disabled`**; no **`xm125-radar`** feature |
+| **Acconeer XM125 radar** | `MACHINE_FEATURES` includes **`xm125-radar`**; DTS **`xm125@52`** enabled; **`xm125-radar-monitor`** recipe is **`COMPATIBLE_MACHINE = imx8mm-jaguar-sentai`** only | XM125 **not populated**; **`xm125@52`** + **`pinctrl_xm125_radar`** **removed** from DT510 DTS (Sentai only); no **`xm125-radar`** feature |
 | **USB dual UAC2 gadget autostart** | Not a DT510-specific machine feature | **`dt510-usb-dual-audio-autostart`** — toggles **boot** autostart of the lab/simulated gadget path (see [`DT510-USB-DUAL-AUDIO.md`](DT510-USB-DUAL-AUDIO.md)) |
 | **Charger / HDMI placeholders** | Not in the DT510-vs-Sentai DTS diff as matching disabled nodes | DTS has **disabled** **`bq25792@6b`** and **`lt9611@39`** placeholders — confirm **BOM and bus** on DT510 vs Sentai from schematic (not inferrable from `MACHINE_FEATURES` alone) |
 | **STUSB4500 / USB‑C PD** | `MACHINE_FEATURES` **`stusb4500`**; PD firmware / distro feature | **Not on DT510** — IC not populated; **`stusb4500`** removed from `imx8mm-jaguar-dt510.conf` |
@@ -54,7 +54,7 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 | **MAYA-W276** (Wi‑Fi / BT / 802.15.4) | SDIO, SPI, UART, SAI2 | partial | `&usdhc2`, `&ecspi1`, `&uart1`, `&sai2` etc. | — |
 | **STUSB4500** / USB‑C PD | — | **N/A (DT510)** | **Not populated** — no `stusb4500` machine feature; gadget uses **`&usbotg1`** peripheral only (see `DT510-USB-DUAL-AUDIO.md`). **Sentai** retains STUSB4500. | — |
 | **USB dual UAC2 gadget** | `usbotg1` peripheral + systemd | present | **Simulated / lab** path — see [`DT510-USB-DUAL-AUDIO.md`](DT510-USB-DUAL-AUDIO.md); feature `dt510-usb-dual-audio-autostart` | — |
-| **XM125** radar | — | **N/A (DT510)** | **Sentai only** — not on DT510; DTS node `@52` **disabled** | — |
+| **XM125** radar | — | **N/A (DT510)** | **Sentai only** — not on DT510; **`xm125@52`** node **not present** in `imx8mm-jaguar-dt510.dts` | — |
 
 \* SSOT “0x72” for LT9611 is treated as **8-bit** address; Linux `reg` uses **7-bit** `0x39`.
 

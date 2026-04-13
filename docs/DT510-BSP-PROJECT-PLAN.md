@@ -183,6 +183,7 @@ Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md)
 | 2026-04-14 | **Factory / §3:** Documented **follow `meta-dynamicdevices-bsp` `main`** for build testing; **Tier C2:** lock **I2S** for initial TAS6424 test (TDM later). |
 | 2026-04-15 | **TAS2563 / §4:** Removed Sentai **`audio-shutdown-hog`** on **GPIO5_IO4** (**CODEC_SD#**); **`tas2563` `reset-gpios`** now sole owner — **DT510 SSOT** over Sentai inheritance. |
 | 2026-04-15 | **DTS:** Removed unused **`pinctrl_pdm`** (SAI1 PDM mux) — **micfil** disabled; **TAS6424** owns SAI1; group was never referenced. |
+| 2026-04-15 | **DTS / §4:** Removed Sentai **`xm125@52`** + **`pinctrl_xm125_radar`** — XM125 **Sentai-only** per SSOT; DT510 keeps **I2C3 `0x52`** free for other use if BOM allows. |
 | 2026-04-14 | **Lab log / #10:** Logged @ohull456 **TAS6424** input (always-on rails; **AMP_STBY#** / **AMP_MUTE#** pending ball→GPIO); **I2C3** GPIOs for charger/HDMI **deferred**. |
 | *earlier* | Initial plan from engineering review. |
 
