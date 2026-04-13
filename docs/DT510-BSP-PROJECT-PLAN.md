@@ -181,7 +181,7 @@ Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md)
 | 2026-04-14 | **TAA5412:** Confirmed **no `pcm6240` / `CONFIG_SND_SOC_PCM6240`** in **linux-fslc** @ LmP-pinned **`SRCREV`** (6.6.52); driver is **mainline ≥ 6.10** — backport, kernel advance, or out-of-tree (see plan §5 Tier C2). |
 | 2026-04-14 | **DT510 `&i2c2`:** **`/delete-node/ tcpc@50;`** — drop EVK-inherited PTN5110 TCPC; frees **0x50** for TAC5301 per SSOT. |
 | 2026-04-14 | **Factory / §3:** Documented **follow `meta-dynamicdevices-bsp` `main`** for build testing; **Tier C2:** lock **I2S** for initial TAS6424 test (TDM later). |
-| 2026-04-14 | **Sentai vs DT510 (§4):** **DT510 SSOT overrides** inherited Sentai/EVK patterns; **audio-shutdown-hog** on TAS2563 **CODEC_SD#** is Sentai carry-over — **remove** when validated (conflicts with **`tas2563` `reset-gpios`**). |
+| 2026-04-15 | **TAS2563 / §4:** Removed Sentai **`audio-shutdown-hog`** on **GPIO5_IO4** (**CODEC_SD#**); **`tas2563` `reset-gpios`** now sole owner — **DT510 SSOT** over Sentai inheritance. |
 | 2026-04-14 | **Lab log / #10:** Logged @ohull456 **TAS6424** input (always-on rails; **AMP_STBY#** / **AMP_MUTE#** pending ball→GPIO); **I2C3** GPIOs for charger/HDMI **deferred**. |
 | *earlier* | Initial plan from engineering review. |
 
@@ -288,4 +288,4 @@ Reply under the matching Implementation thread (or quote it):
 
 ---
 
-*Last updated: 2026-04-15*
+*Last updated: 2026-04-15 — TAS2563 hog removed*

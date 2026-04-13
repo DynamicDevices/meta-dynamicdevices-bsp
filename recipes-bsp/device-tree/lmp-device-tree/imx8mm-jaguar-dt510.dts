@@ -425,19 +425,7 @@
 //       };
 //};
 
-&gpio5 {
-	/*
-	 * Sentai-inherited gpio-hog on GPIO5_IO4 (CODEC_SD#) — same line as tas2563 reset-gpios (conflict).
-	 * DT510 hardware SSOT overrides Sentai carry-overs: remove this hog when validated; keep tas2563 reset-gpios.
-	 * See docs/DT510-BSP-PROJECT-PLAN.md §4.
-	 */
-       audio-shutdown-hog {
-		gpio-hog;
-		gpios = <4 GPIO_ACTIVE_LOW>;
-		output-low;
-		line-name = "tas2563-shutdown";
-       };
-};
+/* CODEC_SD# (GPIO5_IO4): Sentai gpio-hog removed — tas2563@4C reset-gpios owns the line (DT510 SSOT, plan §4). */
 
 &fec1 {
         status = "disabled";
