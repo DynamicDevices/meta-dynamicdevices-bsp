@@ -251,6 +251,20 @@
                 >;
         };
 
+	/*
+	 * TAS6424 control lines (SSOT / Google Doc — Ollie): GPIO1_IO10–13 as GPIO.
+	 * Outputs: AMP_STBY#, AMP_MUTE# (active-low). Inputs: AMP_FAULT#, AMP_WARN# (active-low) —
+	 * not consumed by Linux tas6424 codec driver (faults polled via I2C); pins muxed for board bring-up.
+	 */
+	pinctrl_tas6424_gpio: tas6424gpiogrp {
+		fsl,pins = <
+			MX8MM_IOMUXC_GPIO1_IO10_GPIO1_IO10	0x116
+			MX8MM_IOMUXC_GPIO1_IO11_GPIO1_IO11	0x116
+			MX8MM_IOMUXC_GPIO1_IO12_GPIO1_IO12	0x116
+			MX8MM_IOMUXC_GPIO1_IO13_GPIO1_IO13	0x116
+		>;
+	};
+
 	/* Tier C2 step 1 — TAS6424 on SAI1: align with docs/reference/dt510-ollie-tool-generated/pin_mux.dts (BOARD_InitPins) */
 	pinctrl_sai1_tas6424: sai1tas6424grp {
 		fsl,pins = <
@@ -464,17 +478,20 @@
 
 	/*
 	 * TAS6424E-Q1 @ 0x6A — class-D on SAI1 (Tier C2).
-	 * AMP_STBY# / AMP_MUTE#: Ollie — high for normal operation, not muxed to other functions.
-	 * Add **standby-gpios** / **mute-gpios** here only if those nets are routed to **SoC GPIOs**.
-	 * If the PCB **straps them high** (no GPIO), omit those properties — no ball→GPIO list needed in DTS.
+	 * SSOT (Google Doc): GPIO1_IO10 = AMP_STBY#, GPIO1_IO11 = AMP_MUTE# (outputs, active-low);
+	 * GPIO1_IO12 = AMP_FAULT#, GPIO1_IO13 = AMP_WARN# (inputs, active-low) — not wired to codec driver.
 	 */
 	tas6424: tas6424@6a {
 		compatible = "ti,tas6424";
 		reg = <0x6a>;
 		#sound-dai-cells = <0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_tas6424_gpio>;
 		dvdd-supply = <&vddext>;
 		vbat-supply = <&tas6424_hi_rail>;
 		pvdd-supply = <&tas6424_hi_rail>;
+		standby-gpios = <&gpio1 10 GPIO_ACTIVE_LOW>;
+		mute-gpios = <&gpio1 11 GPIO_ACTIVE_LOW>;
 		status = "okay";
 	};
 };
