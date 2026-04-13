@@ -38,6 +38,8 @@ Typical layout: that repo lives beside other factory checkouts (e.g. under a **`
 
 **Ordering:** Merge BSP changes to **`DynamicDevices/meta-dynamicdevices-bsp`** `main` first, **then** push **`meta-subscriber-overrides`** so the factory build picks up the new BSP revision (manifest tracks BSP `main` unless pinned otherwise).
 
+**BSP revision policy (factory / CI):** For routine build testing, keep the LmP manifest / layer setup following **`meta-dynamicdevices-bsp` `main`** (upstream **`DynamicDevices/meta-dynamicdevices-bsp`**). Avoid long-lived pins to a fork or stray SHA unless a release explicitly requires it — it keeps Foundries builds aligned with merged BSP work and reduces merge-test friction.
+
 **Key paths inside this BSP layer (relative to repo root):**
 
 - Canonical DT for Factory/LmP flows: `recipes-bsp/device-tree/lmp-device-tree/imx8mm-jaguar-dt510.dts`
@@ -100,6 +102,8 @@ Work **in order** within each tier unless a dependency forces otherwise.
 #### Tier C2 — Scoped codec sequence (prototype hardware)
 
 **Lab / product order (Ollie, issue #2):** **TAS6424** → **TAA5412** → **TAC5301** — do **not** enable all three in one DT PR without a working slice in between. **TAC5301** is explicitly **lowest priority** until the first two are stable.
+
+**TAS6424 DAI format:** Use **I2S** for initial software and lab testing (`sound-tas6424` already sets `simple-audio-card,format = "i2s"`). **TDM / 4-channel** stays a follow-on with hardware SSOT and issue #2 — not required for the first bring-up pass.
 
 | Step | Part | Bus | Audio link (SSOT / tool mux) | BSP focus |
 |------|------|-----|------------------------------|-----------|
@@ -171,8 +175,11 @@ Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md)
 | 2026-04-13 | **Tier B1:** `battery-dt510` + `bq25792@6b` enabled in DTS; CHGR_INT# + in-tree kernel driver **TBD**. |
 | 2026-04-13 | **Tier C2 step 1:** TAS6424 — `&sai1` + SSOT `pinctrl_sai1_tas6424`; `tas6424@6a` **disabled** pending supplies/GPIO; micfil off; **`MACHINE_FEATURES` `tas6424`** gates `tas6424-audio-codec.cfg` (same pattern as **`tas2562`**). |
 | 2026-04-13 | **Tier C2 step 2:** TAS6424 — `sound-tas6424` + **`tas6424@6a` okay**; **`tas6424_hi_rail`** placeholder (12V) for vbat+pvdd; **`tas6424-audio-codec.cfg`** uses active `CONFIG_SND_SOC_TAS6424=m` (not commented). |
+| 2026-04-13 | **Verification:** Documented **software-first vs prototype lab** criteria (§9) — pre-prototype images prove **enablement in rootfs/DT/kernel**, not fitted-silicon discovery. |
 | 2026-04-14 | **Tier C2 scope:** Documented codec order **TAS6424 → TAA5412 (SAI5, `0x51`) → TAC5301 (`0x50`, last)** for prototype bring-up; cross-links checklist. |
 | 2026-04-14 | **TAA5412:** Confirmed **no `pcm6240` / `CONFIG_SND_SOC_PCM6240`** in **linux-fslc** @ LmP-pinned **`SRCREV`** (6.6.52); driver is **mainline ≥ 6.10** — backport, kernel advance, or out-of-tree (see plan §5 Tier C2). |
+| 2026-04-14 | **DT510 `&i2c2`:** **`/delete-node/ tcpc@50;`** — drop EVK-inherited PTN5110 TCPC; frees **0x50** for TAC5301 per SSOT. |
+| 2026-04-14 | **Factory / §3:** Documented **follow `meta-dynamicdevices-bsp` `main`** for build testing; **Tier C2:** lock **I2S** for initial TAS6424 test (TDM later). |
 | *earlier* | Initial plan from engineering review. |
 
 ---
@@ -185,6 +192,21 @@ After each BSP change set:
 - [ ] Board boots to userspace / SSH or serial console.
 - [ ] `dmesg` — no new critical probe failures on **unchanged** peripherals.
 - [ ] If audio/USB/Wi‑Fi touched: run existing **DT510 smoke** (team script or manual) as available.
+
+### Verification phases — software enablement vs prototype hardware
+
+Use the right bar for the board you are flashing:
+
+**Before the new prototype hardware is available** (interim boards, EVK-derived bring-up, or images exercised without fitted silicon), validate **software readiness** — not whether parts respond on the bus:
+
+- **Image / machine:** Correct Foundries factory, machine, tag, and build number (e.g. `IMAGE_VERSION` / `os-release`); DT **`compatible`** includes **`fsl,imx8mm-jaguar-dt510`**.
+- **Kernel:** Expected **`CONFIG_*`** and **`.ko`** modules under `/lib/modules/$(uname -r)/` for the BSP fragments you added (codecs, gadget, I²C/SAI as applicable). Use `zcat /proc/config.gz` and module paths when available.
+- **Device tree shipped:** The booted DTB matches the **canonical DTS intent** (nodes, `status`, disabled blocks). **Success = boot to userspace without fatal DT errors** — **do not require** I²C devices to appear, drivers to bind to real chips, or ALSA playback.
+- **Userspace / distro:** Recipes, systemd units, and **`MACHINE_FEATURES`**-gated behaviour as designed.
+
+**After prototype hardware is in the lab**, add **electrical validation**: bus scans, ALSA cards and audio path, charger / power, and targeted `dmesg` review for probe failures.
+
+**Note:** DT510 includes **`freescale/imx8mm-evk.dts`**. Interim units may still show **EVK-inherited** peripherals in DT or on buses. **Do not** treat “component not found on the bench” as a failed BSP merge unless the goal of that milestone was lab proof — distinguish **software delivered in the image** from **silicon present on the PCB**.
 
 ---
 

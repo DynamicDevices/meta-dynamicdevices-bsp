@@ -432,7 +432,13 @@
 };
 
 &i2c2 {
-	/* TAC5301 @ 0x50 per SSOT — no PTN5110 TCPC on DT510 (removed; not populated). */
+	/*
+	 * imx8mm-evk.dts (included) defines tcpc@50 (PTN5110 TCPC). DT510 does not populate it;
+	 * remove the inherited node so I2C2 @ 0x50 is free for TAC5301 (Tier C2) per SSOT.
+	 */
+	/delete-node/ tcpc@50;
+
+	/* TAC5301 @ 0x50 per SSOT — address free after delete-node above. */
 
 	// Audio Amp with Dual Hardware Support
         tas2563: tas2563@4C {
