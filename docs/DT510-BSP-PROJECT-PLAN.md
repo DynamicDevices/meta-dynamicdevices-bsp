@@ -49,6 +49,8 @@ Typical layout: that repo lives beside other factory checkouts (e.g. under a **`
 
 **USB dual audio (gadget) vs codecs:** [`docs/DT510-USB-DUAL-AUDIO.md`](DT510-USB-DUAL-AUDIO.md) — gadget support **stays in the image**; enable/bind for simulation or leave stopped for real codec use. **`dt510-usb-dual-audio-autostart`** only toggles **boot autostart** (optional remove for codec-first boots).
 
+**SE050:** [`docs/DT510-SE050.md`](DT510-SE050.md) — SSOT **I2C4 @ `0x48`** matches **existing OpTEE SE05x** (`I2C_BUS=3` = `&i2c4`), same as Sentai; DT510 machine `se05x` / OEFID already correct.
+
 ---
 
 ## 4. Guiding principles
@@ -124,7 +126,7 @@ Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md)
 | Charger | BQ25792 @ `0x6B` | Placeholder `bq25792@6b` **disabled** — enable Tier B1 |
 | HDMI | LT9611 (`0x72` 8-bit → `0x39` 7-bit) | Placeholder `lt9611@39` **disabled** — enable Tier C3 |
 | Ethernet | KSZ9896 RGMII | `fec1` disabled |
-| SE050 | I2C4 `0x48` | Machine feature; **I2C4 child** may be missing in DTS — align |
+| SE050 | I2C4 `0x48` | **OpTEE/Sentai-aligned** — see [`DT510-SE050.md`](DT510-SE050.md); optional explicit DT child |
 | CAN | MCP2518xx, ECSPI2 | ECSPI2 disabled (XM125) |
 | GNSS / XM125 | Shared GPIO risk | Resolve in SSOT |
 

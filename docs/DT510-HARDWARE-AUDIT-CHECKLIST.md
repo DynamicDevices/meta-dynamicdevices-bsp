@@ -14,7 +14,7 @@
 | Class-D **TAS6424** | I2C2 `0x6A`, SAI1 | missing | `&sai1` disabled | C2 |
 | Charger **BQ25792** | I2C3 `0x6B`, `CHGR_INT#` | placeholder | `bq25792@6b` **disabled** in DTS — enable Tier B1 | B1 |
 | HDMI **LT9611** | I2C3 — SSOT `0x72` (8-bit) → DT **7-bit `0x39`** | placeholder | `lt9611@39` **disabled** in DTS — enable Tier C3 | C3 |
-| Auth **SE050** | I2C4 `0x48` | missing | No `&i2c4` children yet; machine `se05x` — add when bus validated | B4 |
+| Auth **SE050** | I2C4 `0x48` | **aligned with stack** | OpTEE **`CFG_CORE_SE05X_I2C_BUS=3`** = **`&i2c4`** (same as Sentai). Machine `se05x` + OEFID set. Optional: explicit DT node — see [`DT510-SE050.md`](DT510-SE050.md) | B4 |
 | **MCP2518xx** CAN | ECSPI2 + GPIO | conflict | `&ecspi2` disabled (XM125) | C4 |
 | Ethernet **KSZ9896** | ENET RGMII | missing | `&fec1` disabled | C1 |
 | GNSS **NEO-M9V** | GPIO reset | conflict risk | vs XM125 GPIO usage — SSOT | C5 |
@@ -35,7 +35,7 @@
 1. **Resolve I2C2 `0x50`:** one of TAC5301 vs TCPC / STUSB story — hardware + SSOT update.
 2. **Tier B1:** Enable BQ25792 + GPIO interrupt + fragment when lab-ready.
 3. **Tier C3:** LT9611 + reset/int pinctrl from SSOT.
-4. **Tier B4:** `&i2c4` + SE050 node when schematic confirms bus pins.
+4. **Tier B4:** Optional explicit `&i2c4` + SE050 DT node for kernel; OpTEE path already uses **I2C4** — see [`DT510-SE050.md`](DT510-SE050.md).
 
 ---
 
