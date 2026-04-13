@@ -24,7 +24,7 @@
         compatible = "fsl,imx8mm-jaguar-dt510", "fsl,imx8mm-evk", "fsl,imx8mm";
 
 	// Regulators
-	regulator-vddext {
+	vddext: regulator-vddext {
 		compatible = "regulator-fixed";
 		regulator-name = "VDDEXT_3V3";
 		regulator-min-microvolt = <3300000>;
@@ -61,7 +61,7 @@
 	sound-micfil {
 		compatible = "fsl,imx-audio-card";
 		model = "micfil-audio";
-		status = "okay"; /* Controlled by runtime detection */
+		status = "disabled"; /* &micfil off — SAI1 muxed for TAS6424 per SSOT */
 		pri-dai-link {
 			link-name = "micfil hifi";
 			format = "i2s";
@@ -143,9 +143,7 @@
                         MX8MM_IOMUXC_NAND_DATA01_GPIO3_IO7      0x140  // WIFI_PD#
 			MX8MM_IOMUXC_NAND_DATA02_GPIO3_IO8	0x140  // BT_WAKE_HOST
                         MX8MM_IOMUXC_NAND_DATA03_GPIO3_IO9      0x140  // BT_RST#
-			MX8MM_IOMUXC_SAI1_RXD4_GPIO4_IO6	0x140  // SLMB_0
-                        MX8MM_IOMUXC_SAI1_RXD7_GPIO4_IO9        0x140  // LED_ENABLE
-                        MX8MM_IOMUXC_SAI1_TXFS_GPIO4_IO10       0x140  // CODEC_IRQ#
+			/* SAI1_RXD4 / RXD7 / TXFS: removed — SSOT muxes these for SAI1/SAI6 TAS6424 path (see pinctrl_sai1_tas6424) */
                         MX8MM_IOMUXC_SPDIF_RX_GPIO5_IO4         0x140  // CODEC_SD#
 			// ZB_INT and ZB_RST# removed from hog - managed by ZBoss muxer
 		>;
@@ -216,6 +214,30 @@
                         MX8MM_IOMUXC_SPDIF_EXT_CLK_GPIO5_IO5    0xd6    // Audio codec interrupt
                 >;
         };
+
+	/* Tier C2 step 1 — TAS6424 on SAI1: align with docs/reference/dt510-ollie-tool-generated/pin_mux.dts (BOARD_InitPins) */
+	pinctrl_sai1_tas6424: sai1tas6424grp {
+		fsl,pins = <
+			MX8MM_IOMUXC_SAI1_MCLK_SAI1_MCLK		0xd6
+			MX8MM_IOMUXC_SAI1_RXC_GPIO4_IO1			0xd6
+			MX8MM_IOMUXC_SAI1_RXD2_GPIO4_IO4		0xd6
+			MX8MM_IOMUXC_SAI1_RXD3_GPIO4_IO5		0xd6
+			MX8MM_IOMUXC_SAI1_RXD4_SAI6_TX_BCLK		0xd6
+			MX8MM_IOMUXC_SAI1_RXD5_SAI6_TX_DATA0		0xd6
+			MX8MM_IOMUXC_SAI1_RXD6_SAI6_TX_SYNC		0xd6
+			MX8MM_IOMUXC_SAI1_RXD7_GPIO4_IO9		0xd6
+			MX8MM_IOMUXC_SAI1_RXFS_GPIO4_IO0		0xd6
+			MX8MM_IOMUXC_SAI1_TXC_SAI1_TX_BCLK		0xd6
+			MX8MM_IOMUXC_SAI1_TXD0_SAI1_TX_DATA0		0xd6
+			MX8MM_IOMUXC_SAI1_TXD1_SAI1_TX_DATA1		0xd6
+			MX8MM_IOMUXC_SAI1_TXD2_GPIO4_IO14		0xd6
+			MX8MM_IOMUXC_SAI1_TXD3_GPIO4_IO15		0xd6
+			MX8MM_IOMUXC_SAI1_TXD4_GPIO4_IO16		0xd6
+			MX8MM_IOMUXC_SAI1_TXD5_SAI6_RX_DATA0		0xd6
+			MX8MM_IOMUXC_SAI1_TXD6_GPIO4_IO18		0xd6
+			MX8MM_IOMUXC_SAI1_TXFS_SAI1_TX_SYNC		0xd6
+		>;
+	};
 
         pinctrl_uart1: uart1grp {
                 fsl,pins = <
@@ -397,6 +419,18 @@
                 
                 status = "okay";
         };
+
+	/*
+	 * TAS6424E-Q1 @ 0x6A — class-D on SAI1 (Tier C2 step 1).
+	 * Driver needs dvdd / vbat / pvdd regulators + optional standby / mute GPIOs.
+	 * Keep disabled until rails and AMP_STBY# / AMP_MUTE# nets are confirmed in SSOT.
+	 */
+	tas6424: tas6424@6a {
+		compatible = "ti,tas6424";
+		reg = <0x6a>;
+		#sound-dai-cells = <0>;
+		status = "disabled";
+	};
 };
 
 &i2c3 {
@@ -614,17 +648,20 @@
 };
 
 &sai1 {
-	status = "disabled"; /* Disabled to avoid pin conflicts with TAS2563 audio */
+	/* TAS6424 I2S/TDM to class-D — SSOT pinmux in pinctrl_sai1_tas6424 (tool-generated BOARD_InitPins); not PDM on these balls */
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sai1_tas6424>;
+	assigned-clocks = <&clk IMX8MM_CLK_SAI1_ROOT>;
+	assigned-clock-parents = <&clk IMX8MM_AUDIO_PLL1_OUT>;
+	assigned-clock-rates = <12288000>;
+	fsl,sai-mclk-direction-output;
+	#sound-dai-cells = <0>;
+	status = "okay";
 };
 
-// MICFIL for original hardware PDM microphones
+/* PDM: prior mux used SAI1 pins for MICFIL — conflicts with TAS6424 SSOT; leave off until a product variant needs PDM on another block */
 &micfil {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_pdm>;
-	assigned-clocks = <&clk IMX8MM_CLK_PDM>;
-	assigned-clock-parents = <&clk IMX8MM_AUDIO_PLL1_OUT>;
-	assigned-clock-rates = <49152000>;
-	status = "okay"; /* Both hardware variants - runtime managed */
+	status = "disabled";
 };
 
 // Enhanced SAI3 configuration for bidirectional audio (Profile 8 echo reference)
