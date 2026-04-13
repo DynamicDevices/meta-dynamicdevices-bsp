@@ -160,8 +160,7 @@
                 >;
         };
 
-        /* XM125 radar GPIO pin configuration - replaces BGT radar */
-        /* WARNING: This disables BGT 60TR13C radar support for XM125 testing */
+        /* Legacy Sentai XM125 radar pinctrl — unused on DT510 (XM125 disabled); retained for DTS compatibility */
         pinctrl_xm125_radar: xm125_radar_grp {
                 fsl,pins = <
                         /* Bootloader control (BOOT0) - repurpose ECSPI2_SS0 as GPIO */
@@ -580,20 +579,13 @@
 		status = "disabled";
 	};
 
-        /* XM125 Acconeer radar module - I2C communication */
-        /* WARNING: This replaces BGT 60TR13C radar for XM125 testing */
+        /* XM125: Sentai board only — not populated on DT510; keep node disabled for I2C addr documentation */
         xm125: xm125@52 {
                 compatible = "acconeer,xm125";
                 reg = <0x52>;
                 pinctrl-names = "default";
                 pinctrl-0 = <&pinctrl_xm125_radar>;
-                status = "okay";
-                
-                /* GPIO control lines - configured as GPIOs via libgpiod from userspace */
-                /* BOOT0: GPIO5_IO13 (was ECSPI2_SS0) */
-                /* RESET: GPIO4_IO28 (SAI3_RXFS) - active low */
-                /* WAKE:  GPIO5_IO11 (was ECSPI2_MOSI) - assert high to wake */
-                /* IRQ:   GPIO4_IO29 (SAI3_RXC) - interrupt from XM125 */
+                status = "disabled";
         };
 
 	/* SSOT placeholders (disabled): enable in Tier B1 / C3 after probe + pinctrl validation */
@@ -675,10 +667,9 @@
         };
 };
 
-// XM125 Acconeer radar module (replaces BGT 60TR13C)
-// WARNING: This disables BGT 60TR13C radar support for XM125 testing
+// ECSPI2: available for SSOT CAN (MCP2518xx) on DT510 — not used for XM125 on this board
 &ecspi2 {
-	status = "disabled";  /* Disabled for XM125 - uses I2C instead of SPI */
+	status = "disabled";  /* Enable when CAN bring-up is ready */
 	/delete-property/ pinctrl-names;
 	/delete-property/ pinctrl-0;
 };

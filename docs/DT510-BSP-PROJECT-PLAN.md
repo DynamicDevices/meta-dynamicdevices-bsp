@@ -92,8 +92,8 @@ Work **in order** within each tier unless a dependency forces otherwise.
 | C1 | **Ethernet — `&fec1` + KSZ9896** | RGMII + MDIO/DSA as per design; risk of boot hang if PHY/MDIO wrong — incremental bring-up (link up before full bridge). |
 | C2 | **Audio vs SSOT** | Spec: TAC5301 (SAI6), TAA5412 (SAI5), TAS6424 (SAI1), plus existing **TAS2563** (SAI3). Current DTS disables SAI1 and does not describe full codec set — **requires architecture decision** and I2C `0x50` resolution vs legacy TCPC node. |
 | C3 | **HDMI — LT9611** (I2C3 `0x72`) | Reset/int/fault lines per doc; check pinctrl vs other GPIO users. |
-| C4 | **CAN — MCP2518xx on ECSPI2** | **Conflicts** with current **XM125 / ECSPI2** usage in DTS — product choice: radar vs CAN or schematic change. |
-| C5 | **GNSS** | Reset line; **conflicts** possible with **XM125** usage on some GPIOs — resolve in SSOT before enabling both. |
+| C4 | **CAN — MCP2518xx on ECSPI2** | **DT510 has no XM125** (Sentai only). `&ecspi2` free for CAN bring-up when ready. |
+| C5 | **GNSS** | Reset line per SSOT — no XM125/radar GPIO contention on DT510. |
 
 ### Tier D — Defer / careful batching
 
@@ -127,8 +127,8 @@ Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md)
 | HDMI | LT9611 (`0x72` 8-bit → `0x39` 7-bit) | Placeholder `lt9611@39` **disabled** — enable Tier C3 |
 | Ethernet | KSZ9896 RGMII | `fec1` disabled |
 | SE050 | I2C4 `0x48` | **OpTEE/Sentai-aligned** — see [`DT510-SE050.md`](DT510-SE050.md); optional explicit DT child |
-| CAN | MCP2518xx, ECSPI2 | ECSPI2 disabled (XM125) |
-| GNSS / XM125 | Shared GPIO risk | Resolve in SSOT |
+| CAN | MCP2518xx, ECSPI2 | `&ecspi2` disabled — enable for CAN (no XM125 on DT510) |
+| GNSS | NEO-M9V | Per SSOT |
 
 ---
 
