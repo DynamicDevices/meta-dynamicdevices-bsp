@@ -57,8 +57,8 @@ Work **in order** within each tier unless a dependency forces otherwise.
 
 | ID | Task | Notes |
 |----|------|--------|
-| A1 | **Single DTS source** | Symlink `linux-lmp-fslc-imx/imx8mm-jaguar-dt510.dts` → `lmp-device-tree` copy (or the reverse); document canonical path in a one-line comment near the top of the DTS. |
-| A2 | **SSOT header in DTS** | Comment block: reference Google Doc + date/revision + “exceptions” list if any. |
+| A1 | **Single DTS source** | **Done:** `linux-lmp-fslc-imx/imx8mm-jaguar-dt510.dts` → symlink to `lmp-device-tree/imx8mm-jaguar-dt510.dts` (canonical). |
+| A2 | **SSOT header in DTS** | **Done:** Comment block after NXP copyright in canonical DTS (SSOT pointer, symlink note, plan + reference folder). |
 | A3 | **Audit spreadsheet / checklist** | For each major block in the doc: bus, address, DT node name, driver, `CONFIG` fragment, owner, **tier**, **status**. |
 | A4 | **Placeholder nodes** | Where safe, add **disabled** placeholders (`status = "disabled"`) for future IP **without** reallocating pinctrl from live peripherals until validated. |
 
@@ -92,11 +92,11 @@ Work **in order** within each tier unless a dependency forces otherwise.
 
 ## 6. DTS duplication — action item
 
-**Problem:** Two identical copies of `imx8mm-jaguar-dt510.dts` exist (different inodes); edits can drift.
+**Status:** **Implemented (2026-04-13).** Canonical: `recipes-bsp/device-tree/lmp-device-tree/imx8mm-jaguar-dt510.dts`. Kernel recipe: `recipes-kernel/linux/linux-lmp-fslc-imx/imx8mm-jaguar-dt510.dts` → relative symlink to the canonical file.
 
-**Action:** Choose **one** canonical file (recommended: `recipes-bsp/device-tree/lmp-device-tree/imx8mm-jaguar-dt510.dts`). Replace the kernel-recipe copy with a **relative symlink**. Ensure Git symlink handling is acceptable for all clones (`core.symlinks`).
+**Verify on next build:** `bitbake virtual/kernel` / `lmp-device-tree` unpack the symlink correctly; `dtc` / image still contains expected `imx8mm-jaguar-dt510.dtb`.
 
-**Verify after change:** `bitbake -e virtual/kernel` / `lmp-device-tree` paths still pick up the file; local `git status` shows symlink as expected.
+**Clones:** Windows checkouts without symlink support may need `git config core.symlinks true` or WSL; Linux/macOS are fine.
 
 ---
 
@@ -207,7 +207,7 @@ Reply under the matching Implementation thread (or quote it):
 
 | Date | Tier | Commit / ref | Summary | Lab outcome |
 |------|------|--------------|---------|-------------|
-| *—* | *—* | *—* | *Fill as you go.* | *—* |
+| 2026-04-13 | A1–A2 | `e6388b8` | Single DTS symlink + SSOT header; no hardware change. | N/A — confirm next image builds / boots unchanged. |
 
 ### Tips
 

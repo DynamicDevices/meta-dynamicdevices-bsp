@@ -2,6 +2,15 @@
 /*
  * Copyright 2020 NXP
  */
+/*
+ * i.MX8MM Jaguar DT510 — canonical device tree source (Tier A2).
+ *
+ * recipes-kernel/linux/linux-lmp-fslc-imx/imx8mm-jaguar-dt510.dts is a symlink to this file (Tier A1).
+ *
+ * Hardware SSOT: VIX DT510 pinout / hardware spec (Google Doc, first cut — revise on schematic proof).
+ * Tool-generated review material (not built): docs/reference/dt510-ollie-tool-generated/
+ * Bring-up plan & tiers: docs/DT510-BSP-PROJECT-PLAN.md
+ */
 
 #include "freescale/imx8mm-evk.dts"
 #include <dt-bindings/gpio/gpio.h>
