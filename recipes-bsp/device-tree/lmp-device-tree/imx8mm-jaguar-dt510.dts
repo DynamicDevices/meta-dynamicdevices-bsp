@@ -596,6 +596,19 @@
                 /* IRQ:   GPIO4_IO29 (SAI3_RXC) - interrupt from XM125 */
         };
 
+	/* SSOT placeholders (disabled): enable in Tier B1 / C3 after probe + pinctrl validation */
+	bq25792: bq25792@6b {
+		compatible = "ti,bq25792";
+		reg = <0x6b>;
+		status = "disabled";
+	};
+
+	lt9611: lt9611@39 {
+		compatible = "lontium,lt9611";
+		reg = <0x39>;
+		status = "disabled";
+	};
+
 };
 
 &sai1 {

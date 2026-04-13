@@ -45,6 +45,8 @@ Typical layout: that repo lives beside other factory checkouts (e.g. under a **`
 
 **Reference (not built):** Tool-generated / review-only DTS snapshots from hardware (e.g. Ollie’s generator output) live under **`docs/reference/dt510-ollie-tool-generated/`**. Use them for **requirements review and diffs** only — not as the shipping device tree until merged deliberately into the recipes above.
 
+**Hardware audit (SSOT ↔ BSP):** Living checklist — [`docs/DT510-HARDWARE-AUDIT-CHECKLIST.md`](DT510-HARDWARE-AUDIT-CHECKLIST.md).
+
 ---
 
 ## 4. Guiding principles
@@ -67,8 +69,8 @@ Work **in order** within each tier unless a dependency forces otherwise.
 |----|------|--------|
 | A1 | **Single DTS source** | **Done:** `linux-lmp-fslc-imx/imx8mm-jaguar-dt510.dts` → symlink to `lmp-device-tree/imx8mm-jaguar-dt510.dts` (canonical). |
 | A2 | **SSOT header in DTS** | **Done:** Comment block after NXP copyright in canonical DTS (SSOT pointer, symlink note, plan + reference folder). |
-| A3 | **Audit spreadsheet / checklist** | For each major block in the doc: bus, address, DT node name, driver, `CONFIG` fragment, owner, **tier**, **status**. |
-| A4 | **Placeholder nodes** | Where safe, add **disabled** placeholders (`status = "disabled"`) for future IP **without** reallocating pinctrl from live peripherals until validated. |
+| A3 | **Audit spreadsheet / checklist** | **Done:** [`docs/DT510-HARDWARE-AUDIT-CHECKLIST.md`](DT510-HARDWARE-AUDIT-CHECKLIST.md) — SSOT blocks vs BSP; update as doc/hardware changes. |
+| A4 | **Placeholder nodes** | **Done (partial):** `&i2c3` — `bq25792@6b`, `lt9611@39` **disabled** (no pinctrl change). **SE050 / `&i2c4`** deferred until bus present in DT. |
 
 ### Tier B — Medium priority (important features, moderate risk)
 
@@ -110,15 +112,15 @@ Work **in order** within each tier unless a dependency forces otherwise.
 
 ## 7. Known spec ↔ BSP gaps (from first-pass review)
 
-Use this as the backlog; refine against the latest Google Doc revision.
+Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md) as the live table; §7 is a short summary.
 
 | Area | SSOT (doc) | BSP today (summary) |
 |------|------------|---------------------|
 | Driver speaker | TAS2563 @ `0x4C`, SAI3 | Present |
 | Analog / mic / class-D | TAC5301, TAA5412, TAS6424 on I2C2 + SAI5/6/1 | Not fully described; SAI1 disabled |
 | I2C `0x50` | TAC5301 | Legacy TCPC placeholder @ `0x50` (disabled) — **resolve** |
-| Charger | BQ25792 @ `0x6B` | Not in DTS |
-| HDMI | LT9611 @ `0x72` | Not in DTS |
+| Charger | BQ25792 @ `0x6B` | Placeholder `bq25792@6b` **disabled** — enable Tier B1 |
+| HDMI | LT9611 (`0x72` 8-bit → `0x39` 7-bit) | Placeholder `lt9611@39` **disabled** — enable Tier C3 |
 | Ethernet | KSZ9896 RGMII | `fec1` disabled |
 | SE050 | I2C4 `0x48` | Machine feature; **I2C4 child** may be missing in DTS — align |
 | CAN | MCP2518xx, ECSPI2 | ECSPI2 disabled (XM125) |
@@ -137,7 +139,8 @@ Use this as the backlog; refine against the latest Google Doc revision.
 
 | Date | Change |
 |------|--------|
-| *—* | *Initial plan from engineering review.* |
+| 2026-04-13 | Tier A3 audit checklist; A4 I2C3 placeholders; plan §3/§7 synced. |
+| *earlier* | Initial plan from engineering review. |
 
 ---
 
@@ -216,6 +219,7 @@ Reply under the matching Implementation thread (or quote it):
 | Date | Tier | Commit / ref | Summary | Lab outcome |
 |------|------|--------------|---------|-------------|
 | 2026-04-13 | A1–A2 | `d78fe3b` | Single DTS symlink + SSOT header; no hardware change. | N/A — confirm next image builds / boots unchanged. |
+| 2026-04-13 | A3–A4 | `a9fb88f` | Audit checklist + disabled `bq25792` / `lt9611` placeholders on `&i2c3`. | Expect boot unchanged; `i2cdetect` may show `6b` / `39` if bus scanned. |
 
 ### Tips
 
