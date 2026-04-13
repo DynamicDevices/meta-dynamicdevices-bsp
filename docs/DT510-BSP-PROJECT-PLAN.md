@@ -92,7 +92,7 @@ Work **in order** within each tier unless a dependency forces otherwise.
 | ID | Task | Notes |
 |----|------|--------|
 | C1 | **Ethernet — `&fec1` + KSZ9896** | RGMII + MDIO/DSA as per design; risk of boot hang if PHY/MDIO wrong — incremental bring-up (link up before full bridge). |
-| C2 | **Audio vs SSOT** | **Step 1 (TAS6424):** `pinctrl_sai1_tas6424`, **`&sai1` enabled**, `tas6424@6a` + **`CONFIG_SND_SOC_TAS6424`** — codec node **disabled** until dvdd/vbat/pvdd + AMP_STBY#/MUTE GPIOs; **micfil / sound-micfil disabled** (mux). Still to do: **TAA5412**, **TAC5301**, `simple-audio-card` links. **I2C2 `0x50`:** free for TAC5301. |
+| C2 | **Audio vs SSOT** | **TAS6424:** `pinctrl_sai1_tas6424`, **`&sai1` okay**, **`sound-tas6424`** (`simple-audio-card` → **`tas6424-classd`**), **`tas6424@6a` okay** with **`dvdd`** + placeholder **`tas6424_hi_rail`** for **vbat/pvdd** (SSOT must replace); **standby/mute GPIOs** when netlist confirms; **`CONFIG_SND_SOC_TAS6424=m`**; **micfil / sound-micfil** off. Still to do: **TAA5412**, **TAC5301**, TDM/4ch if needed. **I2C2 `0x50`:** TAC5301. |
 | C3 | **HDMI — LT9611** (I2C3 `0x72`) | Reset/int/fault lines per doc; check pinctrl vs other GPIO users. |
 | C4 | **CAN — MCP2518xx on ECSPI2** | **DT510 has no XM125** (Sentai only). `&ecspi2` free for CAN bring-up when ready. |
 | C5 | **GNSS** | Reset line per SSOT — no XM125/radar GPIO contention on DT510. |
@@ -150,6 +150,7 @@ Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md)
 | 2026-04-13 | DT510: **removed** `tcpc@50` from DTS; **`stusb4500`** from `MACHINE_FEATURES` (no TCPC / STUSB4500 on board per Ollie). Docs + `production-test.sh` + `stusb4500-nvm` bbappend aligned. |
 | 2026-04-13 | **Tier B1:** `battery-dt510` + `bq25792@6b` enabled in DTS; CHGR_INT# + in-tree kernel driver **TBD**. |
 | 2026-04-13 | **Tier C2 step 1:** TAS6424 — `&sai1` + SSOT `pinctrl_sai1_tas6424`; `tas6424@6a` **disabled** pending supplies/GPIO; micfil off; **`MACHINE_FEATURES` `tas6424`** gates `tas6424-audio-codec.cfg` (same pattern as **`tas2562`**). |
+| 2026-04-13 | **Tier C2 step 2:** TAS6424 — `sound-tas6424` + **`tas6424@6a` okay**; **`tas6424_hi_rail`** placeholder (12V) for vbat+pvdd; **`tas6424-audio-codec.cfg`** uses active `CONFIG_SND_SOC_TAS6424=m` (not commented). |
 | *earlier* | Initial plan from engineering review. |
 
 ---

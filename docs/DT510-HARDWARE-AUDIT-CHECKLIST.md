@@ -41,7 +41,7 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 | Analog audio **TAC5301** | I2C2 `0x50` | missing | **No TCPC on DT510** — legacy `tcpc@50` **removed** from DTS; address free for TAC5301 per SSOT (enable Tier C2 when ready) | C2 |
 | Driver speaker **TAS2563** | I2C2 `0x4C`, SAI3 | present | `tas2563@4C`, `sound-tas2563`, `&sai3` | — |
 | Mic **TAA5412** | I2C2 `0x51` | missing | SAI5 — not in DTS | C2 |
-| Class-D **TAS6424** | I2C2 `0x6A`, SAI1 | **partial** | **`tas6424@6a` disabled** until regulators + GPIO; **`&sai1` okay** + `pinctrl_sai1_tas6424` (SSOT tool mux); **`&micfil` / `sound-micfil` disabled** (PDM vs TAS6424 mux); `CONFIG_SND_SOC_TAS6424=m` | C2 |
+| Class-D **TAS6424** | I2C2 `0x6A`, SAI1 | **enabled (validate)** | **`tas6424@6a` okay** + **`sound-tas6424`** (`tas6424-classd`); **`tas6424_hi_rail`** placeholder for vbat/pvdd — **confirm SSOT**; **`&sai1` okay** + `pinctrl_sai1_tas6424`; **`&micfil` / `sound-micfil` disabled**; `CONFIG_SND_SOC_TAS6424=m` | C2 |
 | Charger **BQ25792** | I2C3 `0x6B`, `CHGR_INT#` | **partial** | **`bq25792@6b` enabled** + `simple-battery` (`battery-dt510`). **CHGR_INT#** not wired in DTS yet (SSOT). **Kernel 6.6.x:** no upstream `ti,bq25792` charger driver in-tree — DT ready for future kernel/backport; use `i2c-dev` for lab. | B1 |
 | HDMI **LT9611** | I2C3 — SSOT `0x72` (8-bit) → DT **7-bit `0x39`** | placeholder | `lt9611@39` **disabled** in DTS — enable Tier C3 | C3 |
 | Auth **SE050** | I2C4 `0x48` | **aligned with stack** | OpTEE **`CFG_CORE_SE05X_I2C_BUS=3`** = **`&i2c4`** (same as Sentai). Machine `se05x` + OEFID set. Optional: explicit DT node — see [`DT510-SE050.md`](DT510-SE050.md) | B4 |

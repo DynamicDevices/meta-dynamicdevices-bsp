@@ -31,6 +31,41 @@
 		regulator-max-microvolt = <3300000>;
 	};
 
+	/*
+	 * TAS6424: driver requires vbat + pvdd (Linux supply names) in addition to dvdd.
+	 * Single placeholder for the high-voltage amp rail — **replace voltage / topology with SSOT**
+	 * (PMIC net names, separate VBAT vs PVDD, always-on vs switched) after schematic review.
+	 */
+	tas6424_hi_rail: regulator-tas6424-hi {
+		compatible = "regulator-fixed";
+		regulator-name = "TAS6424_VBAT_PVDD";
+		regulator-min-microvolt = <12000000>;
+		regulator-max-microvolt = <12000000>;
+		regulator-always-on;
+	};
+
+	/* Tier C2: TAS6424 class-D — CPU (SAI1) is BCLK/FS master; codec is slave (driver CBC_CFC). */
+	sound-tas6424 {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "tas6424-classd";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,frame-master = <&tas6424_cpu_dai>;
+		simple-audio-card,bitclock-master = <&tas6424_cpu_dai>;
+		simple-audio-card,widgets =
+			"Speaker", "Speaker";
+		simple-audio-card,routing =
+			"Speaker", "OUT";
+
+		tas6424_cpu_dai: simple-audio-card,cpu {
+			sound-dai = <&sai1>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&tas6424>;
+			clocks = <&clk IMX8MM_CLK_SAI1_ROOT>;
+		};
+	};
+
 	sound-tas2563 {
                 compatible = "simple-audio-card";
                 simple-audio-card,name = "tas2563-audio";
@@ -421,15 +456,17 @@
         };
 
 	/*
-	 * TAS6424E-Q1 @ 0x6A — class-D on SAI1 (Tier C2 step 1).
-	 * Driver needs dvdd / vbat / pvdd regulators + optional standby / mute GPIOs.
-	 * Keep disabled until rails and AMP_STBY# / AMP_MUTE# nets are confirmed in SSOT.
+	 * TAS6424E-Q1 @ 0x6A — class-D on SAI1 (Tier C2).
+	 * standby-gpios / mute-gpios: add when AMP_STBY# / AMP_MUTE# are confirmed in SSOT (optional in driver).
 	 */
 	tas6424: tas6424@6a {
 		compatible = "ti,tas6424";
 		reg = <0x6a>;
 		#sound-dai-cells = <0>;
-		status = "disabled";
+		dvdd-supply = <&vddext>;
+		vbat-supply = <&tas6424_hi_rail>;
+		pvdd-supply = <&tas6424_hi_rail>;
+		status = "okay";
 	};
 };
 
