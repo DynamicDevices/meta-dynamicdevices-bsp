@@ -749,7 +749,11 @@
  */
 &usbotg1 {
 	dr_mode = "peripheral";
-        status = "okay";
+	status = "okay";
+	/* imx8mm-evk.dtsi links usb1_drd_sw ↔ typec1_dr_sw on &ptn5110 (tcpc@50). We delete tcpc@50;
+	 * drop the role-switch graph so DTC does not reference a missing typec1_dr_sw phandle. */
+	/delete-property/ usb-role-switch;
+	/delete-node/ port;
 };
 
 // WiFi SDIO Interface - IW612 module with power management
