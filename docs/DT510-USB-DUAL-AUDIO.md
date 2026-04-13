@@ -1,5 +1,14 @@
 # DT510: USB dual audio (gadget) vs on-board codecs
 
+## Philosophy
+
+**Gadget support stays in the image** (`usb-gadget-scripts`, `setup-usb-dual-audio-gadget`, systemd unit). There is no need to remove it from the build when moving to real codecs.
+
+- **Real hardware audio:** use the on-board codec path (SAI/I2S, ALSA, AVM). Simply **do not start** the USB gadget service if you do not want USB simulation (or turn off **autostart** — see below).
+- **Simulated / lab USB audio:** **enable** and **bind** the gadget (`systemctl start` …) when you want the host to see dual UAC2; same image, different runtime choice.
+
+So: **one image**, optional USB gadget enable/bind for simulation, codec stack when using physical transducers.
+
 ## Roles
 
 | Path | Use |
@@ -7,7 +16,7 @@
 | **USB dual UAC2 gadget** | **Simulated / lab** — host sees two audio interfaces (driver + passengers) over USB; pairs with AVM/container tests and laptop bridge scripts. |
 | **On-board codecs** (TAS2563, future TAC5301 / TAA5412 / TAS6424 per SSOT) | **Product audio** — I2S/SAI to physical transducers; this is the long-term implementation. |
 
-Both can coexist in software builds; **boot policy** controls whether the gadget starts automatically.
+Both paths can coexist; **boot policy** only controls whether the gadget **starts automatically** at boot — not whether support is installed.
 
 ## Machine feature: `dt510-usb-dual-audio-autostart`
 
