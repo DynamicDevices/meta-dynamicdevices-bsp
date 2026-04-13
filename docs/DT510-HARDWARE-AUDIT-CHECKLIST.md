@@ -62,11 +62,18 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 
 ## Next actions (from this audit)
 
-1. **TAC5301 @ I2C2 `0x50`:** TCPC placeholder **removed** from DTS — add/enable **TAC5301** node when Tier C2 audio work lands (SSOT + Ollie order: after TAS6424 / TAA5412 per lab).
-2. **Tier B1 (follow-up):** Add **CHGR_INT#** to DTS when GPIO is in SSOT; enable **CONFIG_CHARGER_BQ25790** / **CONFIG_CHARGER_BQ257XX** when factory kernel ships a matching driver (not in 6.6.x mainline as used by LmP today).
-3. **Tier C3:** LT9611 + reset/int pinctrl from SSOT.
-4. **Tier B4:** Optional explicit `&i2c4` + SE050 DT node for kernel; OpTEE path already uses **I2C4** — see [`DT510-SE050.md`](DT510-SE050.md).
+**Tier C2 codec order (prototype DT510 — see plan §5 Tier C2 scoped sequence):**
+
+1. **TAS6424** @ `0x6A` / SAI1 — validate on hardware (kernel config, card, rails/GPIOs per #2); then TDM vs I2S if product chooses TDM.
+2. **TAA5412** @ I2C2 **`0x51`** / **SAI5** — add **`&sai5`** + pinctrl from SSOT / `pin_mux` reference; codec + ALSA card; driver/bindings vs **6.6.x** (upstream **`ti,taa5412`** / **`CONFIG_SND_SOC_PCM6240`** path may need version check).
+3. **TAC5301** @ I2C2 **`0x50`** — **last** (low priority per lab). TCPC already removed; enable node + audio link when SSOT + driver path are ready.
+
+**Other tiers**
+
+4. **Tier B1 (follow-up):** Add **CHGR_INT#** to DTS when GPIO is in SSOT; enable **CONFIG_CHARGER_BQ25790** / **CONFIG_CHARGER_BQ257XX** when factory kernel ships a matching driver (not in 6.6.x mainline as used by LmP today).
+5. **Tier C3:** LT9611 + reset/int pinctrl from SSOT.
+6. **Tier B4:** Optional explicit `&i2c4` + SE050 DT node for kernel; OpTEE path already uses **I2C4** — see [`DT510-SE050.md`](DT510-SE050.md).
 
 ---
 
-*Last updated: 2026-04-13 — TCPC/STUSB4500 removed from DT510 BSP (Ollie: no TCPC, no STUSB4500 on DT510).*
+*Last updated: 2026-04-14 — Tier C2 codec order (TAS6424 → TAA5412 → TAC5301) aligned with project plan.*

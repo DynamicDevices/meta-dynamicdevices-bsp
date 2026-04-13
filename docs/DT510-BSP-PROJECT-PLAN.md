@@ -97,6 +97,18 @@ Work **in order** within each tier unless a dependency forces otherwise.
 | C4 | **CAN — MCP2518xx on ECSPI2** | **DT510 has no XM125** (Sentai only). `&ecspi2` free for CAN bring-up when ready. |
 | C5 | **GNSS** | Reset line per SSOT — no XM125/radar GPIO contention on DT510. |
 
+#### Tier C2 — Scoped codec sequence (prototype hardware)
+
+**Lab / product order (Ollie, issue #2):** **TAS6424** → **TAA5412** → **TAC5301** — do **not** enable all three in one DT PR without a working slice in between. **TAC5301** is explicitly **lowest priority** until the first two are stable.
+
+| Step | Part | Bus | Audio link (SSOT / tool mux) | BSP focus |
+|------|------|-----|------------------------------|-----------|
+| 1 | **TAS6424** (class-D) | I2C2 `0x6A` | **SAI1** (+ SAI6 pins muxed via `pinctrl_sai1_tas6424`) | Validate rails + GPIOs + `CONFIG_SND_SOC_TAS6424`; TDM vs I2S decision (#2). |
+| 2 | **TAA5412** (mic) | I2C2 `0x51` | **SAI5** — *not in shipping DTS yet* | Add **`&sai5`** + SSOT `pinctrl` (see `docs/reference/dt510-ollie-tool-generated/pin_mux.dts` SAI5 block); codec node + `sound-*` card; upstream uses **`ti,taa5412`** under **`CONFIG_SND_SOC_PCM6240`** (newer kernels) — confirm vs **6.6.x** LmP line and add fragment/backport as needed. |
+| 3 | **TAC5301** (analog audio) | I2C2 `0x50` | Per SSOT (enable after **0x50** free — TCPC already removed) | Node + supplies/MCLK/`simple-audio-card` link; align with kernel `CONFIG_*` when driver story is clear. |
+
+**Cross-links:** [`DT510-HARDWARE-AUDIT-CHECKLIST.md`](DT510-HARDWARE-AUDIT-CHECKLIST.md) table rows; **I2C2** also carries **TAS2563** @ `0x4C` (already enabled).
+
 ### Tier D — Defer / careful batching
 
 | ID | Task | Notes |
@@ -151,6 +163,7 @@ Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md)
 | 2026-04-13 | **Tier B1:** `battery-dt510` + `bq25792@6b` enabled in DTS; CHGR_INT# + in-tree kernel driver **TBD**. |
 | 2026-04-13 | **Tier C2 step 1:** TAS6424 — `&sai1` + SSOT `pinctrl_sai1_tas6424`; `tas6424@6a` **disabled** pending supplies/GPIO; micfil off; **`MACHINE_FEATURES` `tas6424`** gates `tas6424-audio-codec.cfg` (same pattern as **`tas2562`**). |
 | 2026-04-13 | **Tier C2 step 2:** TAS6424 — `sound-tas6424` + **`tas6424@6a` okay**; **`tas6424_hi_rail`** placeholder (12V) for vbat+pvdd; **`tas6424-audio-codec.cfg`** uses active `CONFIG_SND_SOC_TAS6424=m` (not commented). |
+| 2026-04-14 | **Tier C2 scope:** Documented codec order **TAS6424 → TAA5412 (SAI5, `0x51`) → TAC5301 (`0x50`, last)** for prototype bring-up; cross-links checklist. |
 | *earlier* | Initial plan from engineering review. |
 
 ---
@@ -240,4 +253,4 @@ Reply under the matching Implementation thread (or quote it):
 
 ---
 
-*Last updated: 2026-04-13*
+*Last updated: 2026-04-14*
