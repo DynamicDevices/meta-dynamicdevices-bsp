@@ -149,7 +149,7 @@ Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md)
 | 2026-04-13 | Linked §2 to **Sentai vs DT510** clarification in `DT510-HARDWARE-AUDIT-CHECKLIST.md` (issue #2 / product questions). |
 | 2026-04-13 | DT510: **removed** `tcpc@50` from DTS; **`stusb4500`** from `MACHINE_FEATURES` (no TCPC / STUSB4500 on board per Ollie). Docs + `production-test.sh` + `stusb4500-nvm` bbappend aligned. |
 | 2026-04-13 | **Tier B1:** `battery-dt510` + `bq25792@6b` enabled in DTS; CHGR_INT# + in-tree kernel driver **TBD**. |
-| 2026-04-13 | **Tier C2 step 1:** TAS6424 — `&sai1` + SSOT `pinctrl_sai1_tas6424`; `tas6424@6a` **disabled** pending supplies/GPIO; micfil off; `tas6424-audio-codec.cfg`. |
+| 2026-04-13 | **Tier C2 step 1:** TAS6424 — `&sai1` + SSOT `pinctrl_sai1_tas6424`; `tas6424@6a` **disabled** pending supplies/GPIO; micfil off; **`MACHINE_FEATURES` `tas6424`** gates `tas6424-audio-codec.cfg` (same pattern as **`tas2562`**). |
 | *earlier* | Initial plan from engineering review. |
 
 ---
