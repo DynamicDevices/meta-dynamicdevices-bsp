@@ -167,7 +167,7 @@
 
 &iomuxc {
         pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_hog>, <&pinctrl_gpio1_dio>;
+	pinctrl-0 = <&pinctrl_hog>, <&pinctrl_gpio1_dio>, <&pinctrl_bq25792_chgr_int>;
 
 	// TODO: Break these out better?
 	pinctrl_hog: hoggrp {
@@ -256,6 +256,16 @@
 		>;
 	};
 
+	/*
+	 * B1 SSOT: CHGR_INT# from BQ25792 → SAI1_RXD7 / GPIO4_IO9 (active-low). Mux as GPIO, not SAI.
+	 * Conflicts with prior LP5024 enable-gpios on gpio4 9 — LED driver leaves EN to hardware.
+	 */
+	pinctrl_bq25792_chgr_int: bq25792_chgr_int_grp {
+		fsl,pins = <
+			MX8MM_IOMUXC_SAI1_RXD7_GPIO4_IO9	0x140  /* CHGR_INT# */
+		>;
+	};
+
 	/* Tier C2 step 1 — TAS6424 on SAI1: align with docs/reference/dt510-ollie-tool-generated/pin_mux.dts (BOARD_InitPins) */
 	pinctrl_sai1_tas6424: sai1tas6424grp {
 		fsl,pins = <
@@ -266,7 +276,7 @@
 			MX8MM_IOMUXC_SAI1_RXD4_SAI6_TX_BCLK		0xd6
 			MX8MM_IOMUXC_SAI1_RXD5_SAI6_TX_DATA0		0xd6
 			MX8MM_IOMUXC_SAI1_RXD6_SAI6_TX_SYNC		0xd6
-			MX8MM_IOMUXC_SAI1_RXD7_GPIO4_IO9		0xd6
+			/* SAI1_RXD7 / GPIO4_IO9: BQ25792 CHGR_INT# — not SAI (see pinctrl_bq25792_chgr_int) */
 			MX8MM_IOMUXC_SAI1_RXFS_GPIO4_IO0		0xd6
 			MX8MM_IOMUXC_SAI1_TXC_SAI1_TX_BCLK		0xd6
 			MX8MM_IOMUXC_SAI1_TXD0_SAI1_TX_DATA0		0xd6
@@ -517,7 +527,7 @@
             #size-cells = <0>;
             compatible = "ti,lp5024";
             reg = <0x28>;
-            enable-gpios = <&gpio4 9 GPIO_ACTIVE_HIGH>;
+            /* enable-gpios was gpio4 9 — same ball as BQ25792 CHGR_INT# (B1 SSOT); EN must be tied or routed elsewhere */
 
             multi-led@0 {
                 #address-cells = <1>;
@@ -688,12 +698,13 @@
 		status = "disabled";
 	};
 
-	/* Tier B1: BQ25792 @ 0x6B on I2C3 — Ollie confirmed address. Add CHGR_INT# when GPIO is in SSOT. */
+	/* Tier B1: BQ25792 @ 0x6B on I2C3 — CHGR_INT# → SAI1_RXD7 / GPIO4_IO9 (active-low, B1 SSOT). */
 	bq25792: bq25792@6b {
 		compatible = "ti,bq25792";
 		reg = <0x6b>;
 		monitored-battery = <&battery_dt510>;
-		/* interrupt-parent / interrupts: wire CHGR_INT# (active-low pulse per TI) when confirmed */
+		interrupt-parent = <&gpio4>;
+		interrupts = <9 IRQ_TYPE_LEVEL_LOW>;
 		status = "okay";
 	};
 
@@ -708,7 +719,7 @@
 };
 
 &sai1 {
-	/* TAS6424 I2S/TDM to class-D — SSOT pinmux in pinctrl_sai1_tas6424 (tool-generated BOARD_InitPins); not PDM on these balls */
+	/* TAS6424 I2S/TDM to class-D — SSOT pinmux in pinctrl_sai1_tas6424; SAI1_RXD7 ball is CHGR_INT#, not SAI */
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sai1_tas6424>;
 	assigned-clocks = <&clk IMX8MM_CLK_SAI1_ROOT>;

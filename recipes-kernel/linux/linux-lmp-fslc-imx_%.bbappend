@@ -73,6 +73,7 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
 		${@bb.utils.contains('MACHINE_FEATURES', 'tas2562', 'file://tas2562-driver.cfg', '', d)} \
 		${@bb.utils.contains('ENABLE_BOOT_PROFILING', '1', 'file://boot-profiling.cfg', '', d)} \
 		file://imx8mm-jaguar-dt510/rdc-driver.cfg \
+		${@bb.utils.contains('MACHINE_FEATURES', 'bq25792-charger', 'file://imx8mm-jaguar-dt510/0010-mfd-bq257xx-add-bq25703a-core-fslc.patch file://imx8mm-jaguar-dt510/bq257xx-mfd-kconfig.cfg', '', d)} \
 		file://imx8mm-jaguar-dt510.dts \
 "
 
