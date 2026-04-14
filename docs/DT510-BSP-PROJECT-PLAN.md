@@ -81,6 +81,8 @@ Work **in order** within each tier unless a dependency forces otherwise.
 | A3 | **Audit spreadsheet / checklist** | **Done:** [`docs/DT510-HARDWARE-AUDIT-CHECKLIST.md`](DT510-HARDWARE-AUDIT-CHECKLIST.md) — SSOT blocks vs BSP; update as doc/hardware changes. |
 | A4 | **Placeholder nodes** | **Done:** `&i2c3` — **`bq25792@6b` enabled (Tier B1)**; `lt9611@39` **disabled**. **SE050:** same as **Sentai** — **no** SE050 child in Jaguar DTS; **OpTEE** + **`se05x`** / **`SE05X_OEFID`** (see [`DT510-SE050.md`](DT510-SE050.md)). Optional explicit **`&i2c4` / `se050@48`** in kernel DT is **not** required for parity with Sentai — **Tier B4** if you want Linux-visible node. |
 
+**Tier A — status:** **Complete** on `main` (software + interim lab smoke: factory images boot, OTA/SSH, DTS intent). **Full validation** (BOM/schematic, per-block electrical test, SSOT sign-off) is **queued for prototype hardware** — use §9 and Tier **B/C** when boards land. Git tag: **`dt510-tier-a-test-1`** (annotated, points at BSP `main` at tag time).
+
 ### Tier B — Medium priority (important features, moderate risk)
 
 | ID | Task | Notes |
@@ -189,6 +191,7 @@ Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md)
 | 2026-04-14 | **Lab log / #10:** Logged @ohull456 **TAS6424** input (always-on rails; **AMP_STBY#** / **AMP_MUTE#** pending ball→GPIO); **I2C3** GPIOs for charger/HDMI **deferred**. |
 | *earlier* | Initial plan from engineering review. |
 | 2026-04-14 | **A4 / SE050:** Aligned with **Sentai** — neither DTS adds an SE050 node; **OpTEE** handles I²C. Removed incorrect “wait for `&i2c4` in DT” gate for A4; optional DT child stays **B4** / [`DT510-SE050.md`](DT510-SE050.md). |
+| 2026-04-14 | **Tier A:** Marked **complete**; interim lab validation done — **prototype hardware** is the next gate for full electrical/SSOT testing. Annotated tag **`dt510-tier-a-test-1`**. |
 
 ---
 
@@ -283,6 +286,7 @@ Reply under the matching Implementation thread (or quote it):
 
 | Date | Tier | Commit / ref | Summary | Lab outcome |
 |------|------|--------------|---------|-------------|
+| 2026-04-14 | **A (complete)** | **`dt510-tier-a-test-1`** → `main` @ tag | **A1–A4** done; Sentai parity + DT cleanup; SE050 via OpTEE like Sentai. | Interim HW: PASS smoke (boot/SSH/DT). **Prototype BOM:** full test **pending** new boards. |
 | 2026-04-14 | C2 / HW | [#2](https://github.com/DynamicDevices/meta-dynamicdevices-bsp/issues/2) @ohull456 | **TAS6424:** rails always-on (no SW sequencing); **AMP_STBY#** / **AMP_MUTE#** high for run, no pulls, no other use; **ball→GPIO TBD** for DTS. **I2C3** charger/HDMI GPIOs deferred (low pri). | N/A lab until GPIO mapping + prototype bench. |
 | 2026-04-13 | A1–A2 | `d78fe3b` | Single DTS symlink + SSOT header; no hardware change. | N/A — confirm next image builds / boots unchanged. |
 | 2026-04-13 | A3–A4 | `66d5c1f` | Audit checklist + disabled `bq25792` / `lt9611` placeholders on `&i2c3`. | Expect boot unchanged; `i2cdetect` may show `6b` / `39` if bus scanned. |
@@ -295,4 +299,4 @@ Reply under the matching Implementation thread (or quote it):
 
 ---
 
-*Last updated: 2026-04-15 — TAS2563 hog removed*
+*Last updated: 2026-04-14 — Tier A complete; tag `dt510-tier-a-test-1`*

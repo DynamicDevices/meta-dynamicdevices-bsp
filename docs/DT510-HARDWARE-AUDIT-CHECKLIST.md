@@ -2,6 +2,8 @@
 
 **Purpose:** Track each major block from the [VIX DT510 hardware SSOT](https://docs.google.com/document/d/1dlVcfW7SrOifR-rGjkJnVbnQBO4uU8HeS1MEfDmgcYE/edit?usp=sharing) against **`imx8mm-jaguar-dt510.dts`** and kernel fragments. Update as the doc or board changes.
 
+**Milestone:** [Project plan §5 Tier A](DT510-BSP-PROJECT-PLAN.md#tier-a--do-first-high-value-low-boot-risk) is **complete** on `main` (test tag **`dt510-tier-a-test-1`**). Interim lab boards validated boot/software; **full SSOT ↔ bench checks** target **prototype hardware** when available.
+
 **Related:** [`DT510-BSP-PROJECT-PLAN.md`](DT510-BSP-PROJECT-PLAN.md) · Tool reference: [`reference/dt510-ollie-tool-generated/`](reference/dt510-ollie-tool-generated/) · **Sentai vs DT510:** [§ below](#sentai-vs-dt510-product-clarification)
 
 **Legend — BSP status:** present | partial | missing | placeholder | conflict | N/A
@@ -18,7 +20,7 @@ Machine: **`imx8mm-jaguar-sentai`** vs **`imx8mm-jaguar-dt510`**. Use this when 
 |--------|--------|--------|
 | **Acconeer XM125 radar** | `MACHINE_FEATURES` includes **`xm125-radar`**; DTS **`xm125@52`** enabled; **`xm125-radar-monitor`** recipe is **`COMPATIBLE_MACHINE = imx8mm-jaguar-sentai`** only | XM125 **not populated**; **`xm125@52`** + **`pinctrl_xm125_radar`** **removed** from DT510 DTS (Sentai only); no **`xm125-radar`** feature |
 | **USB dual UAC2 gadget autostart** | Not a DT510-specific machine feature | **`dt510-usb-dual-audio-autostart`** — toggles **boot** autostart of the lab/simulated gadget path (see [`DT510-USB-DUAL-AUDIO.md`](DT510-USB-DUAL-AUDIO.md)) |
-| **Charger / HDMI placeholders** | Not in the DT510-vs-Sentai DTS diff as matching disabled nodes | DTS has **disabled** **`bq25792@6b`** and **`lt9611@39`** placeholders — confirm **BOM and bus** on DT510 vs Sentai from schematic (not inferrable from `MACHINE_FEATURES` alone) |
+| **Charger / HDMI placeholders** | Not in the DT510-vs-Sentai DTS diff as matching disabled nodes | **`bq25792@6b` enabled** (Tier B1 — kernel charger TBD); **`lt9611@39` disabled** — confirm **BOM** when enabling HDMI |
 | **STUSB4500 / USB‑C PD** | `MACHINE_FEATURES` **`stusb4500`**; PD firmware / distro feature | **Not on DT510** — IC not populated; **`stusb4500`** removed from `imx8mm-jaguar-dt510.conf` |
 | **PTN5110 / TCPC @ `0x50`** | Legacy **`tcpc@50`** in Jaguar DTS variants | **Not on DT510** — node **removed** from `imx8mm-jaguar-dt510.dts`; **`0x50`** reserved for **TAC5301** per SSOT |
 
