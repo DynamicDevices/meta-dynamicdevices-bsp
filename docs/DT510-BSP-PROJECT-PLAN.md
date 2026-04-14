@@ -79,7 +79,7 @@ Work **in order** within each tier unless a dependency forces otherwise.
 | A1 | **Single DTS source** | **Done:** `linux-lmp-fslc-imx/imx8mm-jaguar-dt510.dts` → symlink to `lmp-device-tree/imx8mm-jaguar-dt510.dts` (canonical). |
 | A2 | **SSOT header in DTS** | **Done:** Comment block after NXP copyright in canonical DTS (SSOT pointer, symlink note, plan + reference folder). |
 | A3 | **Audit spreadsheet / checklist** | **Done:** [`docs/DT510-HARDWARE-AUDIT-CHECKLIST.md`](DT510-HARDWARE-AUDIT-CHECKLIST.md) — SSOT blocks vs BSP; update as doc/hardware changes. |
-| A4 | **Placeholder nodes** | **Done (partial):** `&i2c3` — **`bq25792@6b` enabled (Tier B1)**; `lt9611@39` **disabled**. **SE050 / `&i2c4`** deferred until bus present in DT. |
+| A4 | **Placeholder nodes** | **Done:** `&i2c3` — **`bq25792@6b` enabled (Tier B1)**; `lt9611@39` **disabled**. **SE050:** same as **Sentai** — **no** SE050 child in Jaguar DTS; **OpTEE** + **`se05x`** / **`SE05X_OEFID`** (see [`DT510-SE050.md`](DT510-SE050.md)). Optional explicit **`&i2c4` / `se050@48`** in kernel DT is **not** required for parity with Sentai — **Tier B4** if you want Linux-visible node. |
 
 ### Tier B — Medium priority (important features, moderate risk)
 
@@ -188,6 +188,7 @@ Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md)
 | 2026-04-15 | **Foundries #150 / USB:** **`/delete-node/ tcpc@50`** removed **`typec1_dr_sw`**; **`&usbotg1`** still had **`remote-endpoint = <&typec1_dr_sw>`** (imx8mm-evk.dtsi) → DTC **phandle_references** failure. Fix: **`&usbotg1`** **`/delete-node/ port;`** + **`/delete-property/ usb-role-switch`** for peripheral-only gadget. |
 | 2026-04-14 | **Lab log / #10:** Logged @ohull456 **TAS6424** input (always-on rails; **AMP_STBY#** / **AMP_MUTE#** pending ball→GPIO); **I2C3** GPIOs for charger/HDMI **deferred**. |
 | *earlier* | Initial plan from engineering review. |
+| 2026-04-14 | **A4 / SE050:** Aligned with **Sentai** — neither DTS adds an SE050 node; **OpTEE** handles I²C. Removed incorrect “wait for `&i2c4` in DT” gate for A4; optional DT child stays **B4** / [`DT510-SE050.md`](DT510-SE050.md). |
 
 ---
 
