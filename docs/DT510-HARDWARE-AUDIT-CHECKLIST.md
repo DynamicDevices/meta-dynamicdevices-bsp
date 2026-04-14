@@ -44,15 +44,15 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 | Driver speaker **TAS2563** | I2C2 `0x4C`, SAI3 | present | `tas2563@4C`, `sound-tas2563`, `&sai3` | — |
 | Mic **TAA5412** | I2C2 `0x51` | missing | SAI5 — not in DTS; **`ti,taa5412`** / **`snd_soc_pcm6240`** — **not** in factory **linux-fslc 6.6.52** @ LmP SRCREV; mainline **6.10+** — backport/kernel bump/out-of-tree before enable | C2 |
 | Class-D **TAS6424** | I2C2 `0x6A`, SAI1 | **enabled (validate)** | **`tas6424@6a` okay** + **`sound-tas6424`** (`tas6424-classd`); **`tas6424_hi_rail`** placeholder for vbat/pvdd — **confirm SSOT**; **`&sai1` okay** + `pinctrl_sai1_tas6424`; **`&micfil` / `sound-micfil` disabled**; `CONFIG_SND_SOC_TAS6424=m` | C2 |
-| Charger **BQ25792** | I2C3 `0x6B`, `CHGR_INT#` | **partial** | **`bq25792@6b` enabled** + `simple-battery` (`battery-dt510`). **CHGR_INT#** not wired in DTS yet (SSOT). **Kernel 6.6.x:** no upstream `ti,bq25792` charger driver in-tree — DT ready for future kernel/backport; use `i2c-dev` for lab. | B1 |
+| Charger **BQ25792** | I2C3 `0x6B`, `CHGR_INT#` | **partial** | **`bq25792@6b` enabled** + `simple-battery`; **`bq25792-charger.cfg`** documents no **bq257xx** in **6.6.x** fslc. **CHGR_INT#** pending SSOT. Lab: **`i2c-dev`** on **`i2c-2`** (I2C3). | B1 |
 | HDMI **LT9611** | I2C3 — SSOT `0x72` (8-bit) → DT **7-bit `0x39`** | placeholder | `lt9611@39` **disabled** in DTS — enable Tier C3 | C3 |
 | Auth **SE050** | I2C4 `0x48` | **aligned with stack** | OpTEE **`CFG_CORE_SE05X_I2C_BUS=3`** = **`&i2c4`** (same as Sentai). Machine `se05x` + OEFID set. Optional: explicit DT node — see [`DT510-SE050.md`](DT510-SE050.md) | B4 |
 | **MCP2518xx** CAN | ECSPI2 + GPIO | missing | `&ecspi2` disabled — **not** XM125 on DT510 (Sentai only); enable for CAN when ready | C4 |
 | Ethernet **KSZ9896** | ENET RGMII | missing | `&fec1` disabled | C1 |
 | GNSS **NEO-M9V** | GPIO reset | missing | Per SSOT — no XM125 on DT510 (frees GPIOs that Sentai used for radar) | C5 |
 | HDMI misc **HDMI2C1-6C1** | GPIO | partial | Fault line per SSOT — align with LT9611 bring-up | C3 |
-| **CP2108** quad-UART | GPIO reset | missing | USB enumeration; optional reset GPIO | B3 |
-| Digital I/O | GPIO1 | missing | Tier B2 | B2 |
+| **CP2108** quad-UART | GPIO reset | **doc / optional DT** | USB enumeration; DTS comment — add GPIO when SSOT names reset | B3 |
+| Digital I/O | GPIO1_IO0–9 | **partial** | **`pinctrl_gpio1_dio`** + EVK **`ir_recv` / `reg_pcie0` / `backlight`** disabled; validate on prototype | B2 |
 | **MAYA-W276** (Wi‑Fi / BT / 802.15.4) | SDIO, SPI, UART, SAI2 | partial | `&usdhc2`, `&ecspi1`, `&uart1`, `&sai2` etc. | — |
 | **STUSB4500** / USB‑C PD | — | **N/A (DT510)** | **Not populated** — no `stusb4500` machine feature; gadget uses **`&usbotg1`** peripheral only (see `DT510-USB-DUAL-AUDIO.md`). **Sentai** retains STUSB4500. | — |
 | **USB dual UAC2 gadget** | `usbotg1` peripheral + systemd | present | **Simulated / lab** path — see [`DT510-USB-DUAL-AUDIO.md`](DT510-USB-DUAL-AUDIO.md); feature `dt510-usb-dual-audio-autostart` | — |
@@ -72,9 +72,9 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 
 **Other tiers**
 
-4. **Tier B1 (follow-up):** Add **CHGR_INT#** to DTS when GPIO is in SSOT; enable **CONFIG_CHARGER_BQ25790** / **CONFIG_CHARGER_BQ257XX** when factory kernel ships a matching driver (not in 6.6.x mainline as used by LmP today).
+4. **Tier B1 (follow-up):** Add **CHGR_INT#** to DTS when GPIO is in SSOT; enable **CONFIG_MFD_BQ257XX** / **CONFIG_CHARGER_BQ257XX** when factory kernel ships **bq257xx** (see **`bq25792-charger.cfg`** notes).
 5. **Tier C3:** LT9611 + reset/int pinctrl from SSOT.
-6. **Tier B4:** Optional explicit `&i2c4` + SE050 DT node for kernel; OpTEE path already uses **I2C4** — see [`DT510-SE050.md`](DT510-SE050.md).
+6. **Tier B4:** Optional explicit `&i2c4` + SE050 DT node for kernel; **Tier B** closed at **doc** parity with Sentai — see [`DT510-SE050.md`](DT510-SE050.md).
 
 ---
 

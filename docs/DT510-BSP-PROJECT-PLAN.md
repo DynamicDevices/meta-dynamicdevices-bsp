@@ -87,10 +87,10 @@ Work **in order** within each tier unless a dependency forces otherwise.
 
 | ID | Task | Notes |
 |----|------|--------|
-| B1 | **BQ25792** (charger, I2C3 `0x6B`, `CHGR_INT#`) | **DT:** `battery-dt510` + `bq25792@6b` **okay**, `monitored-battery` set; **IRQ** pending SSOT. **Kernel:** upstream charger driver for `ti,bq25792` not in Linux **6.6.x** — no `CONFIG_*` fragment yet; lab: `i2cget`/`i2cdetect` on `i2c-3`. |
-| B2 | **Digital I/O** (GPIO1 per doc) | GPIO hog or consumer drivers; verify no clash with other `GPIO1` uses. |
-| B3 | **CP2108** quad-UART | Often USB-enumerated; DT may only need **reset GPIO** if required. |
-| B4 | **SE050** (I2C4 `0x48`) | Aligns with `se05x` / OpTEE story; **coordinate** with security/TEE bring-up — wrong wiring can affect trusted boot. |
+| B1 | **BQ25792** (charger, I2C3 `0x6B`, `CHGR_INT#`) | **Done (DT + lab path):** `battery-dt510` + `bq25792@6b` **okay**; **`bq25792-charger.cfg`** documents kernel gap (no **bq257xx** in **6.6.x** fslc). **CHGR_INT#** still **pending SSOT**. Lab: **`i2c-dev`** + **`i2c-2`** (I2C3). |
+| B2 | **Digital I/O** (GPIO1 per doc) | **Done (mux):** **`pinctrl_gpio1_dio`** for **GPIO1_IO0–9**; **disabled** EVK **`ir_recv`**, **`reg_pcie0`**, **`backlight`** that clashed or unused; **prototype:** validate with SSOT / libgpiod. |
+| B3 | **CP2108** quad-UART | **Done (doc):** USB-enumerated; **DTS** comment — add **reset GPIO** only when SSOT names a pin. |
+| B4 | **SE050** (I2C4 `0x48`) | **Done (doc):** Same as Sentai — **OpTEE** + **`se05x`**; optional Linux **`&i2c4`** child still **not** required — [`DT510-SE050.md`](DT510-SE050.md). |
 
 ### Tier C — Higher effort / higher risk (schedule + validate on hardware)
 
@@ -192,6 +192,7 @@ Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md)
 | *earlier* | Initial plan from engineering review. |
 | 2026-04-14 | **A4 / SE050:** Aligned with **Sentai** — neither DTS adds an SE050 node; **OpTEE** handles I²C. Removed incorrect “wait for `&i2c4` in DT” gate for A4; optional DT child stays **B4** / [`DT510-SE050.md`](DT510-SE050.md). |
 | 2026-04-14 | **Tier A:** Marked **complete**; interim lab validation done — **prototype hardware** is the next gate for full electrical/SSOT testing. Annotated tag **`dt510-tier-a-test-1`**. |
+| 2026-04-14 | **Tier B:** BQ25792 kernel **cfg** notes; **GPIO1_IO0–9** pinmux + disabled clashing EVK nodes (**`ir_recv`**, **`reg_pcie0`**, **`backlight`**); CP2108/SE050 documentation in DTS + plan. |
 
 ---
 
@@ -299,4 +300,4 @@ Reply under the matching Implementation thread (or quote it):
 
 ---
 
-*Last updated: 2026-04-14 — Tier A complete; tag `dt510-tier-a-test-1`*
+*Last updated: 2026-04-14 — Tier B implemented (BQ25792 cfg notes, GPIO1 DIO mux, EVK disables, doc)*
