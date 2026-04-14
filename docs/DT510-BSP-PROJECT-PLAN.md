@@ -287,6 +287,7 @@ Reply under the matching Implementation thread (or quote it):
 
 | Date | Tier | Commit / ref | Summary | Lab outcome |
 |------|------|--------------|---------|-------------|
+| 2026-04-14 | **B** | `1062677` | GPIO1 DIO pinmux; EVK **ir_recv** / **reg_pcie0** / **backlight** off; **bq25792-charger.cfg** kernel notes. | Prototype: validate mux + **CHGR_INT#** when SSOT ready. |
 | 2026-04-14 | **A (complete)** | **`dt510-tier-a-test-1`** → `main` @ tag | **A1–A4** done; Sentai parity + DT cleanup; SE050 via OpTEE like Sentai. | Interim HW: PASS smoke (boot/SSH/DT). **Prototype BOM:** full test **pending** new boards. |
 | 2026-04-14 | C2 / HW | [#2](https://github.com/DynamicDevices/meta-dynamicdevices-bsp/issues/2) @ohull456 | **TAS6424:** rails always-on (no SW sequencing); **AMP_STBY#** / **AMP_MUTE#** high for run, no pulls, no other use; **ball→GPIO TBD** for DTS. **I2C3** charger/HDMI GPIOs deferred (low pri). | N/A lab until GPIO mapping + prototype bench. |
 | 2026-04-13 | A1–A2 | `d78fe3b` | Single DTS symlink + SSOT header; no hardware change. | N/A — confirm next image builds / boots unchanged. |
