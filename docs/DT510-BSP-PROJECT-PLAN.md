@@ -181,6 +181,7 @@ Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md)
 | 2026-04-14 | **TAA5412:** Confirmed **no `pcm6240` / `CONFIG_SND_SOC_PCM6240`** in **linux-fslc** @ LmP-pinned **`SRCREV`** (6.6.52); driver is **mainline ≥ 6.10** — backport, kernel advance, or out-of-tree (see plan §5 Tier C2). |
 | 2026-04-14 | **DT510 `&i2c2`:** **`/delete-node/ tcpc@50;`** — drop EVK-inherited PTN5110 TCPC; frees **0x50** for TAC5301 per SSOT. |
 | 2026-04-14 | **Factory / §3:** Documented **follow `meta-dynamicdevices-bsp` `main`** for build testing; **Tier C2:** lock **I2S** for initial TAS6424 test (TDM later). |
+| 2026-04-14 | **Lab / §9:** BSP stack verified on **current lab DT510** (e.g. Foundries target **151**) — **interim** hardware, **not** final prototype BOM; full electrical sign-off when prototype boards land. |
 | 2026-04-15 | **TAS2563 / §4:** Removed Sentai **`audio-shutdown-hog`** on **GPIO5_IO4** (**CODEC_SD#**); **`tas2563` `reset-gpios`** now sole owner — **DT510 SSOT** over Sentai inheritance. |
 | 2026-04-15 | **DTS:** Removed unused **`pinctrl_pdm`** (SAI1 PDM mux) — **micfil** disabled; **TAS6424** owns SAI1; group was never referenced. |
 | 2026-04-15 | **DTS / §4:** Removed Sentai **`xm125@52`** + **`pinctrl_xm125_radar`** — XM125 **Sentai-only** per SSOT; DT510 keeps **I2C3 `0x52`** free for other use if BOM allows. |
@@ -204,6 +205,8 @@ After each BSP change set:
 Use the right bar for the board you are flashing:
 
 **Before the new prototype hardware is available** (interim boards, EVK-derived bring-up, or images exercised without fitted silicon), validate **software readiness** — not whether parts respond on the bus:
+
+**Status (2026-04):** The BSP changes to date (Sentai tidyups, TCPC/USB gadget path, codec/DT alignment) have been **validated on current lab hardware** — boot, OSTree, SSH, live DT, and key drivers as checked — but that hardware is **not** the **final prototype BOM** yet. Treat this as **software + interim electrical** confidence; **re-run checklist and SSOT review** when prototype boards are available (pinmux, rails, fitted vs disabled nodes).
 
 - **Image / machine:** Correct Foundries factory, machine, tag, and build number (e.g. `IMAGE_VERSION` / `os-release`); DT **`compatible`** includes **`fsl,imx8mm-jaguar-dt510`**.
 - **Kernel:** Expected **`CONFIG_*`** and **`.ko`** modules under `/lib/modules/$(uname -r)/` for the BSP fragments you added (codecs, gadget, I²C/SAI as applicable). Use `zcat /proc/config.gz` and module paths when available.
