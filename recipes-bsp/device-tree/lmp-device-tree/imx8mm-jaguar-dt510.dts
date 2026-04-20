@@ -167,7 +167,8 @@
 
 &iomuxc {
         pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_hog>, <&pinctrl_gpio1_dio>, <&pinctrl_bq25792_chgr_int>;
+	/* E1 bisect: Tier B2 gpio1_dio reverted — was hog+gpio1_dio+bq25792_chgr_int */
+	pinctrl-0 = <&pinctrl_hog>, <&pinctrl_bq25792_chgr_int>;
 
 	// TODO: Break these out better?
 	pinctrl_hog: hoggrp {
@@ -234,25 +235,6 @@
 			MX8MM_IOMUXC_GPIO1_IO11_GPIO1_IO11	0x116
 			MX8MM_IOMUXC_GPIO1_IO12_GPIO1_IO12	0x116
 			MX8MM_IOMUXC_GPIO1_IO13_GPIO1_IO13	0x116
-		>;
-	};
-
-	/*
-	 * Tier B2 — digital I/O (GPIO1_IO0–9): mux as GPIO per docs/reference/dt510-ollie-tool-generated/pin_mux.dts.
-	 * EVK ir_recv / reg_pcie0 / backlight / ov5640 disabled in this DTS so these lines are not claimed by EVK.
-	 */
-	pinctrl_gpio1_dio: gpio1_dio_grp {
-		fsl,pins = <
-			MX8MM_IOMUXC_GPIO1_IO00_GPIO1_IO0	0x114
-			MX8MM_IOMUXC_GPIO1_IO01_GPIO1_IO1	0x116
-			MX8MM_IOMUXC_GPIO1_IO02_GPIO1_IO2	0x116
-			MX8MM_IOMUXC_GPIO1_IO03_GPIO1_IO3	0x116
-			MX8MM_IOMUXC_GPIO1_IO04_GPIO1_IO4	0x116
-			MX8MM_IOMUXC_GPIO1_IO05_GPIO1_IO5	0x156
-			MX8MM_IOMUXC_GPIO1_IO06_GPIO1_IO6	0x116
-			MX8MM_IOMUXC_GPIO1_IO07_GPIO1_IO7	0x1916
-			MX8MM_IOMUXC_GPIO1_IO08_GPIO1_IO8	0x116
-			MX8MM_IOMUXC_GPIO1_IO09_GPIO1_IO9	0x116
 		>;
 	};
 
@@ -430,24 +412,6 @@
 
 &fec1 {
         status = "disabled";
-};
-
-/*
- * Tier B2 — imx8mm-evk.dtsi inherits peripherals that clash with DT510:
- * - ir_recv: GPIO1_IO13 (TAS6424 AMP_FAULT#/WARN# mux on same pins).
- * - reg_pcie0: GPIO1_IO5 (&pcie0 is disabled on DT510).
- * - backlight: headless / no panel; disable pwm-backlight node.
- */
-&ir_recv {
-	status = "disabled";
-};
-
-&reg_pcie0 {
-	status = "disabled";
-};
-
-&backlight {
-	status = "disabled";
 };
 
 /* Tier B3 — CP2108 quad-UART: USB-enumerated; add reset GPIO here only when SSOT names a pin. */
