@@ -49,7 +49,6 @@ do_configure:append:imx8mm-jaguar-sentai(){
 
 SRC_URI:append:imx8mm-jaguar-dt510 = " \
 		file://i2c-dev-interface.cfg \
-		file://imx8mm-jaguar-dt510/bq25792-charger.cfg \
 		file://imx8mm-jaguar-dt510/lp50xx-led-driver.cfg \
 		file://usb-modem-support.cfg \
 		file://gpio-keys.cfg \
