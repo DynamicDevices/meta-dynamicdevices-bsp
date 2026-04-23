@@ -167,8 +167,8 @@
 
 &iomuxc {
         pinctrl-names = "default";
-	/* E1 bisect: Tier B2 gpio1_dio reverted — was hog+gpio1_dio+bq25792_chgr_int */
-	pinctrl-0 = <&pinctrl_hog>, <&pinctrl_bq25792_chgr_int>;
+	/* Tier B2 split T2b — default pinctrl now hog + pinctrl_gpio1_dio (was bq25792_chgr_int) */
+	pinctrl-0 = <&pinctrl_hog>, <&pinctrl_gpio1_dio>;
 
 	// TODO: Break these out better?
 	pinctrl_hog: hoggrp {
@@ -239,18 +239,8 @@
 	};
 
 	/*
-	 * B1 SSOT: CHGR_INT# from BQ25792 → SAI1_RXD7 / GPIO4_IO9 (active-low). Mux as GPIO, not SAI.
-	 * Conflicts with prior LP5024 enable-gpios on gpio4 9 — LED driver leaves EN to hardware.
-	 */
-	pinctrl_bq25792_chgr_int: bq25792_chgr_int_grp {
-		fsl,pins = <
-			MX8MM_IOMUXC_SAI1_RXD7_GPIO4_IO9	0x140  /* CHGR_INT# */
-		>;
-	};
-
-	/*
-	 * Tier B2 split T2a — define GPIO1_IO0–9 mux; not yet linked in &iomuxc pinctrl-0
-	 * (still hog + pinctrl_bq25792_chgr_int). OTA: should match previous good image.
+	 * Tier B2 — digital I/O (GPIO1_IO0–9): default iomuxc group.
+	 * EVK ir_recv / reg_pcie0 / backlight off (step2). Split T2b applies this to pinctrl-0.
 	 */
 	pinctrl_gpio1_dio: gpio1_dio_grp {
 		fsl,pins = <
