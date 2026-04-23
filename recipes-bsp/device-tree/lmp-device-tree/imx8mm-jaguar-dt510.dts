@@ -414,6 +414,25 @@
         status = "disabled";
 };
 
+/*
+ * Tier B2 — imx8mm-evk.dtsi inherits peripherals that clash with DT510:
+ * - ir_recv: GPIO1_IO13 (TAS6424 AMP_FAULT#/WARN# mux on same pins).
+ * - reg_pcie0: GPIO1_IO5 (&pcie0 is disabled on DT510).
+ * - backlight: headless / no panel; disable pwm-backlight node.
+ * Incremental step 2 (E1 baseline): EVK nodes off only; pinctrl unchanged.
+ */
+&ir_recv {
+	status = "disabled";
+};
+
+&reg_pcie0 {
+	status = "disabled";
+};
+
+&backlight {
+	status = "disabled";
+};
+
 /* Tier B3 — CP2108 quad-UART: USB-enumerated; add reset GPIO here only when SSOT names a pin. */
 
 /* Tier B4 — SE050 @ I2C4 0x48: OpTEE (se05x) — see docs/DT510-SE050.md; no Linux &i2c4 child required. */
