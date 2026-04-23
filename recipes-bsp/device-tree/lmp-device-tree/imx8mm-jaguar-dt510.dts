@@ -429,7 +429,6 @@
  * - ir_recv: GPIO1_IO13 (TAS6424 AMP_FAULT#/WARN# mux on same pins).
  * - reg_pcie0: GPIO1_IO5 (&pcie0 is disabled on DT510).
  * - backlight: headless / no panel; disable pwm-backlight node.
- * Incremental step 2 (E1 baseline): EVK nodes off only; pinctrl unchanged.
  */
 &ir_recv {
 	status = "disabled";
@@ -692,13 +691,12 @@
 		status = "disabled";
 	};
 
-	/* Tier B1: BQ25792 @ 0x6B on I2C3 — CHGR_INT# → SAI1_RXD7 / GPIO4_IO9 (active-low, B1 SSOT). */
+	/* T2e: drop GPIO IRQ on line 9 — wire CHGR_INT# when SSOT confirms (see Tier B) */
 	bq25792: bq25792@6b {
 		compatible = "ti,bq25792";
 		reg = <0x6b>;
 		monitored-battery = <&battery_dt510>;
-		interrupt-parent = <&gpio4>;
-		interrupts = <9 IRQ_TYPE_LEVEL_LOW>;
+		/* interrupt-parent / interrupts: wire CHGR_INT# (active-low pulse per TI) when confirmed */
 		status = "okay";
 	};
 
@@ -713,7 +711,7 @@
 };
 
 &sai1 {
-	/* TAS6424 I2S/TDM to class-D — SSOT pinmux in pinctrl_sai1_tas6424; SAI1_RXD7 ball is CHGR_INT#, not SAI */
+	/* TAS6424 I2S/TDM — pinctrl_sai1_tas6424 (BOARD_InitPins); T2f comment only */
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sai1_tas6424>;
 	assigned-clocks = <&clk IMX8MM_CLK_SAI1_ROOT>;
