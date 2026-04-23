@@ -520,7 +520,8 @@
             #size-cells = <0>;
             compatible = "ti,lp5024";
             reg = <0x28>;
-            /* enable-gpios was gpio4 9 — same ball as BQ25792 CHGR_INT# (B1 SSOT); EN must be tied or routed elsewhere */
+            /* T2d: re-enable LED EN on gpio4 9 (conflict risk vs CHGR_INT# / charger) */
+            enable-gpios = <&gpio4 9 GPIO_ACTIVE_HIGH>;
 
             multi-led@0 {
                 #address-cells = <1>;
