@@ -1,38 +1,30 @@
 # DT510 — KSZ9896CTXC Ethernet (bring-up)
 
-**Status in tree:** RGMII + DSA is wired in `imx8mm-jaguar-dt510.dts` (Tier C1). **You must confirm** the **I2C bus** and **7-bit address** against the schematic — the DTS places the switch on **`&i2c1 @ 0x5f`** as a default strapping; move the node to the correct `&i2cN` and `reg` if the board differs.
+**Hardware (EE):** the KSZ9896C is strapped for **MIIM** — the SoC’s **MDC** (clock) and **MDIO** (data) go to the switch. That is the usual **Clause 22/45** management pair (often called “the MDIO bus”). **I2C and SPI** are the *other* strap options for the *same* two balls; the board is **not** using I2C for switch management in this product.
 
-## Part
+**Linux / mainline:** the **Microchip DSA** driver for `microchip,ksz9896` in vanilla Linux attaches with **`devm_regmap_init_i2c()`** or **SPI** (`ksz9477_i2c.c` / `ksz_spi.c`). There is **no** in-tree `ksz…` DSA front-end that uses **FEC’s MDIO** as the primary register bus for the 9896. MIIM is still used by the driver stack **indirectly** in some I2C/SPI designs (internal PHY access), not as a substitute for the I2C regmap on a pure-MDIO strap.
 
-- **Microchip KSZ9896CTXC** — RGMII to i.MX8MM **ENET1** (`fec1`). **MDC/MDIO** on the SoC is still used in hardware for SMI/PHY access; **Linux mainline DSA** uses **I2C** (or SPI) for the switch **register file** — same pattern as NXP community **imx8mn + KSZ9893** ([reference thread](https://community.nxp.com/t5/i-MX-Processors/Device-tree-configuration-for-Imx8M-Nano-with-Ksz9893-ethernet/m-p/1222170)).
+**Implemented DT (`imx8mm-jaguar-dt510.dts`):**
 
-## Implemented DT (summary)
+- **`&iomuxc`:** `pinctrl_fec1_dt510` — RGMII + MDC/MDIO, aligned with Ollie’s ENET1 block.
+- **`&fec1`:** `pinctrl-0`, `phy-mode = "rgmii-id"`, **`fixed-link` 1G** to the switch **CPU** port, **`mdio`** subnode (empty bus placeholder for MIIM; **no** `ksz9896` on I2C).
+- **`&i2c1`:** **no** KSZ child — the switch is **not** on I2C for this build.
 
-- **`&iomuxc`:** `pinctrl_fec1_dt510` — RGMII + MDC/MDIO, EVK-style strengths; **no** `SAI2_RXC`/`GPIO4_IO22` (DT510 uses that pad for **ZB_INT**).
-- **`&fec1`:** `pinctrl-0 = <&pinctrl_fec1_dt510>`, `phy-mode = "rgmii-id"`, **`fixed-link` 1G** to the switch CPU port, **`/delete-node/ mdio`**, no external PHY.
-- **`&i2c1`:** `ksz9896@5f` with `compatible = "microchip,ksz9896"`, **`ethernet-ports`** and **CPU port 5** → `ethernet = <&fec1>`, `phy-mode = "rgmii-id"`, `fixed-link`.
-- **Kernel:** `recipes-kernel/linux/linux-lmp-fslc-imx/imx8mm-jaguar-dt510/ksz9896-ethernet-switch.cfg` — `CONFIG_NET_DSA*`, `CONFIG_NET_DSA_MICROCHIP_KSZ9477_I2C` — included from **`linux-lmp-fslc-imx_%.bbappend`** for **`imx8mm-jaguar-dt510`**.
+**Implications:** there is **no** `lan1`… DSA user ports from `ksz9477` until one of: hardware adds **I2C** (strap **01**) to a SoC I2C master and the node returns; **SPI** strap + SPI DT; a **downstream/OO** driver that bit-bangs or speaks switch management over the supplied MDIO; or **NXP/Microchip**-specific integration beyond this doc.
 
-## RGMII / MDC/MDIO — pin mux (SSOT)
-
-Matches **Ollie** `docs/reference/dt510-ollie-tool-generated/pin_mux.dts` (ENET1 block). See `pinctrl_fec1_dt510` in the DTS for the exact `fsl,pins` list.
-
-## Sideband GPIOs — **not in first bring-up** (TAS6424 conflict)
-
-`ENET_PME#` / `INTR` / `RST` on **GPIO4_IO0, IO1, IO4** conflict with **`pinctrl_sai1_tas6424`**. `reset-gpios` / `interrupts` were **not** added so audio can stay enabled. If the switch stays in reset without a released `RST#`, you need a **hardware** default or a **mux** decision with EE before those lines are described in DT.
+**Sideband GPIOs (PME# / INTR# / RST#):** same physical balls as SAI1/TAS6424 pinctrl in current DT — see previous notes; `reset-gpios` for the switch not wired without an EE/SAI1 trade-off.
 
 ## Build → flash → test (short)
 
-1. **Pin BSP** in `lmp-manifest` / one logical change per `conf/DT510-HARDWARE-BRINGUP.md`.  
-2. **Build** factory/OTA image for **`imx8mm-jaguar-dt510`**.  
-3. On device:
-   - `dmesg | grep -iE 'ksz|dsa|fec|ksz9477'`
-   - `i2cdetect -y <bus>` — expect the KSZ at the **configured** 7-bit address (placeholder **0x5f** on **bus 0** = `i2c1` if that matches HW). If the part is on another bus, **move the DT node** and rebuild.  
-   - `ip link` — expect DSA user ports (e.g. `lan1` …) and a conduit (often `end*`/`eth*`) from DSA.  
-4. If link works but **no ping**, check **RGMII internal delays** (see NXP thread: `phy-mode` / `rgmii-id` and KSZ `PORT` XMII delay bits) — that was a common fix for **KSZ9893**; **9896** may need the same class of tuning on your PCB.
+1. Pin BSP / manifest per `conf/DT510-HARDWARE-BRINGUP.md`.  
+2. Build **`imx8mm-jaguar-dt510`**.  
+3. On device: `dmesg | grep -iE 'fec|mdio'`, `ip link` — expect a single **FEC**-backed link (e.g. `end0` / `eth0`), not DSA `lan*`.  
+4. `i2cdetect` will **not** show the KSZ at `0x5F` (correct for MIIM).  
+5. RGMII timing: if link misbehaves, tune `phy-mode` / delays per PCB (see NXP KSZ + RGMII threads).
 
 ## References
 
 - `Documentation/devicetree/bindings/net/dsa/microchip,ksz.yaml`
-- `linux/drivers/net/dsa/microchip/ksz9477_i2c.c` (I2C + `compatible` table includes `microchip,ksz9896`)
+- `linux/drivers/net/dsa/microchip/ksz9477_i2c.c` (I2C regmap; **not** used when HW is MIIM-only)
+- Microchip **KSZ9896C** DS00002390A — **Section 3.2.1** straps, **4.9** management interfaces
 - `docs/DT510-BSP-PROJECT-PLAN.md` — Tier **C1** Ethernet

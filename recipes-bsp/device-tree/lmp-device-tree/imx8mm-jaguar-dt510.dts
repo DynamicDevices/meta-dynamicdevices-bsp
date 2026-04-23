@@ -321,25 +321,31 @@
                 >;
         };
 
-	/* Tier C1: KSZ9896 RGMII — same ENET1 pads as EVK; omit SAI2_RXC (GPIO4_IO22) — DT510 uses it for ZB_INT */
+	/*
+	 * Tier C1: KSZ9896 RGMII+MDC/MDIO — same **macros** and **pad values** as Ollie
+	 * `docs/reference/dt510-ollie-tool-generated/pin_mux.dts` (BOARD_InitPins ENET1 block, 0x116 / TX_CTL 0x1916).
+	 * Omit SAI2_RXC→GPIO4_IO22 — DT510 uses that pad for ZB_INT.
+	 */
 	pinctrl_fec1_dt510: fec1dt510grp {
 		fsl,pins = <
-			MX8MM_IOMUXC_ENET_MDC_ENET1_MDC			0x3
-			MX8MM_IOMUXC_ENET_MDIO_ENET1_MDIO		0x3
-			MX8MM_IOMUXC_ENET_TD3_ENET1_RGMII_TD3		0x1f
-			MX8MM_IOMUXC_ENET_TD2_ENET1_RGMII_TD2		0x1f
-			MX8MM_IOMUXC_ENET_TD1_ENET1_RGMII_TD1		0x1f
-			MX8MM_IOMUXC_ENET_TD0_ENET1_RGMII_TD0		0x1f
-			MX8MM_IOMUXC_ENET_RD3_ENET1_RGMII_RD3		0x91
-			MX8MM_IOMUXC_ENET_RD2_ENET1_RGMII_RD2		0x91
-			MX8MM_IOMUXC_ENET_RD1_ENET1_RGMII_RD1		0x91
-			MX8MM_IOMUXC_ENET_RD0_ENET1_RGMII_RD0		0x91
-			MX8MM_IOMUXC_ENET_TXC_ENET1_RGMII_TXC		0x1f
-			MX8MM_IOMUXC_ENET_RXC_ENET1_RGMII_RXC		0x91
-			MX8MM_IOMUXC_ENET_RX_CTL_ENET1_RGMII_RX_CTL	0x91
-			MX8MM_IOMUXC_ENET_TX_CTL_ENET1_RGMII_TX_CTL	0x1f
+			MX8MM_IOMUXC_ENET_MDC_ENET1_MDC			0x116
+			MX8MM_IOMUXC_ENET_MDIO_ENET1_MDIO		0x116
+			MX8MM_IOMUXC_ENET_RD0_ENET1_RGMII_RD0		0x116
+			MX8MM_IOMUXC_ENET_RD1_ENET1_RGMII_RD1		0x116
+			MX8MM_IOMUXC_ENET_RD2_ENET1_RGMII_RD2		0x116
+			MX8MM_IOMUXC_ENET_RD3_ENET1_RGMII_RD3		0x116
+			MX8MM_IOMUXC_ENET_RXC_ENET1_RGMII_RXC		0x116
+			MX8MM_IOMUXC_ENET_RX_CTL_ENET1_RGMII_RX_CTL	0x116
+			MX8MM_IOMUXC_ENET_TD0_ENET1_RGMII_TD0		0x116
+			MX8MM_IOMUXC_ENET_TD1_ENET1_RGMII_TD1		0x116
+			MX8MM_IOMUXC_ENET_TD2_ENET1_RGMII_TD2		0x116
+			MX8MM_IOMUXC_ENET_TD3_ENET1_RGMII_TD3		0x116
+			MX8MM_IOMUXC_ENET_TXC_ENET1_RGMII_TXC		0x116
+			MX8MM_IOMUXC_ENET_TX_CTL_ENET1_RGMII_TX_CTL	0x1916
 		>;
 	};
+
+	/* Ollie GPIO for KSZ PME# / INTR# / RST#: same SAI1 balls as `pinctrl_sai1_tas6424` — **mutex** (see docs). */
 };
 
 &uart1 { /* BT */
@@ -431,7 +437,12 @@
 /* CODEC_SD# (GPIO5_IO4): Sentai gpio-hog removed — tas2563@4C reset-gpios owns the line (DT510 SSOT, plan §4). */
 
 &fec1 {
-	/* C1: DSA CPU link to KSZ9896 (no external PHY) — NXP + mainline ksz9477 I2C pattern */
+	/*
+	 * C1: RGMII + MIIM to KSZ9896. Board straps management as MDC+MDIO (not I2C/SPI on those pins).
+	 * CPU port: fixed 1G RGMII to the switch; no external Clause-22 PHY in front of the MAC.
+	 * DSA: mainline `microchip,ksz9896` binds via I2C or SPI (regmap). MIIM = PHY register path only —
+	 * do not add `ksz9896` on &i2c* unless the PCB ties SoC I2C to the chip with strap 01=I2C.
+	 */
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_fec1_dt510>;
 	phy-mode = "rgmii-id";
@@ -444,7 +455,11 @@
 		full-duplex;
 	};
 
-	/delete-node/ mdio;
+	/* MDC/MDIO from SoC to KSZ; add ethernet-phy@N children when address map + driver are confirmed. */
+	mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
 };
 
 /*
@@ -471,50 +486,7 @@
 /* Tier B4 — SE050 @ I2C4 0x48: OpTEE (se05x) — see docs/DT510-SE050.md; no Linux &i2c4 child required. */
 
 &i2c1 {
-	/*
-	 * C1: KSZ9896 — mainline DSA uses I2C (or SPI) for register file; MDC/MDIO remains for PHY-side SMI.
-	 * 7-bit address MUST match schematic straps (0x5f is a common default — fix if i2cdetect differs).
-	 */
-	ksz9896: ksz9896@5f {
-		compatible = "microchip,ksz9896";
-		reg = <0x5f>;
-		status = "okay";
-
-		ethernet-ports {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			port@0 {
-				reg = <0>;
-				label = "lan1";
-			};
-			port@1 {
-				reg = <1>;
-				label = "lan2";
-			};
-			port@2 {
-				reg = <2>;
-				label = "lan3";
-			};
-			port@3 {
-				reg = <3>;
-				label = "lan4";
-			};
-			port@4 {
-				reg = <4>;
-				label = "lan5";
-			};
-			port@5 {
-				reg = <5>;
-				label = "cpu";
-				ethernet = <&fec1>;
-				phy-mode = "rgmii-id";
-				fixed-link {
-					speed = <1000>;
-					full-duplex;
-				};
-			};
-		};
-	};
+	/* KSZ9896: not on I2C — board uses MIIM (MDC/MDIO), see &fec1 / mdio. */
 
 	sht40: sht40@44 {
 		compatible = "sensirion,sht4x";
