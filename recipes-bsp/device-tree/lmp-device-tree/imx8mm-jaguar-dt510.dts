@@ -455,10 +455,39 @@
 		full-duplex;
 	};
 
-	/* MDC/MDIO from SoC to KSZ; add ethernet-phy@N children when address map + driver are confirmed. */
+	/*
+	 * MDC/MDIO (MIIM) from SoC to KSZ9896. Internal 1000BASE-T PHYs use Clause 22 addresses 1..5
+	 * (datasheet). These nodes are for mdio/phylib probe only — the MAC’s link to the switch CPU
+	 * port stays `fixed-link`; `phy-handle` is not set on &fec1.
+	 */
 	mdio {
 		#address-cells = <1>;
 		#size-cells = <0>;
+
+		ksz_p1: ethernet-phy@1 {
+			compatible = "ethernet-phy-ieee802.3-c22";
+			reg = <1>;
+		};
+
+		ksz_p2: ethernet-phy@2 {
+			compatible = "ethernet-phy-ieee802.3-c22";
+			reg = <2>;
+		};
+
+		ksz_p3: ethernet-phy@3 {
+			compatible = "ethernet-phy-ieee802.3-c22";
+			reg = <3>;
+		};
+
+		ksz_p4: ethernet-phy@4 {
+			compatible = "ethernet-phy-ieee802.3-c22";
+			reg = <4>;
+		};
+
+		ksz_p5: ethernet-phy@5 {
+			compatible = "ethernet-phy-ieee802.3-c22";
+			reg = <5>;
+		};
 	};
 };
 

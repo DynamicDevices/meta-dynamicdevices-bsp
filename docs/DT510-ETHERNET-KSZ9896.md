@@ -7,8 +7,8 @@
 **Implemented DT (`imx8mm-jaguar-dt510.dts`):**
 
 - **`&iomuxc`:** `pinctrl_fec1_dt510` — RGMII + MDC/MDIO, aligned with Ollie’s ENET1 block.
-- **`&fec1`:** `pinctrl-0`, `phy-mode = "rgmii-id"`, **`fixed-link` 1G** to the switch **CPU** port, **`mdio`** subnode (empty bus placeholder for MIIM; **no** `ksz9896` on I2C).
-- **`&i2c1`:** **no** KSZ child — the switch is **not** on I2C for this build.
+- **`&fec1`:** `pinctrl-0`, `phy-mode = "rgmii-id"`, **`fixed-link` 1G** to the switch **CPU** port, **`mdio`** with five **`ethernet-phy-ieee802.3-c22`** nodes at **addresses 1–5** (internal 1000BASE-T PHYs per datasheet) so **phylib** can attach — **not** the DSA `ksz` driver, just Clause-22 detection/manage for those PHYs. **`&i2c1`:** no KSZ.
+- **Kernel:** `ksz9896-mii-phy.cfg` enables `CONFIG_MICREL_PHY` and `CONFIG_MICROCHIP_PHY` (common OUI matches for ksz* PHYs); I²C DSA ksz modules remain off in `ksz9896-ethernet-switch.cfg`.
 
 **Implications:** there is **no** `lan1`… DSA user ports from `ksz9477` until one of: hardware adds **I2C** (strap **01**) to a SoC I2C master and the node returns; **SPI** strap + SPI DT; a **downstream/OO** driver that bit-bangs or speaks switch management over the supplied MDIO; or **NXP/Microchip**-specific integration beyond this doc.
 
@@ -18,9 +18,9 @@
 
 1. Pin BSP / manifest per `conf/DT510-HARDWARE-BRINGUP.md`.  
 2. Build **`imx8mm-jaguar-dt510`**.  
-3. On device: `dmesg | grep -iE 'fec|mdio'`, `ip link` — expect a single **FEC**-backed link (e.g. `end0` / `eth0`), not DSA `lan*`.  
-4. `i2cdetect` will **not** show the KSZ at `0x5F` (correct for MIIM).  
-5. RGMII timing: if link misbehaves, tune `phy-mode` / delays per PCB (see NXP KSZ + RGMII threads).
+3. On device: `dmesg | grep -iE 'fec|mdio|phy'`, `ip link` — expect a single **FEC**-backed link (e.g. `end0` / `eth0`), not DSA `lan*`.  
+4. **MDIO PHY detection (MIIM):** `ls /sys/bus/mdio/devices` — expect e.g. `0x0bbxxx:01` … `:05` (or `fec:`-prefixed bus name) if the internal PHYs respond; `dmesg` for `-EPROBE_DEFER` / unknown PHY ID (if IDs do not match Micrel/microchip drivers, add the right driver or use `mdio` debug). `i2cdetect` will **not** show the switch at I²C `0x5F` (expected).  
+5. RGMII timing: if the CPU link is wrong, tune `phy-mode` / delays (see NXP + KSZ threads). Port links are separate from CPU `fixed-link`.
 
 ## References
 
