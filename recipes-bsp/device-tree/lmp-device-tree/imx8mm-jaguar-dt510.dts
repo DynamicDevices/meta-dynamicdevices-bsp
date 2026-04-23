@@ -248,6 +248,25 @@
 		>;
 	};
 
+	/*
+	 * Tier B2 split T2a — define GPIO1_IO0–9 mux; not yet linked in &iomuxc pinctrl-0
+	 * (still hog + pinctrl_bq25792_chgr_int). OTA: should match previous good image.
+	 */
+	pinctrl_gpio1_dio: gpio1_dio_grp {
+		fsl,pins = <
+			MX8MM_IOMUXC_GPIO1_IO00_GPIO1_IO0	0x114
+			MX8MM_IOMUXC_GPIO1_IO01_GPIO1_IO1	0x116
+			MX8MM_IOMUXC_GPIO1_IO02_GPIO1_IO2	0x116
+			MX8MM_IOMUXC_GPIO1_IO03_GPIO1_IO3	0x116
+			MX8MM_IOMUXC_GPIO1_IO04_GPIO1_IO4	0x116
+			MX8MM_IOMUXC_GPIO1_IO05_GPIO1_IO5	0x156
+			MX8MM_IOMUXC_GPIO1_IO06_GPIO1_IO6	0x116
+			MX8MM_IOMUXC_GPIO1_IO07_GPIO1_IO7	0x1916
+			MX8MM_IOMUXC_GPIO1_IO08_GPIO1_IO8	0x116
+			MX8MM_IOMUXC_GPIO1_IO09_GPIO1_IO9	0x116
+		>;
+	};
+
 	/* Tier C2 step 1 — TAS6424 on SAI1: align with docs/reference/dt510-ollie-tool-generated/pin_mux.dts (BOARD_InitPins) */
 	pinctrl_sai1_tas6424: sai1tas6424grp {
 		fsl,pins = <
