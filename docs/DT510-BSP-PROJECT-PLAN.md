@@ -96,7 +96,7 @@ Work **in order** within each tier unless a dependency forces otherwise.
 
 | ID | Task | Notes |
 |----|------|--------|
-| C1 | **Ethernet — `&fec1` + KSZ9896** | RGMII + MDIO/DSA as per design; risk of boot hang if PHY/MDIO wrong — incremental bring-up (link up before full bridge). |
+| C1 | **Ethernet — `&fec1` + KSZ9896** | **Phase 1 (prove hardware):** single CPU netdev, **`&fec1` + `fixed-link`**, **no** DSA, **no** I²C switch node — in-tree **`microchip,ksz9896`** DSA uses **I²C/SPI** regmap, not MIIM as full switch management for this product’s strap; see [`docs/DT510-ETHERNET-KSZ9896.md`](DT510-ETHERNET-KSZ9896.md) (*Phased plan* + *Simple bring-up*). RGMII pinctrl = **SSOT / board (Ollie)**, not EVK, unless schematics match EVK ENET. **Future:** I²C/SPI strap + DSA or richer switch control when the product needs per-port / VLAN / manageability; incremental bring-up, risk of boot hang if MDIO/PHY wrong — validate link before “full” bridge features. |
 | C2 | **Audio vs SSOT** | **TAS6424:** `pinctrl_sai1_tas6424`, **`&sai1` okay**, **`sound-tas6424`** (`simple-audio-card` → **`tas6424-classd`**), **`tas6424@6a` okay** with **`dvdd`** + placeholder **`tas6424_hi_rail`** for **vbat/pvdd** (SSOT must replace); **standby/mute GPIOs** when netlist confirms; **`CONFIG_SND_SOC_TAS6424=m`**; **micfil / sound-micfil** off. Still to do: **TAA5412**, **TAC5301**, TDM/4ch if needed. **I2C2 `0x50`:** TAC5301. |
 | C3 | **HDMI — LT9611** (I2C3 `0x72`) | Reset/int/fault lines per doc; check pinctrl vs other GPIO users. |
 | C4 | **CAN — MCP2518xx on ECSPI2** | **DT510 has no XM125** (Sentai only). `&ecspi2` free for CAN bring-up when ready. |

@@ -436,13 +436,16 @@
 
 /* CODEC_SD# (GPIO5_IO4): Sentai gpio-hog removed — tas2563@4C reset-gpios owns the line (DT510 SSOT, plan §4). */
 
+/*
+ * C1 — RGMII to KSZ9896 (CPU port): **not** the EVK topology (MAC → RGMII PHY@0 on MDIO).
+ * We use `fixed-link` to the switch CPU port; we **cannot** use `phy-handle` + single PHY@0
+ * like `imx8mm-evk.dtsi` — there is no Clause-22 PHY in front of the MAC on that link.
+ * EVK-style **mdio** + **ethernet-phy@*** children: EVK = phy@0 + phy-handle. DT510 = optional
+ * phy@1..5 to probe KSZ **internal** copper PHYs (see datasheet); `phy-handle` stays deleted.
+ * Pinctrl: `pinctrl_fec1_dt510` (Ollie/SSOT), not `pinctrl_fec1` from EVK.
+ * Details: docs/DT510-ETHERNET-KSZ9896.md
+ */
 &fec1 {
-	/*
-	 * C1: RGMII + MIIM to KSZ9896. Board straps management as MDC+MDIO (not I2C/SPI on those pins).
-	 * CPU port: fixed 1G RGMII to the switch; no external Clause-22 PHY in front of the MAC.
-	 * DSA: mainline `microchip,ksz9896` binds via I2C or SPI (regmap). MIIM = PHY register path only —
-	 * do not add `ksz9896` on &i2c* unless the PCB ties SoC I2C to the chip with strap 01=I2C.
-	 */
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_fec1_dt510>;
 	phy-mode = "rgmii-id";
@@ -455,11 +458,6 @@
 		full-duplex;
 	};
 
-	/*
-	 * MDC/MDIO (MIIM) from SoC to KSZ9896. Internal 1000BASE-T PHYs use Clause 22 addresses 1..5
-	 * (datasheet). These nodes are for mdio/phylib probe only — the MAC’s link to the switch CPU
-	 * port stays `fixed-link`; `phy-handle` is not set on &fec1.
-	 */
 	mdio {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -515,7 +513,7 @@
 /* Tier B4 — SE050 @ I2C4 0x48: OpTEE (se05x) — see docs/DT510-SE050.md; no Linux &i2c4 child required. */
 
 &i2c1 {
-	/* KSZ9896: not on I2C — board uses MIIM (MDC/MDIO), see &fec1 / mdio. */
+	/* KSZ9896: not on I2C — MIIM to FEC; see &fec1 (fixed-link + mdio phy@1-5 for internal PHYs). */
 
 	sht40: sht40@44 {
 		compatible = "sensirion,sht4x";
