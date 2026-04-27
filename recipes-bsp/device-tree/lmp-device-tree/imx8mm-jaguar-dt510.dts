@@ -437,56 +437,15 @@
 /* CODEC_SD# (GPIO5_IO4): Sentai gpio-hog removed — tas2563@4C reset-gpios owns the line (DT510 SSOT, plan §4). */
 
 /*
- * C1 — RGMII to KSZ9896 (CPU port): **not** the EVK topology (MAC → RGMII PHY@0 on MDIO).
- * We use `fixed-link` to the switch CPU port; we **cannot** use `phy-handle` + single PHY@0
- * like `imx8mm-evk.dtsi` — there is no Clause-22 PHY in front of the MAC on that link.
- * EVK-style **mdio** + **ethernet-phy@*** children: EVK = phy@0 + phy-handle. DT510 = optional
- * phy@1..5 to probe KSZ **internal** copper PHYs (see datasheet); `phy-handle` stays deleted.
- * Pinctrl: `pinctrl_fec1_dt510` (Ollie/SSOT), not `pinctrl_fec1` from EVK.
- * Details: docs/DT510-ETHERNET-KSZ9896.md
+ * C1 — FEC: inherit `imx8mm-evk.dtsi` `phy-handle`, `fsl,magic-packet`, and `mdio`/`ethphy0@0`
+ * (no duplicate subnode here). Board uses `pinctrl_fec1_dt510` (Ollie/SSOT), not EVK `pinctrl_fec1`.
+ * For KSZ9896 + `fixed-link` + phy@1..5, see docs/DT510-ETHERNET-KSZ9896.md.
  */
 &fec1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_fec1_dt510>;
 	phy-mode = "rgmii-id";
 	status = "okay";
-	/delete-property/ phy-handle;
-	/delete-property/ fsl,magic-packet;
-
-	fixed-link {
-		speed = <1000>;
-		full-duplex;
-	};
-
-	mdio {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		ksz_p1: ethernet-phy@1 {
-			compatible = "ethernet-phy-ieee802.3-c22";
-			reg = <1>;
-		};
-
-		ksz_p2: ethernet-phy@2 {
-			compatible = "ethernet-phy-ieee802.3-c22";
-			reg = <2>;
-		};
-
-		ksz_p3: ethernet-phy@3 {
-			compatible = "ethernet-phy-ieee802.3-c22";
-			reg = <3>;
-		};
-
-		ksz_p4: ethernet-phy@4 {
-			compatible = "ethernet-phy-ieee802.3-c22";
-			reg = <4>;
-		};
-
-		ksz_p5: ethernet-phy@5 {
-			compatible = "ethernet-phy-ieee802.3-c22";
-			reg = <5>;
-		};
-	};
 };
 
 /*
@@ -513,7 +472,7 @@
 /* Tier B4 — SE050 @ I2C4 0x48: OpTEE (se05x) — see docs/DT510-SE050.md; no Linux &i2c4 child required. */
 
 &i2c1 {
-	/* KSZ9896: not on I2C — MIIM to FEC; see &fec1 (fixed-link + mdio phy@1-5 for internal PHYs). */
+	/* KSZ9896: not on I2C — see &fec1. */
 
 	sht40: sht40@44 {
 		compatible = "sensirion,sht4x";
