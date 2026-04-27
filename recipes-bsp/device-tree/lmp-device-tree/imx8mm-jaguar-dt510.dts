@@ -439,8 +439,11 @@
 };
 
 &gpio4 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_ksz9896_sideband>;
+	/*
+	 * KSZ sideband pad mux: applied from `&fec1` pinctrl-0 (with RGMII), not here — i.MX GPIO
+	 * controllers are poor owners of a full IOMUXC group; a gpio4 pinctrl-0 can break the bank
+	 * or clash with the SoC dtsi. See pinctrl_ksz9896_sideband + &fec1.
+	 */
 	status = "okay";
 
 	ksz9896_pme {
@@ -473,11 +476,12 @@
 /*
  * C1 — FEC: inherit `imx8mm-evk.dtsi` `phy-handle`, `fsl,magic-packet`, and `mdio`/`ethphy0@0`
  * (no duplicate subnode here). Board uses `pinctrl_fec1_dt510` (Ollie/SSOT), not EVK `pinctrl_fec1`.
+ * KSZ ENET PME/INTR/RST: also in `pinctrl-0` so IOMUX is applied with FEC, not on `&gpio4`.
  * For KSZ9896 + `fixed-link` + phy@1..5, see docs/DT510-ETHERNET-KSZ9896.md.
  */
 &fec1 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_fec1_dt510>;
+	pinctrl-0 = <&pinctrl_fec1_dt510 &pinctrl_ksz9896_sideband>;
 	phy-mode = "rgmii-id";
 	status = "okay";
 };
