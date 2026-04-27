@@ -180,7 +180,9 @@
                         MX8MM_IOMUXC_NAND_DATA01_GPIO3_IO7      0x140  // WIFI_PD#
 			MX8MM_IOMUXC_NAND_DATA02_GPIO3_IO8	0x140  // BT_WAKE_HOST
                         MX8MM_IOMUXC_NAND_DATA03_GPIO3_IO9      0x140  // BT_RST#
-			/* SAI1_RXD4 / RXD7 / TXFS: removed — SSOT muxes these for SAI1/SAI6 TAS6424 path (see pinctrl_sai1_tas6424) */
+			/* SAI1_RXD4 / RXD7 / …: not hogged — those pads are used by board SSOT for TAS6424 (only
+			 * the 5-line I2S out is in `pinctrl_sai1_tas6424`), SAI6, and BQ CHGR on RXD7
+			 * (`pinctrl_bq25792_chgr_int`); see Ollie `docs/reference/dt510-ollie-tool-generated/pin_mux.dts`. */
                         MX8MM_IOMUXC_SPDIF_RX_GPIO5_IO4         0x140  // CODEC_SD#
 			// ZB_INT and ZB_RST# removed from hog - managed by ZBoss muxer
 		>;
@@ -225,9 +227,13 @@
         };
 
 	/*
-	 * TAS6424 control lines (SSOT / Google Doc — Ollie): GPIO1_IO10–13 as GPIO.
-	 * Outputs: AMP_STBY#, AMP_MUTE# (active-low). Inputs: AMP_FAULT#, AMP_WARN# (active-low) —
-	 * not consumed by Linux tas6424 codec driver (faults polled via I2C); pins muxed for board bring-up.
+	 * TAS6424E — GPIO1 sideband (I2C control + driver; separate from SAI1 audio bus).
+	 * Mux: GPIO. Pad 0x116: matches `docs/reference/dt510-ollie-tool-generated/pin_mux.dts` GPIO1 block.
+	 *	 GPIO1_IO10: AMP_STBY# — output, active-low (standby-gpios on tas6424@6a)
+	 *	 GPIO1_IO11: AMP_MUTE# — output, active-low (mute-gpios on tas6424@6a)
+	 *	 GPIO1_IO12: AMP_FAULT# — input, active-low (not bound in driver; may poll via I2C)
+	 *	 GPIO1_IO13: AMP_WARN# — input, active-low (same)
+	 * Do not list these balls again under `pinctrl_sai1_tas6424` (duplicate pinctrl / wrong pad class).
 	 */
 	pinctrl_tas6424_gpio: tas6424gpiogrp {
 		fsl,pins = <
@@ -248,27 +254,20 @@
 		>;
 	};
 
-	/* Tier C2 step 1 — TAS6424 on SAI1: align with docs/reference/dt510-ollie-tool-generated/pin_mux.dts (BOARD_InitPins) */
+	/*
+	 * TAS6424E — SAI1 I2S to codec (5 pins only, per product spec).
+	 *	 SAI1_MCLK, SAI1_TX_SYNC, SAI1_TX_BCLK, SAI1_TX_DATA0, SAI1_TX_DATA1
+	 * Pad config follows Ollie `pin_mux.dts` BOARD_InitPins: 0x116 for MCLK/BCLK/DATA, 0x1916 for
+	 * frame sync (same 0x1916 pattern as ENET TX_CTL in this file — steeper drive / skew).
+	 * Do not merge GPIO1_IO10–13 here: those stay in `pinctrl_tas6424_gpio` with 0x116.
+	 */
 	pinctrl_sai1_tas6424: sai1tas6424grp {
 		fsl,pins = <
-			MX8MM_IOMUXC_SAI1_MCLK_SAI1_MCLK		0xd6
-			MX8MM_IOMUXC_SAI1_RXC_GPIO4_IO1			0xd6
-			MX8MM_IOMUXC_SAI1_RXD2_GPIO4_IO4		0xd6
-			MX8MM_IOMUXC_SAI1_RXD3_GPIO4_IO5		0xd6
-			MX8MM_IOMUXC_SAI1_RXD4_SAI6_TX_BCLK		0xd6
-			MX8MM_IOMUXC_SAI1_RXD5_SAI6_TX_DATA0		0xd6
-			MX8MM_IOMUXC_SAI1_RXD6_SAI6_TX_SYNC		0xd6
-			/* SAI1_RXD7 / GPIO4_IO9: BQ25792 CHGR_INT# — not SAI (see pinctrl_bq25792_chgr_int) */
-			MX8MM_IOMUXC_SAI1_RXFS_GPIO4_IO0		0xd6
-			MX8MM_IOMUXC_SAI1_TXC_SAI1_TX_BCLK		0xd6
-			MX8MM_IOMUXC_SAI1_TXD0_SAI1_TX_DATA0		0xd6
-			MX8MM_IOMUXC_SAI1_TXD1_SAI1_TX_DATA1		0xd6
-			MX8MM_IOMUXC_SAI1_TXD2_GPIO4_IO14		0xd6
-			MX8MM_IOMUXC_SAI1_TXD3_GPIO4_IO15		0xd6
-			MX8MM_IOMUXC_SAI1_TXD4_GPIO4_IO16		0xd6
-			MX8MM_IOMUXC_SAI1_TXD5_SAI6_RX_DATA0		0xd6
-			MX8MM_IOMUXC_SAI1_TXD6_GPIO4_IO18		0xd6
-			MX8MM_IOMUXC_SAI1_TXFS_SAI1_TX_SYNC		0xd6
+			MX8MM_IOMUXC_SAI1_MCLK_SAI1_MCLK		0x116
+			MX8MM_IOMUXC_SAI1_TXFS_SAI1_TX_SYNC		0x1916
+			MX8MM_IOMUXC_SAI1_TXC_SAI1_TX_BCLK		0x116
+			MX8MM_IOMUXC_SAI1_TXD0_SAI1_TX_DATA0	0x116
+			MX8MM_IOMUXC_SAI1_TXD1_SAI1_TX_DATA1	0x116
 		>;
 	};
 
@@ -345,7 +344,10 @@
 		>;
 	};
 
-	/* Ollie GPIO for KSZ PME# / INTR# / RST#: same SAI1 balls as `pinctrl_sai1_tas6424` — **mutex** (see docs). */
+	/*
+	 * KSZ ENET PME# / INTR# / RST#: not in `pinctrl_sai1_tas6424` (TAS SAI1 is 5 lines only). Those
+	 * sideband nets use other balls per board SSOT; see `docs/DT510-ETHERNET-KSZ9896.md`.
+	 */
 };
 
 &uart1 { /* BT */
@@ -738,7 +740,7 @@
 };
 
 &sai1 {
-	/* TAS6424 I2S/TDM to class-D — SSOT pinmux in pinctrl_sai1_tas6424; SAI1_RXD7 ball is CHGR_INT#, not SAI */
+	/* TAS6424: I2S to class-D (5-line pinmux in pinctrl_sai1_tas6424). SAI1_RXD7 is CHGR_INT# on I2C3, not SAI. */
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sai1_tas6424>;
 	assigned-clocks = <&clk IMX8MM_CLK_SAI1_ROOT>;
