@@ -474,16 +474,56 @@
 /* CODEC_SD# (GPIO5_IO4): Sentai gpio-hog removed — tas2563@4C reset-gpios owns the line (DT510 SSOT, plan §4). */
 
 /*
- * C1 — FEC: inherit `imx8mm-evk.dtsi` `phy-handle`, `fsl,magic-packet`, and `mdio`/`ethphy0@0`
- * (no duplicate subnode here). Board uses `pinctrl_fec1_dt510` (Ollie/SSOT), not EVK `pinctrl_fec1`.
- * KSZ ENET PME/INTR/RST: also in `pinctrl-0` so IOMUX is applied with FEC, not on `&gpio4`.
- * For KSZ9896 + `fixed-link` + phy@1..5, see docs/DT510-ETHERNET-KSZ9896.md.
+ * C1 — RGMII to KSZ9896 (CPU / switch port): not the EVK MAC→PHY@0 model from `imx8mm-evk.dtsi`.
+ * Use `fixed-link` 1G full for the RGMII path; drop `phy-handle` / `fsl,magic-packet` from the include;
+ * `mdio` is only to expose KSZ **internal** PHY@1..5 (Clause 22 probe), not the RGMII partner.
+ * KSZ ENET PME/INTR/RST: `pinctrl_ksz9896_sideband` in `pinctrl-0` with the RGMII pinctrl; see
+ * `docs/DT510-ETHERNET-KSZ9896.md`.
  */
 &fec1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_fec1_dt510 &pinctrl_ksz9896_sideband>;
 	phy-mode = "rgmii-id";
 	status = "okay";
+	/delete-property/ phy-handle;
+	/delete-property/ fsl,magic-packet;
+
+	fixed-link {
+		speed = <1000>;
+		full-duplex;
+	};
+
+	mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/delete-node/ ethernet-phy@0;
+
+		ksz_p1: ethernet-phy@1 {
+			compatible = "ethernet-phy-ieee802.3-c22";
+			reg = <1>;
+		};
+
+		ksz_p2: ethernet-phy@2 {
+			compatible = "ethernet-phy-ieee802.3-c22";
+			reg = <2>;
+		};
+
+		ksz_p3: ethernet-phy@3 {
+			compatible = "ethernet-phy-ieee802.3-c22";
+			reg = <3>;
+		};
+
+		ksz_p4: ethernet-phy@4 {
+			compatible = "ethernet-phy-ieee802.3-c22";
+			reg = <4>;
+		};
+
+		ksz_p5: ethernet-phy@5 {
+			compatible = "ethernet-phy-ieee802.3-c22";
+			reg = <5>;
+		};
+	};
 };
 
 /*
@@ -510,7 +550,7 @@
 /* Tier B4 — SE050 @ I2C4 0x48: OpTEE (se05x) — see docs/DT510-SE050.md; no Linux &i2c4 child required. */
 
 &i2c1 {
-	/* KSZ9896: not on I2C — see &fec1. */
+	/* KSZ9896: not on I2C (MIIM on `&fec1` + `fixed-link` in DT); see docs/DT510-ETHERNET-KSZ9896.md. */
 
 	sht40: sht40@44 {
 		compatible = "sensirion,sht4x";
