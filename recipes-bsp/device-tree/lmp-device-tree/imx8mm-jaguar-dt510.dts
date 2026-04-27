@@ -346,10 +346,11 @@
 
 	/*
 	 * KSZ9896 / ENET sideband (SAI1 balls as GPIO) — Ollie `pin_mux.dts` uses 0x116 on each.
-	 * SAI1_RXD2  → GPIO4_IO4: ENET_PME#  — input to SoC,  active-low (Wake-on-LAN)
-	 * SAI1_RXFS  → GPIO4_IO0: ENET_INTR# — default: input, active-low (typical: switch → SoC);
-	 *				    if SSOT is SoC *output* only, set gpio hog to `output-high;` instead
-	 * SAI1_RXC   → GPIO4_IO1: ENET_RST#  — output from SoC, active-low; high = deassert reset (run)
+	 * Nets at switch may be # (active low); SoC GPIO hogs use `GPIO_ACTIVE_HIGH` where RST bench
+	 * showed stacked inversion vs naive `ACTIVE_LOW` — match PME/INTR/RST (see gpio4 nodes).
+	 * SAI1_RXD2  → GPIO4_IO4: ENET_PME#  — input (WoL)
+	 * SAI1_RXFS  → GPIO4_IO0: ENET_INTR# — input; if SSOT is SoC *output* only, hog `output-high;`
+	 * SAI1_RXC   → GPIO4_IO1: ENET_RST#  — on wire: nRESET active low; pin high = run (see `ksz9896_rst`)
 	 * Not in `pinctrl_sai1_tas6424` (TAS uses 5-line SAI1 only). See `docs/DT510-ETHERNET-KSZ9896.md`.
 	 */
 	pinctrl_ksz9896_sideband: ksz9896sidebandgrp {
@@ -446,22 +447,31 @@
 	 */
 	status = "okay";
 
+	/* Same `GPIO_ACTIVE_*` convention as `ksz9896_rst` (sideband inversion). */
 	ksz9896_pme {
 		gpio-hog;
-		gpios = <4 GPIO_ACTIVE_LOW>;
+		gpios = <4 GPIO_ACTIVE_HIGH>;
 		input;
 		line-name = "ksz9896-ent-pme";
 	};
 
-	/* If EE confirms SoC *drives* this instead of read-as-IRQ, change to: output-high; (inactive). */
+	/*
+	 * Same `GPIO_ACTIVE_HIGH` as RST/PME. If EE confirms SoC *drives* this, switch hog to
+	 * `output-high;` (inactive) — use `GPIO_ACTIVE_HIGH` with that output too.
+	 */
 	ksz9896_intr {
 		gpio-hog;
-		gpios = <0 GPIO_ACTIVE_LOW>;
+		gpios = <0 GPIO_ACTIVE_HIGH>;
 		input;
 		line-name = "ksz9896-ent-intr";
 	};
 
-	/* Bring-up: invert vs GPIO_ACTIVE_LOW if nRESET# polarity in DT was wrong (test MDIO probe). */
+	/*
+	 * RST: `GPIO_ACTIVE_HIGH` + `output-high` verified on bench — MDIO + internal PHYs + link came up.
+	 * Schematic is still nRESET# (release = pin high). Linux maps *logical* hog level to *physical*
+	 * using GPIO_ACTIVE_* : `ACTIVE_LOW` + `output-high` => physical low => held in reset (MDIO dead).
+	 * PME/INTR hogs above use `GPIO_ACTIVE_HIGH` to match the same sideband path as RST.
+	 */
 	ksz9896_rst {
 		gpio-hog;
 		gpios = <1 GPIO_ACTIVE_HIGH>;
