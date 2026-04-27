@@ -461,9 +461,10 @@
 		line-name = "ksz9896-ent-intr";
 	};
 
+	/* Bring-up: invert vs GPIO_ACTIVE_LOW if nRESET# polarity in DT was wrong (test MDIO probe). */
 	ksz9896_rst {
 		gpio-hog;
-		gpios = <1 GPIO_ACTIVE_LOW>;
+		gpios = <1 GPIO_ACTIVE_HIGH>;
 		output-high;
 		line-name = "ksz9896-ent-rst";
 	};
