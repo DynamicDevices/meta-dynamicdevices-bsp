@@ -317,7 +317,7 @@ Full MIIM / **PRTAD 0** meaning is documented under **§ PHY @0 — Clause 22 re
 
 These **Clause 22** blocks describe **embedded PHY / PHY-management** objects at **MDIO STAs**. They **do not** replace:
 
-- **Port 6 RGMII MAC** register file (**§5.2.3**, **`0x6300`–`0x63FF`** range in memory map),
+- **Port 6 RGMII MAC** register file (**§5.2.3**, **`0x6300`–`0x63FF`** range in memory map). **Internal delay enable** is in **`0x6301[4:3]`** (**SPI/I²C** read — **not** MIIM); datasheet defaults are summarized in **`docs/DT510-ETHERNET-KSZ9896.md`** (**`RGMII_ID_eg` on**, **`RGMII_ID_ig` off**).
 - **Actual LVTTL/TMDS pad behavior**, **clock skew**, or **PCB** issues on **RGMII TX**.
 
 If the symptom is **“frames exit Linux `end0` but fail on wire toward laptop,”** combine this PHY analysis with **`ethtool -S end0`**, **scope**, and **Port 6** CSR access per strap (**SPI/I2C** may be required for full switch view — **MIIM-only** designs sometimes expose **PHY-side only** through **`fec` MDIO**).
@@ -346,7 +346,7 @@ If the symptom is **“frames exit Linux `end0` but fail on wire toward laptop,�
 
 ## Related docs (same BSP repo)
 
-- `docs/DT510-ETHERNET-KSZ9896.md` — topology, `mdio` vs `phytool`, Table 4‑27 usage, **Port 6 RGMII** default straps (**§3.2.1**), **§4.11.4** summary, **§5.2.3** **XMII** (`0x6300` / `0x6301`) vs MIIM-only limitation (**§5.0**).
+- `docs/DT510-ETHERNET-KSZ9896.md` — topology, `mdio` vs `phytool`, Table 4‑27 usage, **Port 6 RGMII** default straps (**§3.2.1**), **§4.11.4**, **§5.2.3** **`0x6301`** **RGMII_ID_ig/_eg** defaults (**internal RX_CLK delay on**, **TX_CLK delay off**), MIIM-only limitation (**§5.0**).
 - `docs/GPIO-HOG-ACTIVE-POLARITY.md` — KSZ9896 sideband reset / PME / INTR.
 
 ---
@@ -361,3 +361,4 @@ If the symptom is **“frames exit Linux `end0` but fail on wire toward laptop,�
 | 2026-04-28 | Per-register **Analysis** column on PHY **@0–@5** dump tables. |
 | 2026-04-28 | **PHY @0:** authoritative MIIM / **PRTAD 0** decode (**0x004540fe**, checklist §7.x, Table 4‑27). |
 | 2026-04-28 | Cross-ref **`DT510-ETHERNET-KSZ9896.md`** Port **6** **RGMII** (**§4.11.4**, straps, **XMII** regs). |
+| 2026-04-28 | Pointer to **`0x6301`** internal **RGMII** delay defaults (**egress on**, **ingress off**). |

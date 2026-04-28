@@ -40,7 +40,21 @@ Per **DS00002390C §4.11.4** (see also **Table 4-35**):
 - **RX_CLK6** is sourced by the **KSZ** Port **6** side at the **same rate family** for each speed.
 - **TX_CTL6** / **RX_CTL6** multiplex **enable + error** / **DV + ER**; control is valid on the **falling edge** of the respective clock (RGMII spec timing).
 - **There is no mechanism for RGMII to adapt speed automatically** to the link partner. Straps set **1000 vs 100 Mbps** at reset; **XMII Port Control** registers can override speed (**including 10 Mbps**) per §4.11.4.
-- **Internal clock delay:** **XMII Port Control 1 Register** exposes **≥ ~1.5 ns** optional delay on **TX_CLK6** and **RX_CLK6**: **RGMII_ID_ig** defaults **off**; **RGMII_ID_eg** defaults **on** — reduces PCB trace delay needs (§4.11.4). Account for both KSZ defaults **and** the FEC’s **`rgmii-id`** expectation when debugging skew.
+
+### Internal RGMII delay — **confirmation from DS00002390C** (XMII Port Control 1, **`0x6301`**)
+
+§**4.11.4** and §**5.2.3.2** (**XMII Port Control 1 Register**, **`0xN301`**, **Port N = 6** ⇒ **`0x6301`**) define two independent enables; each adds **at least ~1.5 ns** to the indicated clock when set to **1**:
+
+| Bit | Name (datasheet) | Clock (§4.11.4 wording) | **Power‑up default** | **Internal delay at default** |
+|-----|------------------|-------------------------|----------------------|-------------------------------|
+| **4** | **RGMII_ID_ig** (“ingress”) | **TX_CLK6** (from FEC toward KSZ TX datapath) | **R/W default `0`** | **Disabled** — **no** added delay on **TX_CLK6** |
+| **3** | **RGMII_ID_eg** (“egress”) | **RX_CLK6** (from KSZ toward FEC RX datapath) | **R/W default `1`** | **Enabled** — **≥ ~1.5 ns** delay on **RX_CLK6** |
+
+**Answer for bring-up:** **Yes — one of the two internal delays is on by default:** **RX_CLK6** delay (**RGMII_ID_eg**) is **enabled**; **TX_CLK6** delay (**RGMII_ID_ig**) is **off** by default. That matches §**4.11.4** narrative (**RGMII_ID_ig** default off, **RGMII_ID_eg** default on) and aligns **RGMII v2.0** “ID” style timing on the **receive** clock toward the MAC unless firmware clears bit **3**.
+
+**FEC `phy-mode = "rgmii-id"`:** Linux expects **internal delay on at least one side** of the RGMII so setup/hold meet **RGMII v2.0**. Here the KSZ **defaults** supply delay on **RX_CLK6** only; the **i.MX FEC** may still apply its own **TX/RX ID** per **`rgmii-id`**. If the CPU link is marginal, confirm **bits [4:3]** on **`0x6301`** over **SPI/I²C** (not MIIM) and correlate with scope / **`ethtool -S`** counters.
+
+**Runtime verification (recommended once you have SPI/I²C):** read **`0x6301`** and confirm **bit 4 = 0** (**RGMII_ID_ig** off), **bit 3 = 1** (**RGMII_ID_eg** on) unless software has changed them.
 
 ### Register map (Port **N = 6**) — §5.2.3
 
@@ -49,7 +63,7 @@ From **Table 5-2** / **§5.2.3** (Port **RGMII/GMII/MII/RMII** space **`0xN300`�
 | Address (Port 6) | Register |
 |------------------|----------|
 | **`0x6300`** | **XMII Port Control 0** — duplex, flow control, **10/100** selection when sub-gigabit |
-| **`0x6301`** | **XMII Port Control 1** — **1000 Mbps vs 10/100** (bit **6** mirrors strap intent), **RGMII internal delay** (**RGMII_ID_ig** / **RGMII_ID_eg**), **interface type** bits **[1:0]** (**00 = RGMII**, reflects **RXD6_[3:2]** straps) |
+| **`0x6301`** | **XMII Port Control 1** — bit **6** **Port Speed 1000** (strap **`RXD6_0`** loads default); bits **4:3** **RGMII_ID_ig** / **RGMII_ID_eg** (defaults **`0`/`1`** — see table above); bits **[1:0]** **interface type** (**`00` = RGMII**, reflects **RXD6_[3:2]** straps) |
 
 **MIIM vs SPI/I²C:** **§5.0** states the **MIIM** interface accesses **PHY registers only** and **does not** access **switch** (including **XMII**) registers. Reading **`0x6300`/`0x6301`** for lab bring-up requires **SPI** or **I²C** management (or **IBA**), not **FEC MDIO** alone — consistent with **`docs/DT510-KSZ9896-MIIM-register-dump.md`**.
 
