@@ -19,7 +19,7 @@
 
 `i2cdetect -l` may list only `i2c-1` and `i2c-2` by **name**, while `i2c-0` still exists under **sysfs** (`/sys/class/i2c-dev/`, `30a20000.i2c`).
 
-**Kernel note:** I²C client nodes use **`N-00aa`** in sysfs, e.g. `0-0044` = adapter 0, address `0x44`. The **KSZ9896** is **not** on I²C in this product (MIIM/MDC+MDIO only).
+**Kernel note:** I²C client nodes use **`N-00aa`** in sysfs, e.g. `0-0044` = adapter 0, address `0x44`. **KSZ9896** DSA management is **`switch@5f`** on **`&i2c2`** in DTS (**placeholder bus/addr** until EE confirms straps + pinout).
 
 ---
 
@@ -29,7 +29,7 @@
 |----------------|------------|------------------|-----------------------------|------------------------|--------------------|
 | **0** | `0x25` | **NXP PCA9450** PMIC | Inherited from EVK (`&i2c1`) | regulator / pinctrl | **OK** (PMIC core; DTC/DT bind) |
 | **0** | `0x44` | **Sensirion SHT4x** | `sht40@44`, `sensirion,sht4x` | `sht4x.ko` (hwmon) | **Not working (↗)**: `i2cget` **read error**; **no** `/sys/.../0-0044/driver`; I²C not usable — fix **wiring, population,** or **I²C** before trusting humidity/temp. |
-| **0** | — | **Microchip KSZ9896** (ENET / switch) | **not** on `&i2c1` (MIIM to `&fec1`) | (FEC `mdio` / RGMII) | **N/A (↗)**: product uses **MDC+MDIO**, not I²C — no `0x5f` on I²C bus; see [`DT510-ETHERNET-KSZ9896.md`](DT510-ETHERNET-KSZ9896.md). |
+| **2** | `0x5f` | **Microchip KSZ9896** (DSA / switch mgmt) | **`switch@5f`** under **`&i2c2`** (**confirm** bus + addr vs straps) | `microchip,ksz9896` | **Pending (↗)**: probe succeeds only after **I²C strap** + routing match DTS; see [`DT510-ETHERNET-KSZ9896.md`](DT510-ETHERNET-KSZ9896.md). |
 | **1** | `0x3d` | **ADV7535** (DSI→HDMI) | EVK carry-over | `adv7533` (optional) | **On bus (↗)**: not DT510 end-product focus; **display stack disabled** in DT510. |
 | **1** | `0x4c` | **TI TAS2563** | `tas2563@4C` | ASoC / `snd_soc_tas2563` | **Driver bound (↗)** — validate audio path separately. |
 | **1** | `0x6a` | **TI TAS6424** | `tas6424@6a` | ASoC | **Driver bound (↗)** — SAI1 clock reparent `(-EINVAL)` seen in dmesg on same image; full audio TBD. |

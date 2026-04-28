@@ -1,14 +1,5 @@
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
-# imx8mm Jaguar*: FEC_IMX8MQ + FEC_QUIRK_DELAYED_CLKS_SUPPORT — DT tx-internal-delay-ps / rx-internal-delay-ps
-# drive ENET_ECR TXC/RXC delay bits (validated on DT510 hardware; see 0025 patch header).
-FEC_IMX8MQ_DELAY_PATCH = "file://0025-net-fec-imx8mq-enable-RGMII-internal-delay-quirk.patch"
-SRC_URI:append:imx8mm-jaguar-dt510 = " ${FEC_IMX8MQ_DELAY_PATCH}"
-SRC_URI:append:imx8mm-jaguar-sentai = " ${FEC_IMX8MQ_DELAY_PATCH}"
-SRC_URI:append:imx8mm-jaguar-inst = " ${FEC_IMX8MQ_DELAY_PATCH}"
-SRC_URI:append:imx8mm-jaguar-handheld = " ${FEC_IMX8MQ_DELAY_PATCH}"
-SRC_URI:append:imx8mm-jaguar-phasora = " ${FEC_IMX8MQ_DELAY_PATCH}"
-
 # Fix buildpaths QA warnings by ensuring debug prefix mapping is applied to kernel builds
 # This prevents TMPDIR references from being embedded in debug information
 DEBUG_PREFIX_MAP:append = " -fdebug-prefix-map=${TMPDIR}=/usr/src/debug/tmpdir"

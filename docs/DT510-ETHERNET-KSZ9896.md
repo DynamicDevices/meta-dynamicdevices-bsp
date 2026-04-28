@@ -2,20 +2,21 @@
 
 ## Phased plan (product intent)
 
-1. **Now — prove the hardware (simple data path):** prioritise a **single CPU-facing Ethernet** (e.g. `end0` / `eth0`), **RGMII + `fixed-link`** to the switch **CPU port**, and **no** DSA / **no** switch management over I²C. The **`&fec1`** block includes an **`mdio`** subnode with **`ethernet-phy@1`…`@5`** (EVK-**like** in having **MDIO + phy** children) for **internal** 1000BASE-T PHY **probe** only — the **CPU** link is still **`fixed-link`**, not **`phy-handle`**, unlike EVK **phy@0** (see §**EVK vs DT510** and **FAQ** above).
-2. **Later — richer control plane (track explicitly):** if we need per-port **netdevs** (`lan*`), **VLAN** offload, or **in-kernel** switch config, evaluate **I²C or SPI** strap to the KSZ plus **`microchip,ksz9896`** DSA (or a vendor-supported MDIO-management path if one becomes available). **Do not** block hardware bring-up on that stack.
+1. **Now — DSA over I²C:** EE straps **KSZ9896** management to **I²C** (same strap pins as MIIM/SPI options per datasheet). BSP enables **`microchip,ksz9896`** on **`&i2c2`** **`switch@5f`** (**placeholder bus + 7-bit address** until pinout/strap SSOT — move node / adjust **`reg`** when confirmed).
+2. **Earlier lab — MIIM-only:** older trees used **`&fec1`** **`mdio`** **`ethernet-phy@1`…`@5`** for Clause **22** probe only; that **`mdio`** block is **removed** once DSA owns the switch.
 
-This doc describes the **phase 1** device tree; §“Simple bring-up (analysis)” below records what that implies and what is **not** a literal EVK copy.
+This doc is updated for the **I²C + DSA** device tree; §“Simple bring-up (analysis)” below still explains RGMII concepts.
 
-**Hardware (EE):** the KSZ9896C is strapped for **MIIM** — the SoC’s **MDC** (clock) and **MDIO** (data) go to the switch. That is the usual **Clause 22/45** management pair (often called “the MDIO bus”). **I2C and SPI** are the *other* strap options for the *same* two balls; the board is **not** using I2C for switch management in this product.
+**Hardware (EE):** management strap **I²C** — SoC **SDA/SCL** route to the KSZ strap pins (confirm controller + pins with **Ollie**). **MDC/MDIO** are **not** used for switch register access in this mode (pads may remain muxed for unused Clause-22 visibility only if hardware ties them).
 
-**Linux / mainline:** the **Microchip DSA** driver for `microchip,ksz9896` in vanilla Linux attaches with **`devm_regmap_init_i2c()`** or **SPI** (`ksz9477_i2c.c` / `ksz_spi.c`). There is **no** in-tree `ksz…` DSA front-end that uses **FEC’s MDIO** as the primary register bus for the 9896. MIIM is still used by the driver stack **indirectly** in some I2C/SPI designs (internal PHY access), not as a substitute for the I2C regmap on a pure-MDIO strap.
+**Linux / mainline:** **`microchip,ksz9896`** attaches via **`devm_regmap_init_i2c()`** (`ksz9477_i2c.c`). Internal PHY / XMII control uses the switch driver over that bus — **not** FEC MIIM for **`0x6301`**.
 
 **Implemented DT (`imx8mm-jaguar-dt510.dts`):**
 
-- **`&iomuxc`:** `pinctrl_fec1_dt510` — RGMII + MDC/MDIO pads, **Ollie** / SSOT (not EVK `pinctrl_fec1`).
-- **`&fec1`:** `pinctrl-0`, `phy-mode = "rgmii-id"`, **`fixed-link` 1G** to the **KSZ CPU** port; **no** `phy-handle` (unlike EVK’s **`phy-handle` → `ethernet-phy@0`**). **`mdio`** with **`ethernet-phy@1`…`@5`** for KSZ **internal** PHYs (Clause 22) — same *idea* as EVK’s **`mdio` + one PHY**, but **addresses** and **no** `phy-handle` on `&fec1` because the **RGMII** path is through the **switch**, not a single dedicated PHY. **`&i2c1`:** no KSZ.
-- **Kernel:** `ksz9896-mii-phy.cfg` (PHY drivers) still useful when **MDIO** children return; I²C DSA ksz modules off in `ksz9896-ethernet-switch.cfg`.
+- **`&iomuxc`:** `pinctrl_fec1_dt510` — RGMII (+ legacy MDC/MDIO mux where routed), **Ollie** / SSOT.
+- **`&fec1`:** `phy-mode = "rgmii-id"`, **`fixed-link` 1G**; **no** `phy-handle`; **no** **`mdio`** children (DSA owns internal PHYs).
+- **`&i2c2`:** **`switch@5f`** **`microchip,ksz9896`**, **`ethernet-ports`**, CPU **`port@5`** **`ethernet = <&fec1>`**; **`reset-gpios`** on **`gpio4_io1`** (was gpio-hog RST — now driver-owned).
+- **Kernel:** `ksz9896-ethernet-switch.cfg` enables **`CONFIG_NET_DSA_MICROCHIP_KSZ_COMMON`** + **`CONFIG_NET_DSA_MICROCHIP_KSZ9477_I2C`**; `ksz9896-mii-phy.cfg` retains PHYLIB helpers for integrated PHY code paths.
 
 ## KSZ9896C Port 6 — RGMII (default straps + DS §4.11.4)
 
@@ -128,7 +129,7 @@ So **receive direction toward the MAC** already has a **datasheet internal delay
 1. **Confirm on silicon:** read **`0x6301`** (**SPI/I²C**, Port **6** = **`0x6301`**). Expect **bit 3 = 1**, **bit 4 = 0** unless something changed them.
 2. **KSZ — enable TX-path internal delay:** set **`0x6301` bit 4 = 1** (**`RGMII_ID_ig`**) via **SPI/I²C** (read-modify-write), power/strap unchanged. Adds **≥ ~1.5 ns** on **TX_CLK6** toward the KSZ **receive** (FEC→KSZ direction).
 3. **FEC — swap `phy-mode` experimentally** (with scope): try **`rgmii-txid`** / **`rgmii-rxid`** / **`rgmii-id`** only **one step at a time** so **MAC vs KSZ** don’t both cancel delays — measure **RX and TX** separately at the connector.
-4. **FEC — optional DT tuning:** Linux **`fsl,fec`** binding and **`fec_enet_parse_rgmii_delay()`** allow **only `0` or `2000`** ps per property (not arbitrary values). Hardware applies **`FEC_ENET_TXC_DLY`** / **`FEC_ENET_RXC_DLY`** only when **`FEC_QUIRK_DELAYED_CLKS_SUPPORT`** is set; upstream **`fec_imx8mq_info`** omitted it, but **DT510** carries **`linux-lmp-fslc-imx/0025-net-fec-imx8mq-enable-RGMII-internal-delay-quirk.patch`** plus **`&fec1`** **`tx-internal-delay-ps = <2000>`** so the MAC enables **TX** delay when the driver probes (**validated on-silicon** via **`ENET_ECR`**). **`rx-internal-delay-ps`** may be added the same way if EE wants RX MAC delay.
+4. **FEC — DT delay properties:** The generic **`fsl,fec`** binding allows **`tx-internal-delay-ps`** / **`rx-internal-delay-ps`** on some SoCs, but the **i.MX 8M Mini reference manual** documents the corresponding **ENET_ECR** delay-related bits as **reserved / not supported** for programmable MAC-side RGMII delay on this silicon — **DT510 does not** use those DT properties; rely on **`phy-mode`**, **KSZ Port 6 `0x6301`** (SPI/I²C when available), **PCB**, or **straps** for skew instead.
 5. **MIIM-only hardware:** cannot write **`0x6301`** **from FEC MDIO** — either **board rework / strap** for **I²C/SPI** to the KSZ or tune **`phy-mode`** / **FEC-only** properties until management exists.
 
 **Verification:** scope **TXC/TD*** and **RXC/RD*** vs **CTL** at the balls; **`ethtool -S`** error counters; fewer **CRC** / silent drops on **`end0`**.

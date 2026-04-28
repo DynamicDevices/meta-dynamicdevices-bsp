@@ -467,17 +467,9 @@
 	};
 
 	/*
-	 * RST: `GPIO_ACTIVE_HIGH` + `output-high` verified on bench — MDIO + internal PHYs + link came up.
-	 * Schematic is still nRESET# (release = pin high). Linux maps *logical* hog level to *physical*
-	 * using GPIO_ACTIVE_* : `ACTIVE_LOW` + `output-high` => physical low => held in reset (MDIO dead).
-	 * PME/INTR hogs above use `GPIO_ACTIVE_HIGH` to match the same sideband path as RST.
+	 * RST: released by `microchip,ksz9896` DSA node (`reset-gpios`), not a hog — same sideband ball.
+	 * PME/INTR hogs remain until wired to the switch driver (`interrupts`) if needed.
 	 */
-	ksz9896_rst {
-		gpio-hog;
-		gpios = <1 GPIO_ACTIVE_HIGH>;
-		output-high;
-		line-name = "ksz9896-ent-rst";
-	};
 
 	/* ZB on GPIO4_IO22: pinctrl `pinctrl_zigbee` + unhog here if needed. */
 };
@@ -485,18 +477,14 @@
 /* CODEC_SD# (GPIO5_IO4): Sentai gpio-hog removed — tas2563@4C reset-gpios owns the line (DT510 SSOT, plan §4). */
 
 /*
- * C1 — RGMII to KSZ9896 (CPU / switch port): not the EVK MAC→PHY@0 model from `imx8mm-evk.dtsi`.
- * Use `fixed-link` 1G full for the RGMII path; drop `phy-handle` / `fsl,magic-packet` from the include;
- * `mdio` is only to expose KSZ **internal** PHY@1..5 (Clause 22 probe), not the RGMII partner.
- * KSZ ENET PME/INTR/RST: `pinctrl_ksz9896_sideband` in `pinctrl-0` with the RGMII pinctrl; see
- * `docs/DT510-ETHERNET-KSZ9896.md`.
+ * C1 — RGMII to KSZ9896 CPU port: FEC MAC↔switch via DSA (`microchip,ksz9896` on I2C).
+ * Internal PHYs + XMII are owned by the DSA driver — no `mdio` children under `fec1`.
+ * KSZ sideband: `pinctrl_ksz9896_sideband`; see `docs/DT510-ETHERNET-KSZ9896.md`.
  */
 &fec1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_fec1_dt510 &pinctrl_ksz9896_sideband>;
 	phy-mode = "rgmii-id";
-	/* MAC-side RGMII TX clock delay (~2 ns); requires FEC_QUIRK_DELAYED_CLKS_SUPPORT (kernel 0025 patch). */
-	tx-internal-delay-ps = <2000>;
 	status = "okay";
 	/delete-property/ phy-handle;
 	/delete-property/ fsl,magic-packet;
@@ -504,48 +492,6 @@
 	fixed-link {
 		speed = <1000>;
 		full-duplex;
-	};
-
-	mdio {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		/delete-node/ ethernet-phy@0;
-
-		ksz_p1: ethernet-phy@1 {
-			compatible = "ethernet-phy-ieee802.3-c22";
-			reg = <1>;
-			eee-broken-100tx;
-			eee-broken-1000t;
-		};
-
-		ksz_p2: ethernet-phy@2 {
-			compatible = "ethernet-phy-ieee802.3-c22";
-			reg = <2>;
-			eee-broken-100tx;
-			eee-broken-1000t;
-		};
-
-		ksz_p3: ethernet-phy@3 {
-			compatible = "ethernet-phy-ieee802.3-c22";
-			reg = <3>;
-			eee-broken-100tx;
-			eee-broken-1000t;
-		};
-
-		ksz_p4: ethernet-phy@4 {
-			compatible = "ethernet-phy-ieee802.3-c22";
-			reg = <4>;
-			eee-broken-100tx;
-			eee-broken-1000t;
-		};
-
-		ksz_p5: ethernet-phy@5 {
-			compatible = "ethernet-phy-ieee802.3-c22";
-			reg = <5>;
-			eee-broken-100tx;
-			eee-broken-1000t;
-		};
 	};
 };
 
@@ -573,8 +519,6 @@
 /* Tier B4 — SE050 @ I2C4 0x48: OpTEE (se05x) — see docs/DT510-SE050.md; no Linux &i2c4 child required. */
 
 &i2c1 {
-	/* KSZ9896: not on I2C (MIIM on `&fec1` + `fixed-link` in DT); see docs/DT510-ETHERNET-KSZ9896.md. */
-
 	sht40: sht40@44 {
 		compatible = "sensirion,sht4x";
                 reg = <0x44>;
@@ -629,6 +573,54 @@
 		standby-gpios = <&gpio1 10 GPIO_ACTIVE_LOW>;
 		mute-gpios = <&gpio1 11 GPIO_ACTIVE_LOW>;
 		status = "okay";
+	};
+
+	/*
+	 * KSZ9896 — I2C management + DSA (see `Documentation/devicetree/bindings/net/dsa/microchip,ksz.yaml`).
+	 * PLACEHOLDER until EE confirms: SoC I2C controller + ball mux + KSZ strap 7-bit address (often 0x5f).
+	 * If routed to &i2c1 or &i2c3 instead, move this node and set reg = <addr> from straps.
+	 */
+	ksz9896_sw: switch@5f {
+		compatible = "microchip,ksz9896";
+		reg = <0x5f>;
+		reset-gpios = <&gpio4 1 GPIO_ACTIVE_LOW>;
+
+		ethernet-ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				label = "lan1";
+			};
+
+			port@1 {
+				reg = <1>;
+				label = "lan2";
+			};
+
+			port@2 {
+				reg = <2>;
+				label = "lan3";
+			};
+
+			port@3 {
+				reg = <3>;
+				label = "lan4";
+			};
+
+			port@5 {
+				reg = <5>;
+				label = "cpu";
+				ethernet = <&fec1>;
+				phy-mode = "rgmii-id";
+
+				fixed-link {
+					speed = <1000>;
+					full-duplex;
+				};
+			};
+		};
 	};
 };
 
