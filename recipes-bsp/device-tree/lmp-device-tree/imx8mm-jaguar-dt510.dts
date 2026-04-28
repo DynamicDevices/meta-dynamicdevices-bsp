@@ -41,12 +41,19 @@
 	model = "i.MX8MM Jaguar DT510 board";
 	compatible = "fsl,imx8mm-jaguar-dt510", "fsl,imx8mm-evkb", "fsl,imx8mm-evk", "fsl,imx8mm";
 
-	/* Drop EVK audio composites not wired on DT510 (PMIC/audio/path differs). */
+	/*
+	 * Drop EVK audio composites not wired on DT510 (PMIC/audio/path differs).
+	 * NXP imx8mm-evk.dtsi: regulator-audio-board gates via &pca6416; sound-ak5558 / sound-ak4497
+	 * reference AK codecs removed under &i2c3 — delete these too or DTC fails on dangling phandles.
+	 */
 	/delete-node/ sound-micfil;
 	/delete-node/ sound-wm8524;
 	/delete-node/ sound-ak4458;
 	/delete-node/ sound-spdif;
 	/delete-node/ sound-bt-sco;
+	/delete-node/ regulator-audio-board;
+	/delete-node/ sound-ak5558;
+	/delete-node/ sound-ak4497;
 
 	/*
 	 * Fixed rails for on-board silicon:
