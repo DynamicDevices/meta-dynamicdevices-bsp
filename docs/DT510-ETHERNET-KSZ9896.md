@@ -82,6 +82,33 @@ From **Table 5-2** / **§5.2.3** (Port **RGMII/GMII/MII/RMII** space **`0xN300`�
 
 So on **DT510’s MIIM-only strap**, **you cannot program internal KSZ delays through FEC MDIO**; tune **MAC-side** **`phy-mode`** / pinctrl or add **SPI/I²C** (or use **IBA**) if you must flip **`0x6301`**.
 
+### i.MX **`&fec1`** — RGMII timing options (device tree)
+
+These apply to the **FEC MAC** toward **Port 6** on the KSZ (**`fixed-link`** still uses **`phy-mode`** so **phylink** / **`fec`** configure **RGMII pad timing** correctly).
+
+#### **`phy-mode`** (main knob)
+
+Normative enum matches **`phy-connection-type`** in Linux **`Documentation/devicetree/bindings/net/ethernet-controller.yaml`**:
+
+| `phy-mode` | Intended PCB / delay split (informative text from kernel docs) |
+|------------|------------------------------------------------------------------|
+| **`rgmii`** | **PCB** adds ~**2 ns** skew (clock vs data) on **both** RX and TX — **not** typical unless traces are length-matched for delay. |
+| **`rgmii-id`** | **PCB does not** add that skew — **internal delay** in **MAC and/or link partner** (**“ID”**). Most boards without engineered trace delay use this. **DT510 uses this today.** |
+| **`rgmii-rxid`** | **PCB** adds skew on **TX** only; **RX** delay comes from **internal** logic (PHY/MAC as negotiated by driver). |
+| **`rgmii-txid`** | **PCB** adds skew on **RX** only; **TX** delay internal. |
+
+Swapping modes changes how **Linux** expects **FEC** vs **KSZ** to split **RGMII v2.0** timing — tune **only with measurement** (scope / eye) because wrong choice yields **intermittent CRC / no link**.
+
+#### **`rx-internal-delay-ps` / `tx-internal-delay-ps`** (optional fine tuning)
+
+The same **ethernet-controller.yaml** binding allows **`rx-internal-delay-ps`** and **`tx-internal-delay-ps`** on the **Ethernet MAC** node when **`phy-mode`** is one of **`rgmii`**, **`rgmii-id`**, **`rgmii-rxid`**, **`rgmii-txid`** — values are **picoseconds** for MACs that implement **programmable** internal delay.
+
+Whether **i.MX 8MM FEC** actually honours these properties depends on the **`fec`** driver / silicon for your kernel — many designs rely on **`phy-mode`** + **partner** (here, **KSZ `0x6301`**) instead. If your tree’s **`fec`** ignores them, changing **`phy-mode`** remains the practical DT knob.
+
+#### **Pinctrl (`fsl,pins` PAD values)**
+
+Not a substitute for **`phy-mode`**, but **drive strength / slew** (**e.g.** **`0x116`**, **`0x1916`** on **`pinctrl_fec1_dt510`**) affect **SI margins** at **125 MHz** RGMII — keep aligned with **Ollie** / board SSOT when chasing marginal timing.
+
 ## EVK vs DT510 `&fec1` (same SoC, different link)
 
 | | **i.MX8MM EVK** (`imx8mm-evk.dtsi`) | **DT510** |
@@ -222,4 +249,5 @@ Several modules require **global** registers (**e.g.** **`0x0330`**, **`0x0331`*
 - `linux/drivers/net/dsa/microchip/ksz9477_i2c.c` (I2C regmap; **not** used when HW is MIIM-only)
 - Microchip **KSZ9896C** DS00002390C — **§3.2.1** straps (Table 3-3), **§4.11.4** RGMII (Port 6), **§5.0** / **§5.2.3** registers (**XMII** **`0x6300`**–**`0x63FF`**)
 - Microchip **KSZ9896C** **DS80000757** — silicon errata (**§ Silicon errata** above); PHY **MMD** workarounds apply per module tables in PDF
+- Linux **`Documentation/devicetree/bindings/net/ethernet-controller.yaml`** — **`phy-mode`** / **`phy-connection-type`** (**RGMII** variants), optional **`rx-internal-delay-ps`** / **`tx-internal-delay-ps`**
 - `docs/DT510-BSP-PROJECT-PLAN.md` — Tier **C1** Ethernet
