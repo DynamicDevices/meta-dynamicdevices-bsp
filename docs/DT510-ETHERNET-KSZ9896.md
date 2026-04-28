@@ -109,6 +109,30 @@ Whether **i.MX 8MM FEC** actually honours these properties depends on the **`fec
 
 Not a substitute for **`phy-mode`**, but **drive strength / slew** (**e.g.** **`0x116`**, **`0x1916`** on **`pinctrl_fec1_dt510`**) affect **SI margins** at **125 MHz** RGMII — keep aligned with **Ollie** / board SSOT when chasing marginal timing.
 
+### EE goal — **~1.5–2 ns** RGMII clock/data skew (how to satisfy it)
+
+**RGMII** expects roughly **2 ns** skew between clock and data lines (see **`ethernet-controller.yaml`** informative text). On KSZ9896C, §**4.11.4** / §**5.2.3.2** implement this as **≥ ~1.5 ns minimum** per enabled internal-delay bit (**not** a continuous trim to exactly 2 ns).
+
+**What we already have (defaults):**
+
+| Location | Mechanism | Typical effect |
+|----------|-----------|----------------|
+| **KSZ Port 6** | **`0x6301` bit 3** (**`RGMII_ID_eg`**) **= 1** default | **≥ ~1.5 ns** on **RX_CLK6** (KSZ → FEC **receive** path) |
+| **KSZ Port 6** | **`0x6301` bit 4** (**`RGMII_ID_ig`**) **= 0** default | **No** extra delay on **TX_CLK6** at reset |
+| **i.MX FEC** | **`phy-mode = "rgmii-id"`** | MAC stack expects **internal delay** on at least one side — aligns **software** model with **no PCB-length skew** |
+
+So **receive direction toward the MAC** already has a **datasheet internal delay**; **transmit direction** (FEC → KSZ) relies on **FEC `rgmii-id`** behaviour ± PCB unless **`RGMII_ID_ig`** is turned **on**.
+
+**If Michael’s review says “add delay” (marginal scope / CRC):**
+
+1. **Confirm on silicon:** read **`0x6301`** (**SPI/I²C**, Port **6** = **`0x6301`**). Expect **bit 3 = 1**, **bit 4 = 0** unless something changed them.
+2. **KSZ — enable TX-path internal delay:** set **`0x6301` bit 4 = 1** (**`RGMII_ID_ig`**) via **SPI/I²C** (read-modify-write), power/strap unchanged. Adds **≥ ~1.5 ns** on **TX_CLK6** toward the KSZ **receive** (FEC→KSZ direction).
+3. **FEC — swap `phy-mode` experimentally** (with scope): try **`rgmii-txid`** / **`rgmii-rxid`** / **`rgmii-id`** only **one step at a time** so **MAC vs KSZ** don’t both cancel delays — measure **RX and TX** separately at the connector.
+4. **FEC — optional DT tuning:** if your **`fec`** driver supports them, add **`tx-internal-delay-ps`** / **`rx-internal-delay-ps`** in the **1500–2000** ps range on **`&fec1`** (verify in **`drivers/net/ethernet/freescale/`** for your kernel — **many i.MX FEC builds ignore these**).
+5. **MIIM-only hardware:** cannot write **`0x6301`** **from FEC MDIO** — either **board rework / strap** for **I²C/SPI** to the KSZ or tune **`phy-mode`** / **FEC-only** properties until management exists.
+
+**Verification:** scope **TXC/TD*** and **RXC/RD*** vs **CTL** at the balls; **`ethtool -S`** error counters; fewer **CRC** / silent drops on **`end0`**.
+
 ## EVK vs DT510 `&fec1` (same SoC, different link)
 
 | | **i.MX8MM EVK** (`imx8mm-evk.dtsi`) | **DT510** |
