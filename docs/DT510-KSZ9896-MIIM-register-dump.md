@@ -41,7 +41,17 @@ Register numbers **0–31** are **decimal** in the `mdio` CLI (= **0h–1Fh** in
 
 ## PHY @0 — Clause 22 regs 0–31
 
-*PHY-ID **0x004540fe** — not **0x00221631**; treat as internal / CPU-path MIIM object per datasheet; Table 4‑27 decodes may not align with copper ports.*
+### What **PRTAD 0** is on KSZ9896 **MIIM** (decode this first)
+
+Strapping **LED4_1 / LED3_1 = 0 / 0** selects **MII Management (MIIM)** on **MDC/MDIO**. Microchip documents three facts that matter for **`mdio phy 0`**:
+
+1. **MIIM reaches PHY registers only — not xMII, not switch globals.** The **KSZ989x hardware design checklist** (doc **00004151**, §**7.0**–§**7.4**) states that **SPI / I²C / IBA** can access **all** device registers, whereas **MIIM** can access **only PHY registers** — **not** switch‑global registers and **not** **xMII (MAC Port 6 / Port 7)** control registers (same section explains why MIIM is **least preferred** for bring‑up). So **PRTAD 0** Clause **22** access **does not** substitute **XMII / RGMII pad control** (e.g. delay **`0x3301`**‑class) or **switch** CSRs — those remain **I²C/SPI** (or IBA) paths per datasheet.
+
+2. **`phy 0` ≠ `phy 1…5` by silicon.** On DT510, **PRTAD 1–5** report **PHY Identifier `0x00221631`** — the **integrated copper PHY** used on **RJ45 ports** (**datasheet PHY Ports 1–5**). **PRTAD 0** reports **`0x004540fe`**. That ID is **not** the copper‑PHY core; it is the **Microchip KSZ switch‑family PHY/Management identity** exposed at **STA 0**. In **DS00002390C**, **§4.9.3** / **Table 4‑27** maps **MIIM PHY addresses** to **internal Port N PHY register spaces** — confirm there which **Port** corresponds to **PRTAD 0** (hardware‑specific strap/board docs typically align **STA 0** with the **host / MAC Port 6** side, **not** an RJ45 PHY).
+
+3. **Register row decode.** Registers **0–31** at **@0** still use **IEEE‑shaped** addresses, but **BMCR/BMSR/AN** fields **must** be interpreted from **Microchip’s descriptions for that PRTAD**, **not** by copying **@1** copper meanings. Values such as **BMCR `0x9200`** / **BMSR `0x0202`** indicate **this block’s** reset/control/link‑status model (`mdio` **LINK down** is consistent) — **not** “broken RJ45 PHY” behaviour.
+
+**Bottom line for EE/SW:** Treat **PHY @0** as the **MIIM-accessible management PHY** **associated with the switch’s non–RJ45 host port path** (datasheet **MAC Port 6** context), with **PHY-ID `0x004540fe`**. Decode every register against **DS00002390C Table 4‑27 / §4.11** for **that** STA — **parallel** to copper **@1–@5**, **not interchangeable** with them.
 
 | Reg | hex | Value | Analysis |
 |-----|-----|-------|----------|
@@ -301,11 +311,7 @@ Ports **@3–@5** zero many vendor-status registers — consistent with **no-lin
 
 ### PHY **@0** (special STA)
 
-Treat **`@0`** as **management exposure** that is **not** the copper **`0x00221631`** PHY core:
-
-- **PHY-ID** does not match **@1–@5**.
-- **BMCR/BMSR** patterns (**0x9200** / **0x0202**) do **not** present like a stable idle copper PHY.
-- **Naming:** **MDIO PHY address 0** is **not** the same thing as datasheet **“Port 6”** (the **RGMII CPU port**). They use unrelated numbering. Only if **Microchip** maps this STA to an internal block (see **§4.11** MAC interface / CPU-path chapters) does **`@0`** belong in **that** discussion — **not** for ordinary RJ45 **@1–@5** bring-up.
+Full MIIM / **PRTAD 0** meaning is documented under **§ PHY @0 — Clause 22 regs 0–31** above (**PHY-ID `0x004540fe`**, checklist §**7.0**/**7.4**, Table 4‑27 mapping). **Short recap:** **`@0`** is **not** the integrated copper PHY **`0x00221631`**; bitfields follow **Microchip** definitions for that STA — **not** **@1–@5** copper decode.
 
 ### What this dump **cannot** settle (RGMII / CPU port)
 
@@ -324,16 +330,17 @@ If the symptom is **“frames exit Linux `end0` but fail on wire toward laptop,�
 
 | Name in this doc | What it is **not** | What it actually is |
 |------------------|--------------------|---------------------|
-| **PHY @0 … @5** | **Not** KSZ “Port 0 … Port 5” in the switch sense | **MDIO PHY addresses** (`mdio phy N`). Linux sees **six** STAs on the bus; **@1–@5** match the **integrated copper PHY** identity **`0x00221631`**. |
-| **Port 6** (datasheet) | **Not** MDIO address **6** (there is no **`phy 6`** in this dump) | The KSZ9896 **CPU / host** interface — **RGMII** toward **`fec`** — as named in **DS00002390C** (often **“Port 6”**). Control lives in **switch** register space (**§5.2.3**), **not** in the **Clause 22** copper PHY window at **@1–@5**. |
+| **PHY @0** | **Not** “switch Port 0”, **not** copper **`0x00221631`** | **PRTAD 0** on MIIM — **PHY-ID `0x004540fe`**, **Microchip** management / host‑side PHY register bank (**see § PHY @0** and **Table 4‑27** in **DS00002390C**). |
+| **PHY @1–@5** | **Not** KSZ “Port 1 … Port 5” by pin name alone | **MDIO** stations **1–5** — integrated **RJ45 copper PHY** identity **`0x00221631`**. |
+| **Port 6** (datasheet) | **Not** MDIO address **6** | **MAC** interface (**RGMII**) to **CPU**. **xMII control registers** are **not** visible through MIIM (**checklist §7.0**); many live in **SPI/I²C** space (**§5.2.3** **0x6300**…). |
 
-So: **PHY @0** and **Port 6** are **not** the same thing. **@0** is “who answered on **MDIO** at address **0**?” **Port 6** is “how does the **switch** talk to the **SoC MAC**?” They appear together only because **bring-up** touches **both** naming schemes.
+**PHY @0** answers **“what is MIIM STA 0?”** — the **`0x004540fe`** block. **Port 6** answers **“which pins/signals face the SoC?”** **Table 4‑27** ties **MIIM PHY addresses** to **internal Port PHY spaces**; **full** Port **6** bring‑up still combines **@0** Clause **22** (if needed) **with** **non‑MIIM** register access where the datasheet requires it.
 
 1. **@1 / @2** show **link up** in probe; **reg 1** **0x796d** and non-zero **reg 5** on **@1** are consistent with **autoneg complete + partner**.
 2. **@3–@5** **down**: **reg 1** **0x7949**, **reg 5** **0x0000** — no partner / no cable.
 3. **@4** stands out (**BMCR 0x1100**, **reg 4** **0x0c01**, **reg 9** **0x0400**) vs typical **0x1140** / **0x0de1** / **0x0700** on linked ports — worth correlating with **strap**, cable, or **forced mode** per datasheet.
 4. **MDIO PHY @0** has a **different PHY-ID** than **@1–@5** — treat it as a **different management object**, not “RJ45 PHY @0”. Do **not** reuse copper **@1–@5** bitfield decoding for **@0**.
-5. **Separately**, the **i.MX ↔ KSZ** path (**datasheet Port 6**, **RGMII**) is **not** fully described by **Clause 22** reads on **@1–@5** (those are **copper PHY** views). If the problem looks **MAC-to-MAC** ( **`end0`** ok but **wrong** toward an RJ45), check **§5.2.3** / **Port 6** settings and **lab** checks — **in addition to** the PHY dump above.
+5. **Port 6 RGMII / xMII** tuning is **not** fully covered by **MIIM** alone (**checklist §7.0** — **no xMII regs** on MDIO). Use **SPI/I²C** + **§5.2.3** where the datasheet puts **XMII** control; use **§ PHY @0** for **PRTAD 0** Clause **22** only. **Copper** issues still pivot on **@1–@5**.
 
 ---
 
@@ -352,3 +359,4 @@ So: **PHY @0** and **Port 6** are **not** the same thing. **@0** is “who answe
 | 2026-04-28 | Added comprehensive IEEE/KSZ analysis (BMCR/BMSR/AN/1G/vendor) for EE review. |
 | 2026-04-28 | Clarified MDIO PHY @0 vs datasheet Port 6 (terminology). |
 | 2026-04-28 | Per-register **Analysis** column on PHY **@0–@5** dump tables. |
+| 2026-04-28 | **PHY @0:** authoritative MIIM / **PRTAD 0** decode (**0x004540fe**, checklist §7.x, Table 4‑27). |
