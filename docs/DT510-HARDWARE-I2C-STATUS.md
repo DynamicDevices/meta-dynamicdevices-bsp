@@ -31,12 +31,12 @@
 | **0** | — | **Sensirion SHT4x** | **not on DT510** — **`sht40@44`** removed from **`imx8mm-jaguar-dt510.dts`** | — | **N/A** |
 | **2** | `0x5f` | **Microchip KSZ9896** (DSA / switch mgmt) | **`switch@5f`** under **`&i2c2`** (**confirm** bus + addr vs straps) | `microchip,ksz9896` | **Pending (↗)**: probe succeeds only after **I²C strap** + routing match DTS; see [`DT510-ETHERNET-KSZ9896.md`](DT510-ETHERNET-KSZ9896.md). |
 | **1** | `0x3d` | **ADV7535** (DSI→HDMI) | EVK carry-over | `adv7533` (optional) | **On bus (↗)**: not DT510 end-product focus; **display stack disabled** in DT510. |
-| **1** | `0x4c` | **TI TAS2563** | `tas2563@4C` | ASoC / `snd_soc_tas2563` | **Driver bound (↗)** — validate audio path separately. |
+| **1** | `0x4c` | **TI TAS2563** | `tas2563@4c` | ASoC / `snd_soc_tas2563` | **Driver bound (↗)** — validate audio path separately. |
 | **1** | `0x50` | **TI TAC5301-Q1** | `tac5301@50`, `ti,tac5301` | ASoC TAC5x1x family (**kernel `CONFIG_*` TBD**) | **DT wired (↗)** — codec driver must match kernel image; verify probe after enabling module. |
 | **1** | `0x6a` | **TI TAS6424** | `tas6424@6a` | ASoC | **Driver bound (↗)** — SAI1 clock reparent `(-EINVAL)` seen in dmesg on same image; full audio TBD. |
 | **1** | `0x48`, `0x51` | (scan hits) | **not** described in **`imx8mm-jaguar-dt510.dts`** | — | **Unknown (↗)** — confirm **BOM** / schematic (e.g. companion IC next to TAC5301, EEPROM). |
 | **2** | — | **TI LP5024** | **not on DT510** — EVK carry-over removed from **`imx8mm-jaguar-dt510.dts`** | — | **N/A** |
-| **2** | `0x3f` | **ST STTS22H** temp | `stts22h@3F` | `stts22` (IIO/hwmon) | **Not working (↗)**: `i2cget` **read error**; **no** `driver` on `2-003f`. |
+| **2** | `0x3f` | **ST STTS22H** temp | `stts22h@3f` | `stts22` (IIO/hwmon) | **Not working (↗)**: `i2cget` **read error**; **no** `driver` on `2-003f`. |
 | **2** | `0x6b` | **TI BQ25792** charger | `bq25792@6b` | `bq257xx` MFD, charger, regulator | **Partial (↗)**: **`bq257xx` bound** to `2-006b`, **`bq257xx-charger.*`** / **`bq257xx-regulator.*`** present; **no** `power_supply` entries in `/sys/class/power_supply/` on that check — verify **Kconfig** / **MFD** child probe / `simple-battery` and **CHGR_INT#** (GPIO4_IO9) handling. |
 | **—** | I2C4 `0x48` | NXP **SE050** | OpTEE / no Linux child | TEE / crypto | **By design (↗)**: not listed as normal Linux I²C userland device. |
 

@@ -56,56 +56,6 @@
 	status = "okay";
 };
 
-&iomuxc {
-	pinctrl_usdhc3: usdhc3grp {
-		fsl,pins = <
-			MX8MM_IOMUXC_NAND_WE_B_USDHC3_CLK               0x190
-			MX8MM_IOMUXC_NAND_WP_B_USDHC3_CMD               0x1d0
-			MX8MM_IOMUXC_NAND_DATA04_USDHC3_DATA0           0x1d0
-			MX8MM_IOMUXC_NAND_DATA05_USDHC3_DATA1           0x1d0
-			MX8MM_IOMUXC_NAND_DATA06_USDHC3_DATA2           0x1d0
-			MX8MM_IOMUXC_NAND_DATA07_USDHC3_DATA3           0x1d0
-			MX8MM_IOMUXC_NAND_RE_B_USDHC3_DATA4             0x1d0
-			MX8MM_IOMUXC_NAND_CE2_B_USDHC3_DATA5            0x1d0
-			MX8MM_IOMUXC_NAND_CE3_B_USDHC3_DATA6            0x1d0
-			MX8MM_IOMUXC_NAND_CLE_USDHC3_DATA7              0x1d0
-			MX8MM_IOMUXC_NAND_CE1_B_USDHC3_STROBE           0x190
-		>;
-	};
-
-	pinctrl_usdhc3_100mhz: usdhc3-100mhzgrp {
-		fsl,pins = <
-			MX8MM_IOMUXC_NAND_WE_B_USDHC3_CLK               0x194
-			MX8MM_IOMUXC_NAND_WP_B_USDHC3_CMD               0x1d4
-			MX8MM_IOMUXC_NAND_DATA04_USDHC3_DATA0           0x1d4
-			MX8MM_IOMUXC_NAND_DATA05_USDHC3_DATA1           0x1d4
-			MX8MM_IOMUXC_NAND_DATA06_USDHC3_DATA2           0x1d4
-			MX8MM_IOMUXC_NAND_DATA07_USDHC3_DATA3           0x1d4
-			MX8MM_IOMUXC_NAND_RE_B_USDHC3_DATA4             0x1d4
-			MX8MM_IOMUXC_NAND_CE2_B_USDHC3_DATA5            0x1d4
-			MX8MM_IOMUXC_NAND_CE3_B_USDHC3_DATA6            0x1d4
-			MX8MM_IOMUXC_NAND_CLE_USDHC3_DATA7              0x1d4
-			MX8MM_IOMUXC_NAND_CE1_B_USDHC3_STROBE           0x194
-		>;
-	};
-
-	pinctrl_usdhc3_200mhz: usdhc3-200mhzgrp {
-		fsl,pins = <
-			MX8MM_IOMUXC_NAND_WE_B_USDHC3_CLK               0x196
-			MX8MM_IOMUXC_NAND_WP_B_USDHC3_CMD               0x1d6
-			MX8MM_IOMUXC_NAND_DATA04_USDHC3_DATA0           0x1d6
-			MX8MM_IOMUXC_NAND_DATA05_USDHC3_DATA1           0x1d6
-			MX8MM_IOMUXC_NAND_DATA06_USDHC3_DATA2           0x1d6
-			MX8MM_IOMUXC_NAND_DATA07_USDHC3_DATA3           0x1d6
-			MX8MM_IOMUXC_NAND_RE_B_USDHC3_DATA4             0x1d6
-			MX8MM_IOMUXC_NAND_CE2_B_USDHC3_DATA5            0x1d6
-			MX8MM_IOMUXC_NAND_CE3_B_USDHC3_DATA6            0x1d6
-			MX8MM_IOMUXC_NAND_CLE_USDHC3_DATA7              0x1d6
-			MX8MM_IOMUXC_NAND_CE1_B_USDHC3_STROBE           0x196
-		>;
-	};
-};
-
 / {
 	model = "i.MX8MM Jaguar DT510 board";
 	compatible = "fsl,imx8mm-jaguar-dt510", "fsl,imx8mm-evkb", "fsl,imx8mm-evk", "fsl,imx8mm";
@@ -161,8 +111,7 @@
 		simple-audio-card,frame-master = <&cpudai2>;
 		simple-audio-card,bitclock-master = <&cpudai2>;
 
-		// TAS2562 driver routing (simpler than TAS2781)
-		// The TAS2562 driver doesn't use DMIC widgets
+		/* tas2563 codec: simple-audio-card routing (no DMIC widgets). */
 		simple-audio-card,widgets =
 			"Speaker", "Speaker";
 		simple-audio-card,routing =
@@ -258,7 +207,7 @@
 
 	sw-keys {
 		compatible = "gpio-keys";
-		status = "enabled";
+		status = "okay";
 
 		sw1: key-act {
 			label = "Key Act";
@@ -279,6 +228,55 @@
 };
 
 &iomuxc {
+	/* USDHC3 eMMC — pinmux for &usdhc3 (8-bit, EVK NAND pins) */
+	pinctrl_usdhc3: usdhc3grp {
+		fsl,pins = <
+			MX8MM_IOMUXC_NAND_WE_B_USDHC3_CLK               0x190
+			MX8MM_IOMUXC_NAND_WP_B_USDHC3_CMD               0x1d0
+			MX8MM_IOMUXC_NAND_DATA04_USDHC3_DATA0           0x1d0
+			MX8MM_IOMUXC_NAND_DATA05_USDHC3_DATA1           0x1d0
+			MX8MM_IOMUXC_NAND_DATA06_USDHC3_DATA2           0x1d0
+			MX8MM_IOMUXC_NAND_DATA07_USDHC3_DATA3           0x1d0
+			MX8MM_IOMUXC_NAND_RE_B_USDHC3_DATA4             0x1d0
+			MX8MM_IOMUXC_NAND_CE2_B_USDHC3_DATA5            0x1d0
+			MX8MM_IOMUXC_NAND_CE3_B_USDHC3_DATA6            0x1d0
+			MX8MM_IOMUXC_NAND_CLE_USDHC3_DATA7              0x1d0
+			MX8MM_IOMUXC_NAND_CE1_B_USDHC3_STROBE           0x190
+		>;
+	};
+
+	pinctrl_usdhc3_100mhz: usdhc3-100mhzgrp {
+		fsl,pins = <
+			MX8MM_IOMUXC_NAND_WE_B_USDHC3_CLK               0x194
+			MX8MM_IOMUXC_NAND_WP_B_USDHC3_CMD               0x1d4
+			MX8MM_IOMUXC_NAND_DATA04_USDHC3_DATA0           0x1d4
+			MX8MM_IOMUXC_NAND_DATA05_USDHC3_DATA1           0x1d4
+			MX8MM_IOMUXC_NAND_DATA06_USDHC3_DATA2           0x1d4
+			MX8MM_IOMUXC_NAND_DATA07_USDHC3_DATA3           0x1d4
+			MX8MM_IOMUXC_NAND_RE_B_USDHC3_DATA4             0x1d4
+			MX8MM_IOMUXC_NAND_CE2_B_USDHC3_DATA5            0x1d4
+			MX8MM_IOMUXC_NAND_CE3_B_USDHC3_DATA6            0x1d4
+			MX8MM_IOMUXC_NAND_CLE_USDHC3_DATA7              0x1d4
+			MX8MM_IOMUXC_NAND_CE1_B_USDHC3_STROBE           0x194
+		>;
+	};
+
+	pinctrl_usdhc3_200mhz: usdhc3-200mhzgrp {
+		fsl,pins = <
+			MX8MM_IOMUXC_NAND_WE_B_USDHC3_CLK               0x196
+			MX8MM_IOMUXC_NAND_WP_B_USDHC3_CMD               0x1d6
+			MX8MM_IOMUXC_NAND_DATA04_USDHC3_DATA0           0x1d6
+			MX8MM_IOMUXC_NAND_DATA05_USDHC3_DATA1           0x1d6
+			MX8MM_IOMUXC_NAND_DATA06_USDHC3_DATA2           0x1d6
+			MX8MM_IOMUXC_NAND_DATA07_USDHC3_DATA3           0x1d6
+			MX8MM_IOMUXC_NAND_RE_B_USDHC3_DATA4             0x1d6
+			MX8MM_IOMUXC_NAND_CE2_B_USDHC3_DATA5            0x1d6
+			MX8MM_IOMUXC_NAND_CE3_B_USDHC3_DATA6            0x1d6
+			MX8MM_IOMUXC_NAND_CLE_USDHC3_DATA7              0x1d6
+			MX8MM_IOMUXC_NAND_CE1_B_USDHC3_STROBE           0x196
+		>;
+	};
+
 	pinctrl-names = "default";
 	/* E1 bisect: Tier B2 gpio1_dio reverted — was hog+gpio1_dio+bq25792_chgr_int */
 	pinctrl-0 = <&pinctrl_hog>, <&pinctrl_bq25792_chgr_int>;
@@ -315,16 +313,6 @@
 			MX8MM_IOMUXC_ECSPI1_SCLK_ECSPI1_SCLK		0x140  // Increased drive strength
 			MX8MM_IOMUXC_ECSPI1_MISO_ECSPI1_MISO		0x140  // Increased drive strength
 			MX8MM_IOMUXC_ECSPI1_MOSI_ECSPI1_MOSI		0x140  // Increased drive strength
-		>;
-	};
-
-	pinctrl_sai2: sai2grp {
-		fsl,pins = <
-			MX8MM_IOMUXC_SAI2_MCLK_SAI2_MCLK		0xd6
-			MX8MM_IOMUXC_SAI2_TXFS_SAI2_TX_SYNC		0xd6
-			MX8MM_IOMUXC_SAI2_TXC_SAI2_TX_BCLK		0xd6
-			MX8MM_IOMUXC_SAI2_TXD0_SAI2_TX_DATA0		0xd6
-			MX8MM_IOMUXC_SAI2_RXD0_SAI2_RX_DATA0		0xd6
 		>;
 	};
 
@@ -536,12 +524,7 @@
 		output-high;
 		line-name = "bt-wake-dev";
 	};
-	// zb-reset-hog {
-	//	gpio-hog;
-	//	gpios = <11 GPIO_ACTIVE_LOW>;
-	//	output-low;
-	//	line-name = "zb-reset";
-	// };
+	/* ZB_RST# on GPIO2_IO11 — see pinctrl_zigbee / ZBoss muxer (no hog here). */
 };
 
 &gpio3 {
@@ -596,7 +579,7 @@
 	/* ZB on GPIO4_IO22: pinctrl `pinctrl_zigbee` + unhog here if needed. */
 };
 
-/* CODEC_SD# (GPIO5_IO4): Sentai gpio-hog removed — tas2563@4C reset-gpios owns the line (DT510 SSOT, plan §4). */
+/* CODEC_SD# (GPIO5_IO4): Sentai gpio-hog removed — tas2563@4c reset-gpios owns the line (DT510 SSOT, plan §4). */
 
 /*
  * C1 — RGMII to KSZ9896 CPU port: FEC MAC↔switch via DSA (`microchip,ksz9896` on I2C).
@@ -663,23 +646,19 @@
 		status = "okay";
 	};
 
-	// Audio Amp with Dual Hardware Support
-	tas2563: tas2563@4C {
+	/* Class-D + smart amp: TI TAS2563 @ I2C2 */
+	tas2563: tas2563@4c {
 		#sound-dai-cells = <0>;
 		compatible = "ti,tas2563";
-		reg = <0x4C>;
+		reg = <0x4c>;
 		ti,channels = <1>; /* channel number */
 		reset-gpios = <&gpio5 4 GPIO_ACTIVE_LOW>;   /* Enable reset control - active low */
 		interrupt-parent = <&gpio5>;
 		interrupts = <5 IRQ_TYPE_LEVEL_LOW>;
 
-		// Basic I2S Configuration for TAS2562 driver
-		ti,asi-format = <0>; /* 0=I2S format */
-		ti,left-slot = <0>; /* Left audio channel */
-		ti,right-slot = <1>; /* Right audio channel */
-
-		// TAS2562 driver does not support PDM microphones
-		// Use MICFIL for microphone input instead
+		ti,asi-format = <0>; /* I2S */
+		ti,left-slot = <0>;
+		ti,right-slot = <1>;
 
 		status = "okay";
 	};
@@ -791,10 +770,10 @@
 };
 
 &i2c3 {
-	stts22h: stts22h@3F {
+	stts22h: stts22h@3f {
 		compatible = "st,stts22h";
 		reg = <0x3f>;
-		// sampling-rate = <STTS22H_100Hz>;
+		/* sampling-rate = <STTS22H_100Hz>; */
 		status = "okay";
 		interrupt-parent = <&gpio4>;
 		interrupts = <8 IRQ_TYPE_LEVEL_HIGH>;
