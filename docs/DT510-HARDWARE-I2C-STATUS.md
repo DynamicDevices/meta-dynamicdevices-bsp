@@ -34,7 +34,7 @@
 | **1** | `0x4c` | **TI TAS2563** | `tas2563@4C` | ASoC / `snd_soc_tas2563` | **Driver bound (↗)** — validate audio path separately. |
 | **1** | `0x6a` | **TI TAS6424** | `tas6424@6a` | ASoC | **Driver bound (↗)** — SAI1 clock reparent `(-EINVAL)` seen in dmesg on same image; full audio TBD. |
 | **1** | `0x48`, `0x50`, `0x51` | (scan hits) | TAC5301 / mic reserved in plan | — | **Unknown (↗)**: `i2cdetect` can show **devices without** a matching `*-00xx` sysfs node—confirm **BOM** (e.g. TAA5412, TAC5301, stray bridges). |
-| **2** | `0x28` | **TI LP5024** (RGB LED bank) | `led-controller@28`, `ti,lp5024` | leds-lp5xx / hwmon | **Not working (↗)**: **no** `driver` on `2-0028`, **`waiting_for_supplier`**, **no** `led5` / multi-led in `/sys/class/leds` — check **VDD/enable** graph and duplicate `VDDEXT` / regulator warnings. |
+| **2** | — | **TI LP5024** | **not on DT510** — EVK carry-over removed from **`imx8mm-jaguar-dt510.dts`** | — | **N/A** |
 | **2** | `0x3f` | **ST STTS22H** temp | `stts22h@3F` | `stts22` (IIO/hwmon) | **Not working (↗)**: `i2cget` **read error**; **no** `driver` on `2-003f`. |
 | **2** | `0x6b` | **TI BQ25792** charger | `bq25792@6b` | `bq257xx` MFD, charger, regulator | **Partial (↗)**: **`bq257xx` bound** to `2-006b`, **`bq257xx-charger.*`** / **`bq257xx-regulator.*`** present; **no** `power_supply` entries in `/sys/class/power_supply/` on that check — verify **Kconfig** / **MFD** child probe / `simple-battery` and **CHGR_INT#** (GPIO4_IO9) handling. |
 | **—** | I2C4 `0x48` | NXP **SE050** | OpTEE / no Linux child | TEE / crypto | **By design (↗)**: not listed as normal Linux I²C userland device. |
@@ -48,7 +48,6 @@
 - **Adapters:** `sudo i2cdetect -l` then `sudo i2cdetect -y 0` … `2` (use **adapter index** 0,1,2 = **&i2c1…3** as above).  
 - **SHT4x:** `sudo i2cget -y 0 0x44` (expect failure if not populated); driver: `ls /sys/bus/i2c/devices/0-0044/driver`.  
 - **KSZ (MIIM, not I²C):** `dmesg | grep -iE 'fec|mdio'`, `ethtool` on the primary netdev — see Ethernet doc.  
-- **LP5024:** `cat /sys/bus/i2c/devices/2-0028/waiting_for_supplier`; `ls /sys/class/leds/`.  
 - **STTS22H:** `sudo i2cget -y 2 0x3f` (or WHOAMI per datasheet).  
 - **BQ25792:** `ls /sys/bus/i2c/devices/2-006b/`; `ls /sys/class/power_supply/`; `dmesg | grep bq25`.
 
@@ -57,7 +56,7 @@
 ## 4. DT / implementation notes (ongoing work)
 
 - **SHT4x** node has **no** `vdd-supply`; optional for some boards but **I²C must work** for any reading. If chip is **not fitted**, set `status = "disabled"` to avoid a ghost node.  
-- **LP5024** is sensitive to **power/domains**; dmesg may show `debugfs: Directory 'VDDEXT_3V3' ... already present!` when multiple users share a fixed regulator—resolve **uniquely named** regulators or supply phandles for LED vs audio. **Enable pin** in DT: previously dropped due to **GPIO4_IO9** clash with BQ (see existing DTS comment on **LP5024**).  
+- **LP5024:** **not** populated on DT510 — **`led-controller@28`** removed from **`imx8mm-jaguar-dt510.dts`** (was EVK carry-over).  
 - **STTS22H** has **interrupt** on GPIO4_IO8; if pin wrong or not routed, keep poll-only until SSOT.  
 - **BQ25792** + **`monitored-battery`**: B1 model in DT; if **power_supply** does not appear, debug **MFD** probe order, **GPI** `CHGR_INT#`, and kernel `CONFIG_CHARGER_BQ257XX` / bq25xx feature flags for this image.  
 - **TAS6424** / **SAI1:** `sai1_root_clk` reparent error in kernel log is a **separate** bring-up from I²C presence.

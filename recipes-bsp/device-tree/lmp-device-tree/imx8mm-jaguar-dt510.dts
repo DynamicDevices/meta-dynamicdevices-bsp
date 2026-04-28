@@ -12,16 +12,104 @@
  * Bring-up plan & tiers: docs/DT510-BSP-PROJECT-PLAN.md
  */
 
-#include "freescale/imx8mm-evk.dts"
+#include "freescale/imx8mm-evkb.dts"
 #include <dt-bindings/gpio/gpio.h>
-#include <dt-bindings/leds/common.h>
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/clock/imx8mm-clock.h>
 
+/*
+ * imx8mm-evkb.dts: PCA9450 @ i2c1 @0x25 (nxp,pca9450a), not BD71847 — matches DT510 hardware.
+ * Fragments below duplicate imx8mm-evk.dts board content omitted by evkb.dtsi-only include so
+ * DDRC OPP and USDHC3 eMMC + pinmux stay as they were with imx8mm-evk.dts (FlexSPI omitted — unused on DT510).
+ */
+
+&ddrc {
+	operating-points-v2 = <&ddrc_opp_table>;
+
+	ddrc_opp_table: opp-table {
+		compatible = "operating-points-v2";
+
+		opp-25000000 {
+			opp-hz = /bits/ 64 <25000000>;
+		};
+
+		opp-100000000 {
+			opp-hz = /bits/ 64 <100000000>;
+		};
+
+		opp-750000000 {
+			opp-hz = /bits/ 64 <750000000>;
+		};
+	};
+};
+
+&usdhc3 {
+	assigned-clocks = <&clk IMX8MM_CLK_USDHC3_ROOT>;
+	assigned-clock-rates = <400000000>;
+	pinctrl-names = "default", "state_100mhz", "state_200mhz";
+	pinctrl-0 = <&pinctrl_usdhc3>;
+	pinctrl-1 = <&pinctrl_usdhc3_100mhz>;
+	pinctrl-2 = <&pinctrl_usdhc3_200mhz>;
+	bus-width = <8>;
+	non-removable;
+	status = "okay";
+};
+
+&iomuxc {
+	pinctrl_usdhc3: usdhc3grp {
+		fsl,pins = <
+			MX8MM_IOMUXC_NAND_WE_B_USDHC3_CLK               0x190
+			MX8MM_IOMUXC_NAND_WP_B_USDHC3_CMD               0x1d0
+			MX8MM_IOMUXC_NAND_DATA04_USDHC3_DATA0           0x1d0
+			MX8MM_IOMUXC_NAND_DATA05_USDHC3_DATA1           0x1d0
+			MX8MM_IOMUXC_NAND_DATA06_USDHC3_DATA2           0x1d0
+			MX8MM_IOMUXC_NAND_DATA06_USDHC3_DATA2           0x1d0
+			MX8MM_IOMUXC_NAND_DATA07_USDHC3_DATA3           0x1d0
+			MX8MM_IOMUXC_NAND_RE_B_USDHC3_DATA4             0x1d0
+			MX8MM_IOMUXC_NAND_CE2_B_USDHC3_DATA5            0x1d0
+			MX8MM_IOMUXC_NAND_CE3_B_USDHC3_DATA6            0x1d0
+			MX8MM_IOMUXC_NAND_CLE_USDHC3_DATA7              0x1d0
+			MX8MM_IOMUXC_NAND_CE1_B_USDHC3_STROBE           0x190
+		>;
+	};
+
+	pinctrl_usdhc3_100mhz: usdhc3-100mhzgrp {
+		fsl,pins = <
+			MX8MM_IOMUXC_NAND_WE_B_USDHC3_CLK               0x194
+			MX8MM_IOMUXC_NAND_WP_B_USDHC3_CMD               0x1d4
+			MX8MM_IOMUXC_NAND_DATA04_USDHC3_DATA0           0x1d4
+			MX8MM_IOMUXC_NAND_DATA05_USDHC3_DATA1           0x1d4
+			MX8MM_IOMUXC_NAND_DATA06_USDHC3_DATA2           0x1d4
+			MX8MM_IOMUXC_NAND_DATA07_USDHC3_DATA3           0x1d4
+			MX8MM_IOMUXC_NAND_RE_B_USDHC3_DATA4             0x1d4
+			MX8MM_IOMUXC_NAND_CE2_B_USDHC3_DATA5            0x1d4
+			MX8MM_IOMUXC_NAND_CE3_B_USDHC3_DATA6            0x1d4
+			MX8MM_IOMUXC_NAND_CLE_USDHC3_DATA7              0x1d4
+			MX8MM_IOMUXC_NAND_CE1_B_USDHC3_STROBE           0x194
+		>;
+	};
+
+	pinctrl_usdhc3_200mhz: usdhc3-200mhzgrp {
+		fsl,pins = <
+			MX8MM_IOMUXC_NAND_WE_B_USDHC3_CLK               0x196
+			MX8MM_IOMUXC_NAND_WP_B_USDHC3_CMD               0x1d6
+			MX8MM_IOMUXC_NAND_DATA04_USDHC3_DATA0           0x1d6
+			MX8MM_IOMUXC_NAND_DATA05_USDHC3_DATA1           0x1d6
+			MX8MM_IOMUXC_NAND_DATA06_USDHC3_DATA2           0x1d6
+			MX8MM_IOMUXC_NAND_DATA07_USDHC3_DATA3           0x1d6
+			MX8MM_IOMUXC_NAND_RE_B_USDHC3_DATA4             0x1d6
+			MX8MM_IOMUXC_NAND_CE2_B_USDHC3_DATA5            0x1d6
+			MX8MM_IOMUXC_NAND_CE3_B_USDHC3_DATA6            0x1d6
+			MX8MM_IOMUXC_NAND_CLE_USDHC3_DATA7              0x1d6
+			MX8MM_IOMUXC_NAND_CE1_B_USDHC3_STROBE           0x196
+		>;
+	};
+};
+
 / {
         model = "i.MX8MM Jaguar DT510 board";
-        compatible = "fsl,imx8mm-jaguar-dt510", "fsl,imx8mm-evk", "fsl,imx8mm";
+        compatible = "fsl,imx8mm-jaguar-dt510", "fsl,imx8mm-evkb", "fsl,imx8mm-evk", "fsl,imx8mm";
 
 	// Regulators
 	/* TAS6424 DVDD: 3.3 V placeholder — **@ohull456 to confirm** nominal vs schematic (SSOT). */
@@ -486,7 +574,7 @@
 };
 
 /*
- * Tier B2 — imx8mm-evk.dtsi inherits peripherals that clash with DT510:
+ * Tier B2 — imx8mm-evk.dtsi (via imx8mm-evkb.dts) inherits peripherals that clash with DT510:
  * - ir_recv: GPIO1_IO13 (TAS6424 AMP_FAULT#/WARN# mux on same pins).
  * - reg_pcie0: GPIO1_IO5 (&pcie0 is disabled on DT510).
  * - backlight: headless / no panel; disable pwm-backlight node.
@@ -518,7 +606,7 @@
 
 &i2c2 {
 	/*
-	 * imx8mm-evk.dts (included) defines tcpc@50 (PTN5110 TCPC). DT510 does not populate it;
+	 * imx8mm-evk.dtsi defines tcpc@50 (PTN5110 TCPC). DT510 does not populate it;
 	 * remove the inherited node so I2C2 @ 0x50 is free for TAC5301 (Tier C2) per SSOT.
 	 */
 	/delete-node/ tcpc@50;
@@ -662,158 +750,6 @@
 		interrupts = <8 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	led-controller@28 {
-            #address-cells = <1>;
-            #size-cells = <0>;
-            compatible = "ti,lp5024";
-            reg = <0x28>;
-            /* enable-gpios was gpio4 9 — same ball as BQ25792 CHGR_INT# (B1 SSOT); EN must be tied or routed elsewhere */
-
-            multi-led@0 {
-                #address-cells = <1>;
-                #size-cells = <0>;
-		label = "led5";
-                reg = <0>;
-//                default-intensity = <100 0 0>;
-                color = <LED_COLOR_ID_RGB>;
-                function = LED_FUNCTION_INDICATOR;
-                led@0 {
-                     reg = <0>;
-                     color = <LED_COLOR_ID_RED>;
-                };
-
-                led@1 {
-                     reg = <1>;
-                     color = <LED_COLOR_ID_GREEN>;
-                };
-
-                led@2 {
-                     reg = <2>;
-                     color = <LED_COLOR_ID_BLUE>;
-                };
-            };
-
-            multi-led@1 {
-                #address-cells = <1>;
-                #size-cells = <0>;
-		label = "led1";
-                reg = <1>;
-//                default-intensity = <100 0 0>;
-                color = <LED_COLOR_ID_RGB>;
-                function = LED_FUNCTION_INDICATOR;
-                led@0 {
-                     reg = <12>;
-                     color = <LED_COLOR_ID_RED>;
-                };
-
-                led@1 {
-                     reg = <13>;
-                     color = <LED_COLOR_ID_GREEN>;
-                };
-
-                led@2 {
-                     reg = <14>;
-                     color = <LED_COLOR_ID_BLUE>;
-                };
-            };
-
-	    multi-led@2 {
-                #address-cells = <1>;
-                #size-cells = <0>;
-		label = "led2";
-                reg = <2>;
-//                default-intensity = <100 0 0>;
-                color = <LED_COLOR_ID_RGB>;
-                function = LED_FUNCTION_INDICATOR;
-                led@0 {
-                     reg = <15>;
-                     color = <LED_COLOR_ID_RED>;
-                };
-
-                led@1 {
-                     reg = <16>;
-                     color = <LED_COLOR_ID_GREEN>;
-                };
-
-                led@2 {
-                     reg = <17>;
-                     color = <LED_COLOR_ID_BLUE>;
-                };
-            };
-
-            multi-led@3 {
-                #address-cells = <1>;
-                #size-cells = <0>;
-		label = "led3";
-                reg = <3>;
-//                default-intensity = <100 0 0>;
-                color = <LED_COLOR_ID_RGB>;
-                function = LED_FUNCTION_INDICATOR;
-                led@0 {
-                     reg = <3>;
-                     color = <LED_COLOR_ID_RED>;
-                };
-
-                led@1 {
-                     reg = <4>;
-                     color = <LED_COLOR_ID_GREEN>;
-                };
-
-                led@2 {
-                     reg = <5>;
-                     color = <LED_COLOR_ID_BLUE>;
-                };
-            };
-
-            multi-led@4 {
-                #address-cells = <1>;
-                #size-cells = <0>;
-		label = "led4";
-                reg = <4>;
-//                default-intensity = <100 0 0>;
-                color = <LED_COLOR_ID_RGB>;
-                function = LED_FUNCTION_INDICATOR;
-                led@0 {
-                     reg = <6>;
-                     color = <LED_COLOR_ID_RED>;
-                };
-
-                led@1 {
-                     reg = <7>;
-                     color = <LED_COLOR_ID_GREEN>;
-                };
-
-                led@2 {
-                     reg = <8>;
-                     color = <LED_COLOR_ID_BLUE>;
-                };
-            };
-
-            multi-led@5 {
-                #address-cells = <1>;
-                #size-cells = <0>;
-		label = "led0";
-                reg = <5>;
-//                default-intensity = <100 0 0>;
-                color = <LED_COLOR_ID_RGB>;
-                function = LED_FUNCTION_INDICATOR;
-                led@0 {
-                     reg = <9>;
-                     color = <LED_COLOR_ID_RED>;
-                };
-
-                led@1 {
-                     reg = <10>;
-                     color = <LED_COLOR_ID_GREEN>;
-                };
-
-                led@2 {
-                     reg = <11>;
-                     color = <LED_COLOR_ID_BLUE>;
-                };
-            };
-        };
-
 	ov5640_mipi: ov5640_mipi@3c {
 		status = "disabled";
 	};
@@ -932,17 +868,13 @@
 	/delete-property/ pinctrl-0;
 };
 
-&flexspi {
-	status = "disabled";
-};
-
 /* USB OTG1: peripheral mode for USB gadget / lab dual-UAC2 (see DT510-USB-DUAL-AUDIO.md).
  * No STUSB4500 USB-PD controller on DT510 — not USB-C powered; no TCPC. Sentai-only PD path.
  */
 &usbotg1 {
 	dr_mode = "peripheral";
 	status = "okay";
-	/* imx8mm-evk.dtsi links usb1_drd_sw ↔ typec1_dr_sw on &ptn5110 (tcpc@50). We delete tcpc@50;
+	/* imx8mm-evk.dtsi links usb1_drd_sw to typec1_dr_sw on &ptn5110 (tcpc@50). We delete tcpc@50;
 	 * drop the role-switch graph so DTC does not reference a missing typec1_dr_sw phandle. */
 	/delete-property/ usb-role-switch;
 	/delete-node/ port;
