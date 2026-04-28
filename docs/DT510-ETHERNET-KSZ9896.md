@@ -14,13 +14,13 @@ This doc is updated for the **I²C + DSA** device tree; §“Simple bring-up (an
 **Implemented DT (`imx8mm-jaguar-dt510.dts`):**
 
 - **`&iomuxc`:** `pinctrl_fec1_dt510` — RGMII (+ legacy MDC/MDIO mux where routed), **Ollie** / SSOT.
-- **`&fec1`:** `phy-mode = "rgmii-id"`, **`fixed-link` 1G**; **no** `phy-handle`; **no** **`mdio`** children (DSA owns internal PHYs).
-- **`&i2c2`:** **`switch@5f`** **`microchip,ksz9896`**, **`ethernet-ports`**, CPU **`port@5`** **`ethernet = <&fec1>`**; **`reset-gpios`** on **`gpio4_io1`** (was gpio-hog RST — now driver-owned).
+- **`&fec1`:** `phy-mode = "rgmii-txid"`, **`fixed-link` 1G** + **`pause`**; **no** `phy-handle`; **no** FEC **`mdio`** — CPU MAC ties to DSA only.
+- **`&i2c2`:** **`switch@5f`** **`microchip,ksz9896`**: **`interrupts`** on **GPIO4_IO0**, **`reset-gpios`** on **GPIO4_IO1**; **`ethernet-ports`** with **`phy-handle`** → internal **`mdio { ethernet-phy@0…@3 }`** (**Microchip EVB-style**); CPU **`port@5`** **`rgmii-txid`** + **`tx-internal-delay-ps = <2000>`** + **`fixed-link`** **`pause`**.
 - **Kernel:** `ksz9896-ethernet-switch.cfg` enables **`CONFIG_NET_DSA_MICROCHIP_KSZ_COMMON`** + **`CONFIG_NET_DSA_MICROCHIP_KSZ9477_I2C`**; `ksz9896-mii-phy.cfg` retains PHYLIB helpers for integrated PHY code paths.
 
 ## KSZ9896C Port 6 — RGMII (default straps + DS §4.11.4)
 
-DT510 is **pin-strapped** so **MAC Port 6** uses **RGMII** at **1000 Mbps**, consistent with **`&fec1`** **`phy-mode = "rgmii-id"`** and **`fixed-link`** **1 Gbit/s full-duplex** to the switch CPU port.
+DT510 is **pin-strapped** so **MAC Port 6** uses **RGMII** at **1000 Mbps**, consistent with **`&fec1`** / switch **`port@5`** **`rgmii-txid`** + **`fixed-link`** **1 Gbit/s full-duplex** (plus **`pause`** where enabled in DTS).
 
 ### Configuration straps (DS §3.2.1, Table 3-3)
 
