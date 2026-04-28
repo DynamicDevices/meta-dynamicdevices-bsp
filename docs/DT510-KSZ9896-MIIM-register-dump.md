@@ -346,7 +346,7 @@ If the symptom is **“frames exit Linux `end0` but fail on wire toward laptop,�
 
 ## Related docs (same BSP repo)
 
-- `docs/DT510-ETHERNET-KSZ9896.md` — topology, `mdio` vs `phytool`, Table 4‑27 usage.
+- `docs/DT510-ETHERNET-KSZ9896.md` — topology, `mdio` vs `phytool`, Table 4‑27 usage, **Port 6 RGMII** default straps (**§3.2.1**), **§4.11.4** summary, **§5.2.3** **XMII** (`0x6300` / `0x6301`) vs MIIM-only limitation (**§5.0**).
 - `docs/GPIO-HOG-ACTIVE-POLARITY.md` — KSZ9896 sideband reset / PME / INTR.
 
 ---
@@ -360,3 +360,4 @@ If the symptom is **“frames exit Linux `end0` but fail on wire toward laptop,�
 | 2026-04-28 | Clarified MDIO PHY @0 vs datasheet Port 6 (terminology). |
 | 2026-04-28 | Per-register **Analysis** column on PHY **@0–@5** dump tables. |
 | 2026-04-28 | **PHY @0:** authoritative MIIM / **PRTAD 0** decode (**0x004540fe**, checklist §7.x, Table 4‑27). |
+| 2026-04-28 | Cross-ref **`DT510-ETHERNET-KSZ9896.md`** Port **6** **RGMII** (**§4.11.4**, straps, **XMII** regs). |

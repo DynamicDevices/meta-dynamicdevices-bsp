@@ -17,6 +17,42 @@ This doc describes the **phase 1** device tree; §“Simple bring-up (analysis)�
 - **`&fec1`:** `pinctrl-0`, `phy-mode = "rgmii-id"`, **`fixed-link` 1G** to the **KSZ CPU** port; **no** `phy-handle` (unlike EVK’s **`phy-handle` → `ethernet-phy@0`**). **`mdio`** with **`ethernet-phy@1`…`@5`** for KSZ **internal** PHYs (Clause 22) — same *idea* as EVK’s **`mdio` + one PHY**, but **addresses** and **no** `phy-handle` on `&fec1` because the **RGMII** path is through the **switch**, not a single dedicated PHY. **`&i2c1`:** no KSZ.
 - **Kernel:** `ksz9896-mii-phy.cfg` (PHY drivers) still useful when **MDIO** children return; I²C DSA ksz modules off in `ksz9896-ethernet-switch.cfg`.
 
+## KSZ9896C Port 6 — RGMII (default straps + DS §4.11.4)
+
+DT510 is **pin-strapped** so **MAC Port 6** uses **RGMII** at **1000 Mbps**, consistent with **`&fec1`** **`phy-mode = "rgmii-id"`** and **`fixed-link`** **1 Gbit/s full-duplex** to the switch CPU port.
+
+### Configuration straps (DS §3.2.1, Table 3-3)
+
+| Strap | Function | Default relevant to **RGMII** |
+|-------|-----------|--------------------------------|
+| **RXD6_3, RXD6_2** | Port 6 interface mode | **00 = RGMII (Default)** |
+| **RXD6_1** | MII / RMII / GMII sub-mode | **RGMII: No effect** |
+| **RXD6_0** | Port 6 speed (when in RGMII) | **0 = 1000 Mbps (Default)** — strap **1** selects **100 Mbps** RGMII; **MII/RMII** straps require **100 Mbps** per datasheet |
+
+With **weak internal pulls** and **no conflicting PCB overrides**, this matches **RGMII @ 1 G** bring-up.
+
+### §4.11.4 Reduced Gigabit MII (RGMII) — behaviour (summary)
+
+Per **DS00002390C §4.11.4** (see also **Table 4-35**):
+
+- **12 signals** vs GMII’s **24**; **TXD6_[3:0]** / **RXD6_[3:0]** carry a **nibble** per clock edge at **1000 Mbps** (DDR timing).
+- **TX_CLK6** is sourced by the **MAC** (i.MX FEC) at **125 MHz** (1000 M), **25 MHz** (100 M), **2.5 MHz** (10 M).
+- **RX_CLK6** is sourced by the **KSZ** Port **6** side at the **same rate family** for each speed.
+- **TX_CTL6** / **RX_CTL6** multiplex **enable + error** / **DV + ER**; control is valid on the **falling edge** of the respective clock (RGMII spec timing).
+- **There is no mechanism for RGMII to adapt speed automatically** to the link partner. Straps set **1000 vs 100 Mbps** at reset; **XMII Port Control** registers can override speed (**including 10 Mbps**) per §4.11.4.
+- **Internal clock delay:** **XMII Port Control 1 Register** exposes **≥ ~1.5 ns** optional delay on **TX_CLK6** and **RX_CLK6**: **RGMII_ID_ig** defaults **off**; **RGMII_ID_eg** defaults **on** — reduces PCB trace delay needs (§4.11.4). Account for both KSZ defaults **and** the FEC’s **`rgmii-id`** expectation when debugging skew.
+
+### Register map (Port **N = 6**) — §5.2.3
+
+From **Table 5-2** / **§5.2.3** (Port **RGMII/GMII/MII/RMII** space **`0xN300`–`0xN3FF`**):
+
+| Address (Port 6) | Register |
+|------------------|----------|
+| **`0x6300`** | **XMII Port Control 0** — duplex, flow control, **10/100** selection when sub-gigabit |
+| **`0x6301`** | **XMII Port Control 1** — **1000 Mbps vs 10/100** (bit **6** mirrors strap intent), **RGMII internal delay** (**RGMII_ID_ig** / **RGMII_ID_eg**), **interface type** bits **[1:0]** (**00 = RGMII**, reflects **RXD6_[3:2]** straps) |
+
+**MIIM vs SPI/I²C:** **§5.0** states the **MIIM** interface accesses **PHY registers only** and **does not** access **switch** (including **XMII**) registers. Reading **`0x6300`/`0x6301`** for lab bring-up requires **SPI** or **I²C** management (or **IBA**), not **FEC MDIO** alone — consistent with **`docs/DT510-KSZ9896-MIIM-register-dump.md`**.
+
 ## EVK vs DT510 `&fec1` (same SoC, different link)
 
 | | **i.MX8MM EVK** (`imx8mm-evk.dtsi`) | **DT510** |
@@ -117,5 +153,5 @@ Re-run while plugging cables to see **link** change on the matching **PHY @N**.
 - `docs/DT510-KSZ9896-MIIM-register-dump.md` — Clause **22** **`mdio phy @0–@5 raw 0–31`** snapshot for EE review.
 - `Documentation/devicetree/bindings/net/dsa/microchip,ksz.yaml`
 - `linux/drivers/net/dsa/microchip/ksz9477_i2c.c` (I2C regmap; **not** used when HW is MIIM-only)
-- Microchip **KSZ9896C** DS00002390A — **Section 3.2.1** straps, **4.9** management interfaces
+- Microchip **KSZ9896C** DS00002390C — **§3.2.1** straps (Table 3-3), **§4.11.4** RGMII (Port 6), **§5.0** / **§5.2.3** registers (**XMII** **`0x6300`**–**`0x63FF`**)
 - `docs/DT510-BSP-PROJECT-PLAN.md` — Tier **C1** Ethernet
