@@ -177,10 +177,49 @@ Re-run while plugging cables to see **link** change on the matching **PHY @N**.
 - Dev image PHY/debug packages: `meta-dynamicdevices-distro` **`lmp-feature-dev.inc`** (**`phytool`**, **`mdio-tools`** when dev features are enabled).
 - GPIO sideband (**RST/PME/INTR**): `docs/GPIO-HOG-ACTIVE-POLARITY.md`.
 
+## Silicon errata (**DS80000757**) — relevance to DT510
+
+Official PDF: **KSZ9896C Silicon Errata and Data Sheet Clarification** (**DS80000757**, e.g. revision **F**). Applies to **silicon A1** (top mark **B000** per Table 1 — confirm on your parts).
+
+### Port 6 (RGMII / CPU link)
+
+**No erratum in DS80000757** targets **Port 6 RGMII**, **XMII (`0x6300`–`0x63FF`)**, or **internal delay (`0x6301`)**. Timing bring-up remains **datasheet + scope + `phy-mode`** as elsewhere in this doc.
+
+### Integrated copper PHY ports **1–5** (likely relevant)
+
+Errata **explicitly allow applying PHY workarounds via `MDC/MDIO`** (same list as I²C/SPI/IBA for PHY-side sequences):
+
+| Module | Topic | Why it might matter |
+|--------|--------|---------------------|
+| **1** | PHY **MMD** tuning for **RX performance** | RX errors on **long cables** if defaults left untouched |
+| **2** | **MMD** TX waveform | Corner-case TX compliance |
+| **3** | **EEE must be disabled** (MMD **7**, reg **0x3C** → **`0x0000`**) | **Link drops** when peer negotiates **EEE** — **high diagnostic value** if links flap with modern NICs |
+| **4** | Toggling **PHY power-down** disturbs **other PHYs** | Avoid PD cycling one port while others carry traffic |
+| **6** | Extra **MMD** writes for **supply current** vs datasheet | Thermal / AVDDH behaviour outside **1000BASE-T** |
+
+**Important note** at the start of the errata: before **MMD** programming sequences, force **100 Mbps**, **AN off** (`0xN100`–`0xN101` = **`0x2100`** pattern per errata), then restore **AN** (**`0x1340`**) after all PHY-related writes — follow Microchip’s exact recipe when implementing **MMD** workarounds.
+
+**Module 5** (**16-bit vs 32-bit PHY writes** for **`0xN120`–`0xN13F`**) applies to **SPI / I²C / IBA** access patterns; **Clause 22 MIIM** traffic may not hit the same bug — still follow errata if your tooling does wide writes through switch management.
+
+### Switch-global registers — **not via MIIM**
+
+Several modules require **global** registers (**e.g.** **`0x0330`**, **`0x0331`**) with text **“SPI, I2C, or in-band … **but not via the MIIM interface**”** — consistent with **§5.0** (MIIM = PHY space only). Examples: **Module 10** (back-pressure mode), **Module 11** (alternate backoff). Irrelevant unless you enable those **half-duplex** / advanced paths.
+
+### Half-duplex / VLAN / tail-tag (usually **not** DT510 phase 1)
+
+**Modules 10–11, 13, 16–17**: failure modes around **half-duplex**, **VLAN**, **tail tag**, **length check**. DT510 **CPU + RJ45** paths are normally **full-duplex** **1000BASE-T** / **RGMII** — low priority unless you deliberately configure HD/VLAN features.
+
+### SPI-only
+
+**Module 7**: automatic SPI clock-edge selection unstable near **25 MHz** — only if you move to **SPI** strap later.
+
+---
+
 ## References
 
 - `docs/DT510-KSZ9896-MIIM-register-dump.md` — Clause **22** **`mdio phy @0–@5 raw 0–31`** snapshot for EE review.
 - `Documentation/devicetree/bindings/net/dsa/microchip,ksz.yaml`
 - `linux/drivers/net/dsa/microchip/ksz9477_i2c.c` (I2C regmap; **not** used when HW is MIIM-only)
 - Microchip **KSZ9896C** DS00002390C — **§3.2.1** straps (Table 3-3), **§4.11.4** RGMII (Port 6), **§5.0** / **§5.2.3** registers (**XMII** **`0x6300`**–**`0x63FF`**)
+- Microchip **KSZ9896C** **DS80000757** — silicon errata (**§ Silicon errata** above); PHY **MMD** workarounds apply per module tables in PDF
 - `docs/DT510-BSP-PROJECT-PLAN.md` — Tier **C1** Ethernet
