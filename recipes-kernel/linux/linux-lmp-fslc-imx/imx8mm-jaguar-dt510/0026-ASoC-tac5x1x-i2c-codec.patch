@@ -55,15 +55,15 @@ diff --git a/sound/soc/codecs/Kconfig b/sound/soc/codecs/Kconfig
 index 6d7e4725d89c..32f8109add89 100644
 --- a/sound/soc/codecs/Kconfig
 +++ b/sound/soc/codecs/Kconfig
-@@ -259,6 +259,7 @@ config SND_SOC_ALL_CODECS
+@@ -234,6 +234,7 @@ config SND_SOC_ALL_CODECS
+ 	imply SND_SOC_STA32X
+ 	imply SND_SOC_STA350
  	imply SND_SOC_STA529
  	imply SND_SOC_STAC9766
  	imply SND_SOC_STI_SAS
 +	imply SND_SOC_TAC5X1X_I2C
  	imply SND_SOC_TAS2552
- 	imply SND_SOC_TAS2562
- 	imply SND_SOC_TAS2764
-@@ -2008,6 +2009,17 @@ config SND_SOC_STAC9766
+@@ -1757,4 +1757,15 @@ config SND_SOC_STI_SAS
  config SND_SOC_STI_SAS
  	tristate "codec Audio support for STI SAS codec"
  
@@ -85,15 +85,15 @@ diff --git a/sound/soc/codecs/Makefile b/sound/soc/codecs/Makefile
 index a68c3d192a1b..ba8d3504d561 100644
 --- a/sound/soc/codecs/Makefile
 +++ b/sound/soc/codecs/Makefile
-@@ -303,6 +303,7 @@ snd-soc-sta350-y := sta350.o
- snd-soc-sta529-y := sta529.o
- snd-soc-stac9766-y := stac9766.o
- snd-soc-sti-sas-y := sti-sas.o
-+snd-soc-tac5x1x-i2c-y := tac5x1x-i2c.o
- snd-soc-tas5086-y := tas5086.o
- snd-soc-tas571x-y := tas571x.o
- snd-soc-tas5720-y := tas5720.o
-@@ -721,6 +722,7 @@ obj-$(CONFIG_SND_SOC_STA350)   += snd-soc-sta350.o
+@@ -269,6 +269,7 @@ snd-soc-sta350-objs := sta350.o
+ snd-soc-sta529-objs := sta529.o
+ snd-soc-stac9766-objs := stac9766.o
+ snd-soc-sti-sas-objs := sti-sas.o
++snd-soc-tac5x1x-i2c-objs := tac5x1x-i2c.o
+ snd-soc-tas5086-objs := tas5086.o
+ snd-soc-tas571x-objs := tas571x.o
+ snd-soc-tas5720-objs := tas5720.o
+@@ -648,6 +648,7 @@ obj-$(CONFIG_SND_SOC_STA350)   += snd-soc-sta350.o
  obj-$(CONFIG_SND_SOC_STA529)   += snd-soc-sta529.o
  obj-$(CONFIG_SND_SOC_STAC9766)	+= snd-soc-stac9766.o
  obj-$(CONFIG_SND_SOC_STI_SAS)	+= snd-soc-sti-sas.o
