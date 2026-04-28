@@ -55,7 +55,6 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
 		file://gpio-keys.cfg \
 		file://imx8mm-jaguar-dt510/stts22h-temperature-sensor.cfg \
 		file://imx8mm-jaguar-dt510/lis2dh-accelerometer.cfg \
-		file://imx8mm-jaguar-dt510/sht4x-humidity-sensor.cfg \
 		file://imx8mm-jaguar-dt510/video-disable.cfg \
 		file://imx8mm-jaguar-dt510/tas2562-audio-codec.cfg \
 		${@bb.utils.contains('MACHINE_FEATURES', 'tas6424', 'file://imx8mm-jaguar-dt510/tas6424-audio-codec.cfg', '', d)} \
@@ -75,6 +74,12 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
 		file://imx8mm-jaguar-dt510/rdc-driver.cfg \
 		file://imx8mm-jaguar-dt510/ksz9896-ethernet-switch.cfg \
 		file://imx8mm-jaguar-dt510/ksz9896-mii-phy.cfg \
+		file://imx8mm-jaguar-dt510/0025-dt-bindings-sound-ti-tac5x1x.patch \
+		file://imx8mm-jaguar-dt510/0026-ASoC-tac5x1x-i2c-codec.patch \
+		file://imx8mm-jaguar-dt510/0027-ASoC-pcm6240-drop-tac5x1x-dup.patch \
+		file://imx8mm-jaguar-dt510/0028-dt-bindings-pcm6240-tac-dup.patch \
+		file://imx8mm-jaguar-dt510/0029-ASoC-tac5x1x-add-TAC5301-Q1.patch \
+		file://imx8mm-jaguar-dt510/tac5301-codec.cfg \
 		${@bb.utils.contains('MACHINE_FEATURES', 'bq25792-charger', 'file://imx8mm-jaguar-dt510/0010-mfd-bq257xx-add-bq25703a-core-fslc.patch file://imx8mm-jaguar-dt510/0011-power-supply-bq257xx-charger.patch file://imx8mm-jaguar-dt510/0012-regulator-bq257xx-boost-fslc.patch file://imx8mm-jaguar-dt510/0013-dt-bindings-mfd-ti-bq25703a-Import-binding-from-main.patch file://imx8mm-jaguar-dt510/0014-dt-bindings-mfd-ti-bq25703a-Expand-to-include-BQ2579.patch file://imx8mm-jaguar-dt510/0015-regulator-bq257xx-Remove-reference-to-the-parent-MFD.patch file://imx8mm-jaguar-dt510/0016-regulator-bq257xx-Drop-the-regulator_dev-from-the-dr.patch file://imx8mm-jaguar-dt510/0017-regulator-bq257xx-Make-OTG-enable-GPIO-really-option.patch file://imx8mm-jaguar-dt510/0018-power-supply-bq257xx-Fix-VSYSMIN-clamping-logic.patch file://imx8mm-jaguar-dt510/0019-power-supply-bq257xx-Make-the-default-current-limit-.patch file://imx8mm-jaguar-dt510/0020-power-supply-bq257xx-Consistently-use-indirect-get-s.patch file://imx8mm-jaguar-dt510/0021-power-supply-bq257xx-Add-fields-for-charging-and-ove.patch file://imx8mm-jaguar-dt510/0022-mfd-bq257xx-Add-BQ25792-support.patch file://imx8mm-jaguar-dt510/0023-regulator-bq257xx-Add-support-for-BQ25792.patch file://imx8mm-jaguar-dt510/0024-power-supply-bq257xx-Add-support-for-BQ25792.patch file://imx8mm-jaguar-dt510/bq257xx-mfd-kconfig.cfg', '', d)} \
 		file://imx8mm-jaguar-dt510.dts \
 "
