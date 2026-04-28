@@ -43,54 +43,54 @@ Register numbers **0–31** are **decimal** in the `mdio` CLI (= **0h–1Fh** in
 
 *PHY-ID **0x004540fe** — not **0x00221631**; treat as internal / CPU-path MIIM object per datasheet; Table 4‑27 decodes may not align with copper ports.*
 
-| Reg | hex | Value |
-|-----|-----|-------|
-| 0 | 0x00 | 0x9200 |
-| 1 | 0x01 | 0x0202 |
-| 2 | 0x02 | 0x0045 |
-| 3 | 0x03 | 0x40fe |
-| 4 | 0x04 | 0x0000 |
-| 5 | 0x05 | 0x0000 |
-| 6 | 0x06 | 0x0062 |
-| 7 | 0x07 | 0x3000 |
-| 8–21 | 0x08–0x15 | 0x0000 |
-| 22 | 0x16 | 0x0318 |
-| 23–31 | 0x17–0x1f | 0x0000 |
+| Reg | hex | Value | Analysis |
+|-----|-----|-------|----------|
+| 0 | 0x00 | 0x9200 | **BMCR:** Does **not** match idle copper patterns (**0x1140** family). Likely **vendor-specific control/staging** for this STA — **do not** decode as standard PHY BMCR without **DS** mapping. |
+| 1 | 0x01 | 0x0202 | **BMSR:** Unlike **@1–@5** linked (**~0x796d**) or down (**~0x7949**); fits **probe LINK down** and **non–copper-PHY** behaviour for this object. |
+| 2 | 0x02 | 0x0045 | **PHY ID [31:16]** — part of **0x004540fe**; confirms **different silicon/block** than **@1–@5**. |
+| 3 | 0x03 | 0x40fe | **PHY ID [15:0]** — completes **OUI/model/rev** identity distinct from **0x00221631**. |
+| 4 | 0x04 | 0x0000 | **AN advertisement:** Zero — **no** copper-style capability advertisement active in this snapshot (or not applicable to this STA). |
+| 5 | 0x05 | 0x0000 | **AN link-partner ability:** Zero — **no** partner exchange (consistent with **down** / non-RJ45 context). |
+| 6 | 0x06 | 0x0062 | **AN expansion:** Non-zero — interpret **only** via **DS** bitfields for **@0** (may still reflect IEEE-shaped registers with different meaning). |
+| 7 | 0x07 | 0x3000 | **AN next page TX** (IEEE-shaped): Non-zero — **next-page machinery** may be active or latched; confirm in **DS** if relevant. |
+| 8–21 | 0x08–0x15 | 0x0000 | **Regs 8–15** IEEE extended / **16–21** vendor begin — **all zero**: idle / reserved for this STA at capture. |
+| 22 | 0x16 | 0x0318 | Non-zero **vendor / extended** — meaning **DS-only** (not generic IEEE decode). |
+| 23–31 | 0x17–0x1f | 0x0000 | **Vendor window** mostly zero — no sticky vendor flags visible here at capture (see **§ Comprehensive analysis** for **17h/1Ch** when non-zero on copper). |
 
 ---
 
 ## PHY @1 — Clause 22 regs 0–31 (LINK **up**)
 
-| Reg | hex | Value |
-|-----|-----|-------|
-| 0 | 0x00 | 0x1140 |
-| 1 | 0x01 | 0x796d |
-| 2 | 0x02 | 0x0022 |
-| 3 | 0x03 | 0x1631 |
-| 4 | 0x04 | 0x0de1 |
-| 5 | 0x05 | 0xcde1 |
-| 6 | 0x06 | 0x000f |
-| 7 | 0x07 | 0x2001 |
-| 8 | 0x08 | 0x6801 |
-| 9 | 0x09 | 0x0700 |
-| 10 | 0x0a | 0x7800 |
-| 11 | 0x0b | 0x0000 |
-| 12 | 0x0c | 0x0000 |
-| 13 | 0x0d | 0x4007 |
-| 14 | 0x0e | 0x0006 |
-| 15 | 0x0f | 0x3000 |
-| 16 | 0x10 | 0x0000 |
-| 17 | 0x11 | 0x00f4 |
-| 18 | 0x12 | 0x0000 |
-| 19 | 0x13 | 0x0406 |
-| 20 | 0x14 | 0x5cfe |
-| 21 | 0x15 | 0x0000 |
-| 22 | 0x16 | 0x0000 |
-| 23 | 0x17 | 0x0200 |
-| 24–27 | 0x18–0x1b | 0x0000 |
-| 28 | 0x1c | 0x2400 |
-| 29–30 | 0x1d–0x1e | 0x0000 |
-| 31 | 0x1f | 0x014c |
+| Reg | hex | Value | Analysis |
+|-----|-----|-------|----------|
+| 0 | 0x00 | 0x1140 | **BMCR:** **AN enabled** + typical **Gb copper** control word (**0x1140** family); not reset / isolate / power-down in usual patterns. |
+| 1 | 0x01 | 0x796d | **BMSR:** **Link up**, **AN capable/complete**, **extended status** present — aligns with **probe LINK up**. |
+| 2 | 0x02 | 0x0022 | **PHY ID** high — **0x00221631** identity (Microchip / Kendin-class integrated PHY). |
+| 3 | 0x03 | 0x1631 | **PHY ID** low — matches **@2–@5** family. |
+| 4 | 0x04 | 0x0de1 | **AN advertisement:** Full **tech ability** field (1000/100/10 etc. per IEEE bit map) — active **advertising**. |
+| 5 | 0x05 | 0xcde1 | **AN LP ability:** Non-zero — **real link partner** completed AN (**CDE1** partner code vs **@2**). |
+| 6 | 0x06 | 0x000f | **AN expansion:** **Next-page** able + flags per IEEE — consistent with **completed AN**. |
+| 7 | 0x07 | 0x2001 | **Next page TX:** **NP** ready / compliant exchange path (idle payload vs **@3** same register shape). |
+| 8 | 0x08 | 0x6801 | **Next page RX:** Non-zero — partner **next-page** field seen (**differs from @2** **0x6001** — partner-dependent). |
+| 9 | 0x09 | 0x0700 | **1000BASE-T control:** **TEST_MODE / master-slave** area per Clause **40** — typical **gig** negotiation staging (**0x0700** pattern). |
+| 10 | 0x0a | 0x7800 | **1000BASE-T status:** Non-zero — **master/slave resolution / idle** indicators active (**link up** path). |
+| 11 | 0x0b | 0x0000 | Reserved / unused in readback. |
+| 12 | 0x0c | 0x0000 | Reserved / unused. |
+| 13 | 0x0d | 0x4007 | **MMD indirect (DEVAD):** Part of **MMD access** framing — snapshot of address machinery, not an “intent” by itself. |
+| 14 | 0x0e | 0x0006 | **MMD indirect (data/reg):** Companion to **reg 13** for Clause **45**-style access path. |
+| 15 | 0x0f | 0x3000 | **Extended status (ESTATUS):** **1000BASE-T** capability bits present per IEEE (**0x3000** pattern in dump family). |
+| 16 | 0x10 | 0x0000 | Reserved / vendor stub reads **0**. |
+| 17 | 0x11 | 0x00f4 | **Vendor 11h — remote loopback:** Non-zero — verify **loopback disabled** for normal forwarding (**DS** bits). |
+| 18 | 0x12 | 0x0000 | **Vendor 12h — LinkMD:** Idle (**no** cable test running). |
+| 19 | 0x13 | 0x0406 | **Vendor 13h — PMA/PCS:** Status (**sync/lock/fault** class — **DS** decode). |
+| 20 | 0x14 | 0x5cfe | **Vendor 14h:** Extension block — **DS-only** bitfields. |
+| 21 | 0x15 | 0x0000 | **Vendor 15h — RXER:** **Zero** — no accumulated RX error count at snapshot (confirm under traffic). |
+| 22 | 0x16 | 0x0000 | Vendor / reserved. |
+| 23 | 0x17 | 0x0200 | **Vendor 17h:** Non-zero staging (**DS** — **not** **1Bh** interrupt register). |
+| 24–27 | 0x18–0x1b | 0x0000 | Includes **1Bh** IRQ — **all clear** at capture. |
+| 28 | 0x1c | 0x2400 | **Vendor 1Ch — Auto MDI-X:** Non-zero — **crossover** logic active/configured. |
+| 29–30 | 0x1d–0x1e | 0x0000 | Vendor reserved. |
+| 31 | 0x1f | 0x014c | **Vendor 1Fh — PHY control:** **Linked** pattern (**differs** from **down** ports **0x0100**). |
 
 ---
 
@@ -98,44 +98,44 @@ Register numbers **0–31** are **decimal** in the `mdio` CLI (= **0h–1Fh** in
 
 Same as **@1** except:
 
-| Reg | Value @1 | Value @2 |
-|-----|----------|----------|
-| 5 | 0xcde1 | **0xc1e1** |
-| 8 | 0x6801 | **0x6001** |
+| Reg | Value @1 | Value @2 | Analysis |
+|-----|----------|----------|----------|
+| 5 | 0xcde1 | **0xc1e1** | **AN link-partner ability** differs only in **technology ability bits** — **different peer** (NIC/switch) advertised **slightly different** capability mask; **both** prove **non-zero partner** and **completed AN**. |
+| 8 | 0x6801 | **0x6001** | **ANNPRR** (next-page receive): Lower bits differ with **partner** — normal **partner-specific** variation; **both** non-zero ⇒ **next-page path** saw data. |
 
-All other registers **0–31** matched **@1** at capture time.
+All other registers **0–31** matched **@1** at capture time (same interpretations as **PHY @1** table).
 
 ---
 
 ## PHY @3 — Clause 22 regs 0–31 (LINK **down**)
 
-| Reg | hex | Value |
-|-----|-----|-------|
-| 0 | 0x00 | 0x1140 |
-| 1 | 0x01 | 0x7949 |
-| 2 | 0x02 | 0x0022 |
-| 3 | 0x03 | 0x1631 |
-| 4 | 0x04 | 0x0de1 |
-| 5 | 0x05 | 0x0000 |
-| 6 | 0x06 | 0x0004 |
-| 7 | 0x07 | 0x2001 |
-| 8 | 0x08 | 0x0000 |
-| 9 | 0x09 | 0x0700 |
-| 10 | 0x0a | 0x0000 |
-| 11 | 0x0b | 0x0000 |
-| 12 | 0x0c | 0x0000 |
-| 13 | 0x0d | 0x4007 |
-| 14 | 0x0e | 0x0006 |
-| 15 | 0x0f | 0x3000 |
-| 16 | 0x10 | 0x0000 |
-| 17 | 0x11 | 0x00f4 |
-| 18 | 0x12 | 0x0000 |
-| 19–22 | 0x13–0x16 | 0x0000 |
-| 23 | 0x17 | 0x0200 |
-| 24–27 | 0x18–0x1b | 0x0000 |
-| 28 | 0x1c | 0x2400 |
-| 29–30 | 0x1d–0x1e | 0x0000 |
-| 31 | 0x1f | 0x0100 |
+| Reg | hex | Value | Analysis |
+|-----|-----|-------|----------|
+| 0 | 0x00 | 0x1140 | **BMCR:** Same **AN-enabled** baseline as **@1** (**idle jack** still programmed to advertise). |
+| 1 | 0x01 | 0x7949 | **BMSR:** **Link down** pattern (**0x7949** vs **0x796d**) — **no** established link / partner. |
+| 2 | 0x02 | 0x0022 | **PHY ID** — same **0x00221631** as other copper ports. |
+| 3 | 0x03 | 0x1631 | **PHY ID** low — matches **@1**. |
+| 4 | 0x04 | 0x0de1 | **AN advertisement:** Still **0x0de1** (local advertise active) even with **no cable**. |
+| 5 | 0x05 | 0x0000 | **AN LP ability:** **Zero** — **no** partner **seen** (open port / no far-end PHY). |
+| 6 | 0x06 | 0x0004 | **AN expansion:** Typical **idle/down** expansion flags (**0x0004** vs **0x000f** when linked). |
+| 7 | 0x07 | 0x2001 | **Next page TX:** Present but **no** partner exchange — consistent **idle** staging. |
+| 8 | 0x08 | 0x0000 | **ANNPRR:** Zero — **no** partner **next-page** field (**contrast @1**). |
+| 9 | 0x09 | 0x0700 | **1000BASE-T control:** Same control word class as **@1** — **gig** control path idle until partner. |
+| 10 | 0x0a | 0x0000 | **1000BASE-T status:** **Zero** — **no** gig resolution (**no link**). |
+| 11 | 0x0b | 0x0000 | Reserved. |
+| 12 | 0x0c | 0x0000 | Reserved. |
+| 13 | 0x0d | 0x4007 | **MMD DEVAD** snapshot — same machinery pattern as **@1**. |
+| 14 | 0x0e | 0x0006 | **MMD data** companion to **reg 13**. |
+| 15 | 0x0f | 0x3000 | **ESTATUS** — still reports **capability** bits (**link state** is in **BMSR**, not here). |
+| 16 | 0x10 | 0x0000 | Reserved. |
+| 17 | 0x11 | 0x00f4 | **Remote loopback** vendor — same read as **@1** (configuration, not link state). |
+| 18 | 0x12 | 0x0000 | **LinkMD** idle. |
+| 19–22 | 0x13–0x16 | 0x0000 | **PMA/PCS + vendor 14–16** — **zeroed** vs **@1** (idle PHY depth / power state). |
+| 23 | 0x17 | 0x0200 | **Vendor 17h** staging — non-zero base pattern. |
+| 24–27 | 0x18–0x1b | 0x0000 | **IRQ (1Bh)** clear. |
+| 28 | 0x1c | 0x2400 | **Auto MDI-X** — same class as **@1** (PHY still configured). |
+| 29–30 | 0x1d–0x1e | 0x0000 | Reserved. |
+| 31 | 0x1f | 0x0100 | **PHY control:** **Down/unlinked** pattern (**vs 0x014c** on **@1**). |
 
 ---
 
@@ -143,43 +143,53 @@ All other registers **0–31** matched **@1** at capture time.
 
 Notable: **BMCR (reg 0) = 0x1100** vs **0x1140** on other ports; **reg 4** auto-neg advertisement differs.
 
-| Reg | hex | Value |
-|-----|-----|-------|
-| 0 | 0x00 | **0x1100** |
-| 1 | 0x01 | 0x7949 |
-| 2 | 0x02 | 0x0022 |
-| 3 | 0x03 | 0x1631 |
-| 4 | 0x04 | **0x0c01** |
-| 5 | 0x05 | 0x0000 |
-| 6 | 0x06 | 0x0004 |
-| 7 | 0x07 | 0x2001 |
-| 8 | 0x08 | 0x0000 |
-| 9 | 0x09 | **0x0400** |
-| 10–22 | 0x0a–0x16 | mostly 0; **reg 20 = 0x1000** |
-| 23 | 0x17 | 0x0200 |
-| 28 | 0x1c | 0x2400 |
-| 31 | 0x1f | 0x0100 |
+| Reg | hex | Value | Analysis |
+|-----|-----|-------|----------|
+| 0 | 0x00 | **0x1100** | **BMCR:** **Differs from 0x1140** by PHY-specific selector/speed bits (**bit 6** region); tools may decode oddly — **do not** assume **10 M** on wire without **regs 4–10** + cable test. **Flag for EE:** strap / mode / jack wiring vs **@3/@5**. |
+| 1 | 0x01 | 0x7949 | **BMSR:** **Down** — same family as **@3** (**no link**). |
+| 2 | 0x02 | 0x0022 | **PHY ID** — same silicon as **@1–@5**. |
+| 3 | 0x03 | 0x1631 | **PHY ID** low — matches others. |
+| 4 | 0x04 | **0x0c01** | **AN advertisement:** **Differs** from **0x0de1** (**@1/@3/@5**) — **fewer/different tech abilities** advertised locally — **consistent with BMCR anomaly**; verify intended **programming**. |
+| 5 | 0x05 | 0x0000 | **AN LP:** No partner (**open** / no negotiation complete). |
+| 6 | 0x06 | 0x0004 | **AN expansion:** Same **idle** class as **@3**. |
+| 7 | 0x07 | 0x2001 | **Next page TX** — idle staging. |
+| 8 | 0x08 | 0x0000 | **ANNPRR:** No partner. |
+| 9 | 0x09 | **0x0400** | **1000BASE-T control:** **Differs** from **0x0700** on **@1/@3/@5** — **gig control path** not aligned with others — **correlate** with **BMCR + reg 4**. |
+| 10 | 0x0a | 0x0000 | **1000BASE-T status:** Zero (**no link**). |
+| 11–19 | 0x0b–0x13 | mostly **0** | Idle / collapsed vendor reads (**through reg 19**). |
+| 20 | 0x14 | **0x1000** | **Vendor 14h:** **Non-zero pattern differs** from **@1** **0x5cfe** — suggests **different internal staging** on this port (**DS** decode). |
+| 21–22 | 0x15–0x16 | **0** | RXER path zeroed. |
+| 23 | 0x17 | 0x0200 | Same **17h** family as other ports. |
+| 24–27 | 0x18–0x1b | **0** | **IRQ** clear. |
+| 28 | 0x1c | 0x2400 | **Auto MDI-X** — same **0x2400** as **@3**. |
+| 29–30 | 0x1d–0x1e | **0** | Reserved. |
+| 31 | 0x1f | 0x0100 | **PHY control:** **Down** pattern (matches **@3**). |
 
 ---
 
 ## PHY @5 — Clause 22 regs 0–31 (LINK **down**)
 
-| Reg | hex | Value |
-|-----|-----|-------|
-| 0 | 0x00 | **0x1140** |
-| 1 | 0x01 | 0x7949 |
-| 2 | 0x02 | 0x0022 |
-| 3 | 0x03 | 0x1631 |
-| 4 | 0x04 | **0x0de1** |
-| 5 | 0x05 | 0x0000 |
-| 6 | 0x06 | 0x0004 |
-| 7 | 0x07 | 0x2001 |
-| 8 | 0x08 | 0x0000 |
-| 9 | 0x09 | **0x0700** |
-| 10–22 | 0x0a–0x16 | similar to @3/@4; **reg 20 = 0x1000** |
-| 23 | 0x17 | 0x0200 |
-| 28 | 0x1c | 0x2400 |
-| 31 | 0x1f | 0x0100 |
+| Reg | hex | Value | Analysis |
+|-----|-----|-------|----------|
+| 0 | 0x00 | **0x1140** | **BMCR:** **Matches @3** (**0x1140**) — **not** the **@4** **0x1100** anomaly; typical **AN-on** idle copper. |
+| 1 | 0x01 | 0x7949 | **BMSR:** **Down** — same as **@3/@4**. |
+| 2 | 0x02 | 0x0022 | **PHY ID** — **0x00221631** family. |
+| 3 | 0x03 | 0x1631 | **PHY ID** low. |
+| 4 | 0x04 | **0x0de1** | **AN advertisement:** **Same 0x0de1** as **@1/@3** — **contrast @4** **0x0c01** (this port looks **“normal idle”** vs **@4**). |
+| 5 | 0x05 | 0x0000 | **AN LP:** No partner. |
+| 6 | 0x06 | 0x0004 | **AN expansion:** Idle/down (**same as @3**). |
+| 7 | 0x07 | 0x2001 | **Next page TX** — idle. |
+| 8 | 0x08 | 0x0000 | **ANNPRR:** No partner. |
+| 9 | 0x09 | **0x0700** | **1000BASE-T control:** **Matches @3** (**0x0700**) — **not** **@4**’s **0x0400**; consistent with **BMCR 0x1140** path. |
+| 10 | 0x0a | 0x0000 | **1000BASE-T status:** Zero (**no link**). |
+| 11–19 | 0x0b–0x13 | mostly **0** | Same **idle** shape as **@3/@4** collapsed region. |
+| 20 | 0x14 | **0x1000** | **Vendor 14h:** Same **0x1000** pattern as **@4** (not **@1** **0x5cfe**) — **down-port** vendor staging family. |
+| 21–22 | 0x15–0x16 | **0** | RXER clear. |
+| 23 | 0x17 | 0x0200 | **Vendor 17h** — same as **@3/@4**. |
+| 24–27 | 0x18–0x1b | **0** | **IRQ** clear. |
+| 28 | 0x1c | 0x2400 | **Auto MDI-X** — **0x2400**. |
+| 29–30 | 0x1d–0x1e | **0** | Reserved. |
+| 31 | 0x1f | 0x0100 | **PHY control:** **Down** pattern. |
 
 ---
 
@@ -341,3 +351,4 @@ So: **PHY @0** and **Port 6** are **not** the same thing. **@0** is “who answe
 | 2026-04-28 | Initial dump and tables from live `mdio` session on DT510. |
 | 2026-04-28 | Added comprehensive IEEE/KSZ analysis (BMCR/BMSR/AN/1G/vendor) for EE review. |
 | 2026-04-28 | Clarified MDIO PHY @0 vs datasheet Port 6 (terminology). |
+| 2026-04-28 | Per-register **Analysis** column on PHY **@0–@5** dump tables. |
