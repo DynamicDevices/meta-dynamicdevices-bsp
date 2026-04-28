@@ -3,13 +3,10 @@
  * Copyright 2020 NXP
  */
 /*
- * i.MX8MM Jaguar DT510 — canonical device tree source (Tier A2).
+ * i.MX8MM Jaguar DT510 — board DTS (Tier A2). Kernel recipe symlinks Tier A1 to this file.
  *
- * recipes-kernel/linux/linux-lmp-fslc-imx/imx8mm-jaguar-dt510.dts is a symlink to this file (Tier A1).
- *
- * Hardware SSOT: VIX DT510 pinout / hardware spec (Google Doc, first cut — revise on schematic proof).
- * Tool-generated review material (not built): docs/reference/dt510-ollie-tool-generated/
- * Bring-up plan & tiers: docs/DT510-BSP-PROJECT-PLAN.md
+ * Hardware SSOT: DT510 pinout/spec (Google Doc). Pin mux cross-check:
+ * docs/reference/dt510-ollie-tool-generated/. Plan: docs/DT510-BSP-PROJECT-PLAN.md
  */
 
 #include "freescale/imx8mm-evkb.dts"
@@ -19,17 +16,16 @@
 #include <dt-bindings/clock/imx8mm-clock.h>
 
 /*
- * imx8mm-evkb.dts: PCA9450 @ i2c1 @0x25 (nxp,pca9450a), not BD71847 — matches DT510 hardware.
- * Additional fragments restore imx8mm-evk.dts pieces not pulled in by the evkb-only base (DDR OPP,
- * USDHC eMMC/SDIO). FlexSPI is omitted — unused on DT510.
+ * Base: imx8mm-evkb.dts — PCA9450 on i2c1 @0x25 (not BD71847). Extra fragments replay imx8mm-evk.dts
+ * bits missing from the evkb-only path (DDR OPP, USDHC). No FlexSPI on DT510.
  */
 
 / {
 	model = "i.MX8MM Jaguar DT510 board";
 	compatible = "fsl,imx8mm-jaguar-dt510", "fsl,imx8mm-evkb", "fsl,imx8mm-evk", "fsl,imx8mm";
 
-	// Regulators
-	/* TAS6424 DVDD: 3.3 V placeholder — **@ohull456 to confirm** nominal vs schematic (SSOT). */
+	/* Fixed rails */
+	/* TAS6424 DVDD 3.3 V — confirm nominal vs schematic (SSOT). */
 	vddext: regulator-vddext {
 		compatible = "regulator-fixed";
 		regulator-name = "VDDEXT_3V3";
@@ -38,9 +34,8 @@
 	};
 
 	/*
-	 * TAS6424 VBAT + PVDD: driver requires distinct phandles; single fixed rail for both.
-	 * **12 V placeholder — @ohull456 to confirm** net names / nominal voltage per BOM.
-	 * Ollie (issue #2): rails always-on, no software sequencing — regulator-always-on is OK.
+	 * TAS6424 VBAT + PVDD (driver wants separate supplies; one rail for both).
+	 * 12 V nominal — confirm nets/BOM. Always-on rails: regulator-always-on is fine.
 	 */
 	tas6424_hi_rail: regulator-tas6424-hi {
 		compatible = "regulator-fixed";
@@ -50,7 +45,7 @@
 		regulator-always-on;
 	};
 
-	/* Tier C2: TAS6424 class-D — CPU (SAI1) is BCLK/FS master; codec is slave (driver CBC_CFC). */
+	/* TAS6424 class-D: CPU (SAI1) bit/frame clock master, codec slave */
 	sound-tas6424 {
 		compatible = "simple-audio-card";
 		simple-audio-card,name = "tas6424-classd";
@@ -79,7 +74,7 @@
 		simple-audio-card,frame-master = <&cpudai2>;
 		simple-audio-card,bitclock-master = <&cpudai2>;
 
-		/* tas2563 codec: simple-audio-card routing (no DMIC widgets). */
+		/* tas2563: simple-card routing (no DMIC widgets) */
 		simple-audio-card,widgets =
 			"Speaker", "Speaker";
 		simple-audio-card,routing =
@@ -87,7 +82,7 @@
 
 		cpudai2: simple-audio-card,cpu {
 			sound-dai = <&sai3>;
-			dai-tdm-slot-num = <4>;  /* Increase to 4 slots for Profile 8 */
+			dai-tdm-slot-num = <4>;  /* Profile 8 */
 			dai-tdm-slot-width = <32>;
 		};
 
@@ -97,11 +92,7 @@
 		};
 	};
 
-	/*
-	 * TAC5301-Q1 @ I2C2 0x50 — analog mono codec (Ollie SSOT).
-	 * SAI6: pads from `docs/reference/dt510-ollie-tool-generated/pin_mux.dts` (BOARD_InitPins).
-	 * Requires kernel ASoC support for ti,tac5301 (TAC5x1x family) when enabled in defconfig.
-	 */
+	/* TAC5301-Q1 @ i2c2 0x50 — mono codec; SAI6 mux per pin_mux.dts. Needs ti,tac5301 / TAC5x1x in kernel */
 	sound-tac5301 {
 		compatible = "simple-audio-card";
 		simple-audio-card,name = "tac5301-analog";
@@ -123,11 +114,11 @@
 		};
 	};
 
-	// MICFIL Audio Configuration (for original PDM hardware)
+	/* EVK MICFIL audio card — disabled (SAI1 used for TAS6424) */
 	sound-micfil {
 		compatible = "fsl,imx-audio-card";
 		model = "micfil-audio";
-		status = "disabled"; /* &micfil off — SAI1 muxed for TAS6424 per SSOT */
+		status = "disabled";
 		pri-dai-link {
 			link-name = "micfil hifi";
 			format = "i2s";
@@ -153,23 +144,20 @@
 		status = "disabled";
 	};
 
-	// Disable M4 core to prevent resource conflicts
+	/* Cortex-M4 not used */
 	imx8mm-cm4 {
 		compatible = "fsl,imx8mm-cm4";
 		status = "disabled";
 	};
 
-	// RDC configuration for UART4 resource assignment
-	// This ensures UART4 is properly assigned to A53 domain before UART driver probes
+	/* RDC: UART4 PDAP for A53 (domain 0) — must match U-Boot setup before &uart4 probes */
 	rdc: rdc@303d0000 {
 		compatible = "fsl,imx8mm-rdc";
 		reg = <0x0 0x303d0000 0x0 0x10000>;
 		status = "okay";
 
-		// Configure UART4 for A53 domain (domain 0) access
-		// This must complete before serial driver initialization
 		fsl,rdc-config = <
-			0x44  0x3  // UART4 PDAP: Domain 0 (A53) read/write access
+			0x44  0x3  /* UART4 PDAP — domain 0 R/W */
 		>;
 	};
 
@@ -186,7 +174,7 @@
 		};
 	};
 
-	/* Tier B1: BQ25792 monitored-battery model — tune from SSOT / pack (1S placeholder). */
+	/* BQ25792 simple-battery model — tune per pack (1S placeholder) */
 	battery_dt510: battery-dt510 {
 		compatible = "simple-battery";
 		constant-charge-voltage-max-microvolt = <4200000>;
@@ -195,9 +183,7 @@
 	};
 };
 
-/*
- * DDR controller — OPP table from imx8mm-evk.dts (evkb board DTS path omits this block).
- */
+/* DDR OPP table — from imx8mm-evk.dts (not in imx8mm-evkb include path) */
 &ddrc {
 	operating-points-v2 = <&ddrc_opp_table>;
 
@@ -220,10 +206,9 @@
 
 &iomuxc {
 	pinctrl-names = "default";
-	/* E1 bisect: Tier B2 gpio1_dio reverted — was hog+gpio1_dio+bq25792_chgr_int */
+	/* Boot hog: WL/BT/LTE rails; BQ25792 CHGR_INT mux in pinctrl_bq25792_chgr_int */
 	pinctrl-0 = <&pinctrl_hog>, <&pinctrl_bq25792_chgr_int>;
 
-	// TODO: Break these out better?
 	pinctrl_hog: hoggrp {
 		fsl,pins = <
 			MX8MM_IOMUXC_SD1_DATA4_GPIO2_IO6	0x140  // WL_WAKE_DEV
@@ -233,15 +218,12 @@
 			MX8MM_IOMUXC_NAND_DATA01_GPIO3_IO7	0x140  // WIFI_PD#
 			MX8MM_IOMUXC_NAND_DATA02_GPIO3_IO8	0x140  // BT_WAKE_HOST
 			MX8MM_IOMUXC_NAND_DATA03_GPIO3_IO9	0x140  // BT_RST#
-			/* SAI1_RXD4 / RXD7 / …: not hogged — those pads are used by board SSOT for TAS6424 (only
-			 * the 5-line I2S out is in `pinctrl_sai1_tas6424`), SAI6, and BQ CHGR on RXD7
-			 * (`pinctrl_bq25792_chgr_int`); see Ollie `docs/reference/dt510-ollie-tool-generated/pin_mux.dts`. */
-			MX8MM_IOMUXC_SPDIF_RX_GPIO5_IO4		0x140  // CODEC_SD#
-			// ZB_INT and ZB_RST# removed from hog - managed by ZBoss muxer
+			/* Other SAI1 pads: TAS6424 / SAI6 / BQ charger — see pin_mux.dts */
+			MX8MM_IOMUXC_SPDIF_RX_GPIO5_IO4		0x140  /* CODEC_SD# */
 		>;
 	};
 
-	// Zigbee GPIO pins - not hogged, available for ZBoss muxer
+	/* Zigbee (ZBoss): ZB_INT / ZB_RST — dedicated mux, not in hoggrp */
 	pinctrl_zigbee: zigbeegrp {
 		fsl,pins = <
 			MX8MM_IOMUXC_SAI2_RXC_GPIO4_IO22		0x140  // ZB_INT
@@ -249,12 +231,13 @@
 		>;
 	};
 
+	/* ECSPI1 (802.15.4): 0x140 drive */
 	pinctrl_ecspi1: ecspi1grp {
 		fsl,pins = <
-			MX8MM_IOMUXC_ECSPI1_SS0_GPIO5_IO9		0x140  // Increased drive strength
-			MX8MM_IOMUXC_ECSPI1_SCLK_ECSPI1_SCLK		0x140  // Increased drive strength
-			MX8MM_IOMUXC_ECSPI1_MISO_ECSPI1_MISO		0x140  // Increased drive strength
-			MX8MM_IOMUXC_ECSPI1_MOSI_ECSPI1_MOSI		0x140  // Increased drive strength
+			MX8MM_IOMUXC_ECSPI1_SS0_GPIO5_IO9		0x140
+			MX8MM_IOMUXC_ECSPI1_SCLK_ECSPI1_SCLK		0x140
+			MX8MM_IOMUXC_ECSPI1_MISO_ECSPI1_MISO		0x140
+			MX8MM_IOMUXC_ECSPI1_MOSI_ECSPI1_MOSI		0x140
 		>;
 	};
 
@@ -270,13 +253,8 @@
 	};
 
 	/*
-	 * TAS6424E — GPIO1 sideband (I2C control + driver; separate from SAI1 audio bus).
-	 * Mux: GPIO. Pad 0x116: matches `docs/reference/dt510-ollie-tool-generated/pin_mux.dts` GPIO1 block.
-	 *	 GPIO1_IO10: AMP_STBY# — output, active-low (standby-gpios on tas6424@6a)
-	 *	 GPIO1_IO11: AMP_MUTE# — output, active-low (mute-gpios on tas6424@6a)
-	 *	 GPIO1_IO12: AMP_FAULT# — input, active-low (not bound in driver; may poll via I2C)
-	 *	 GPIO1_IO13: AMP_WARN# — input, active-low (same)
-	 * Do not list these balls again under `pinctrl_sai1_tas6424` (duplicate pinctrl / wrong pad class).
+	 * TAS6424 GPIO1 sideband (standby/mute/fault/warn) — 0x116 per pin_mux.dts.
+	 * Keep separate from pinctrl_sai1_tas6424 (I2S data only).
 	 */
 	pinctrl_tas6424_gpio: tas6424gpiogrp {
 		fsl,pins = <
@@ -287,23 +265,14 @@
 		>;
 	};
 
-	/*
-	 * B1 SSOT: CHGR_INT# from BQ25792 → SAI1_RXD7 / GPIO4_IO9 (active-low). Mux as GPIO, not SAI.
-	 * Conflicts with prior LP5024 enable-gpios on gpio4 9 — LED driver leaves EN to hardware.
-	 */
+	/* BQ25792 CHGR_INT# → SAI1_RXD7 as GPIO4_IO9 (active-low); not SAI */
 	pinctrl_bq25792_chgr_int: bq25792_chgr_int_grp {
 		fsl,pins = <
 			MX8MM_IOMUXC_SAI1_RXD7_GPIO4_IO9	0x140  /* CHGR_INT# */
 		>;
 	};
 
-	/*
-	 * TAS6424E — SAI1 I2S to codec (5 pins only, per product spec).
-	 *	 SAI1_MCLK, SAI1_TX_SYNC, SAI1_TX_BCLK, SAI1_TX_DATA0, SAI1_TX_DATA1
-	 * Pad config follows Ollie `pin_mux.dts` BOARD_InitPins: 0x116 for MCLK/BCLK/DATA, 0x1916 for
-	 * frame sync (same 0x1916 pattern as ENET TX_CTL in this file — steeper drive / skew).
-	 * Do not merge GPIO1_IO10–13 here: those stay in `pinctrl_tas6424_gpio` with 0x116.
-	 */
+	/* TAS6424 SAI1 I2S (5 lines): 0x116 on MCLK/BCLK/DATA; 0x1916 on frame sync (matches ENET TX_CTL skew) */
 	pinctrl_sai1_tas6424: sai1tas6424grp {
 		fsl,pins = <
 			MX8MM_IOMUXC_SAI1_MCLK_SAI1_MCLK		0x116
@@ -314,10 +283,7 @@
 		>;
 	};
 
-	/*
-	 * TAC5301-Q1 ↔ SAI6 (Ollie SSOT). Pad config 0x116 matches BOARD_InitPins in
-	 * `docs/reference/dt510-ollie-tool-generated/pin_mux.dts`.
-	 */
+	/* TAC5301 ↔ SAI6 — 0x116 per pin_mux.dts */
 	pinctrl_sai6_tac5301: sai6_tac5301_grp {
 		fsl,pins = <
 			MX8MM_IOMUXC_SAI1_RXD6_SAI6_TX_SYNC		0x116
@@ -327,7 +293,7 @@
 		>;
 	};
 
-	/* SAI1_TXD2 → GPIO4_IO14 — codec sideband (Ollie SSOT); used with tac5301 reset-gpios. */
+	/* TAC5301 codec GPIO / reset — SAI1_TXD2 → GPIO4_IO14 */
 	pinctrl_tac5301_gpio: tac5301_gpio_grp {
 		fsl,pins = <
 			MX8MM_IOMUXC_SAI1_TXD2_GPIO4_IO14		0x116
@@ -383,7 +349,7 @@
 		>;
 	};
 
-	/* USDHC3 eMMC — pinmux for &usdhc3 (8-bit, EVK NAND pins) */
+	/* USDHC3 eMMC 8-bit (EVK NAND pinmux) */
 	pinctrl_usdhc3: usdhc3grp {
 		fsl,pins = <
 			MX8MM_IOMUXC_NAND_WE_B_USDHC3_CLK               0x190
@@ -432,11 +398,7 @@
 		>;
 	};
 
-	/*
-	 * Tier C1: KSZ9896 RGMII+MDC/MDIO — same **macros** and **pad values** as Ollie
-	 * `docs/reference/dt510-ollie-tool-generated/pin_mux.dts` (BOARD_InitPins ENET1 block, 0x116 / TX_CTL 0x1916).
-	 * Omit SAI2_RXC→GPIO4_IO22 — DT510 uses that pad for ZB_INT.
-	 */
+	/* KSZ9896 RGMII — ENET1 pins per pin_mux.dts; SAI2_RXC left for ZB_INT (not in this group) */
 	pinctrl_fec1_dt510: fec1dt510grp {
 		fsl,pins = <
 			MX8MM_IOMUXC_ENET_MDC_ENET1_MDC			0x116
@@ -457,13 +419,8 @@
 	};
 
 	/*
-	 * KSZ9896 / ENET sideband (SAI1 balls as GPIO) — Ollie `pin_mux.dts` uses 0x116 on each.
-	 * Nets at switch may be # (active low); SoC GPIO hogs use `GPIO_ACTIVE_HIGH` where RST bench
-	 * showed stacked inversion vs naive `ACTIVE_LOW` — match PME/INTR/RST (see gpio4 nodes).
-	 * SAI1_RXD2  → GPIO4_IO4: ENET_PME#  — input (WoL)
-	 * SAI1_RXFS  → GPIO4_IO0: ENET_INTR# — input; if SSOT is SoC *output* only, hog `output-high;`
-	 * SAI1_RXC   → GPIO4_IO1: ENET_RST#  — on wire: nRESET active low; pin high = run (see `ksz9896_rst`)
-	 * Not in `pinctrl_sai1_tas6424` (TAS uses 5-line SAI1 only). See `docs/DT510-ETHERNET-KSZ9896.md`.
+	 * KSZ sideband on SAI1 balls → GPIO4: INTR, RST, PME (polarity vs switch — see DT510-ETHERNET-KSZ9896.md).
+	 * gpio-hog ACTIVE_* must match hardware; see also &ksz9896_sw reset-gpios.
 	 */
 	pinctrl_ksz9896_sideband: ksz9896sidebandgrp {
 		fsl,pins = <
@@ -474,7 +431,8 @@
 	};
 };
 
-&uart1 { /* BT */
+/* UART1 — Bluetooth HCI */
+&uart1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart1>;
 	assigned-clocks = <&clk IMX8MM_CLK_UART1>;
@@ -495,11 +453,10 @@
 &uart4 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart4>;
-	status = "okay";  /* Safe to enable - RDC assignment handled by U-Boot before kernel boot */
+	status = "okay";
 
-	// UART4 RDC assignment is now handled by U-Boot bootcmd before kernel starts
-	// This prevents the synchronous external abort during early boot
-	fsl,rdc-domain = <0>;  // Assign to A53 domain
+	/* Domain 0 (A53); RDC programmed from &rdc / U-Boot before probe */
+	fsl,rdc-domain = <0>;
 };
 
 &gpio2 {
@@ -515,7 +472,7 @@
 		output-high;
 		line-name = "bt-wake-dev";
 	};
-	/* ZB_RST# on GPIO2_IO11 — see pinctrl_zigbee / ZBoss muxer (no hog here). */
+	/* ZB_RST# routed via pinctrl_zigbee — not hogged here */
 };
 
 &gpio3 {
@@ -548,35 +505,22 @@
 
 &gpio4 {
 	/*
-	 * KSZ sideband pad mux: applied from `&fec1` pinctrl-0 (with RGMII), not here — i.MX GPIO
-	 * controllers are poor owners of a full IOMUXC group; a gpio4 pinctrl-0 can break the bank
-	 * or clash with the SoC dtsi. See pinctrl_ksz9896_sideband + &fec1.
+	 * KSZ/Switch sideband mux lives on &fec1 (pinctrl_ksz9896_sideband), not on gpio4 — avoids
+	 * splitting one IOMUX bank across controllers.
 	 */
 	status = "okay";
 
-	/* Same `GPIO_ACTIVE_*` convention as `ksz9896_rst` (sideband inversion). */
 	ksz9896_pme {
 		gpio-hog;
 		gpios = <4 GPIO_ACTIVE_HIGH>;
 		input;
 		line-name = "ksz9896-ent-pme";
 	};
-
-	/*
-	 * INTR: claimed by `ksz9896_sw` (`interrupt-parent` / `interrupts`), not a hog — GPIO4_IO0.
-	 * RST: released by `microchip,ksz9896` DSA node (`reset-gpios`). PME hog remains until needed by driver.
-	 */
-
-	/* ZB on GPIO4_IO22: pinctrl `pinctrl_zigbee` + unhog here if needed. */
 };
 
-/* CODEC_SD# (GPIO5_IO4): Sentai gpio-hog removed — tas2563@4c reset-gpios owns the line (DT510 SSOT, plan §4). */
+/* GPIO5_IO4 CODEC_SD# — tas2563@4c reset-gpios (no Sentai-style hog on DT510) */
 
-/*
- * C1 — RGMII to KSZ9896 CPU port: FEC MAC↔switch via DSA (`microchip,ksz9896` on I2C).
- * Integrated PHYs: switch-internal `mdio { }` + `phy-handle` on user ports (Microchip EVB pattern).
- * KSZ sideband: `pinctrl_ksz9896_sideband`; see `docs/DT510-ETHERNET-KSZ9896.md`.
- */
+/* FEC ↔ KSZ9896 CPU port (DSA on i2c2). Details: docs/DT510-ETHERNET-KSZ9896.md */
 &fec1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_fec1_dt510 &pinctrl_ksz9896_sideband>;
@@ -593,11 +537,8 @@
 };
 
 /*
- * Tier B2 — imx8mm-evk.dtsi (via imx8mm-evkb.dts) inherits peripherals that clash with DT510:
- * - ir_recv: GPIO1_IO13 (TAS6424 AMP_FAULT#/WARN# mux on same pins).
- * - reg_pcie0: GPIO1_IO5 (&pcie0 is disabled on DT510).
- * - backlight: headless / no panel; disable pwm-backlight node.
- * Incremental step 2 (E1 baseline): EVK nodes off only; pinctrl unchanged.
+ * EVK inherited nodes disabled on DT510:
+ * ir_recv (GPIO1_IO13 — TAS6424 fault/warn), reg_pcie0 / pcie (GPIO1_IO5), backlight (no panel).
  */
 &ir_recv {
 	status = "disabled";
@@ -611,22 +552,17 @@
 	status = "disabled";
 };
 
-/* Tier B3 — CP2108 quad-UART: USB-enumerated; add reset GPIO here only when SSOT names a pin. */
+/* CP2108 quad-UART: USB device — add GPIO reset here if SSOT assigns one */
 
-/* Tier B4 — SE050 @ I2C4 0x48: OpTEE (se05x) — see docs/DT510-SE050.md; no Linux &i2c4 child required. */
-/* &i2c1: PMIC-only on DT510 (PCA9450 from imx8mm-evkb); no other I²C1 clients in this DTS. */
+/* SE050 @ i2c4 0x48: OpTEE only — docs/DT510-SE050.md */
+
+/* i2c1: PCA9450 PMIC only (imx8mm-evkb) */
 
 &i2c2 {
-	/*
-	 * imx8mm-evk.dtsi defines tcpc@50 (PTN5110 TCPC). DT510 does not populate it;
-	 * remove the inherited node so I2C2 @ 0x50 is free for TAC5301 (Tier C2) per SSOT.
-	 */
+	/* Drop EVK tcpc@50 / PTN5110 — DT510 uses 0x50 for TAC5301 */
 	/delete-node/ tcpc@50;
 
-	/*
-	 * TI TAC5301-Q1 @ 0x50 — I2C2, 7-bit 0x50 (TI default). Frees EVK PTN5110 @ 0x50 (deleted above).
-	 * GPIO4_IO14: configurable codec GPIO (Ollie SSOT); bound as reset until IRQ confirmed.
-	 */
+	/* TAC5301-Q1 @ 0x50; GPIO4_IO14 = reset (ti,tac5301) */
 	tac5301: tac5301@50 {
 		compatible = "ti,tac5301";
 		reg = <0x50>;
@@ -637,13 +573,13 @@
 		status = "okay";
 	};
 
-	/* Class-D + smart amp: TI TAS2563 @ I2C2 */
+	/* TAS2563 smart amp */
 	tas2563: tas2563@4c {
 		#sound-dai-cells = <0>;
 		compatible = "ti,tas2563";
 		reg = <0x4c>;
-		ti,channels = <1>; /* channel number */
-		reset-gpios = <&gpio5 4 GPIO_ACTIVE_LOW>;   /* Enable reset control - active low */
+		ti,channels = <1>;
+		reset-gpios = <&gpio5 4 GPIO_ACTIVE_LOW>;
 		interrupt-parent = <&gpio5>;
 		interrupts = <5 IRQ_TYPE_LEVEL_LOW>;
 
@@ -654,11 +590,7 @@
 		status = "okay";
 	};
 
-	/*
-	 * TAS6424E-Q1 @ 0x6A — class-D on SAI1 (Tier C2).
-	 * SSOT (Google Doc): GPIO1_IO10 = AMP_STBY#, GPIO1_IO11 = AMP_MUTE# (outputs, active-low);
-	 * GPIO1_IO12 = AMP_FAULT#, GPIO1_IO13 = AMP_WARN# (inputs, active-low) — not wired to codec driver.
-	 */
+	/* TAS6424 class-D @ 0x6a — GPIO sideband in pinctrl_tas6424_gpio */
 	tas6424: tas6424@6a {
 		compatible = "ti,tas6424";
 		reg = <0x6a>;
@@ -673,17 +605,13 @@
 		status = "okay";
 	};
 
-	/*
-	 * KSZ9896 — I2C management + DSA (see `Documentation/devicetree/bindings/net/dsa/microchip,ksz.yaml`).
-	 * PLACEHOLDER until EE confirms: SoC I2C controller + ball mux + KSZ strap 7-bit address (often 0x5f).
-	 * If routed to &i2c1 or &i2c3 instead, move this node and set reg = <addr> from straps.
-	 */
+	/* KSZ9896 DSA — confirm bus/address vs straps; binding: microchip,ksz.yaml */
 	ksz9896_sw: switch@5f {
 		compatible = "microchip,ksz9896";
 		reg = <0x5f>;
 		reset-gpios = <&gpio4 1 GPIO_ACTIVE_LOW>;
 		interrupt-parent = <&gpio4>;
-		/* EE: change to EDGE_FALLING / LEVEL_HIGH if INT# polarity differs from schematic */
+		/* Adjust edge/level if INT# polarity differs from schematic */
 		interrupts = <0 IRQ_TYPE_LEVEL_LOW>;
 
 		ethernet-ports {
@@ -794,7 +722,7 @@
 		status = "disabled";
 	};
 
-	/* Tier B1: BQ25792 @ 0x6B on I2C3 — CHGR_INT# → SAI1_RXD7 / GPIO4_IO9 (active-low, B1 SSOT). */
+	/* BQ25792 @ 0x6b — CHGR_INT# on GPIO4_IO9 (see pinctrl_bq25792_chgr_int) */
 	bq25792: bq25792@6b {
 		compatible = "ti,bq25792";
 		reg = <0x6b>;
@@ -804,7 +732,7 @@
 		status = "okay";
 	};
 
-	/* SSOT placeholder (disabled): enable Tier C3 after probe + pinctrl validation */
+	/* LT9611 DSI-HDMI — disabled until display bring-up */
 
 	lt9611: lt9611@39 {
 		compatible = "lontium,lt9611";
@@ -815,7 +743,7 @@
 };
 
 &sai1 {
-	/* TAS6424: I2S to class-D (5-line pinmux in pinctrl_sai1_tas6424). SAI1_RXD7 is CHGR_INT# on I2C3, not SAI. */
+	/* TAS6424 I2S — see pinctrl_sai1_tas6424; RXD7 is charger GPIO not SAI */
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sai1_tas6424>;
 	assigned-clocks = <&clk IMX8MM_CLK_SAI1_ROOT>;
@@ -826,12 +754,12 @@
 	status = "okay";
 };
 
-/* PDM: prior mux used SAI1 pins for MICFIL — conflicts with TAS6424 SSOT; leave off until a product variant needs PDM on another block */
+/* MICFIL / PDM — off (SAI1 used for TAS6424) */
 &micfil {
 	status = "disabled";
 };
 
-// Enhanced SAI3 configuration for bidirectional audio (Profile 8 echo reference)
+/* SAI3 — TAS2563 (Profile 8 echo path) */
 &sai3 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sai3>;
@@ -839,12 +767,12 @@
 	assigned-clock-parents = <&clk IMX8MM_AUDIO_PLL1_OUT>;
 	assigned-clock-rates = <12288000>;
 	fsl,sai-mclk-direction-output;
-	fsl,sai-synchronous-rx;  /* RX uses TX clocks for synchronized operation */
+	fsl,sai-synchronous-rx;  /* RX synchronous to TX clocks */
 	#sound-dai-cells = <0>;
 	status = "okay";
 };
 
-/* TAC5301-Q1 — I2S on SAI6 (Ollie SSOT); CPU BCLK/FS master, codec slave. */
+/* SAI6 — TAC5301 (CPU bit/frame master) */
 &sai6 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sai6_tac5301>;
@@ -869,7 +797,7 @@
 	status = "disabled";
 };
 
-// 802.15.4
+/* ECSPI1 — 802.15.4 radio: PIO (no DMA); fsl,spi-rdy-drctl for ZBoss timing */
 &ecspi1 {
 	#address-cells = <1>;
 	#size-cells = <0>;
@@ -877,43 +805,38 @@
 	pinctrl-0 = <&pinctrl_ecspi1>, <&pinctrl_zigbee>;
 	cs-gpios = <&gpio5 9 GPIO_ACTIVE_LOW>;
 	fsl,spi-num-chipselects = <1>;
-	// Force PIO mode by removing DMA properties entirely
 	/delete-property/ dmas;
 	/delete-property/ dma-names;
-	// Increase timeout for SPI transfers
 	fsl,spi-rdy-drctl = <0>;
-	// Re-enable burst mode - zb_mux expects 16-byte offset
-	// fsl,spi-disable-burst;
 	status = "okay";
 
 	spidev1: spi@0 {
 		compatible = "rohm,dh2228fv";
-		spi-max-frequency = <10000000>; // 10MHz - maximum radio spec limit
-		spi-mode = <0>;                 // SPI Mode 0 (CPOL=0, CPHA=0)
+		spi-max-frequency = <10000000>; /* 10 MHz — radio limit */
+		spi-mode = <0>; /* SPI mode 0 */
 		reg = <0>;
 	};
 };
 
-// ECSPI2: reserved for CAN (MCP2518xx) per DT510 — XM125 lives on Sentai DTS only
+/* ECSPI2 — CAN (e.g. MCP2518xx); XM125 stays on Sentai DTS */
 &ecspi2 {
 	status = "disabled";  /* Enable when CAN bring-up is ready */
 	/delete-property/ pinctrl-names;
 	/delete-property/ pinctrl-0;
 };
 
-/* USB OTG1: peripheral mode for USB gadget / lab dual-UAC2 (see DT510-USB-DUAL-AUDIO.md).
- * No STUSB4500 USB-PD controller on DT510 — not USB-C powered; no TCPC. Sentai-only PD path.
+/*
+ * USB OTG1 — peripheral (gadget / lab dual-UAC2). Doc: DT510-USB-DUAL-AUDIO.md.
+ * Remove role-switch: EVK ties usb1_drd_sw to deleted tcpc@50 on i2c2.
  */
 &usbotg1 {
 	dr_mode = "peripheral";
 	status = "okay";
-	/* imx8mm-evk.dtsi links usb1_drd_sw to typec1_dr_sw on &ptn5110 (tcpc@50). We delete tcpc@50;
-	 * drop the role-switch graph so DTC does not reference a missing typec1_dr_sw phandle. */
 	/delete-property/ usb-role-switch;
 	/delete-node/ port;
 };
 
-// WiFi SDIO Interface - IW612 module with power management
+/* USDHC2 — Wi‑Fi SDIO (IW612) */
 &usdhc2 {
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
 	pinctrl-0 = <&pinctrl_usdhc2>;
@@ -938,7 +861,7 @@
 	};
 };
 
-/* USDHC3 — onboard eMMC (8-bit); pinmux follows USDHC2 block in &iomuxc */
+/* USDHC3 — eMMC 8-bit */
 &usdhc3 {
 	assigned-clocks = <&clk IMX8MM_CLK_USDHC3_ROOT>;
 	assigned-clock-rates = <400000000>;
@@ -951,7 +874,7 @@
 	status = "okay";
 };
 
-// Cellular modem
+/* USB OTG2 — cellular modem */
 &usbotg2 {
 	dr_mode = "host";
 	status = "okay";
