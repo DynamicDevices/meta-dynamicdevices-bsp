@@ -114,6 +114,7 @@ Re-run while plugging cables to see **link** change on the matching **PHY @N**.
 
 ## References
 
+- `docs/DT510-KSZ9896-MIIM-register-dump.md` — Clause **22** **`mdio phy @0–@5 raw 0–31`** snapshot for EE review.
 - `Documentation/devicetree/bindings/net/dsa/microchip,ksz.yaml`
 - `linux/drivers/net/dsa/microchip/ksz9477_i2c.c` (I2C regmap; **not** used when HW is MIIM-only)
 - Microchip **KSZ9896C** DS00002390A — **Section 3.2.1** straps, **4.9** management interfaces
