@@ -24,6 +24,8 @@
 	model = "i.MX8MM Jaguar DT510 board";
 	compatible = "fsl,imx8mm-jaguar-dt510", "fsl,imx8mm-evkb", "fsl,imx8mm-evk", "fsl,imx8mm";
 
+	/delete-node/ sound-micfil;
+
 	/* Board-fixed rails — confirm nominal voltages vs schematic / SSOT. */
 	vddext: regulator-vddext {
 		compatible = "regulator-fixed";
@@ -88,20 +90,6 @@
 		simple-audio-card,codec {
 			sound-dai = <&tas2563>;
 			clocks = <&clk IMX8MM_CLK_SAI3_ROOT>;
-		};
-	};
-
-	/* MICFIL — disabled; SAI1 used for TAS6424. */
-	sound-micfil {
-		compatible = "fsl,imx-audio-card";
-		model = "micfil-audio";
-		status = "disabled";
-		pri-dai-link {
-			link-name = "micfil hifi";
-			format = "i2s";
-			cpu {
-				sound-dai = <&micfil>;
-			};
 		};
 	};
 
@@ -654,7 +642,7 @@
 	status = "okay";
 };
 
-/* MICFIL — disabled (SAI1 reserved for TAS6424). */
+/* &micfil: off on DT510 (evk.dtsi enables it; SAI1 used for TAS6424). */
 &micfil {
 	status = "disabled";
 };
