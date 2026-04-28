@@ -14,4 +14,4 @@ Buffers/inverters between IC and SoC can **stack** inversions so the **correct**
 
 **Inputs (WoL, IRQ):** the same **`GPIO_ACTIVE_*`** choice defines what Linux considers **active** for level-sensitive and for future IRQ bindings — align with what the **pad** sees, not only the far-end chip naming.
 
-See also: `imx8mm-jaguar-dt510.dts` (`ksz9896_rst` / PME / INTR comments) and Foundries bring-up `meta-subscriber-overrides/conf/DT510-HARDWARE-BRINGUP.md`.
+See also: `imx8mm-jaguar-dt510.dts` (`ksz9896_rst` / PME / INTR comments), `docs/DT510-ETHERNET-KSZ9896.md` (PHY **`mdio`** vs **`phytool`** on target), and Foundries bring-up `meta-subscriber-overrides/conf/DT510-HARDWARE-BRINGUP.md`.

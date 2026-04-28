@@ -58,6 +58,60 @@ This is the suggested **phase 1** pattern for **hardware prove-out** before a mo
 4. **MDIO:** `ls /sys/bus/mdio/devices` — expect **PHY @1…@5** if the internal PHYs respond; **`phy-handle` is not** used for the **CPU** RGMII path (`fixed-link`). `i2cdetect` will **not** show the switch at I²C `0x5F` (expected).  
 5. RGMII timing: if the CPU link is wrong, tune `phy-mode` / delays (see NXP + KSZ threads). Port links are separate from CPU `fixed-link`.
 
+## PHY diagnostics on-target (`mdio` vs `phytool`)
+
+Use this when validating **internal PHY @1…@5** on the KSZ (Clause 22 over the FEC MDIO bus). **Switch MIB / per-port bridge counters** are **not** covered here — see Microchip DS00002390 (MIB sections); **`end0`** does not attribute RX to a front-panel port without DSA or switch register tools.
+
+### Why `phytool` often fails on DT510
+
+- **`phytool read end0/N/R`** uses MII ioctl calls through the **`end0`** netdev.
+- On this stack, **`phytool`** typically returns **`phy_read (-1)`** for PHY addresses **1–5** — the **FEC** driver path does not expose **per-address MII** access that **`phytool`** expects through **`end0`**.
+- **`phytool -h`** / **`--help`** is parsed as a bad **location** on some builds; run **`phytool`** with **no** arguments for usage.
+
+**Use `mdio` from `mdio-tools`** instead (needs **`sudo`** for **`mdio_netlink`**).
+
+### Find the MDIO bus name
+
+```bash
+sudo mdio
+```
+
+Example line on DT510: **`30be0000.ethernet-1`** (FEC MDIO controller).
+
+### Probe all Clause 22 devices on the bus
+
+Table of **PHY-ID** and **LINK** column (quick health check):
+
+```bash
+sudo mdio 30be0000.ethernet-1
+```
+
+Address **0x00** is the internal device used for the **CPU/RGMII** side in this topology; **0x01–0x05** are the **copper PHY** ports.
+
+### Decode BMCR / BMSR / PHY ID (same info as `phytool print` would show)
+
+Per PHY address **`N`** in **`1…5`**:
+
+```bash
+sudo mdio 30be0000.ethernet-1 phy N
+```
+
+This prints **BMCR (0x00)**, **BMSR (0x01)**, **ID (0x02/0x03)**, **ESTATUS (0x0F)**, etc., with flags such as **+link**, **+aneg-complete**, negotiated speed.
+
+Re-run while plugging cables to see **link** change on the matching **PHY @N**.
+
+**Note:** This image’s **`mdio`** expects **`sudo mdio BUS phy N`** for a status dump — not **`mdio … read`** with the word **`read`** in the position that older examples use; use **`mdio --help`** on the target if in doubt.
+
+### What you cannot get from Clause 22 alone
+
+- **Which RJ45** forwarded a given packet seen on **`end0`** — all CPU traffic arrives on one **RGMII** pipe; use **controlled cabling**, **MIB** (datasheet), or future **DSA** for per-port visibility.
+- **`/sys/bus/mdio/devices`** may be **empty** or absent on some configurations even when **`sudo mdio …`** works — trust the **`mdio`** tool if the probe succeeds.
+
+### Related
+
+- Dev image PHY/debug packages: `meta-dynamicdevices-distro` **`lmp-feature-dev.inc`** (**`phytool`**, **`mdio-tools`** when dev features are enabled).
+- GPIO sideband (**RST/PME/INTR**): `docs/GPIO-HOG-ACTIVE-POLARITY.md`.
+
 ## References
 
 - `Documentation/devicetree/bindings/net/dsa/microchip,ksz.yaml`
