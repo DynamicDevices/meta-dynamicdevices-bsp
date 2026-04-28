@@ -226,7 +226,7 @@ This section walks **Clause 22** registers **0–31** using **IEEE Std 802.3™*
 |-------|-------|----------|
 | **@1–@3, @5** | **0x1140** | Typical **gigabit PHY with autoneg enabled**: commonly decoded by tools as **1000BASE-T full-duplex intent** with **AN enabled**. Not reset/isolate/power-down in the usual sense (**bits 15/10/11** patterns differ when those are active). |
 | **@4** | **0x1100** | **Differs from 0x1140 by PHY-specific speed/select bits** (often **bit 6** / selector combinations). `mdio`’s text decoder previously showed **10 Mbps-class** interpretation for this BMCR pattern — treat as **“this port’s advertised/control path differs”**, not necessarily physical **10 M** on wire until correlated with **regs 4–5–9–10** and **link partner**. **Compare after stable cable** on that jack; resolve against **Table 4‑27** PHY-control chapter. |
-| **@0** | **0x9200** | **Not** the same **`0x00221631`** core as copper PHYs. High byte **`0x92`** suggests **different reset/control semantics** (possibly **reset-related bit**, vendor staging). **Do not** apply copper PHY BMCR decoding blindly — correlate with **§4.11 / Port 6** if this STA truly maps CPU-side path. |
+| **@0** | **0x9200** | **Not** the same **`0x00221631`** core as copper PHYs. High byte **`0x92`** suggests **different reset/control semantics** (possibly **reset-related bit**, vendor staging). **Do not** apply copper PHY BMCR decoding blindly — only correlate **`@0`** with **§4.11** / CPU-path docs **after** confirming **which** internal block uses MDIO address **0** (that is **still not** “Port 6” by address alone). |
 
 ### BMSR (**reg 1**) — **0x796d** (linked) vs **0x7949** (no link)
 
@@ -295,7 +295,7 @@ Treat **`@0`** as **management exposure** that is **not** the copper **`0x002216
 
 - **PHY-ID** does not match **@1–@5**.
 - **BMCR/BMSR** patterns (**0x9200** / **0x0202**) do **not** present like a stable idle copper PHY.
-- **Use case:** correlate **`@0`** with **§4.11 MAC Interface (Port 6)** / **CPU port** chapters — **not** for RJ45 bring-up.
+- **Naming:** **MDIO PHY address 0** is **not** the same thing as datasheet **“Port 6”** (the **RGMII CPU port**). They use unrelated numbering. Only if **Microchip** maps this STA to an internal block (see **§4.11** MAC interface / CPU-path chapters) does **`@0`** belong in **that** discussion — **not** for ordinary RJ45 **@1–@5** bring-up.
 
 ### What this dump **cannot** settle (RGMII / CPU port)
 
@@ -310,11 +310,20 @@ If the symptom is **“frames exit Linux `end0` but fail on wire toward laptop,�
 
 ## Interpretation notes (high level)
 
+**Two different “port” ideas (easy to mix up):**
+
+| Name in this doc | What it is **not** | What it actually is |
+|------------------|--------------------|---------------------|
+| **PHY @0 … @5** | **Not** KSZ “Port 0 … Port 5” in the switch sense | **MDIO PHY addresses** (`mdio phy N`). Linux sees **six** STAs on the bus; **@1–@5** match the **integrated copper PHY** identity **`0x00221631`**. |
+| **Port 6** (datasheet) | **Not** MDIO address **6** (there is no **`phy 6`** in this dump) | The KSZ9896 **CPU / host** interface — **RGMII** toward **`fec`** — as named in **DS00002390C** (often **“Port 6”**). Control lives in **switch** register space (**§5.2.3**), **not** in the **Clause 22** copper PHY window at **@1–@5**. |
+
+So: **PHY @0** and **Port 6** are **not** the same thing. **@0** is “who answered on **MDIO** at address **0**?” **Port 6** is “how does the **switch** talk to the **SoC MAC**?” They appear together only because **bring-up** touches **both** naming schemes.
+
 1. **@1 / @2** show **link up** in probe; **reg 1** **0x796d** and non-zero **reg 5** on **@1** are consistent with **autoneg complete + partner**.
 2. **@3–@5** **down**: **reg 1** **0x7949**, **reg 5** **0x0000** — no partner / no cable.
 3. **@4** stands out (**BMCR 0x1100**, **reg 4** **0x0c01**, **reg 9** **0x0400**) vs typical **0x1140** / **0x0de1** / **0x0700** on linked ports — worth correlating with **strap**, cable, or **forced mode** per datasheet.
-4. **PHY @0** is **not** the same core ID as **@1–@5**; do not assume identical bitfields.
-5. **RGMII CPU port (Port 6)** configuration is **not fully described** by this Clause 22 dump — see **§5.2.3** Port 6 RGMII control and lab checks if issues are **MAC-to-MAC** rather than **RJ45 PHY**.
+4. **MDIO PHY @0** has a **different PHY-ID** than **@1–@5** — treat it as a **different management object**, not “RJ45 PHY @0”. Do **not** reuse copper **@1–@5** bitfield decoding for **@0**.
+5. **Separately**, the **i.MX ↔ KSZ** path (**datasheet Port 6**, **RGMII**) is **not** fully described by **Clause 22** reads on **@1–@5** (those are **copper PHY** views). If the problem looks **MAC-to-MAC** ( **`end0`** ok but **wrong** toward an RJ45), check **§5.2.3** / **Port 6** settings and **lab** checks — **in addition to** the PHY dump above.
 
 ---
 
@@ -331,3 +340,4 @@ If the symptom is **“frames exit Linux `end0` but fail on wire toward laptop,�
 |------------|--------|
 | 2026-04-28 | Initial dump and tables from live `mdio` session on DT510. |
 | 2026-04-28 | Added comprehensive IEEE/KSZ analysis (BMCR/BMSR/AN/1G/vendor) for EE review. |
+| 2026-04-28 | Clarified MDIO PHY @0 vs datasheet Port 6 (terminology). |
