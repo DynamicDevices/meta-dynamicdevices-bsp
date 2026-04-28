@@ -25,6 +25,10 @@
 	compatible = "fsl,imx8mm-jaguar-dt510", "fsl,imx8mm-evkb", "fsl,imx8mm-evk", "fsl,imx8mm";
 
 	/delete-node/ sound-micfil;
+	/delete-node/ sound-wm8524;
+	/delete-node/ sound-ak4458;
+	/delete-node/ sound-spdif;
+	/delete-node/ sound-bt-sco;
 
 	/* Board-fixed rails — confirm nominal voltages vs schematic / SSOT. */
 	vddext: regulator-vddext {
@@ -75,7 +79,7 @@
 		simple-audio-card,frame-master = <&cpudai2>;
 		simple-audio-card,bitclock-master = <&cpudai2>;
 
-		/* TAS2562 path: simple-card widgets only (no DMIC). */
+		/* TAS2563 path: simple-card widgets only (no DMIC). */
 		simple-audio-card,widgets =
 			"Speaker", "Speaker";
 		simple-audio-card,routing =
@@ -91,22 +95,6 @@
 			sound-dai = <&tas2563>;
 			clocks = <&clk IMX8MM_CLK_SAI3_ROOT>;
 		};
-	};
-
-	sound-wm8524 {
-		status = "disabled";
-	};
-
-	sound-ak4458 {
-		status = "disabled";
-	};
-
-	sound-spdif {
-		status = "disabled";
-	};
-
-	sound-bt-sco {
-		status = "disabled";
 	};
 
 	/* CM4: disabled — avoid resource contention with A53. */
@@ -128,7 +116,7 @@
 
 	sw-keys {
 		compatible = "gpio-keys";
-		status = "enabled";
+		status = "okay";
 
 		sw1: key-act {
 			label = "Key Act";
@@ -578,6 +566,11 @@
 };
 
 &i2c3 {
+	/delete-node/ ak4458@10;
+	/delete-node/ ak4458@12;
+	/delete-node/ ak5558@13;
+	/delete-node/ ak4497@11;
+
 	stts22h: stts22h@3F {
 		compatible = "st,stts22h";
 		reg = <0x3f>;
@@ -587,27 +580,12 @@
 		interrupts = <8 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	ov5640_mipi: ov5640_mipi@3c {
+	/* EVK ov5640 — merge into imx8mm-evk.dtsi camera@3c (not a second @3c node). */
+	camera@3c {
 		status = "disabled";
 	};
 
 	pca6416: gpio@20 {
-		status = "disabled";
-	};
-
-	ak4458_1: ak4458@10 {
-		status = "disabled";
-	};
-
-	ak4458_2: ak4458@12 {
-		status = "disabled";
-	};
-
-	ak5558: ak5558@13 {
-		status = "disabled";
-	};
-
-	ak4497: ak4497@11 {
 		status = "disabled";
 	};
 
