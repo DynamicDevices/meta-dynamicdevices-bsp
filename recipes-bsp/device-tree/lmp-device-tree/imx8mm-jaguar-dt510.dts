@@ -705,17 +705,6 @@
 	};
 };
 
-/* ECSPI2 — CAN (e.g. MCP2518xx); disabled until bring-up */
-&ecspi2 {
-	status = "disabled";
-	/delete-property/ pinctrl-names;
-	/delete-property/ pinctrl-0;
-};
-
-&flexspi {
-	status = "disabled";
-};
-
 /*
  * USB OTG1 — peripheral (gadget / dual-UAC2 lab). No TCPC on DT510 (see DT510-USB-DUAL-AUDIO.md).
  * Drop role-switch phandles after deleting tcpc@50 on &i2c2.
