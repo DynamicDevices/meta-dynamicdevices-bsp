@@ -7,14 +7,21 @@
  *
  * recipes-kernel/linux/linux-lmp-fslc-imx/imx8mm-jaguar-dt510.dts is a symlink to this file (Tier A1).
  *
- * Hardware SSOT: VIX DT510 pinout / hardware spec (Google Doc, first cut — revise on schematic proof).
- * Tool-generated review material (not built): docs/reference/dt510-ollie-tool-generated/
+ * Hardware SSOT: VIX DT510 pinout / hardware spec (Google Doc — revise on schematic proof).
  * Bring-up plan & tiers: docs/DT510-BSP-PROJECT-PLAN.md
  *
- * Base: imx8mm-evkb.dts — PCA9450 on &i2c1 @ 0x25 (replaces BD71847 @ 0x4b from imx8mm-evk.dts).
+ * Board highlights (this file vs EVK):
+ *   PMIC: inherited PCA9450 on &i2c1 @ 0x25 (imx8mm-evkb.dts).
+ *   Cellular: USB OTG2 host; LTE reset / module power-down via GPIO hogs.
+ *   WLAN/BT: IW612-class SDIO on USDHC2 + UART1 Bluetooth sideband; WLAN/BT wake and reset lines hogged.
+ *   Ethernet: i.MX FEC → Microchip KSZ9896 DSA (RGMII + I2C management on &i2c2 @ 0x5f); four LAN PHYs inside switch.
+ *   Audio: TI TAS6424 class-D (&sai1), TI TAS2563 smart amp (&sai3), both on &i2c2.
+ *   Power / sensing: TI BQ25792 charger + ST STTS22H temperature on &i2c3.
+ *   Zigbee: ECSPI1 to 802.15.4 module (userspace spidev); ZB_INT / ZB_RST on dedicated pads.
+ *   HDMI: LT9611 will attach on &i2c3 when populated — no Linux node until hardware is fitted.
+ *   SE050 secure element: I2C4 @ 0x48 — handled by U-Boot / OpTEE, not described here.
  *
- * Section layout: root identity & glue → pinmux by subsystem → UART → GPIO hogs → Ethernet →
- * I2C peripherals → SAI audio → disabled EVK IP → ECSPI Zigbee → USB & SDIO WLAN.
+ * I2C numbering: Linux adapter i2c-N corresponds to DTS &i2c(N+1) on this SoC (e.g. i2c-1 = &i2c2).
  */
 
 #include "freescale/imx8mm-evkb.dts"
@@ -27,13 +34,18 @@
 	model = "i.MX8MM Jaguar DT510 board";
 	compatible = "fsl,imx8mm-jaguar-dt510", "fsl,imx8mm-evkb", "fsl,imx8mm-evk", "fsl,imx8mm";
 
+	/* Drop EVK audio composites not wired on DT510 (PMIC/audio/path differs). */
 	/delete-node/ sound-micfil;
 	/delete-node/ sound-wm8524;
 	/delete-node/ sound-ak4458;
 	/delete-node/ sound-spdif;
 	/delete-node/ sound-bt-sco;
 
-	/* --- Regulators --- */
+	/*
+	 * Fixed rails for on-board silicon:
+	 *   vddext — 3V3 digital / codec DVDD where referenced.
+	 *   tas6424_hi_rail — 12V class-D VBATT+PVDD net for TAS6424 (nominal; confirm vs BOM).
+	 */
 	vddext: regulator-vddext {
 		compatible = "regulator-fixed";
 		regulator-name = "VDDEXT_3V3";
@@ -53,7 +65,7 @@
 		regulator-always-on;
 	};
 
-	/* BQ25792 simple-battery model — tune vs pack (1S placeholder). */
+	/* Charger IC (BQ25792) battery chemistry model — tune vs actual pack (1S placeholder). */
 	battery_dt510: battery-dt510 {
 		compatible = "simple-battery";
 		constant-charge-voltage-max-microvolt = <4200000>;
@@ -61,7 +73,11 @@
 		charge-term-current-microamp = <160000>;
 	};
 
-	/* --- Audio (simple-card glue; DAIs on &sai1 / &sai3) --- */
+	/*
+	 * ALSA device naming:
+	 *   tas6424-classd — speaker power stage (TAS6424 on &sai1).
+	 *   tas2563-audio — TAS2563 smart amp path on &sai3 (Profile 8 TDM).
+	 */
 	sound-tas6424 {
 		compatible = "simple-audio-card";
 		simple-audio-card,name = "tas6424-classd";
@@ -124,6 +140,7 @@
 		>;
 	};
 
+	/* Front-panel or equivalent “Key Act” button (GPIO line per SSOT). */
 	sw-keys {
 		compatible = "gpio-keys";
 		status = "okay";
@@ -139,13 +156,25 @@
 };
 
 /*
- * Pinmux: default hog + CHGR_INT first (iomuxc pinctrl-0), then UART → SDIO → Ethernet →
- * audio (TAS6424 / TAS2563) → ECSPI + Zigbee pads.
+ * Pinmux (&iomuxc)
+ *
+ * Order matches pinctrl-0: hog GPIOs + BQ25792 charger interrupt, then groups used by drivers.
+ *   hoggrp — WLAN/BT/LTE strap lines; TAS2563 reset (CODEC_SD# on GPIO5).
+ *   bq25792_chgr_int — CHGR_INT# from charger (muxed GPIO4).
+ *   uart1 — UART1 + UART3 pins used as RTS/CTS for Bluetooth (IW8997 sideband).
+ *   uart4 — Debug / secondary UART (RDC domain programmed for A53).
+ *   usdhc2 — SDIO to WLAN module (4-bit).
+ *   fec1 / ksz9896_sideband — RGMII to KSZ9896; SAI1 pins repurposed as switch PME/INTR/RST GPIOs.
+ *   tas6424_gpio / sai1_tas6424 — TAS6424 enable/fault GPIOs + I2S to class-D.
+ *   sai2 — Not wired for audio on DT510 (pads may overlap Zigbee); pinmux retained for reference.
+ *   sai3 — TAS2563 I2S + codec interrupt on GPIO5.
+ *   ecspi1 + zigbee — SPI to 802.15.4 module; ZB_INT / ZB_RST#
  */
 &iomuxc {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_hog>, <&pinctrl_bq25792_chgr_int>;
 
+	/* Boot-time default levels for RF/cellular/audio strap pins (see net names in fsl,pins). */
 	pinctrl_hog: hoggrp {
 		fsl,pins = <
 			MX8MM_IOMUXC_SD1_DATA4_GPIO2_IO6	0x140  // WL_WAKE_DEV
@@ -159,12 +188,14 @@
 		>;
 	};
 
+	/* TI BQ25792 — CHGR_INT# (active-low alert from charger). */
 	pinctrl_bq25792_chgr_int: bq25792_chgr_int_grp {
 		fsl,pins = <
 			MX8MM_IOMUXC_SAI1_RXD7_GPIO4_IO9	0x140  /* CHGR_INT# */
 		>;
 	};
 
+	/* Bluetooth (NXP IW8997): UART1 data + UART3 pins as HCI RTS/CTS. */
 	pinctrl_uart1: uart1grp {
 		fsl,pins = <
 			MX8MM_IOMUXC_UART1_RXD_UART1_DCE_RX     0x140
@@ -174,6 +205,7 @@
 		>;
 	};
 
+	/* UART4 — console or lab UART; PDAP owned by A53 via &rdc. */
 	pinctrl_uart4: uart4grp {
 		fsl,pins = <
 			MX8MM_IOMUXC_UART4_RXD_UART4_DCE_RX     0x140
@@ -181,6 +213,7 @@
 		>;
 	};
 
+	/* USDHC2 — Wi-Fi module SDIO (IW612 class / MAYA-W2 family). */
 	pinctrl_usdhc2: usdhc2grp {
 		fsl,pins = <
 			MX8MM_IOMUXC_SD2_CLK_USDHC2_CLK         0x190
@@ -214,6 +247,7 @@
 		>;
 	};
 
+	/* ENET1 — RGMII from SoC to KSZ9896 CPU port. */
 	pinctrl_fec1_dt510: fec1dt510grp {
 		fsl,pins = <
 			MX8MM_IOMUXC_ENET_MDC_ENET1_MDC			0x116
@@ -233,6 +267,7 @@
 		>;
 	};
 
+	/* KSZ9896 — INT#, RST#, PME# when muxed on SAI1 pads (see gpio4 / switch node). */
 	pinctrl_ksz9896_sideband: ksz9896sidebandgrp {
 		fsl,pins = <
 			MX8MM_IOMUXC_SAI1_RXFS_GPIO4_IO0	0x116
@@ -241,6 +276,7 @@
 		>;
 	};
 
+	/* TAS6424 — AMP_STBY#, AMP_MUTE#, FAULT, WARN (GPIO1 sideband). */
 	pinctrl_tas6424_gpio: tas6424gpiogrp {
 		fsl,pins = <
 			MX8MM_IOMUXC_GPIO1_IO10_GPIO1_IO10	0x116
@@ -250,6 +286,7 @@
 		>;
 	};
 
+	/* TAS6424 — I2S master from SoC (SAI1). */
 	pinctrl_sai1_tas6424: sai1tas6424grp {
 		fsl,pins = <
 			MX8MM_IOMUXC_SAI1_MCLK_SAI1_MCLK		0x116
@@ -271,6 +308,7 @@
 		>;
 	};
 
+	/* TAS2563 — I2S + GPIO5 interrupt; SPDIF_EXT_CLK pad used as codec IRQ line. */
 	pinctrl_sai3: sai3grp {
 		fsl,pins = <
 			MX8MM_IOMUXC_SAI3_TXFS_SAI3_TX_SYNC     0xd6
@@ -282,6 +320,7 @@
 		>;
 	};
 
+	/* ECSPI1 — SPI clock/data to Zigbee module; CS on GPIO5_IO9. */
 	pinctrl_ecspi1: ecspi1grp {
 		fsl,pins = <
 			MX8MM_IOMUXC_ECSPI1_SS0_GPIO5_IO9	0x140
@@ -291,6 +330,7 @@
 		>;
 	};
 
+	/* Zigbee — ZB_INT (GPIO4), ZB_RST# (GPIO2). */
 	pinctrl_zigbee: zigbeegrp {
 		fsl,pins = <
 			MX8MM_IOMUXC_SAI2_RXC_GPIO4_IO22        0x140
@@ -299,7 +339,12 @@
 	};
 };
 
-/* --- UART --- */
+/*
+ * UART
+ *   uart1 — Bluetooth HCI (88x8997 family); firmware loads over this link at init baud below.
+ *   uart3 — Unused on this product (disabled).
+ *   uart4 — Secondary/debug UART; must stay domain 0 for probe order (see &rdc).
+ */
 &uart1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart1>;
@@ -308,6 +353,7 @@
 	fsl,uart-has-rtscts;
 	status = "okay";
 
+	/* Bluetooth HCI controller — MAC/PHY firmware negotiates rate after boot (see compatible). */
 	bluetooth {
 		compatible = "nxp,88w8997-bt";
 		fw-init-baudrate = <3000000>;
@@ -326,7 +372,12 @@
 	fsl,rdc-domain = <0>;
 };
 
-/* --- GPIO hogs (WLAN / BT / LTE; KSZ9896 PME) --- */
+/*
+ * GPIO hogs — lines that must stay at defined levels for WLAN/BT/LTE/switch wake; not runtime GPIO API.
+ *   gpio2 — WLAN/BT module wake handshake (WL_WAKE_DEV, BT_WAKE_DEV).
+ *   gpio3 — LTE full-card power off, WLAN PD, BT wake host + reset.
+ *   gpio4 — KSZ9896 energy-detect / PME input (WoL path); other lines owned by fec/switch nodes.
+ */
 &gpio2 {
 	wl-wake-dev-hog {
 		gpio-hog;
@@ -383,8 +434,10 @@
 };
 
 /*
- * --- Ethernet (FEC + KSZ9896 DSA on &i2c2) ---
- * CPU RGMII ↔ switch; PHYs under switch MDIO. DT510-ETHERNET-KSZ9896.md.
+ * Ethernet
+ *   FEC — i.MX Gigabit MAC to KSZ9896 “CPU” port over RGMII (no external PHY on FEC).
+ *   Switch management — I2C on &i2c2 @ 0x5f; internal PHYs on switch MDIO (lan1–lan4).
+ *   Details: docs/DT510-ETHERNET-KSZ9896.md
  */
 &fec1 {
 	pinctrl-names = "default";
@@ -401,15 +454,22 @@
 	};
 };
 
-/* --- I2C: codecs + KSZ9896 (i2c2); sensors + charger + HDMI bridge (i2c3) --- */
+/*
+ * I2C peripherals (see also file banner for Linux i2c-N vs &i2cN)
+ *
+ * &i2c2 (Linux i2c-1): audio ICs + KSZ9896 switch management.
+ * &i2c3 (Linux i2c-2): environmental sensor + battery charger; LT9611 HDMI bridge when fitted.
+ * PMIC &i2c1 stays in imx8mm-evkb.dts (PCA9450).
+ */
 &i2c2 {
-	/* No PTN5110 TCPC on DT510 — frees 0x50 for TAC5301 when populated */
+	/* EVK USB-C PD controller not populated — remove TCPC; 0x50 free for future TAC5301 analog audio. */
 	/delete-node/ tcpc@50;
 
-	tas2563: tas2563@4C {
+	/* TI TAS2563 — smart amp / speaker driver (control + diagnostics on I2C, audio on &sai3). */
+	tas2563: tas2563@4c {
 		#sound-dai-cells = <0>;
 		compatible = "ti,tas2563";
-		reg = <0x4C>;
+		reg = <0x4c>;
 		ti,channels = <1>;
 		reset-gpios = <&gpio5 4 GPIO_ACTIVE_LOW>;
 		interrupt-parent = <&gpio5>;
@@ -422,6 +482,7 @@
 		status = "okay";
 	};
 
+	/* TI TAS6424 — four-channel class-D output (I2S on &sai1). */
 	tas6424: tas6424@6a {
 		compatible = "ti,tas6424";
 		reg = <0x6a>;
@@ -436,7 +497,7 @@
 		status = "okay";
 	};
 
-	/* Binding: Documentation/devicetree/bindings/net/dsa/microchip,ksz.yaml */
+	/* Microchip KSZ9896 — 4-port gigabit switch + RGMII CPU port; strap sets this I2C address. */
 	ksz9896_sw: switch@5f {
 		compatible = "microchip,ksz9896";
 		reg = <0x5f>;
@@ -519,12 +580,16 @@
 };
 
 &i2c3 {
+	/* Strip EVK audio/camera/gpio-expander children not fitted on DT510. */
 	/delete-node/ ak4458@10;
 	/delete-node/ ak4458@12;
 	/delete-node/ ak5558@13;
 	/delete-node/ ak4497@11;
+	/delete-node/ camera@3c;
+	/delete-node/ gpio@20;
 
-	stts22h: stts22h@3F {
+	/* ST STTS22H — low-power temperature sensor (alert on GPIO4). */
+	stts22h: stts22h@3f {
 		compatible = "st,stts22h";
 		reg = <0x3f>;
 		status = "okay";
@@ -532,14 +597,7 @@
 		interrupts = <8 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	camera@3c {
-		status = "disabled";
-	};
-
-	pca6416: gpio@20 {
-		status = "disabled";
-	};
-
+	/* TI BQ25792 — battery charger; CHGR_INT# on GPIO4_IO9 (see pinctrl_bq25792_chgr_int). */
 	bq25792: bq25792@6b {
 		compatible = "ti,bq25792";
 		reg = <0x6b>;
@@ -548,15 +606,13 @@
 		interrupts = <9 IRQ_TYPE_LEVEL_LOW>;
 		status = "okay";
 	};
-
-	lt9611: lt9611@39 {
-		compatible = "lontium,lt9611";
-		reg = <0x39>;
-		status = "disabled";
-	};
 };
 
-/* --- SAI audio (TAS6424 on sai1; TAS2563 on sai3) --- */
+/*
+ * SAI — serial audio interfaces to codec silicon
+ *   sai1 — I2S/DSP to TAS6424 (playback path).
+ *   sai3 — I2S/TDM to TAS2563 (Profile 8 echo reference / smart amp data).
+ */
 &sai1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sai1_tas6424>;
@@ -581,8 +637,12 @@
 };
 
 /*
- * --- Disabled EVK / unused IP on DT510 ---
- * ir_recv/backlight: GPIO clash or no panel; pcie/mipi/spdif: not brought out / not used.
+ * Unused EVK peripherals — pins or functions reused on DT510, or not routed on this PCB.
+ *   ir_recv — EVK GPIO1_IR conflicts with TAS6424 GPIO usage.
+ *   reg_pcie0 / pcie0 — mini-PCIe power path not used (no M.2/NVMe on this SKU).
+ *   backlight — no EVK-style LCD panel on DT510.
+ *   mipi_dsi — display stack disabled until product HDMI/display bring-up.
+ *   spdif1 — SPDIF not wired out for DT510 audio plan.
  */
 &ir_recv {
 	status = "disabled";
@@ -608,7 +668,11 @@
 	status = "disabled";
 };
 
-/* --- ECSPI + 802.15.4 (Zigbee) --- */
+/*
+ * ECSPI — Zigbee / 802.15.4 radio module
+ *   Hardware SPI to RF IC; userspace opens spidev for Silicon Labs ZBOSS / spinel stacks.
+ *   DMA disabled so transfers stay predictable for timing-sensitive firmware reloads.
+ */
 &ecspi1 {
 	#address-cells = <1>;
 	#size-cells = <0>;
@@ -621,6 +685,7 @@
 	fsl,spi-rdy-drctl = <0>;
 	status = "okay";
 
+	/* Generic spidev — Linux userspace talks Zigbee/NCP protocol (not a DT-bound radio driver). */
 	spidev1: spi@0 {
 		compatible = "rohm,dh2228fv";
 		spi-max-frequency = <10000000>;
@@ -630,8 +695,9 @@
 };
 
 /*
- * --- USB ---
- * OTG1: peripheral (gadget / dual-UAC2). OTG2: host for cellular modem.
+ * USB controllers
+ *   usbotg1 — device-only: USB gadget (lab dual-UAC2, etc.); no TCPC so no role-switch.
+ *   usbotg2 — host port for LTE/cellular modem mass-storage/diagnostic interfaces.
  */
 &usbotg1 {
 	dr_mode = "peripheral";
@@ -645,7 +711,10 @@
 	status = "okay";
 };
 
-/* --- SDIO: WiFi (IW612) --- */
+/*
+ * USDHC2 — SDIO interface to WLAN module (NXP IW612 / ublox MAYA-W2 class).
+ *   wifi_wake_host — host wake IRQ from module (WL_WAKE line on gpio2).
+ */
 &usdhc2 {
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
 	pinctrl-0 = <&pinctrl_usdhc2>;
