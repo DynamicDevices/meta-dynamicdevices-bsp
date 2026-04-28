@@ -67,6 +67,21 @@ From **Table 5-2** / **§5.2.3** (Port **RGMII/GMII/MII/RMII** space **`0xN300`�
 
 **MIIM vs SPI/I²C:** **§5.0** states the **MIIM** interface accesses **PHY registers only** and **does not** access **switch** (including **XMII**) registers. Reading **`0x6300`/`0x6301`** for lab bring-up requires **SPI** or **I²C** management (or **IBA**), not **FEC MDIO** alone — consistent with **`docs/DT510-KSZ9896-MIIM-register-dump.md`**.
 
+### FAQ — can **`0x6301[4:3]`** (internal RGMII delay) be set via **MIIM**?
+
+**No — not per DS00002390C.** §**5.0** states **MIIM reaches PHY registers only**; **`0x6301`** lives in **Port 6 switch register space** (**§5.2.3**, **`0x6300`–`0x63FF`**), which **MIIM does not decode**. There is **no** documented **MDIO** path to read or write **`0x6301`** on KSZ9896C.
+
+**What you can do instead:**
+
+| Approach | Effect on **`RGMII_ID_ig` / `_eg`** |
+|----------|-------------------------------------|
+| **SPI or I²C** management (strap **LED4_1 / LED3_1** to enable those buses; board must route pins) | **Full read/write** of **`0x6301`** and rest of switch map |
+| **In-band management (IBA)** — if strap-enabled per §3.2.1 | **Same** register access model as SPI/I²C (datasheet), subject to IBA setup |
+| **`&fec1` `phy-mode`** (`rgmii-id`, `rgmii-rxid`, `rgmii-txid`, `rgmii`) | Adjusts **i.MX FEC RGMII delay / pad skew**, **not** KSZ **`0x6301`** — use for timing when **KSZ register access** is unavailable |
+| **Hardware strap / PCB** only | Does **not** change **`0x6301`** bits directly; defaults remain **§5.2.3.2** unless overridden by **SPI/I²C/IBA** |
+
+So on **DT510’s MIIM-only strap**, **you cannot program internal KSZ delays through FEC MDIO**; tune **MAC-side** **`phy-mode`** / pinctrl or add **SPI/I²C** (or use **IBA**) if you must flip **`0x6301`**.
+
 ## EVK vs DT510 `&fec1` (same SoC, different link)
 
 | | **i.MX8MM EVK** (`imx8mm-evk.dtsi`) | **DT510** |
