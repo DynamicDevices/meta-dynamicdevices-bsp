@@ -12,13 +12,20 @@
  *
  * Board highlights (this file vs EVK):
  *   PMIC: inherited PCA9450 on &i2c1 @ 0x25 (imx8mm-evkb.dts).
- *   Cellular: USB OTG2 host; LTE reset / module power-down via GPIO hogs.
+ *   Cellular: USB OTG2 host; LTE_RST (GPIO2_IO8), LTE_OFF / power-down (GPIO3_IO1), SIM_SEL (GPIO5_IO3: low=nano, high=eSIM) via GPIO hogs + hoggrp mux.
  *   WLAN/BT: IW612-class SDIO on USDHC2 + UART1 Bluetooth sideband; WLAN/BT wake and reset lines hogged.
  *   Ethernet: i.MX FEC → Microchip KSZ9896 DSA (RGMII + I2C management on &i2c2 @ 0x5f); four LAN PHYs inside switch.
- *   Audio: TI TAS6424 class-D (&sai1), TI TAS2563 smart amp (&sai3), both on &i2c2.
+ *   Audio: TI TAS6424 (&sai1), TAS2563 (&sai3), TAC5301 analog (&sai6, I2C @0x50 — DTS ready; ASoC driver not in factory kernel yet).
+ *            TAS6424 AMP_FAULT#/WARN# on gpio-keys (GPIO1_IO12/13).
  *   Power / sensing: TI BQ25792 charger + ST STTS22H temperature on &i2c3.
  *   Zigbee: ECSPI1 to 802.15.4 module (userspace spidev); ZB_INT / ZB_RST on dedicated pads.
- *   HDMI: LT9611 will attach on &i2c3 when populated — no Linux node until hardware is fitted.
+ *   CAN: Microchip MCP251863 on &ecspi2 (UART4 uses different pads — no mux clash); CAN_INT# GPIO4_IO16, CAN_STBY GPIO4_IO15.
+ *   GNSS: u-blox NEO-M9V — GNSS_RES# on GPIO4_IO29 (SAI3_RXC mux), active-low reset driven by SoC.
+ *   USB UART: Silicon Labs CP2108 quad bridge — USB enumerates with cp210x; QUART_RES# on GPIO4_IO5 (SAI1_RXD3 mux).
+ *   HDMI: Lontium LT9611 on &i2c3 @ 0x39 — HDMI_RES#/INT on GPIO2 (pads shared with former WL_WAKE/ZB_RST);
+ *          HDMI2C1 fault on GPIO4_IO28 (SAI3_RXFS mux). Bridge node stays disabled until DSI graph + supplies.
+ *   Low-power MCU: NXP MCXC144VFM — async serial on UART4 (UART4_RXD/UART4_TXD pads; DT macros UART4_DCE_RX/TX).
+ *   Digital I/O: GPIO1_IO00/01/04–09 muxed as GPIO (DI1–4 / DO1–4); IO10–IO13 reserved for TAS6424 (see &tas6424).
  *   SE050 secure element: I2C4 @ 0x48 — handled by U-Boot / OpTEE, not described here.
  *
  * I2C numbering: Linux adapter i2c-N corresponds to DTS &i2c(N+1) on this SoC (e.g. i2c-1 = &i2c2).
@@ -63,6 +70,15 @@
 		regulator-min-microvolt = <12000000>;
 		regulator-max-microvolt = <12000000>;
 		regulator-always-on;
+	};
+
+	/*
+	 * MCP251863/MCP2518FD crystal — match BOM Hz (typ. 40 MHz); binding requires clocks + spi-max-frequency ≤ clock/2.
+	 */
+	can0_osc: can0-osc {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <40000000>;
 	};
 
 	/* Charger IC (BQ25792) battery chemistry model — tune vs actual pack (1S placeholder). */
@@ -123,12 +139,6 @@
 		};
 	};
 
-	/* CM4: disabled — avoid resource contention with A53. */
-	imx8mm-cm4 {
-		compatible = "fsl,imx8mm-cm4";
-		status = "disabled";
-	};
-
 	/* RDC: UART4 PDAP must be domain 0 (A53) before UART probes (see fsl,rdc-config). */
 	rdc: rdc@303d0000 {
 		compatible = "fsl,imx8mm-rdc";
@@ -140,18 +150,45 @@
 		>;
 	};
 
-	/* Front-panel or equivalent “Key Act” button (GPIO line per SSOT). */
-	sw-keys {
+	/*
+	 * HDMI2C1 bridge fault (input) — not the LT9611 I2C IRQ; pad muxed in pinctrl_hdmi.
+	 */
+	hdmi_misc_keys {
 		compatible = "gpio-keys";
 		status = "okay";
 
-		sw1: key-act {
-			label = "Key Act";
-			linux,code = <BTN_SELECT>;
-			gpios = <&gpio3 6 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
-			interrupt-parent = <&gpio3>;
-			interrupt = <6 IRQ_TYPE_EDGE_FALLING>;
+		hdmi2c_fault {
+			label = "hdmi2c-fault";
+			gpios = <&gpio4 28 GPIO_ACTIVE_HIGH>;
+			linux,code = <KEY_VENDOR>;
 		};
+	};
+
+	/*
+	 * TAS6424 sideband status (pads muxed with pinctrl_tas6424_gpio — codec driver still polls I2C too).
+	 * BTN_0 / BTN_1 — arbitrary distinct evtest codes; labels identify nets (AMP_FAULT#, AMP_WARN# active-low).
+	 */
+	tas6424_amp_keys {
+		compatible = "gpio-keys";
+		status = "okay";
+
+		tas6424_fault {
+			label = "tas6424-fault";
+			gpios = <&gpio1 12 GPIO_ACTIVE_LOW>;
+			linux,code = <BTN_0>;
+		};
+
+		tas6424_warn {
+			label = "tas6424-warn";
+			gpios = <&gpio1 13 GPIO_ACTIVE_LOW>;
+			linux,code = <BTN_1>;
+		};
+	};
+
+	/* CM4: disabled — avoid resource contention with A53. */
+	imx8mm-cm4 {
+		compatible = "fsl,imx8mm-cm4";
+		status = "disabled";
 	};
 };
 
@@ -162,29 +199,38 @@
  *   hoggrp — WLAN/BT/LTE strap lines; TAS2563 reset (CODEC_SD# on GPIO5).
  *   bq25792_chgr_int — CHGR_INT# from charger (muxed GPIO4).
  *   uart1 — UART1 + UART3 pins used as RTS/CTS for Bluetooth (IW8997 sideband).
- *   uart4 — Debug / secondary UART (RDC domain programmed for A53).
+ *   uart4 — MCXC144VFM MCU serial (RDC domain programmed for A53).
  *   usdhc2 — SDIO to WLAN module (4-bit).
  *   fec1 / ksz9896_sideband — RGMII to KSZ9896; SAI1 pins repurposed as switch PME/INTR/RST GPIOs.
+ *   gpio1_dio — general-purpose DIO on GPIO1_IO00/01/04–09 (pad CFG per DT510 pin tool; IO02/03 N.C. on SKU).
  *   tas6424_gpio / sai1_tas6424 — TAS6424 enable/fault GPIOs + I2S to class-D.
  *   sai2 — Not wired for audio on DT510 (pads may overlap Zigbee); pinmux retained for reference.
  *   sai3 — TAS2563 I2S + codec interrupt on GPIO5.
- *   ecspi1 + zigbee — SPI to 802.15.4 module; ZB_INT / ZB_RST#
+ *   ecspi1 + zigbee — SPI to 802.15.4 module; ZB_INT on GPIO4_IO22 (ZB_RST was GPIO2_IO11 — pad now HDMI_RES#).
+ *   ecspi2 + can_gpio — MCP251863 SPI (ECSPI2); SAI1_TXD3/4 → GPIO4_IO15/16 (CAN_STBY / CAN_INT#); &sai1 uses TXD0/1 only.
+ *   tac5301 — SAI6 on SAI1_RXD4/RXD5/RXD6 + SAI1_TXD5 pads; SAI1_TXD2 → GPIO4_IO14 codec strap (SAI1 TXD0/1 still &tas6424).
+ *   gnss_reset — NEO-M9V GNSS_RES# (GPIO output; pad not used by &sai3 audio mux below).
+ *   hdmi — LT9611 HDMI_RES# / HDMI_INT / HDMI2C1 fault (GPIO2_IO11, GPIO2_IO6, GPIO4_IO28).
+ *   quart_reset — CP2108 QUART_RES# (GPIO4_IO5, SAI1_RXD3 pad; not in &sai1 TAS6424 pinctrl).
  */
 &iomuxc {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_hog>, <&pinctrl_bq25792_chgr_int>;
+	pinctrl-0 = <&pinctrl_hog>, <&pinctrl_bq25792_chgr_int>, <&pinctrl_gnss_reset>, <&pinctrl_hdmi>, <&pinctrl_quart_reset>, <&pinctrl_gpio1_dio>, <&pinctrl_ecspi2>, <&pinctrl_can_mcp2518_gpio>, <&pinctrl_sai6_tac5301>, <&pinctrl_tac5301_gpio>;
 
-	/* Boot-time default levels for RF/cellular/audio strap pins (see net names in fsl,pins). */
+	/*
+	 * Boot-time strap pins. GPIO2_IO6 / GPIO2_IO11 are reserved for HDMI (see pinctrl_hdmi); WL_WAKE host wake
+	 * and SDIO wifi_wake_host nodes were removed — SDIO WLAN wake-from-sleep via that line is not available.
+	 */
 	pinctrl_hog: hoggrp {
 		fsl,pins = <
-			MX8MM_IOMUXC_SD1_DATA4_GPIO2_IO6	0x140  // WL_WAKE_DEV
-			MX8MM_IOMUXC_SD1_DATA5_GPIO2_IO7	0x140  // BT_WAKE_DEV
-			MX8MM_IOMUXC_SD1_DATA6_GPIO2_IO8	0x000  // LTE_RESET
-			MX8MM_IOMUXC_NAND_CE0_B_GPIO3_IO1	0x140  // FUL_CARD_POWER_OFF#
-			MX8MM_IOMUXC_NAND_DATA01_GPIO3_IO7      0x140  // WIFI_PD#
-			MX8MM_IOMUXC_NAND_DATA02_GPIO3_IO8	0x140  // BT_WAKE_HOST
-			MX8MM_IOMUXC_NAND_DATA03_GPIO3_IO9      0x140  // BT_RST#
-			MX8MM_IOMUXC_SPDIF_RX_GPIO5_IO4         0x140  /* CODEC_SD# */
+			MX8MM_IOMUXC_SD1_DATA5_GPIO2_IO7	0x140  /* BT_WAKE_DEV */
+			MX8MM_IOMUXC_SD1_DATA6_GPIO2_IO8	0x140  /* LTE_RST */
+			MX8MM_IOMUXC_NAND_CE0_B_GPIO3_IO1	0x140  /* LTE_OFF / FUL_CARD_POWER_OFF# */
+			MX8MM_IOMUXC_NAND_DATA01_GPIO3_IO7      0x140  /* WIFI_PD# */
+			MX8MM_IOMUXC_NAND_DATA02_GPIO3_IO8	0x140  /* BT_WAKE_HOST */
+			MX8MM_IOMUXC_NAND_DATA03_GPIO3_IO9      0x140  /* BT_RST# */
+			MX8MM_IOMUXC_SPDIF_RX_GPIO5_IO4         0x140  /* CODEC_SD# (TAS2563 reset strap) */
+			MX8MM_IOMUXC_SPDIF_TX_GPIO5_IO3         0x140  /* SIM_SEL: low=nano SIM, high=eSIM */
 		>;
 	};
 
@@ -192,6 +238,57 @@
 	pinctrl_bq25792_chgr_int: bq25792_chgr_int_grp {
 		fsl,pins = <
 			MX8MM_IOMUXC_SAI1_RXD7_GPIO4_IO9	0x140  /* CHGR_INT# */
+		>;
+	};
+
+	/*
+	 * NEO-M9V GNSS — GNSS_RES# → GPIO4_IO29 (mux SAI3_RXC pad as GPIO).
+	 * Hog below drives inactive (high) so module is out of reset; pulse low in userspace if needed.
+	 */
+	pinctrl_gnss_reset: gnssresetgrp {
+		fsl,pins = <
+			MX8MM_IOMUXC_SAI3_RXC_GPIO4_IO29	0x140
+		>;
+	};
+
+	/*
+	 * Lontium LT9611 + HDMI2C1 sideband (pads also referenced by lt9611@39 when enabled).
+	 *   HDMI_RES# — GPIO2_IO11 (active-low reset out); HDMI_INT — GPIO2_IO6 (in, active-high);
+	 *   HDMI2C1 fault — GPIO4_IO28 (SAI3_RXFS mux; not used by current &sai3 TAS2563 pin group).
+	 */
+	pinctrl_hdmi: hdmigrp {
+		fsl,pins = <
+			MX8MM_IOMUXC_SD1_STROBE_GPIO2_IO11	0x140
+			MX8MM_IOMUXC_SD1_DATA4_GPIO2_IO6	0x140
+			MX8MM_IOMUXC_SAI3_RXFS_GPIO4_IO28	0x140
+		>;
+	};
+
+	/*
+	 * CP2108 USB–quad-UART — QUART_RES# (active-low) on SAI1_RXD3 → GPIO4_IO5.
+	 * Ports enumerate as /dev/ttyUSB* via usbserial once USB attaches (OTG host port).
+	 */
+	pinctrl_quart_reset: quartresetgrp {
+		fsl,pins = <
+			MX8MM_IOMUXC_SAI1_RXD3_GPIO4_IO5	0x140
+		>;
+	};
+
+	/*
+	 * General-purpose digital I/O — GPIO1_IO00/01/04–09 as GPIO (imx8mm-pinfunc.h uses …_GPIO1_IO0 …_GPIO1_IO9).
+	 * Mapping vs connector: DI1–4 → IO00/01/04/05; DO1–4 → IO06–09. IO02/03 not bonded here; IO10–IO13 = &tas6424.
+	 * Direction is runtime via gpiochip/libgpiod; pad configs match docs/reference/dt510-ollie-tool-generated/pin_mux.dts.
+	 */
+	pinctrl_gpio1_dio: gpio1diogrp {
+		fsl,pins = <
+			MX8MM_IOMUXC_GPIO1_IO00_GPIO1_IO0	0x114
+			MX8MM_IOMUXC_GPIO1_IO01_GPIO1_IO1	0x116
+			MX8MM_IOMUXC_GPIO1_IO04_GPIO1_IO4	0x116
+			MX8MM_IOMUXC_GPIO1_IO05_GPIO1_IO5	0x156
+			MX8MM_IOMUXC_GPIO1_IO06_GPIO1_IO6	0x116
+			MX8MM_IOMUXC_GPIO1_IO07_GPIO1_IO7	0x1916
+			MX8MM_IOMUXC_GPIO1_IO08_GPIO1_IO8	0x116
+			MX8MM_IOMUXC_GPIO1_IO09_GPIO1_IO9	0x116
 		>;
 	};
 
@@ -205,7 +302,9 @@
 		>;
 	};
 
-	/* UART4 — console or lab UART; PDAP owned by A53 via &rdc. */
+	/*
+	 * UART4 — MCXC144VFM link (or lab UART): same RX/TX balls as UART4_RX/UART4_TX; NXP macros use DCE naming.
+	 */
 	pinctrl_uart4: uart4grp {
 		fsl,pins = <
 			MX8MM_IOMUXC_UART4_RXD_UART4_DCE_RX     0x140
@@ -330,11 +429,51 @@
 		>;
 	};
 
-	/* Zigbee — ZB_INT (GPIO4), ZB_RST# (GPIO2). */
+	/* Zigbee — ZB_INT on GPIO4_IO22 only (GPIO2_IO11 remapped to HDMI_RES#). */
 	pinctrl_zigbee: zigbeegrp {
 		fsl,pins = <
 			MX8MM_IOMUXC_SAI2_RXC_GPIO4_IO22        0x140
-			MX8MM_IOMUXC_SD1_STROBE_GPIO2_IO11      0x140
+		>;
+	};
+
+	/* ECSPI2 — Microchip MCP251863 CAN controller (chip select SS0). */
+	pinctrl_ecspi2: ecspi2grp {
+		fsl,pins = <
+			MX8MM_IOMUXC_ECSPI2_SCLK_ECSPI2_SCLK	0x140
+			MX8MM_IOMUXC_ECSPI2_MISO_ECSPI2_MISO	0x140
+			MX8MM_IOMUXC_ECSPI2_MOSI_ECSPI2_MOSI	0x140
+			MX8MM_IOMUXC_ECSPI2_SS0_ECSPI2_SS0	0x140
+		>;
+	};
+
+	/*
+	 * MCP251863 sideband — CAN_STBY (active-high strap per HW doc), CAN_INT# (active-low, push/pull input).
+	 * &sai1 audio mux uses TXD0/TXD1 only; TXD3/TXD4 pads → GPIO4_IO15/IO16.
+	 */
+	pinctrl_can_mcp2518_gpio: canmcp2518gpiogrp {
+		fsl,pins = <
+			MX8MM_IOMUXC_SAI1_TXD3_GPIO4_IO15	0x140
+			MX8MM_IOMUXC_SAI1_TXD4_GPIO4_IO16	0x140
+		>;
+	};
+
+	/*
+	 * TI TAC5301-Q1 — I2S on &sai6 (pads shared naming on SAI1_* muxOptions → SAI6).
+	 * No separate MCLK pad in SSOT pin list here — confirm vs BOM / driver when enabling.
+	 */
+	pinctrl_sai6_tac5301: sai6_tac5301_grp {
+		fsl,pins = <
+			MX8MM_IOMUXC_SAI1_RXD6_SAI6_TX_SYNC		0xd6
+			MX8MM_IOMUXC_SAI1_RXD4_SAI6_TX_BCLK		0xd6
+			MX8MM_IOMUXC_SAI1_RXD5_SAI6_TX_DATA0		0xd6
+			MX8MM_IOMUXC_SAI1_TXD5_SAI6_RX_DATA0		0xd6
+		>;
+	};
+
+	/* TAC5301 — configurable GPIO strap (CODEC_CTL / reset / IRQ per schematic); verify polarity vs TI tac5x1x binding. */
+	pinctrl_tac5301_gpio: tac5301_gpiogrp {
+		fsl,pins = <
+			MX8MM_IOMUXC_SAI1_TXD2_GPIO4_IO14		0xd6
 		>;
 	};
 };
@@ -342,8 +481,8 @@
 /*
  * UART
  *   uart1 — Bluetooth HCI (88x8997 family); firmware loads over this link at init baud below.
- *   uart3 — Unused on this product (disabled).
- *   uart4 — Secondary/debug UART; must stay domain 0 for probe order (see &rdc).
+ *   uart3 — disabled at bottom of file (unused on this SKU).
+ *   uart4 — MCXC144VFM low-power MCU (RX/TX only); &rdc pins UART4 PDAP to A53 before probe (see &rdc node).
  */
 &uart1 {
 	pinctrl-names = "default";
@@ -360,36 +499,38 @@
 	};
 };
 
-&uart3 {
-	status = "disabled";
-};
-
 &uart4 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart4>;
-	/* RDC for UART4 programmed in U-Boot before Linux probes */
+	/* RDC: UART4 PDAP domain must be set in U-Boot before Linux probes this UART. */
 	status = "okay";
 	fsl,rdc-domain = <0>;
 };
 
 /*
  * GPIO hogs — lines that must stay at defined levels for WLAN/BT/LTE/switch wake; not runtime GPIO API.
- *   gpio2 — WLAN/BT module wake handshake (WL_WAKE_DEV, BT_WAKE_DEV).
- *   gpio3 — LTE full-card power off, WLAN PD, BT wake host + reset.
- *   gpio4 — KSZ9896 energy-detect / PME input (WoL path); other lines owned by fec/switch nodes.
+ *   gpio2 — BT_WAKE_DEV (IO7), LTE_RST (IO8); GPIO2_IO6/IO11 = HDMI LT9611 mux — no WL_WAKE hog.
+ *   gpio3 — LTE_OFF / full-card power off (IO1), WLAN PD, BT wake host + reset.
+ *   gpio4 — KSZ9896 PME, GNSS_RES#, CP2108 QUART_RES#, MCP251863 CAN_STBY hog, CAN_INT# (IRQ — not hogged); TAC5301 strap GPIO4_IO14 (when codec enabled); HDMI fault; fec/switch sideband.
+ *   gpio5 — SIM_SEL (IO3): output-low at boot selects nano SIM per RF shield/BOM (drive high for eSIM).
  */
 &gpio2 {
-	wl-wake-dev-hog {
-		gpio-hog;
-		gpios = <6 GPIO_ACTIVE_HIGH>;
-		output-high;
-		line-name = "wl-wake-dev";
-	};
 	bt-wake-dev-hog {
 		gpio-hog;
 		gpios = <7 GPIO_ACTIVE_HIGH>;
 		output-high;
 		line-name = "bt-wake-dev";
+	};
+
+	/*
+	 * LTE_RST — spreadsheet Active-High output from SoC; boot default released (modem out of reset).
+	 * Remove gpio-hog if userspace must pulse reset during firmware upgrade.
+	 */
+	lte-reset-hog {
+		gpio-hog;
+		gpios = <8 GPIO_ACTIVE_HIGH>;
+		output-low;
+		line-name = "lte-reset";
 	};
 };
 
@@ -431,6 +572,45 @@
 		input;
 		line-name = "ksz9896-ent-pme";
 	};
+
+	/*
+	 * NEO-M9V GNSS_RES# — active-low reset from SoC; released high at boot.
+	 * sysfs line name: gnss-res-n (GPIO4_IO29). Toggle via /sys/class/gpio or libgpiod if hog removed later.
+	 */
+	gnss-res-n-hog {
+		gpio-hog;
+		gpios = <29 GPIO_ACTIVE_LOW>;
+		output-high;
+		line-name = "gnss-res-n";
+	};
+
+	/* CP2108 — QUART_RES# released high at boot (active-low reset). */
+	quart-res-n-hog {
+		gpio-hog;
+		gpios = <5 GPIO_ACTIVE_LOW>;
+		output-high;
+		line-name = "quart-res-n";
+	};
+
+	/*
+	 * CAN transceiver standby (GPIO4_IO15) — HW labels CAN_STBY Active-High: high = standby asserted on many parts.
+	 * Default output-low — typical “run” if standby is high-active; delete hog if userspace/socketcan must toggle.
+	 */
+	can-stby-hog {
+		gpio-hog;
+		gpios = <15 GPIO_ACTIVE_HIGH>;
+		output-low;
+		line-name = "can-stby";
+	};
+};
+
+&gpio5 {
+	sim-sel-hog {
+		gpio-hog;
+		gpios = <3 GPIO_ACTIVE_HIGH>;
+		output-low;
+		line-name = "sim-sel";
+	};
 };
 
 /*
@@ -458,11 +638,11 @@
  * I2C peripherals (see also file banner for Linux i2c-N vs &i2cN)
  *
  * &i2c2 (Linux i2c-1): audio ICs + KSZ9896 switch management.
- * &i2c3 (Linux i2c-2): environmental sensor + battery charger; LT9611 HDMI bridge when fitted.
+ * &i2c3 (Linux i2c-2): environmental sensor + battery charger + LT9611 HDMI bridge (pins in pinctrl_hdmi).
  * PMIC &i2c1 stays in imx8mm-evkb.dts (PCA9450).
  */
 &i2c2 {
-	/* EVK USB-C PD controller not populated — remove TCPC; 0x50 free for future TAC5301 analog audio. */
+	/* EVK USB-C PD controller not populated — TCPC node removed (freed 0x50). */
 	/delete-node/ tcpc@50;
 
 	/* TI TAS2563 — smart amp / speaker driver (control + diagnostics on I2C, audio on &sai3). */
@@ -577,6 +757,23 @@
 			};
 		};
 	};
+
+	/*
+	 * TI TAC5301-Q1 — analog audio codec on &sai6.
+	 * Kernel: upstream ti,tac5x1x ASoC driver (e.g. Linux 6.10+) — not in current linux-lmp-fslc-imx line; leave disabled until driver lands.
+	 * Revise reset-gpios / supplies vs datasheet + tac5x1x YAML when enabling.
+	 */
+	tac5301: tac5301@50 {
+		compatible = "ti,tac5301";
+		reg = <0x50>;
+		#sound-dai-cells = <0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_tac5301_gpio>;
+		reset-gpios = <&gpio4 14 GPIO_ACTIVE_LOW>;
+		avdd-supply = <&vddext>;
+		iovdd-supply = <&vddext>;
+		status = "disabled";
+	};
 };
 
 &i2c3 {
@@ -605,6 +802,21 @@
 		interrupt-parent = <&gpio4>;
 		interrupts = <9 IRQ_TYPE_LEVEL_LOW>;
 		status = "okay";
+	};
+
+	/*
+	 * Lontium LT9611 — DSI→HDMI bridge. Requires regulators + DSI/MIPI graph per binding before status okay.
+	 * Pins: reset GPIO2_IO11 (HDMI_RES#), IRQ GPIO2_IO6 (HDMI_INT to chip — active-high input from LT9611).
+	 */
+	lt9611: lt9611@39 {
+		compatible = "lontium,lt9611";
+		reg = <0x39>;
+		status = "disabled";
+		reset-gpios = <&gpio2 11 GPIO_ACTIVE_LOW>;
+		interrupt-parent = <&gpio2>;
+		interrupts = <6 IRQ_TYPE_LEVEL_HIGH>;
+		vdd-supply = <&vddext>;
+		vcc-supply = <&vddext>;
 	};
 };
 
@@ -637,13 +849,31 @@
 };
 
 /*
- * Unused EVK peripherals — pins or functions reused on DT510, or not routed on this PCB.
+ * Disabled — unused SKU options, EVK leftovers, or controller blocks pending driver / bring-up.
+ *   uart3 — not fitted / unused on this product.
+ *   sai6 — TAC5301 path (see tac5301@50); enable with ti,tac5x1x ASoC when kernel supports it.
  *   ir_recv — EVK GPIO1_IR conflicts with TAS6424 GPIO usage.
  *   reg_pcie0 / pcie0 — mini-PCIe power path not used (no M.2/NVMe on this SKU).
  *   backlight — no EVK-style LCD panel on DT510.
  *   mipi_dsi — display stack disabled until product HDMI/display bring-up.
  *   spdif1 — SPDIF not wired out for DT510 audio plan.
  */
+&uart3 {
+	status = "disabled";
+};
+
+&sai6 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sai6_tac5301>;
+	assigned-clocks = <&clk IMX8MM_CLK_SAI6_ROOT>;
+	assigned-clock-parents = <&clk IMX8MM_AUDIO_PLL1_OUT>;
+	assigned-clock-rates = <12288000>;
+	fsl,sai-mclk-direction-output;
+	fsl,sai-synchronous-rx;
+	#sound-dai-cells = <0>;
+	status = "disabled";
+};
+
 &ir_recv {
 	status = "disabled";
 };
@@ -695,6 +925,30 @@
 };
 
 /*
+ * ECSPI2 — Microchip MCP251863 CAN-FD controller (SPI). ECSPI2 pads are distinct from UART4 RX/TX balls on i.MX8MM.
+ */
+&ecspi2 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_ecspi2>;
+	fsl,spi-num-chipselects = <1>;
+	/delete-property/ dmas;
+	/delete-property/ dma-names;
+	status = "okay";
+
+	can0: can@0 {
+		compatible = "microchip,mcp251863", "microchip,mcp2518fd";
+		reg = <0>;
+		clocks = <&can0_osc>;
+		spi-max-frequency = <20000000>;
+		interrupt-parent = <&gpio4>;
+		interrupts = <16 IRQ_TYPE_LEVEL_LOW>;
+		vdd-supply = <&vddext>;
+	};
+};
+
+/*
  * USB controllers
  *   usbotg1 — device-only: USB gadget (lab dual-UAC2, etc.); no TCPC so no role-switch.
  *   usbotg2 — host port for LTE/cellular modem mass-storage/diagnostic interfaces.
@@ -713,7 +967,7 @@
 
 /*
  * USDHC2 — SDIO interface to WLAN module (NXP IW612 / ublox MAYA-W2 class).
- *   wifi_wake_host — host wake IRQ from module (WL_WAKE line on gpio2).
+ *   wifi_wake_host removed — GPIO2_IO6 muxed as HDMI_INT for LT9611 (see pinctrl_hdmi).
  */
 &usdhc2 {
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
@@ -729,12 +983,4 @@
 	pm-ignore-notify;
 	cap-power-off-card;
 	status = "okay";
-
-	wifi_wake_host {
-		compatible = "nxp,wifi-wake-host";
-		interrupt-parent = <&gpio2>;
-		interrupts = <6 IRQ_TYPE_LEVEL_LOW>;
-		interrupt-names = "host-wake";
-		wakeup-source;
-	};
 };
