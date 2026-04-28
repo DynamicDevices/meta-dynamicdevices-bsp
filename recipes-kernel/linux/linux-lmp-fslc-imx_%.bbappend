@@ -77,7 +77,7 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
 		file://imx8mm-jaguar-dt510/0025-dt-bindings-sound-ti-tac5x1x.patch \
 		file://imx8mm-jaguar-dt510/0026-ASoC-tac5x1x-i2c-codec.patch \
 		file://imx8mm-jaguar-dt510/0029-ASoC-tac5x1x-add-TAC5301-Q1.patch \
-		${@bb.utils.contains('MACHINE_FEATURES', 'bq25792-charger', 'file://imx8mm-jaguar-dt510/0010-mfd-bq257xx-add-bq25703a-core-fslc.patch file://imx8mm-jaguar-dt510/0011-power-supply-bq257xx-charger.patch file://imx8mm-jaguar-dt510/0012-regulator-bq257xx-boost-fslc.patch file://imx8mm-jaguar-dt510/0013-dt-bindings-mfd-ti-bq25703a-Import-binding-from-main.patch file://imx8mm-jaguar-dt510/0014-dt-bindings-mfd-ti-bq25703a-Expand-to-include-BQ2579.patch file://imx8mm-jaguar-dt510/0015-regulator-bq257xx-Remove-reference-to-the-parent-MFD.patch file://imx8mm-jaguar-dt510/0016-regulator-bq257xx-Drop-the-regulator_dev-from-the-dr.patch file://imx8mm-jaguar-dt510/0017-regulator-bq257xx-Make-OTG-enable-GPIO-really-option.patch file://imx8mm-jaguar-dt510/0018-power-supply-bq257xx-Fix-VSYSMIN-clamping-logic.patch file://imx8mm-jaguar-dt510/0019-power-supply-bq257xx-Make-the-default-current-limit-.patch file://imx8mm-jaguar-dt510/0020-power-supply-bq257xx-Consistently-use-indirect-get-s.patch file://imx8mm-jaguar-dt510/0021-power-supply-bq257xx-Add-fields-for-charging-and-ove.patch file://imx8mm-jaguar-dt510/0022-mfd-bq257xx-Add-BQ25792-support.patch file://imx8mm-jaguar-dt510/0023-regulator-bq257xx-Add-support-for-BQ25792.patch file://imx8mm-jaguar-dt510/0024-power-supply-bq257xx-Add-support-for-BQ25792.patch file://imx8mm-jaguar-dt510/bq257xx-mfd-kconfig.cfg', '', d)} \
+		${@bb.utils.contains('MACHINE_FEATURES', 'bq25792-charger', 'file://imx8mm-jaguar-dt510/0010-mfd-bq257xx-add-bq25703a-core-fslc.patch file://imx8mm-jaguar-dt510/0011-power-supply-bq257xx-charger.patch file://imx8mm-jaguar-dt510/0012-regulator-bq257xx-boost-fslc.patch file://imx8mm-jaguar-dt510/0013-dt-bindings-mfd-ti-bq25703a-Import-binding-from-main.patch file://imx8mm-jaguar-dt510/0014-dt-bindings-mfd-ti-bq25703a-Expand-to-include-BQ2579.patch file://imx8mm-jaguar-dt510/0015-regulator-bq257xx-Remove-reference-to-the-parent-MFD.patch file://imx8mm-jaguar-dt510/0016-regulator-bq257xx-Drop-the-regulator_dev-from-the-dr.patch file://imx8mm-jaguar-dt510/0017-regulator-bq257xx-Make-OTG-enable-GPIO-really-option.patch file://imx8mm-jaguar-dt510/0018-power-supply-bq257xx-Fix-VSYSMIN-clamping-logic.patch file://imx8mm-jaguar-dt510/0019-power-supply-bq257xx-Make-the-default-current-limit-.patch file://imx8mm-jaguar-dt510/0020-power-supply-bq257xx-Consistently-use-indirect-get-s.patch file://imx8mm-jaguar-dt510/0021-power-supply-bq257xx-Add-fields-for-charging-and-ove.patch file://imx8mm-jaguar-dt510/0022-mfd-bq257xx-Add-BQ25792-support.patch file://imx8mm-jaguar-dt510/0023-regulator-bq257xx-Add-support-for-BQ25792.patch file://imx8mm-jaguar-dt510/0024-power-supply-bq257xx-Add-support-for-BQ25792.patch', '', d)} \
 		file://imx8mm-jaguar-dt510.dts \
 "
 
@@ -91,11 +91,16 @@ do_configure:append:imx8mm-jaguar-dt510(){
  else
      bbwarn "imx8mm-jaguar-dt510.dts not found in ${WORKDIR}, skipping DTS copy"
  fi
- # CONFIG_SND_SOC_TAC5X1X_I2C comes from BSP patches (0026). Kernel fragment merge
- # (do_kernel_configme) runs against work-shared sources before those patches apply,
- # so enabling the codec must be done here against ${B}/.config after configure.
+ # CONFIG_SND_SOC_TAC5X1X_I2C comes from BSP patches (0026). BQ257 symbols come from
+ # BSP patches 0010–0024. Kernel fragment merge (do_kernel_configme) uses work-shared
+ # sources before SRC_URI patches apply, so enable these only here against ${B}/.config.
  if [ -f "${B}/.config" ]; then
      grep -q '^CONFIG_SND_SOC_TAC5X1X_I2C=' "${B}/.config" || echo "CONFIG_SND_SOC_TAC5X1X_I2C=m" >> "${B}/.config"
+     if [ "${@bb.utils.contains('MACHINE_FEATURES', 'bq25792-charger', '1', '0', d)}" = "1" ]; then
+         grep -q '^CONFIG_MFD_BQ257XX=' "${B}/.config" || echo "CONFIG_MFD_BQ257XX=m" >> "${B}/.config"
+         grep -q '^CONFIG_CHARGER_BQ257XX=' "${B}/.config" || echo "CONFIG_CHARGER_BQ257XX=m" >> "${B}/.config"
+         grep -q '^CONFIG_REGULATOR_BQ257XX=' "${B}/.config" || echo "CONFIG_REGULATOR_BQ257XX=m" >> "${B}/.config"
+     fi
      oe_runmake -C "${S}" O="${B}" olddefconfig
  fi
 }
