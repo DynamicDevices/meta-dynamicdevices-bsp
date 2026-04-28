@@ -5,16 +5,16 @@ TI posted tac5x1x-i2c omits TAC5301-Q1; DT510 binds `compatible = "ti,tac5301"`.
 Mirror all TAC5311 mono codec paths for TAC5301.
 
 Signed-off-by: BSP integration <dev@localhost>
-
 ---
- sound/soc/codecs/tac5x1x-i2c.c | 10 ++++++++++
- sound/soc/codecs/tac5x1x.h     |  1 +
- 2 files changed, 11 insertions(+)
+ sound/soc/codecs/tac5x1x-i2c.c | 7 ++++++++
+ sound/soc/codecs/tac5x1x.h     | 1 +
+ 2 files changed, 8 insertions(+)
 
 diff --git a/sound/soc/codecs/tac5x1x-i2c.c b/sound/soc/codecs/tac5x1x-i2c.c
+index ed1fd60..c9882e8 100644
 --- a/sound/soc/codecs/tac5x1x-i2c.c
 +++ b/sound/soc/codecs/tac5x1x-i2c.c
-@@ -1477,6 +1477,7 @@ static s32 tac5x1x_add_controls(struct snd_soc_component *component)
+@@ -1368,6 +1368,7 @@ static s32 tac5x1x_add_controls(struct snd_soc_component *component)
  		if (ret)
  			return ret;
  	fallthrough;
@@ -22,8 +22,7 @@ diff --git a/sound/soc/codecs/tac5x1x-i2c.c b/sound/soc/codecs/tac5x1x-i2c.c
  	case TAC5311:
  	case TAC5411:
  		ret =
-@@ -1547,6 +1548,7 @@ static s32 tac5x1x_add_ip_diag_controls(struct snd_soc_component *component)
- 	switch (tac5x1x->codec_type) {
+@@ -1438,6 +1439,7 @@ static s32 tac5x1x_add_ip_diag_controls(struct snd_soc_component *component)
  	case TAA5212:
  		break;
  	case TAA5412:
@@ -31,7 +30,7 @@ diff --git a/sound/soc/codecs/tac5x1x-i2c.c b/sound/soc/codecs/tac5x1x-i2c.c
  	case TAC5311:
  	case TAC5312:
  	case TAC5411:
-@@ -1616,6 +1618,7 @@ static s32 tac5x1x_add_widgets(struct snd_soc_component *component)
+@@ -1507,6 +1509,7 @@ static s32 tac5x1x_add_widgets(struct snd_soc_component *component)
  	switch (tac5x1x->codec_type) {
  	case TAC5111:
  	case TAC5211:
@@ -39,14 +38,15 @@ diff --git a/sound/soc/codecs/tac5x1x-i2c.c b/sound/soc/codecs/tac5x1x-i2c.c
  	case TAC5311:
  	case TAC5411:
  		ret =
-@@ -2003,6 +2006,7 @@ static s32 tac5x1x_parse_dt(struct tac5x1x_priv *tac5x1x,
+@@ -1894,6 +1897,7 @@ static s32 tac5x1x_parse_dt(struct tac5x1x_priv *tac5x1x,
+ 	case TAD5212:
  		break;
  	case TAA5412:
 +	case TAC5301:
  	case TAC5411:
  	case TAC5412:
  	case TAC5311:
-@@ -2137,6 +2141,7 @@ static s32 tac5x1x_probe(struct device *dev, struct regmap *regmap,
+@@ -2028,6 +2032,7 @@ static s32 tac5x1x_probe(struct device *dev, struct regmap *regmap,
  	case TAC5112:
  	case TAC5211:
  	case TAC5212:
@@ -54,14 +54,16 @@ diff --git a/sound/soc/codecs/tac5x1x-i2c.c b/sound/soc/codecs/tac5x1x-i2c.c
  	case TAC5311:
  	case TAC5312:
  	case TAC5411:
-@@ -2181,6 +2186,7 @@ static const struct of_device_id tac5x1x_of_match[] = {
+@@ -2072,6 +2077,7 @@ static const struct of_device_id tac5x1x_of_match[] = {
+ 	{ .compatible = "ti,tac5112", .data = (void *)TAC5112 },
  	{ .compatible = "ti,tac5211", .data = (void *)TAC5211 },
  	{ .compatible = "ti,tac5212", .data = (void *)TAC5212 },
 +	{ .compatible = "ti,tac5301", .data = (void *)TAC5301 },
  	{ .compatible = "ti,tac5311", .data = (void *)TAC5311 },
  	{ .compatible = "ti,tac5312", .data = (void *)TAC5312 },
  	{ .compatible = "ti,tac5411", .data = (void *)TAC5411 },
-@@ -2198,6 +2204,7 @@ static const struct i2c_device_id tac5x1x_id[] = {
+@@ -2089,6 +2095,7 @@ static const struct i2c_device_id tac5x1x_id[] = {
+ 	{"tac5112", TAC5112},
  	{"tac5211", TAC5211},
  	{"tac5212", TAC5212},
 +	{"tac5301", TAC5301},
@@ -69,9 +71,11 @@ diff --git a/sound/soc/codecs/tac5x1x-i2c.c b/sound/soc/codecs/tac5x1x-i2c.c
  	{"tac5312", TAC5312},
  	{"tac5411", TAC5411},
 diff --git a/sound/soc/codecs/tac5x1x.h b/sound/soc/codecs/tac5x1x.h
+index f315d1d..4c621e8 100644
 --- a/sound/soc/codecs/tac5x1x.h
 +++ b/sound/soc/codecs/tac5x1x.h
-@@ -2541,6 +2541,7 @@ enum tac5x1x_type {
+@@ -289,6 +289,7 @@ enum tac5x1x_type {
+ 	TAC5112,
  	TAC5211,
  	TAC5212,
 +	TAC5301,
