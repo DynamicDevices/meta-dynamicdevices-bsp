@@ -29,7 +29,7 @@
 #define IMX8MM_PAD_GPIO_STRAP_PULLUP			IMX8MM_PAD_PULLUP_BUS
 
 /*
- * --- 0x114 — Panel/DIO first line (imx8mm-evk GPIO1_IO00 recipe): PE + fast slew + DSE X2 ---
+ * --- 0x114 — imx8mm-evk GPIO1_IO00 recipe (PE + fast slew + DSE X2); optional per-pin override ---
  */
 #define IMX8MM_PAD_GPIO_DIO_WEAK					\
 	(   IMX8MM_SW_PAD_CTL_PE_EN				\
@@ -45,8 +45,11 @@
 	  | IMX8MM_SW_PAD_CTL_DSE_X6				\
 	  | IMX8MM_SW_PAD_CTL_PUE_DOWN )
 
+/* Front-panel / connector DIO — one SW_PAD recipe for all GPIO1_IO00/01/04–09 lines (imx8mm-evk general GPIO). */
+#define IMX8MM_PAD_GPIO_DEFAULT				IMX8MM_PAD_GPIO_STD
+
 /*
- * --- 0x156 — Same drive as GPIO_STD but internal pull-up (EVK GPIO1_IO05 recipe) ---
+ * --- 0x156 — EVK GPIO1_IO05 recipe (pull-up select); optional per-pin override ---
  */
 #define IMX8MM_PAD_GPIO_PULLUP_STRONG					\
 	(   IMX8MM_SW_PAD_CTL_PE_EN				\

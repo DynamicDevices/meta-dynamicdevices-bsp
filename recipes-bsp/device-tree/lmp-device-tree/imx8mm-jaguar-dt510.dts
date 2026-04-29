@@ -216,7 +216,7 @@
  *   uart4 — MCXC144VFM MCU serial (RDC domain programmed for A53).
  *   usdhc2 — SDIO to WLAN module (4-bit).
  *   fec1 / ksz9896_sideband — RGMII to KSZ9896; SAI1 pads: ENET_INTRP_N# (SAI1_RXFS→GPIO4_IO0), ENET_RST_N# (SAI1_RXC→GPIO4_IO1), + PME on GPIO4_IO4 (SAI1_RXD2).
- *   gpio1_dio — general-purpose DIO on GPIO1_IO00/01/04–09 (pad CFG per DT510 pin tool; IO02/03 N.C. on SKU).
+ *   gpio1_dio — general-purpose DIO on GPIO1_IO00/01/04–09 (single SW_PAD GPIO_DEFAULT; IO02/03 N.C. on SKU).
  *   tas6424_gpio / sai1_tas6424 — TAS6424 enable/fault GPIOs + I2S to class-D.
  *   sai2 — Not wired for audio on DT510 (pads may overlap Zigbee); pinmux retained for reference.
  *   sai3 — TAS2563 I2S + codec interrupt on GPIO5.
@@ -296,18 +296,18 @@
 	/*
 	 * General-purpose digital I/O — GPIO1_IO00/01/04–09 as GPIO (imx8mm-pinfunc.h uses …_GPIO1_IO0 …_GPIO1_IO9).
 	 * Mapping vs connector: DI1–4 → IO00/01/04/05; DO1–4 → IO06–09. IO02/03 not bonded here; IO10–IO13 = &tas6424.
-	 * Direction is runtime via gpiochip/libgpiod; pad configs match docs/reference/dt510-ollie-tool-generated/pin_mux.dts.
+	 * Direction is runtime via gpiochip/libgpiod. One pad electrical preset (GPIO_DEFAULT = imx8mm-evk 0x116).
 	 */
 	pinctrl_gpio1_dio: gpio1diogrp {
 		fsl,pins = <
-			MX8MM_IOMUXC_GPIO1_IO00_GPIO1_IO0	IMX8MM_PAD_GPIO_DIO_WEAK
-			MX8MM_IOMUXC_GPIO1_IO01_GPIO1_IO1	IMX8MM_PAD_GPIO_STD
-			MX8MM_IOMUXC_GPIO1_IO04_GPIO1_IO4	IMX8MM_PAD_GPIO_STD
-			MX8MM_IOMUXC_GPIO1_IO05_GPIO1_IO5	IMX8MM_PAD_GPIO_PULLUP_STRONG
-			MX8MM_IOMUXC_GPIO1_IO06_GPIO1_IO6	IMX8MM_PAD_GPIO_STD
-			MX8MM_IOMUXC_GPIO1_IO07_GPIO1_IO7	IMX8MM_PAD_GPIO_STD
-			MX8MM_IOMUXC_GPIO1_IO08_GPIO1_IO8	IMX8MM_PAD_GPIO_STD
-			MX8MM_IOMUXC_GPIO1_IO09_GPIO1_IO9	IMX8MM_PAD_GPIO_STD
+			MX8MM_IOMUXC_GPIO1_IO00_GPIO1_IO0	IMX8MM_PAD_GPIO_DEFAULT
+			MX8MM_IOMUXC_GPIO1_IO01_GPIO1_IO1	IMX8MM_PAD_GPIO_DEFAULT
+			MX8MM_IOMUXC_GPIO1_IO04_GPIO1_IO4	IMX8MM_PAD_GPIO_DEFAULT
+			MX8MM_IOMUXC_GPIO1_IO05_GPIO1_IO5	IMX8MM_PAD_GPIO_DEFAULT
+			MX8MM_IOMUXC_GPIO1_IO06_GPIO1_IO6	IMX8MM_PAD_GPIO_DEFAULT
+			MX8MM_IOMUXC_GPIO1_IO07_GPIO1_IO7	IMX8MM_PAD_GPIO_DEFAULT
+			MX8MM_IOMUXC_GPIO1_IO08_GPIO1_IO8	IMX8MM_PAD_GPIO_DEFAULT
+			MX8MM_IOMUXC_GPIO1_IO09_GPIO1_IO9	IMX8MM_PAD_GPIO_DEFAULT
 		>;
 	};
 
