@@ -59,12 +59,10 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
 		file://imx8mm-jaguar-dt510/mcp251xfd-can.cfg \
 		file://usb-modem-support.cfg \
 		file://gpio-keys.cfg \
-		file://imx8mm-jaguar-dt510/lis2dh-accelerometer.cfg \
 		file://imx8mm-jaguar-dt510/video-disable.cfg \
 		file://imx8mm-jaguar-dt510/tas2562-audio-codec.cfg \
 		${@bb.utils.contains('MACHINE_FEATURES', 'tas6424', 'file://imx8mm-jaguar-dt510/tas6424-audio-codec.cfg', '', d)} \
 		file://imx8mm-jaguar-dt510/wifi-power-management.cfg \
-		file://lis2dh12-sensor.cfg \
 		file://usb-gadgets.cfg \
 		${@bb.utils.contains('DISTRO', 'lmp-mfgtool', '', 'file://imx8mm-jaguar-dt510/usb-audio-gadget.cfg', d)} \
 		file://0001-wireless-remove-nl80211-regdom-warning.patch \
