@@ -5,11 +5,10 @@
  * Field definitions: imx8mm-sw_pad_ctl-fields.h (IMX8MMRM Chapter 8).
  *
  * **Mux vs pad control:** The first cell (MX8MM_IOMUXC_* macro) selects signal routing. The second cell
- * is only SW_PAD_CTL electricals. EVK spreadsheets naming rows GPIO1_IOxx are ball labels, not mux mode.
+ * is only SW_PAD_CTL electricals.
  *
- * Hex targets below match arch/arm64/boot/dts/freescale/imx8mm-evk.dtsi unless noted.
- *
- * Deprecated aliases IMX8MM_PAD_GPIO_* kept for older DTS.
+ * Names below describe **role on the board** where possible. Several roles share the same hex word as
+ * NXP imx8mm-evk.dtsi (called out per macro).
  */
 
 #ifndef __IMX8MM_SW_PAD_CTL_H
@@ -18,43 +17,45 @@
 #include "imx8mm-sw_pad_ctl-fields.h"
 
 /*
- * --- EVK-aligned presets (same hex as imx8mm-evk.dtsi UART/GPIO-style pads) ---
+ * --- 0x140 (imx8mm-evk UART default): PE + internal pull-up ---
+ * Same electrical word is used for ECSPI and many GPIO strap / sideband lines on EVK and DT510.
  */
-
-/* 0x140 — PE + pull-up (Linux MX8MM_PULL_ENABLE | MX8MM_PULL_UP); UART sideband, many hog straps */
-#define IMX8MM_PAD_EVK_BASIC						\
+#define IMX8MM_PAD_PULLUP_BUS						\
 	(   IMX8MM_SW_PAD_CTL_PE_EN				\
 	  | IMX8MM_SW_PAD_CTL_PUE_UP )
 
-#define IMX8MM_PAD_EVK_STRAP				IMX8MM_PAD_EVK_BASIC	/* deprecated name */
+#define IMX8MM_PAD_UART_DEFAULT				IMX8MM_PAD_PULLUP_BUS
+#define IMX8MM_PAD_SPI_HOST_DEFAULT			IMX8MM_PAD_PULLUP_BUS
+#define IMX8MM_PAD_GPIO_STRAP_PULLUP			IMX8MM_PAD_PULLUP_BUS
 
-/* 0x114 — PE + fast slew + DSE X2 */
-#define IMX8MM_PAD_EVK_IO00						\
+/*
+ * --- 0x114 — Panel/DIO first line (imx8mm-evk GPIO1_IO00 recipe): PE + fast slew + DSE X2 ---
+ */
+#define IMX8MM_PAD_GPIO_DIO_WEAK					\
 	(   IMX8MM_SW_PAD_CTL_PE_EN				\
 	  | IMX8MM_SW_PAD_CTL_FSEL_FAST				\
 	  | IMX8MM_SW_PAD_CTL_DSE_X2 )
 
-/* 0x116 — PE + fast slew + DSE X6 + pull-down select */
-#define IMX8MM_PAD_EVK_GENERAL						\
+/*
+ * --- 0x116 — Fast slew + DSE X6 + pull-down select (general GPIO, ENET switch sideband, codec GPIOs) ---
+ */
+#define IMX8MM_PAD_GPIO_STD						\
 	(   IMX8MM_SW_PAD_CTL_PE_EN				\
 	  | IMX8MM_SW_PAD_CTL_FSEL_FAST				\
 	  | IMX8MM_SW_PAD_CTL_DSE_X6				\
 	  | IMX8MM_SW_PAD_CTL_PUE_DOWN )
 
-/* 0x156 — like GENERAL but selects internal pull-up (PUE bit). */
-#define IMX8MM_PAD_EVK_IO05_SPEED					\
+/*
+ * --- 0x156 — Same drive as GPIO_STD but internal pull-up (EVK GPIO1_IO05 recipe) ---
+ */
+#define IMX8MM_PAD_GPIO_PULLUP_STRONG					\
 	(   IMX8MM_SW_PAD_CTL_PE_EN				\
 	  | IMX8MM_SW_PAD_CTL_PUE_UP				\
 	  | IMX8MM_SW_PAD_CTL_FSEL_FAST				\
 	  | IMX8MM_SW_PAD_CTL_DSE_X6 )
 
-/*
- * Historical DTS used 0x1916; bits above [8:0] are reserved on this SoC (effective value 0x116).
- * Same electrical preset as EVK_GENERAL unless HW review demands explicit open-drain (ODE, bit 5).
- */
-#define IMX8MM_PAD_EVK_SYNC_HEAVY				IMX8MM_PAD_EVK_GENERAL
-
-#define IMX8MM_PAD_SAI1_BUS_STD				IMX8MM_PAD_EVK_GENERAL
+#define IMX8MM_PAD_I2S_BUS					IMX8MM_PAD_GPIO_STD
+#define IMX8MM_PAD_I2S_SYNC					IMX8MM_PAD_GPIO_STD
 
 /* USDHC — imx8mm-evk usdhc2grp / 100 MHz / 200 MHz */
 
@@ -98,7 +99,7 @@
 	  | IMX8MM_SW_PAD_CTL_DSE_X6 )
 
 /*
- * ENET / RGMII — literals from imx8mm-evk fec1grp (field-by-field decode differs by pad); do not reuse 0x03 elsewhere.
+ * ENET / RGMII — literals from imx8mm-evk fec1grp (pad-specific decode); do not reuse 0x03 elsewhere.
  */
 #define IMX8MM_PAD_ENET_MDIO						0x03
 
@@ -112,14 +113,5 @@
 	  | IMX8MM_SW_PAD_CTL_PUE_UP				\
 	  | IMX8MM_SW_PAD_CTL_FSEL_FAST				\
 	  | IMX8MM_SW_PAD_CTL_DSE_X6 )
-
-/*
- * Deprecated aliases — "GPIO" referred to NXP EVK pad row names (ball labels), not mux = GPIO.
- */
-#define IMX8MM_PAD_GPIO_DEFAULT				IMX8MM_PAD_EVK_BASIC
-#define IMX8MM_PAD_GPIO1_IO00					IMX8MM_PAD_EVK_IO00
-#define IMX8MM_PAD_GPIO1_IO_STD					IMX8MM_PAD_EVK_GENERAL
-#define IMX8MM_PAD_GPIO1_IO05					IMX8MM_PAD_EVK_IO05_SPEED
-#define IMX8MM_PAD_GPIO_HIGH_DRIVE				IMX8MM_PAD_EVK_SYNC_HEAVY
 
 #endif /* __IMX8MM_SW_PAD_CTL_H */
