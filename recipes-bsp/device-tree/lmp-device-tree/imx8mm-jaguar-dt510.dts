@@ -20,7 +20,7 @@
  *   Audio: TI TAS6424 (&sai1), TAS2563 (&sai3), TAC5301 analog (&sai6, I2C @0x50 — DTS ready; ASoC driver not in factory kernel yet).
  *            TAS6424 AMP_FAULT#/WARN# on gpio-keys (GPIO1_IO12/13).
  *   Power / sensing: TI BQ25792 charger on &i2c3.
- *   Zigbee: ECSPI1 to 802.15.4 module (userspace spidev); ZB_INT / ZB_RST on dedicated pads.
+ *   Zigbee: ECSPI1 to 802.15.4 module (userspace spidev); ZB_INT on GPIO4_IO22 only — no ZB_RST# on DT510 hardware.
  *   CAN: Microchip MCP251863 on &ecspi2 (UART4 uses different pads — no mux clash); CAN_INT# GPIO4_IO16, CAN_STBY GPIO4_IO15.
  *   GNSS: u-blox NEO-M9V — GNSS_RES# on GPIO4_IO29 (SAI3_RXC mux), active-low reset driven by SoC.
  *   USB UART: Silicon Labs CP2108 quad bridge — USB enumerates with cp210x; QUART_RES# on GPIO4_IO5 (SAI1_RXD3 mux).
@@ -221,7 +221,7 @@
  *   tas6424_gpio / sai1_tas6424 — TAS6424 enable/fault GPIOs + I2S to class-D.
  *   sai2 — Not wired for audio on DT510 (pads may overlap Zigbee); pinmux retained for reference.
  *   sai3 — TAS2563 I2S + codec interrupt on GPIO5.
- *   ecspi1 + zigbee — SPI to 802.15.4 module; ZB_INT on GPIO4_IO22 (ZB_RST was GPIO2_IO11 — pad now HDMI_RES#).
+ *   ecspi1 + zigbee — SPI to 802.15.4 module; ZB_INT on GPIO4_IO22 (no ZB_RST# — GPIO2_IO11 is HDMI_RES# only).
  *   ecspi2 + can_gpio — MCP251863 SPI (ECSPI2); SAI1_TXD3/4 → GPIO4_IO15/16 (CAN_STBY / CAN_INT#); &sai1 uses TXD0/1 only.
  *   tac5301 — SAI6 on SAI1_RXD4/RXD5/RXD6 + SAI1_TXD5 pads; SAI1_TXD2 → GPIO4_IO14 codec strap (SAI1 TXD0/1 still &tas6424).
  *   gnss_reset — NEO-M9V GNSS_RES# (GPIO output; pad not used by &sai3 audio mux below).
@@ -510,7 +510,7 @@
 		>;
 	};
 
-	/* Zigbee — ZB_INT on GPIO4_IO22 only (GPIO2_IO11 remapped to HDMI_RES#). */
+	/* Zigbee — ZB_INT on GPIO4_IO22; DT510 has no SoC GPIO for ZB_RST# (GPIO2_IO11 = HDMI_RES#, not radio reset). */
 	pinctrl_zigbee: zigbeegrp {
 		fsl,pins = <
 			MX8MM_IOMUXC_SAI2_RXC_GPIO4_IO22        IMX8MM_PAD_GPIO_STRAP_PULLUP
@@ -1021,6 +1021,7 @@
 /*
  * ECSPI — Zigbee / 802.15.4 radio module
  *   Hardware SPI to RF IC; userspace opens spidev for Silicon Labs ZBOSS / spinel stacks.
+ *   DT510: no dedicated ZB_RST# — radio reset is fixed in hardware or not exposed on this SKU.
  *   DMA disabled so transfers stay predictable for timing-sensitive firmware reloads.
  */
 &ecspi1 {
