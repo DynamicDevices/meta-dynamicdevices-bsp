@@ -14,8 +14,10 @@
  *   PMIC: inherited PCA9450 on &i2c1 @ 0x25 (imx8mm-evkb.dts).
  *   Cellular: USB OTG2 host; LTE_RST (GPIO2_IO8), LTE_OFF / power-down (GPIO3_IO1), SIM_SEL (GPIO5_IO3: low=nano, high=eSIM) via GPIO hogs + hoggrp mux.
  *   Storage: on-chip eMMC on USDHC3 (same NAND-pin mux as i.MX8MM EVK — imx8mm-evkb.dtsi does not pull in imx8mm-evk.dts, which enables this).
- *   WLAN/BT: IW612-class SDIO on USDHC2 + UART1 Bluetooth sideband; WIFI_PD# (GPIO3_IO7), WL_RST# (GPIO2_IO10),
- *            WL_WAKE / WLAN→host wake (GPIO2_IO9, SD1_DATA7 mux; &usdhc2 wifi_wake_host), BT straps hogged.
+ *   WLAN/BT: IW612 SDIO on USDHC2 + UART1; strap pins (hoggrp / gpio2 / gpio3):
+ *            WIFI_PD# NAND_DATA01→GPIO3_IO7; WL_WAKE SD1_DATA7→GPIO2_IO9 (IRQ 9); WL_RST# SD1_RESET_B→GPIO2_IO10;
+ *            BT_WAKE_HOST NAND_DATA02→GPIO3_IO8; BT_RST# NAND_DATA03→GPIO3_IO9.
+ *            SDIO VMMC from PCA9450 VDDEXT (`&reg_vddext_3v3`) — same rail approach as jaguar-sentai `regulator-vddext`.
  *   Ethernet: i.MX FEC → Microchip KSZ9896 DSA (RGMII + I2C management on &i2c3 @ 0x5f); four LAN PHYs inside switch.
  *   Audio: TI TAS6424 (&sai1), TAS2563 (&sai3), TAC5301 analog (&sai6, I2C @0x50 — DTS ready; ASoC driver not in factory kernel yet).
  *            TAS6424 AMP_FAULT#/WARN# on gpio-keys (GPIO1_IO12/13).
@@ -24,10 +26,11 @@
  *   CAN: Microchip MCP251863 on &ecspi2 (UART4 uses different pads — no mux clash); CAN_INT# GPIO4_IO16, CAN_STBY GPIO4_IO15.
  *   GNSS: u-blox NEO-M9V — GNSS_RES# on GPIO4_IO29 (SAI3_RXC mux), active-low reset driven by SoC.
  *   USB UART: Silicon Labs CP2108 quad bridge — USB enumerates with cp210x; QUART_RES# on GPIO4_IO5 (SAI1_RXD3 mux).
- *   HDMI: Lontium LT9611 on &i2c3 @ 0x39 — HDMI_RES#/INT on GPIO2_IO11 / GPIO2_IO6 (WL_WAKE is GPIO2_IO9, not these);
- *          HDMI2C1 fault on GPIO4_IO28 (SAI3_RXFS mux). Bridge node stays disabled until DSI graph + supplies.
+ *   HDMI: Lontium LT9611 on &i2c3 @ 0x39 — SD1_STROBE / SD1_DATA4 → GPIO2_IO11 / GPIO2_IO6 (bridge disabled until DSI graph);
+ *          HDMI2C1 fault on GPIO4_IO28 (SAI3_RXFS mux).
  *   Low-power MCU: NXP MCXC144VFM — async serial on UART4 (UART4_RXD/UART4_TXD pads; DT macros UART4_DCE_RX/TX).
  *   Digital I/O: GPIO1_IO00/01/04–09 muxed as GPIO (DI1–4 / DO1–4); IO10–IO13 reserved for TAS6424 (see &tas6424).
+ *            EVK hdmi@3d (ADV7535/adv7511 on &i2c2) is status disabled — driver does not probe.
  *   SE050 secure element: I2C4 @ 0x48 — handled by U-Boot / OpTEE, not described here.
  *
  * I2C numbering: Linux adapter i2c-N corresponds to DTS &i2c(N+1) (e.g. i2c-1 = &i2c2; i2c-2 = &i2c3 — KSZ9896 @ 0x5f).
@@ -35,7 +38,7 @@
  * Active-low GPIO lines (# suffix, GPIO_ACTIVE_LOW): for gpio-hog, output-low requests logical
  * inactive (line electrically high for an active-low signal = enable released / reset deasserted);
  * output-high requests logical active (electrically low = asserted). Getting this backwards holds
- * chips in reset or powered down — see wlan-rst-hog under &gpio2.
+ * chips in reset or powered down.
  */
 
 #include "freescale/imx8mm-evkb.dts"
@@ -63,7 +66,7 @@
 	/delete-node/ sound-ak5558;
 	/delete-node/ sound-ak4497;
 
-	/* EVK DSI→HDMI graph — uses hdmi@3d on &i2c2 (ADV7535); DT510 uses LT9611 on &i2c3 instead. */
+	/* EVK DSI→HDMI graph tail — hdmi@3d on &i2c2 disabled under &i2c2; DT510 HDMI is LT9611 on &i2c3. */
 	/delete-node/ hdmi-connector;
 
 	/*
@@ -209,7 +212,7 @@
  *
  * Order matches pinctrl-0: hog GPIOs + BQ25792 charger interrupt, then groups used by drivers.
  * Do not list pinctrl_ecspi2 here — &ecspi2 applies it; listing it twice causes "already requested by pinctrl" for 30830000.spi.
- *   hoggrp — WLAN/BT/LTE strap lines; TAS2563 reset (CODEC_SD# on GPIO5).
+ *   hoggrp — WLAN/BT/LTE strap lines (SD1_DATA5/6/7, SD1_RESET_B, …); TAS2563 reset (CODEC_SD# on GPIO5).
  *   bq25792_chgr_int — CHGR_INT# from charger (muxed GPIO4).
  *   uart1 — UART1 + UART3 pins used as RTS/CTS for Bluetooth (IW8997 sideband).
  *   uart4 — MCXC144VFM MCU serial (RDC domain programmed for A53).
@@ -219,11 +222,11 @@
  *   tas6424_gpio / sai1_tas6424 — TAS6424 enable/fault GPIOs + I2S to class-D.
  *   sai2 — Not wired for audio on DT510 (pads may overlap Zigbee); pinmux retained for reference.
  *   sai3 — TAS2563 I2S + codec interrupt on GPIO5.
- *   ecspi1 + zigbee — SPI to 802.15.4 module; ZB_INT on GPIO4_IO22 (no ZB_RST# — GPIO2_IO11 is HDMI_RES# only).
+ *   ecspi1 + zigbee — SPI to 802.15.4 module; ZB_INT on GPIO4_IO22 (no SoC ZB_RST# line on this SKU).
  *   ecspi2 + can_gpio — MCP251863: ECSPI2 pads via pinctrl_ecspi2 on &ecspi2 only; CAN sideband on GPIO4_IO15/16 (pinctrl_can_mcp2518_gpio).
  *   tac5301 — SAI6 on SAI1_RXD4/RXD5/RXD6 + SAI1_TXD5 pads; SAI1_TXD2 → GPIO4_IO14 codec strap (SAI1 TXD0/1 still &tas6424).
  *   gnss_reset — NEO-M9V GNSS_RES# (GPIO output; pad not used by &sai3 audio mux below).
- *   hdmi — LT9611 HDMI_RES# / HDMI_INT / HDMI2C1 fault (GPIO2_IO11, GPIO2_IO6, GPIO4_IO28).
+ *   hdmi — LT9611 (SD1_STROBE / SD1_DATA4 / SAI3_RXFS): HDMI_RES#, HDMI_INT, HDMI2C1 fault (GPIO2_IO11, GPIO2_IO6, GPIO4_IO28).
  *   quart_reset — CP2108 QUART_RES# (GPIO4_IO5, SAI1_RXD3 pad; not in &sai1 TAS6424 pinctrl).
  */
 &iomuxc {
@@ -231,18 +234,15 @@
 	pinctrl-0 = <&pinctrl_hog>, <&pinctrl_bq25792_chgr_int>, <&pinctrl_gnss_reset>, <&pinctrl_hdmi>, <&pinctrl_quart_reset>, <&pinctrl_gpio1_dio>, <&pinctrl_can_mcp2518_gpio>, <&pinctrl_sai6_tac5301>, <&pinctrl_tac5301_gpio>;
 
 	/*
-	 * Boot-time strap / sideband mux defaults (WLAN/BT/LTE/SIM/audio straps — not HDMI).
-	 * GPIO2_IO6 / GPIO2_IO11 — LT9611 HDMI_INT / HDMI_RES# only (see pinctrl_hdmi).
-	 * WL_WAKE (WLAN wakes host) — SD1_DATA7 → GPIO2_IO9; &usdhc2 wifi_wake_host IRQ on this line.
-	 * WLAN_RST# — SD1_RESET_B → GPIO2_IO10 muxed GPIO here; released out of reset by &gpio2 wlan-rst-hog
-	 * (GPIO_ACTIVE_LOW: gpio-hog output-low = logical inactive = RST# deasserted).
+	 * Boot-time strap / sideband mux defaults (WLAN/BT/LTE/SIM/audio straps).
+	 * WLAN host-side: WL_WAKE SD1_DATA7→GPIO2_IO9; WL_RST# SD1_RESET_B→GPIO2_IO10; BT_WAKE_DEV SD1_DATA5→GPIO2_IO7; LTE_RST SD1_DATA6→GPIO2_IO8.
 	 */
 	pinctrl_hog: hoggrp {
 		fsl,pins = <
-			MX8MM_IOMUXC_SD1_RESET_B_GPIO2_IO10	IMX8MM_PAD_GPIO_STRAP_PULLUP  /* WLAN_RST# / WL_RST# */
 			MX8MM_IOMUXC_SD1_DATA5_GPIO2_IO7	IMX8MM_PAD_GPIO_STRAP_PULLUP  /* BT_WAKE_DEV */
 			MX8MM_IOMUXC_SD1_DATA6_GPIO2_IO8	IMX8MM_PAD_GPIO_STRAP_PULLUP  /* LTE_RST */
 			MX8MM_IOMUXC_SD1_DATA7_GPIO2_IO9	IMX8MM_PAD_GPIO_STRAP_PULLUP  /* WL_WAKE — WLAN wakes host */
+			MX8MM_IOMUXC_SD1_RESET_B_GPIO2_IO10	IMX8MM_PAD_GPIO_STRAP_PULLUP  /* WL_RST# — SoC output, active-low */
 			MX8MM_IOMUXC_NAND_CE0_B_GPIO3_IO1	IMX8MM_PAD_GPIO_STRAP_PULLUP  /* LTE_OFF / FUL_CARD_POWER_OFF# */
 			MX8MM_IOMUXC_NAND_DATA01_GPIO3_IO7      IMX8MM_PAD_GPIO_STRAP_PULLUP  /* WIFI_PD# */
 			MX8MM_IOMUXC_NAND_DATA02_GPIO3_IO8	IMX8MM_PAD_GPIO_STRAP_PULLUP  /* BT_WAKE_HOST */
@@ -270,9 +270,9 @@
 	};
 
 	/*
-	 * Lontium LT9611 + HDMI2C1 sideband (pads also referenced by lt9611@39 when enabled).
-	 *   HDMI_RES# — GPIO2_IO11 (active-low reset out); HDMI_INT — GPIO2_IO6 (in, active-high);
-	 *   HDMI2C1 fault — GPIO4_IO28 (SAI3_RXFS mux; not used by current &sai3 TAS2563 pin group).
+	 * Lontium LT9611 + HDMI2C1 sideband (lt9611@39 when enabled).
+	 *   HDMI_RES# — GPIO2_IO11 (SD1_STROBE); HDMI_INT — GPIO2_IO6 (SD1_DATA4).
+	 *   HDMI2C1 fault — GPIO4_IO28 (SAI3_RXFS; not used by current &sai3 TAS2563 pin group).
 	 */
 	pinctrl_hdmi: hdmigrp {
 		fsl,pins = <
@@ -293,9 +293,8 @@
 	};
 
 	/*
-	 * General-purpose digital I/O — GPIO1_IO00/01/04–09 as GPIO (imx8mm-pinfunc.h uses …_GPIO1_IO0 …_GPIO1_IO9).
+	 * General-purpose digital I/O — GPIO1_IO00/01/04–09 as GPIO (imx8mm-pinfunc.h pad macros through GPIO1_IO09).
 	 * Mapping vs connector: DI1–4 → IO00/01/04/05; DO1–4 → IO06–09. IO02/03 not bonded here; IO10–IO13 = &tas6424.
-	 * Direction is runtime via gpiochip/libgpiod. One pad electrical preset (GPIO_DEFAULT = imx8mm-evk 0x116).
 	 */
 	pinctrl_gpio1_dio: gpio1diogrp {
 		fsl,pins = <
@@ -508,7 +507,7 @@
 		>;
 	};
 
-	/* Zigbee — ZB_INT on GPIO4_IO22; DT510 has no SoC GPIO for ZB_RST# (GPIO2_IO11 = HDMI_RES#, not radio reset). */
+	/* Zigbee — ZB_INT on GPIO4_IO22; no SoC ZB_RST# routed on this SKU. */
 	pinctrl_zigbee: zigbeegrp {
 		fsl,pins = <
 			MX8MM_IOMUXC_SAI2_RXC_GPIO4_IO22        IMX8MM_PAD_GPIO_STRAP_PULLUP
@@ -590,7 +589,8 @@
  * GPIO hogs — kernel-owned GPIO lines with fixed direction/level at probe time (no /dev/gpiochip export).
  * Purpose: (1) safe boot defaults before userspace or modular drivers (resets released, power domains on,
  * SIM mux chosen); (2) reserve lines that are pure hardware straps or sideband so nothing else claims them.
- *   gpio2 — WLAN_RST# / WL_RST (IO10); WL_WAKE (IO9, SD1_DATA7); BT_WAKE_DEV (IO7); LTE_RST (IO8); GPIO2_IO6/IO11 = HDMI.
+ *   gpio2 — WLAN/BT/LTE: BT_WAKE_DEV (IO7), LTE_RST (IO8), WL_WAKE (IO9), WL_RST# (IO10).
+ *   gpio2 — LT9611: HDMI_INT (IO6), HDMI_RES# (IO11).
  *   gpio3 — LTE_OFF / full-card power off (IO1), WIFI_PD#, BT_WAKE_HOST (IO8), BT_RST# (IO9, NAND_DATA03 mux).
  *   gpio4 — ENET_INTRP_N# (IO0), ENET_RST_N# via &ksz9896_sw (IO1), KSZ9896 PME (IO4); GNSS_RES#, QUART_RES#, CAN_STBY; TAC5301 strap IO14; HDMI fault elsewhere.
  *   gpio5 — SIM_SEL (IO3): output-low at boot selects nano SIM per RF shield/BOM (drive high for eSIM).
@@ -619,9 +619,7 @@
 	};
 
 	/*
-	 * WLAN_RST# / WL_RST — SD1_RESET_B → GPIO2_IO10, active-low from SoC.
-	 * With GPIO_ACTIVE_LOW, gpio-hog "output-low" is logical inactive → physical HIGH → reset
-	 * deasserted (part running). "output-high" was logical active → physical LOW → held in reset.
+	 * WL_RST# — SD1_RESET_B → GPIO2_IO10 (GPIO_ACTIVE_LOW + output-low = reset released).
 	 */
 	wlan-rst-hog {
 		gpio-hog;
@@ -692,7 +690,7 @@
 	};
 
 	/*
-	 * NEO-M9V GNSS_RES# — active-low reset from SoC (same hog pattern as bt-reset-hog / wlan-rst-hog).
+	 * NEO-M9V GNSS_RES# — active-low reset from SoC (same hog pattern as bt-reset-hog).
 	 * GPIO_ACTIVE_LOW + output-low → logical inactive → physical high → reset deasserted at boot.
 	 * sysfs line name: gnss-res# (GPIO4_IO29). Toggle via libgpiod if hog removed later.
 	 */
@@ -777,10 +775,12 @@
 	/delete-node/ tcpc@50;
 
 	/*
-	 * EVK hdmi@3d (ADV7535 / adv7511 driver) — remove entirely; NXP stacks may still probe or apply
-	 * pinctrl (synaptics_dsx_iogrp) if only status=disabled. GPIO1_IO9 then clashes with pinctrl_gpio1_dio.
+	 * EVK hdmi@3d — Analog Devices ADV7535 (binds as adv7511). DT510 uses LT9611 on &i2c3; keep node but disabled
+	 * so no I²C driver probes and no IRQ/pinctrl runs (delete-node alone can be fragile across overlays).
 	 */
-	/delete-node/ hdmi@3d;
+	hdmi@3d {
+		status = "disabled";
+	};
 
 	/* TI TAS2563 — smart amp / speaker driver (control + diagnostics on I2C, audio on &sai3). */
 	tas2563: tas2563@4c {
@@ -1024,7 +1024,7 @@
 
 &mipi_dsi {
 	status = "disabled";
-	/* Drop dsi_out → adv7535_in link (hdmi@3d deleted). */
+	/* Drop dsi_out → adv7535_in link (hdmi@3d disabled). */
 	/delete-node/ ports;
 };
 
@@ -1112,9 +1112,11 @@
 
 /*
  * USDHC2 — SDIO interface to WLAN module (NXP IW612 / ublox MAYA-W2 class).
- *   wifi_wake_host — GPIO2_IO9 (SD1_DATA7 mux): WL_WAKE, WLAN wakes host (not GPIO2_IO6 / HDMI_INT).
+ *   vmmc-supply — PCA9450 VDDEXT (`&reg_vddext_3v3`). wifi_wake_host — GPIO2_IO9 (SD1_DATA7), IRQ 9.
  */
 &usdhc2 {
+	/* SDIO I/O voltage / card power — PMIC VDDEXT rail (imx8mm-evkb PCA9450), not a discrete WLAN-only buck in DT */
+	vmmc-supply = <&reg_vddext_3v3>;
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
 	pinctrl-0 = <&pinctrl_usdhc2>;
 	pinctrl-1 = <&pinctrl_usdhc2_100mhz>;
@@ -1132,7 +1134,7 @@
 	wifi_wake_host {
 		compatible = "nxp,wifi-wake-host";
 		interrupt-parent = <&gpio2>;
-		interrupts = <9 IRQ_TYPE_LEVEL_LOW>;
+		interrupts = <9 IRQ_TYPE_LEVEL_LOW>;  /* WL_WAKE — SD1_DATA7 / GPIO2_IO9 */
 		interrupt-names = "host-wake";
 		wakeup-source;
 	};
