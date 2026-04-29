@@ -2,7 +2,7 @@
 /*
  * i.MX 8M Mini — full SW_PAD_CTL words for &iomuxc fsl,pins (second cell).
  *
- * Register layout is **not** the i.MX6 map. Use imx8mm-sw_pad_ctl-fields.h (IMX8MMRM Ch. 8).
+ * Field definitions: imx8mm-sw_pad_ctl-fields.h (IMX8MMRM Chapter 8).
  *
  * **Mux vs pad control:** The first cell (MX8MM_IOMUXC_* macro) selects signal routing. The second cell
  * is only SW_PAD_CTL electricals. EVK spreadsheets naming rows GPIO1_IOxx are ball labels, not mux mode.
@@ -41,9 +41,7 @@
 	  | IMX8MM_SW_PAD_CTL_DSE_X6				\
 	  | IMX8MM_SW_PAD_CTL_PUE_DOWN )
 
-/*
- * 0x156 — like GENERAL but adds internal pull-up (PUE bit); mislabeled “SPEED” under old i.MX6 macros.
- */
+/* 0x156 — like GENERAL but selects internal pull-up (PUE bit). */
 #define IMX8MM_PAD_EVK_IO05_SPEED					\
 	(   IMX8MM_SW_PAD_CTL_PE_EN				\
 	  | IMX8MM_SW_PAD_CTL_PUE_UP				\
@@ -51,8 +49,8 @@
 	  | IMX8MM_SW_PAD_CTL_DSE_X6 )
 
 /*
- * Historical DTS used 0x1916 — bits above [8:0] were i.MX6 ODE/PKE positions (reserved on IMX8MM).
- * Silicon applied 0x116 only; keep aligned with EVK_GENERAL unless HW review demands true open-drain.
+ * Historical DTS used 0x1916; bits above [8:0] are reserved on this SoC (effective value 0x116).
+ * Same electrical preset as EVK_GENERAL unless HW review demands explicit open-drain (ODE, bit 5).
  */
 #define IMX8MM_PAD_EVK_SYNC_HEAVY				IMX8MM_PAD_EVK_GENERAL
 

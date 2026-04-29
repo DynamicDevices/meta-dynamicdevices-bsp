@@ -2,9 +2,8 @@
 /*
  * i.MX 8M Mini — SW_PAD_CTL_PAD_* bitfields (second cell of &iomuxc fsl,pins).
  *
- * **Not i.MX6:** Older family pads used a wider SW_PAD_CTL map (e.g. HYS at bit 16,
- * SPEED at [7:6], DSE at [5:3]). On i.MX 8M Mini only bits [8:0] are meaningful for
- * these pads; [31:9] are reserved — see IMX8MMRM Chapter 8 / section per pad.
+ * Only bits [8:0] are meaningful for typical GPIO-class pads; [31:9] are reserved —
+ * see IMX8MMRM Chapter 8 (SW_PAD_CTL_PAD_<NAME> per pad).
  *
  * Layout (matches NXP RM figure for GPIO-class pads and Linux
  * arch/arm64/boot/dts/freescale/imx8mm-pinfunc.h MX8MM_* literals):
@@ -18,9 +17,6 @@
  * ODE   — Open Drain Enable.
  * FSEL  — Slew / frequency select (Linux: MX8MM_FSEL_FAST / FSEL_SLOW).
  * DSE   — Drive Strength; **encoding is not sequential** — use named macros below.
- *
- * Prior revisions of this file incorrectly used i.MX6 bit positions; Michael’s check
- * against the IMX8MMRM table is correct.
  */
 
 #ifndef __IMX8MM_SW_PAD_CTL_FIELDS_H
