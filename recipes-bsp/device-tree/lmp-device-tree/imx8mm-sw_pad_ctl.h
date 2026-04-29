@@ -6,13 +6,19 @@
  *
  *     31..17    16      15..14    13    12    11    10    9..8    7..6     5..3    2..1    0
  *              HYS     PUS       PUE   PKE   ODE   —    PDRV    SPEED    DSE     B21     SRE
- *              (— if unused in preset)
  *
- * Field macros live in imx8mm-sw_pad_ctl-fields.h. Each IMX8MM_PAD_* below is a bitwise OR
- * of those pieces — same numeric result as NXP imx8mm-evk.dtsi hex literals.
+ * Field macros: imx8mm-sw_pad_ctl-fields.h
  *
- * IMX8MM_PAD_ENET_MDIO evaluates to 0x3: use only on ENET MDIO/MDC pad mux lines, not for
- * unrelated 0x3 (I2C addresses, RDC domains, etc.).
+ * **Mux vs pad control:** The first cell of each fsl,pins entry (MX8MM_IOMUXC_* macro) selects the
+ * **signal routing** (UART, SAI, GPIO, …). The **second** cell is **only** the SW_PAD_CTL electrical
+ * image — pull/drive/speed. It does **not** select the GPIO1 block or any other peripheral; NXP EVK
+ * pinmux spreadsheets often **name rows after SoC ball labels** (e.g. GPIO1_IO03), which is historical
+ * naming for that pad on the EVK, not a claim about mux mode.
+ *
+ * Presets below are named by **electrical intent** (EVK_* = same hex as imx8mm-evk.dtsi / EVK tables).
+ * Deprecated aliases IMX8MM_PAD_GPIO_* kept for older DTS; they referred to those EVK row labels.
+ *
+ * IMX8MM_PAD_ENET_MDIO equals 0x3 — only for ENET MDIO/MDC pad mux lines, not unrelated 0x3 literals.
  */
 
 #ifndef __IMX8MM_SW_PAD_CTL_H
@@ -21,52 +27,43 @@
 #include "imx8mm-sw_pad_ctl-fields.h"
 
 /*
- * GPIO presets — imx8mm-evk style (hex matches NXP reference DTS).
- *
- * These names are **pad electrical settings** for specific balls when the mux is GPIO,
- * not GPIO controller programming. Use the macro whose hex matches the pinmux row for
- * that pad (PDRV/DSE/SPEED/B21 come from the EVK table; see IMX8MMRM field meanings).
- *
- * IMX8MM_PAD_GPIO1_IO_STD — default recipe for most GPIO1_IO* header pins (0x116).
- *
- * IMX8MM_PAD_GPIO1_IO00 — GPIO1_IO00 only: same SPEED/DSE/PDRV family as STD but bits [2:1]
- * (B21) encoded as 2 instead of 3 (0x114 vs 0x116); follows NXP GPIO1_IO00 row.
- *
- * IMX8MM_PAD_GPIO1_IO05 — GPIO1_IO05 only: **same as STD except SPEED is MEDIUM, not LOW**
- * (only bits [7:6] differ). EVK pinmux uses a higher SPEED bin on this ball than on the
- * other “STD” GPIO1 lines — board routing/load often differs per pin; net function is
- * named in the board DTS (e.g. DT510 connector pin for GPIO1_IO5).
+ * --- EVK-aligned CMOS / strap presets (hex matches NXP imx8mm-evk.dtsi where noted) ---
  */
 
-#define IMX8MM_PAD_GPIO_DEFAULT					\
+#define IMX8MM_PAD_EVK_STRAP						\
 	(   IMX8MM_SW_PAD_CTL_PDRV_1				\
 	  | IMX8MM_SW_PAD_CTL_SPEED_MEDIUM )			/* 0x140 */
 
-#define IMX8MM_PAD_GPIO1_IO00					\
+#define IMX8MM_PAD_EVK_IO00						\
 	(   IMX8MM_SW_PAD_CTL_PDRV_1				\
 	  | IMX8MM_SW_PAD_CTL_DSE_X2				\
 	  | IMX8MM_SW_PAD_CTL_SPEED_LOW				\
 	  | IMX8MM_SW_PAD_CTL_B21(2) )				/* 0x114 */
 
-#define IMX8MM_PAD_GPIO1_IO_STD					\
+#define IMX8MM_PAD_EVK_GENERAL						\
 	(   IMX8MM_SW_PAD_CTL_PDRV_1				\
 	  | IMX8MM_SW_PAD_CTL_DSE_X2				\
 	  | IMX8MM_SW_PAD_CTL_SPEED_LOW				\
 	  | IMX8MM_SW_PAD_CTL_B21(3) )				/* 0x116 */
 
-#define IMX8MM_PAD_GPIO1_IO05					\
+#define IMX8MM_PAD_EVK_IO05_SPEED					\
 	(   IMX8MM_SW_PAD_CTL_PDRV_1				\
 	  | IMX8MM_SW_PAD_CTL_DSE_X2				\
 	  | IMX8MM_SW_PAD_CTL_SPEED_MEDIUM			\
-	  | IMX8MM_SW_PAD_CTL_B21(3) )				/* 0x156: STD + SPEED_MEDIUM */
+	  | IMX8MM_SW_PAD_CTL_B21(3) )				/* 0x156 */
 
-#define IMX8MM_PAD_GPIO_HIGH_DRIVE				\
+#define IMX8MM_PAD_EVK_SYNC_HEAVY					\
 	(   IMX8MM_SW_PAD_CTL_PDRV_1				\
 	  | IMX8MM_SW_PAD_CTL_DSE_X2				\
 	  | IMX8MM_SW_PAD_CTL_SPEED_LOW				\
 	  | IMX8MM_SW_PAD_CTL_ODE_EN				\
 	  | IMX8MM_SW_PAD_CTL_PKE_EN				\
-	  | IMX8MM_SW_PAD_CTL_B21(3) )				/* 0x1916: stronger clock/sync drive */
+	  | IMX8MM_SW_PAD_CTL_B21(3) )				/* 0x1916 */
+
+/*
+ * SAI1 — second cell when mux is SAI1_* (MCLK, BCLK, DATA); same SW_PAD word as EVK_GENERAL (0x116).
+ */
+#define IMX8MM_PAD_SAI1_BUS_STD				IMX8MM_PAD_EVK_GENERAL
 
 /* USDHC — SDIO / eMMC speed groups ...................................... hex */
 
@@ -127,5 +124,14 @@
 	(   IMX8MM_SW_PAD_CTL_DSE_X2				\
 	  | IMX8MM_SW_PAD_CTL_SPEED_MAX				\
 	  | IMX8MM_SW_PAD_CTL_B21(3) )				/* 0xd6 */
+
+/*
+ * Deprecated aliases — "GPIO" referred to NXP EVK pad row names (ball labels), not mux = GPIO.
+ */
+#define IMX8MM_PAD_GPIO_DEFAULT				IMX8MM_PAD_EVK_STRAP
+#define IMX8MM_PAD_GPIO1_IO00					IMX8MM_PAD_EVK_IO00
+#define IMX8MM_PAD_GPIO1_IO_STD					IMX8MM_PAD_EVK_GENERAL
+#define IMX8MM_PAD_GPIO1_IO05					IMX8MM_PAD_EVK_IO05_SPEED
+#define IMX8MM_PAD_GPIO_HIGH_DRIVE				IMX8MM_PAD_EVK_SYNC_HEAVY
 
 #endif /* __IMX8MM_SW_PAD_CTL_H */
