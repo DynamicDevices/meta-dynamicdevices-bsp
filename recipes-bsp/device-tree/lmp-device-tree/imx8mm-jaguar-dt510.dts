@@ -14,7 +14,8 @@
  *   PMIC: inherited PCA9450 on &i2c1 @ 0x25 (imx8mm-evkb.dts).
  *   Cellular: USB OTG2 host; LTE_RST (GPIO2_IO8), LTE_OFF / power-down (GPIO3_IO1), SIM_SEL (GPIO5_IO3: low=nano, high=eSIM) via GPIO hogs + hoggrp mux.
  *   Storage: on-chip eMMC on USDHC3 (same NAND-pin mux as i.MX8MM EVK — imx8mm-evkb.dtsi does not pull in imx8mm-evk.dts, which enables this).
- *   WLAN/BT: IW612-class SDIO on USDHC2 + UART1 Bluetooth sideband; WIFI_PD# (GPIO3_IO7), WL_RST# (GPIO2_IO10 / SD1_RESET_B), BT straps hogged.
+ *   WLAN/BT: IW612-class SDIO on USDHC2 + UART1 Bluetooth sideband; WIFI_PD# (GPIO3_IO7), WL_RST# (GPIO2_IO10),
+ *            WL_WAKE / WLAN→host wake (GPIO2_IO9, SD1_DATA7 mux; &usdhc2 wifi_wake_host), BT straps hogged.
  *   Ethernet: i.MX FEC → Microchip KSZ9896 DSA (RGMII + I2C management on &i2c2 @ 0x5f); four LAN PHYs inside switch.
  *   Audio: TI TAS6424 (&sai1), TAS2563 (&sai3), TAC5301 analog (&sai6, I2C @0x50 — DTS ready; ASoC driver not in factory kernel yet).
  *            TAS6424 AMP_FAULT#/WARN# on gpio-keys (GPIO1_IO12/13).
@@ -23,7 +24,7 @@
  *   CAN: Microchip MCP251863 on &ecspi2 (UART4 uses different pads — no mux clash); CAN_INT# GPIO4_IO16, CAN_STBY GPIO4_IO15.
  *   GNSS: u-blox NEO-M9V — GNSS_RES# on GPIO4_IO29 (SAI3_RXC mux), active-low reset driven by SoC.
  *   USB UART: Silicon Labs CP2108 quad bridge — USB enumerates with cp210x; QUART_RES# on GPIO4_IO5 (SAI1_RXD3 mux).
- *   HDMI: Lontium LT9611 on &i2c3 @ 0x39 — HDMI_RES#/INT on GPIO2 (pads shared with former WL_WAKE/ZB_RST);
+ *   HDMI: Lontium LT9611 on &i2c3 @ 0x39 — HDMI_RES#/INT on GPIO2_IO11 / GPIO2_IO6 (WL_WAKE is GPIO2_IO9, not these);
  *          HDMI2C1 fault on GPIO4_IO28 (SAI3_RXFS mux). Bridge node stays disabled until DSI graph + supplies.
  *   Low-power MCU: NXP MCXC144VFM — async serial on UART4 (UART4_RXD/UART4_TXD pads; DT macros UART4_DCE_RX/TX).
  *   Digital I/O: GPIO1_IO00/01/04–09 muxed as GPIO (DI1–4 / DO1–4); IO10–IO13 reserved for TAS6424 (see &tas6424).
@@ -233,8 +234,8 @@
 
 	/*
 	 * Boot-time strap / sideband mux defaults (WLAN/BT/LTE/SIM/audio straps — not HDMI).
-	 * GPIO2_IO6 and GPIO2_IO11 are LT9611 HDMI_INT and HDMI_RES# (see pinctrl_hdmi). Those pads overlap
-	 * Sentai-class WL_WAKE on GPIO2_IO6; &usdhc2 wifi_wake_host uses that line while LT9611 stays disabled.
+	 * GPIO2_IO6 / GPIO2_IO11 — LT9611 HDMI_INT / HDMI_RES# only (see pinctrl_hdmi).
+	 * WL_WAKE (WLAN wakes host) — SD1_DATA7 → GPIO2_IO9; &usdhc2 wifi_wake_host IRQ on this line.
 	 * WLAN_RST# — SD1_RESET_B → GPIO2_IO10 muxed GPIO here; released out of reset by &gpio2 wlan-rst-hog
 	 * (GPIO_ACTIVE_LOW: gpio-hog output-low = logical inactive = RST# deasserted).
 	 */
@@ -243,6 +244,7 @@
 			MX8MM_IOMUXC_SD1_RESET_B_GPIO2_IO10	IMX8MM_PAD_GPIO_STRAP_PULLUP  /* WLAN_RST# / WL_RST# */
 			MX8MM_IOMUXC_SD1_DATA5_GPIO2_IO7	IMX8MM_PAD_GPIO_STRAP_PULLUP  /* BT_WAKE_DEV */
 			MX8MM_IOMUXC_SD1_DATA6_GPIO2_IO8	IMX8MM_PAD_GPIO_STRAP_PULLUP  /* LTE_RST */
+			MX8MM_IOMUXC_SD1_DATA7_GPIO2_IO9	IMX8MM_PAD_GPIO_STRAP_PULLUP  /* WL_WAKE — WLAN wakes host */
 			MX8MM_IOMUXC_NAND_CE0_B_GPIO3_IO1	IMX8MM_PAD_GPIO_STRAP_PULLUP  /* LTE_OFF / FUL_CARD_POWER_OFF# */
 			MX8MM_IOMUXC_NAND_DATA01_GPIO3_IO7      IMX8MM_PAD_GPIO_STRAP_PULLUP  /* WIFI_PD# */
 			MX8MM_IOMUXC_NAND_DATA02_GPIO3_IO8	IMX8MM_PAD_GPIO_STRAP_PULLUP  /* BT_WAKE_HOST */
@@ -590,7 +592,7 @@
  * GPIO hogs — kernel-owned GPIO lines with fixed direction/level at probe time (no /dev/gpiochip export).
  * Purpose: (1) safe boot defaults before userspace or modular drivers (resets released, power domains on,
  * SIM mux chosen); (2) reserve lines that are pure hardware straps or sideband so nothing else claims them.
- *   gpio2 — WLAN_RST# / WL_RST (IO10, SD1_RESET_B mux); BT_WAKE_DEV (IO7), LTE_RST (IO8); GPIO2_IO6/IO11 = HDMI.
+ *   gpio2 — WLAN_RST# / WL_RST (IO10); WL_WAKE (IO9, SD1_DATA7); BT_WAKE_DEV (IO7); LTE_RST (IO8); GPIO2_IO6/IO11 = HDMI.
  *   gpio3 — LTE_OFF / full-card power off (IO1), WIFI_PD#, BT_WAKE_HOST (IO8), BT_RST# (IO9, NAND_DATA03 mux).
  *   gpio4 — ENET_INTRP_N# (IO0), ENET_RST_N# via &ksz9896_sw (IO1), KSZ9896 PME (IO4); GNSS_RES#, QUART_RES#, CAN_STBY; TAC5301 strap IO14; HDMI fault elsewhere.
  *   gpio5 — SIM_SEL (IO3): output-low at boot selects nano SIM per RF shield/BOM (drive high for eSIM).
@@ -1094,9 +1096,7 @@
 
 /*
  * USDHC2 — SDIO interface to WLAN module (NXP IW612 / ublox MAYA-W2 class).
- *   wifi_wake_host — GPIO2_IO6 (SD1_DATA4 mux). Same pad as LT9611 HDMI_INT in pinctrl_hdmi;
- *   LT9611 is status "disabled" here so the line is free for WLAN host-wake (matches Sentai).
- *   If enabling the LT9611 bridge (status okay), resolve HW/DTS: alternate WL_WAKE net or drop this node / HDMI IRQ.
+ *   wifi_wake_host — GPIO2_IO9 (SD1_DATA7 mux): WL_WAKE, WLAN wakes host (not GPIO2_IO6 / HDMI_INT).
  */
 &usdhc2 {
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
@@ -1116,7 +1116,7 @@
 	wifi_wake_host {
 		compatible = "nxp,wifi-wake-host";
 		interrupt-parent = <&gpio2>;
-		interrupts = <6 IRQ_TYPE_LEVEL_LOW>;
+		interrupts = <9 IRQ_TYPE_LEVEL_LOW>;
 		interrupt-names = "host-wake";
 		wakeup-source;
 	};
