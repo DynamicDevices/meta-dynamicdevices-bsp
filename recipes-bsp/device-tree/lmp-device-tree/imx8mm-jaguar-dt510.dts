@@ -16,7 +16,7 @@
  *   Storage: on-chip eMMC on USDHC3 (same NAND-pin mux as i.MX8MM EVK — imx8mm-evkb.dtsi does not pull in imx8mm-evk.dts, which enables this).
  *   WLAN/BT: IW612-class SDIO on USDHC2 + UART1 Bluetooth sideband; WIFI_PD# (GPIO3_IO7), WL_RST# (GPIO2_IO10),
  *            WL_WAKE / WLAN→host wake (GPIO2_IO9, SD1_DATA7 mux; &usdhc2 wifi_wake_host), BT straps hogged.
- *   Ethernet: i.MX FEC → Microchip KSZ9896 DSA (RGMII + I2C management on &i2c2 @ 0x5f); four LAN PHYs inside switch.
+ *   Ethernet: i.MX FEC → Microchip KSZ9896 DSA (RGMII + I2C management on &i2c3 @ 0x5f); four LAN PHYs inside switch.
  *   Audio: TI TAS6424 (&sai1), TAS2563 (&sai3), TAC5301 analog (&sai6, I2C @0x50 — DTS ready; ASoC driver not in factory kernel yet).
  *            TAS6424 AMP_FAULT#/WARN# on gpio-keys (GPIO1_IO12/13).
  *   Power / sensing: TI BQ25792 charger + ST STTS22H temperature on &i2c3.
@@ -30,7 +30,7 @@
  *   Digital I/O: GPIO1_IO00/01/04–09 muxed as GPIO (DI1–4 / DO1–4); IO10–IO13 reserved for TAS6424 (see &tas6424).
  *   SE050 secure element: I2C4 @ 0x48 — handled by U-Boot / OpTEE, not described here.
  *
- * I2C numbering: Linux adapter i2c-N corresponds to DTS &i2c(N+1) on this SoC (e.g. i2c-1 = &i2c2).
+ * I2C numbering: Linux adapter i2c-N corresponds to DTS &i2c(N+1) (e.g. i2c-1 = &i2c2; i2c-2 = &i2c3 — KSZ9896 @ 0x5f).
  *
  * Active-low GPIO lines (# suffix, GPIO_ACTIVE_LOW): for gpio-hog, output-low requests logical
  * inactive (line electrically high for an active-low signal = enable released / reset deasserted);
@@ -743,7 +743,7 @@
 /*
  * Ethernet
  *   FEC — i.MX Gigabit MAC to KSZ9896 “CPU” port over RGMII (no external PHY on FEC).
- *   Switch management — I2C on &i2c2 @ 0x5f; internal PHYs on switch MDIO (lan1–lan4).
+ *   Switch management — I2C on &i2c3 @ 0x5f; internal PHYs on switch MDIO (lan1–lan4).
  *   Details: docs/DT510-ETHERNET-KSZ9896.md
  */
 &fec1 {
@@ -764,8 +764,8 @@
 /*
  * I2C peripherals (see also file banner for Linux i2c-N vs &i2cN)
  *
- * &i2c2 (Linux i2c-1): audio ICs + KSZ9896 switch management.
- * &i2c3 (Linux i2c-2): environmental sensor + battery charger + LT9611 HDMI bridge (pins in pinctrl_hdmi).
+ * &i2c2 (Linux i2c-1): audio ICs (TAS2563 / TAS6424).
+ * &i2c3 (Linux i2c-2): KSZ9896 switch @ 0x5f + environmental sensor + charger + LT9611 HDMI bridge.
  * PMIC &i2c1 stays in imx8mm-evkb.dts (PCA9450).
  */
 &i2c2 {
@@ -804,7 +804,34 @@
 		status = "okay";
 	};
 
-	/* Microchip KSZ9896 — 4-port gigabit switch + RGMII CPU port; strap sets this I2C address. */
+	/*
+	 * TI TAC5301-Q1 — analog audio codec on &sai6.
+	 * Kernel: upstream ti,tac5x1x ASoC driver (e.g. Linux 6.10+) — not in current linux-lmp-fslc-imx line; leave disabled until driver lands.
+	 * Revise reset-gpios / supplies vs datasheet + tac5x1x YAML when enabling.
+	 */
+	tac5301: tac5301@50 {
+		compatible = "ti,tac5301";
+		reg = <0x50>;
+		#sound-dai-cells = <0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_tac5301_gpio>;
+		reset-gpios = <&gpio4 14 GPIO_ACTIVE_LOW>;
+		avdd-supply = <&vddext>;
+		iovdd-supply = <&vddext>;
+		status = "disabled";
+	};
+};
+
+&i2c3 {
+	/* Strip EVK audio/camera/gpio-expander children not fitted on DT510. */
+	/delete-node/ ak4458@10;
+	/delete-node/ ak4458@12;
+	/delete-node/ ak5558@13;
+	/delete-node/ ak4497@11;
+	/delete-node/ camera@3c;
+	/delete-node/ gpio@20;
+
+	/* Microchip KSZ9896 — 4-port gigabit switch + RGMII CPU port; strap sets this I2C address (hardware on &i2c3). */
 	ksz9896_sw: switch@5f {
 		compatible = "microchip,ksz9896";
 		reg = <0x5f>;
@@ -886,33 +913,6 @@
 			};
 		};
 	};
-
-	/*
-	 * TI TAC5301-Q1 — analog audio codec on &sai6.
-	 * Kernel: upstream ti,tac5x1x ASoC driver (e.g. Linux 6.10+) — not in current linux-lmp-fslc-imx line; leave disabled until driver lands.
-	 * Revise reset-gpios / supplies vs datasheet + tac5x1x YAML when enabling.
-	 */
-	tac5301: tac5301@50 {
-		compatible = "ti,tac5301";
-		reg = <0x50>;
-		#sound-dai-cells = <0>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_tac5301_gpio>;
-		reset-gpios = <&gpio4 14 GPIO_ACTIVE_LOW>;
-		avdd-supply = <&vddext>;
-		iovdd-supply = <&vddext>;
-		status = "disabled";
-	};
-};
-
-&i2c3 {
-	/* Strip EVK audio/camera/gpio-expander children not fitted on DT510. */
-	/delete-node/ ak4458@10;
-	/delete-node/ ak4458@12;
-	/delete-node/ ak5558@13;
-	/delete-node/ ak4497@11;
-	/delete-node/ camera@3c;
-	/delete-node/ gpio@20;
 
 	/* ST STTS22H — low-power temperature sensor (alert on GPIO4). */
 	stts22h: stts22h@3f {
