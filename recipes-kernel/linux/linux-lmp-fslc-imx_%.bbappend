@@ -1,4 +1,6 @@
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
+# imx8mm-jaguar-dt510 DTS + imx8mm-sw_pad_ctl.h live under lmp-device-tree (SoC pad words, shared header).
+FILESEXTRAPATHS:prepend:imx8mm-jaguar-dt510 := "${THISDIR}/../../recipes-bsp/device-tree/lmp-device-tree:"
 
 # Fix buildpaths QA warnings by ensuring debug prefix mapping is applied to kernel builds
 # This prevents TMPDIR references from being embedded in debug information
@@ -49,6 +51,8 @@ do_configure:append:imx8mm-jaguar-sentai(){
 
 SRC_URI:append:imx8mm-jaguar-dt510 = " \
 		file://i2c-dev-interface.cfg \
+		file://imx8mm-sw_pad_ctl.h \
+		file://imx8mm-sw_pad_ctl-fields.h \
 		file://imx8mm-jaguar-dt510/pmic-pca9450.cfg \
 		file://imx8mm-jaguar-dt510/bq25792-charger.cfg \
 		file://imx8mm-jaguar-dt510/cp2108-usb-serial.cfg \
@@ -84,6 +88,12 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
 do_configure:append:imx8mm-jaguar-dt510(){
  if [ -f ${WORKDIR}/imx8mm-jaguar-dt510.dts ]; then
      cp ${WORKDIR}/imx8mm-jaguar-dt510.dts ${S}/arch/arm64/boot/dts
+     if [ -f ${WORKDIR}/imx8mm-sw_pad_ctl.h ]; then
+         cp ${WORKDIR}/imx8mm-sw_pad_ctl.h ${S}/arch/arm64/boot/dts
+     fi
+     if [ -f ${WORKDIR}/imx8mm-sw_pad_ctl-fields.h ]; then
+         cp ${WORKDIR}/imx8mm-sw_pad_ctl-fields.h ${S}/arch/arm64/boot/dts
+     fi
      echo "dtb-y += imx8mm-jaguar-dt510.dtb" >> ${S}/arch/arm64/boot/dts/Makefile
  else
      bbwarn "imx8mm-jaguar-dt510.dts not found in ${WORKDIR}, skipping DTS copy"
