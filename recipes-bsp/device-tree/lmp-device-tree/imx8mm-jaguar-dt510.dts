@@ -232,9 +232,12 @@
 	pinctrl-0 = <&pinctrl_hog>, <&pinctrl_bq25792_chgr_int>, <&pinctrl_gnss_reset>, <&pinctrl_hdmi>, <&pinctrl_quart_reset>, <&pinctrl_gpio1_dio>, <&pinctrl_ecspi2>, <&pinctrl_can_mcp2518_gpio>, <&pinctrl_sai6_tac5301>, <&pinctrl_tac5301_gpio>;
 
 	/*
-	 * Boot-time strap pins. GPIO2_IO6 / GPIO2_IO11 are reserved for HDMI (see pinctrl_hdmi); WL_WAKE host wake
-	 * and SDIO wifi_wake_host nodes were removed — SDIO WLAN wake-from-sleep via that line is not available.
-	 * WLAN_RST# — SD1_RESET_B → GPIO2_IO10 (active-low), see &gpio2 wlan-rst-hog.
+	 * Boot-time strap / sideband mux defaults (WLAN/BT/LTE/SIM/audio straps — not HDMI).
+	 * GPIO2_IO6 and GPIO2_IO11 are LT9611 HDMI_INT and HDMI_RES# (see pinctrl_hdmi). Those pads used to be
+	 * candidates for WL_WAKE / Zigbee RST; SDIO wifi_wake_host was removed — WLAN host-wake / WoWLAN on GPIO2_IO6
+	 * is not wired in this DTS.
+	 * WLAN_RST# — SD1_RESET_B → GPIO2_IO10 muxed GPIO here; released out of reset by &gpio2 wlan-rst-hog
+	 * (GPIO_ACTIVE_LOW: gpio-hog output-low = logical inactive = RST# deasserted).
 	 */
 	pinctrl_hog: hoggrp {
 		fsl,pins = <
