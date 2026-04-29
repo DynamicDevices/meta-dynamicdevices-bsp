@@ -59,7 +59,6 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
 		file://imx8mm-jaguar-dt510/mcp251xfd-can.cfg \
 		file://usb-modem-support.cfg \
 		file://gpio-keys.cfg \
-		file://imx8mm-jaguar-dt510/stts22h-temperature-sensor.cfg \
 		file://imx8mm-jaguar-dt510/lis2dh-accelerometer.cfg \
 		file://imx8mm-jaguar-dt510/video-disable.cfg \
 		file://imx8mm-jaguar-dt510/tas2562-audio-codec.cfg \

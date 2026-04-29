@@ -19,7 +19,7 @@
  *   Ethernet: i.MX FEC → Microchip KSZ9896 DSA (RGMII + I2C management on &i2c3 @ 0x5f); four LAN PHYs inside switch.
  *   Audio: TI TAS6424 (&sai1), TAS2563 (&sai3), TAC5301 analog (&sai6, I2C @0x50 — DTS ready; ASoC driver not in factory kernel yet).
  *            TAS6424 AMP_FAULT#/WARN# on gpio-keys (GPIO1_IO12/13).
- *   Power / sensing: TI BQ25792 charger + ST STTS22H temperature on &i2c3.
+ *   Power / sensing: TI BQ25792 charger on &i2c3.
  *   Zigbee: ECSPI1 to 802.15.4 module (userspace spidev); ZB_INT / ZB_RST on dedicated pads.
  *   CAN: Microchip MCP251863 on &ecspi2 (UART4 uses different pads — no mux clash); CAN_INT# GPIO4_IO16, CAN_STBY GPIO4_IO15.
  *   GNSS: u-blox NEO-M9V — GNSS_RES# on GPIO4_IO29 (SAI3_RXC mux), active-low reset driven by SoC.
@@ -765,7 +765,7 @@
  * I2C peripherals (see also file banner for Linux i2c-N vs &i2cN)
  *
  * &i2c2 (Linux i2c-1): audio ICs (TAS2563 / TAS6424).
- * &i2c3 (Linux i2c-2): KSZ9896 switch @ 0x5f + environmental sensor + charger + LT9611 HDMI bridge.
+ * &i2c3 (Linux i2c-2): KSZ9896 switch @ 0x5f + charger + LT9611 HDMI bridge.
  * PMIC &i2c1 stays in imx8mm-evkb.dts (PCA9450).
  */
 &i2c2 {
@@ -912,15 +912,6 @@
 				eee-broken-1000t;
 			};
 		};
-	};
-
-	/* ST STTS22H — low-power temperature sensor (alert on GPIO4). */
-	stts22h: stts22h@3f {
-		compatible = "st,stts22h";
-		reg = <0x3f>;
-		status = "okay";
-		interrupt-parent = <&gpio4>;
-		interrupts = <8 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	/* TI BQ25792 — battery charger; CHGR_INT# on GPIO4_IO9 (see pinctrl_bq25792_chgr_int). */
