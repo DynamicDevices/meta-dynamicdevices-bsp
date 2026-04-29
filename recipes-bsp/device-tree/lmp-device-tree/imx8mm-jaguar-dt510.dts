@@ -748,7 +748,12 @@
 &fec1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_fec1_dt510 &pinctrl_ksz9896_sideband>;
-	phy-mode = "rgmii-txid";
+	/*
+	 * RGMII to KSZ9896 CPU port: use rgmii-id so MAC phylink matches KSZ XMII internal delays.
+	 * (Avoid rgmii-txid + tx-internal-delay only on the switch port — KSZ driver then forces
+	 * rx_delay=0 and can clear the default RX-clock delay on Port 6, hurting ingress timing.)
+	 */
+	phy-mode = "rgmii-id";
 	status = "okay";
 	/delete-property/ phy-handle;
 	/delete-property/ fsl,magic-packet;
@@ -878,7 +883,8 @@
 				reg = <5>;
 				label = "cpu";
 				ethernet = <&fec1>;
-				phy-mode = "rgmii-txid";
+				phy-mode = "rgmii-id";
+				rx-internal-delay-ps = <2000>;
 				tx-internal-delay-ps = <2000>;
 
 				fixed-link {
@@ -1063,9 +1069,6 @@
  * "chipselect 0 already in use". Remove EVK child and gpio-CS; MCP2518 uses native ECSPI2_SS0 (pinctrl_ecspi2).
  */
 &ecspi2 {
-	/delete-node/ spi@0;
-	/delete-property/ cs-gpios;
-
 	#address-cells = <1>;
 	#size-cells = <0>;
 	pinctrl-names = "default";
@@ -1074,6 +1077,10 @@
 	/delete-property/ dmas;
 	/delete-property/ dma-names;
 	status = "okay";
+
+	/* Deletes must follow properties (dtc: properties precede subnodes). */
+	/delete-node/ spi@0;
+	/delete-property/ cs-gpios;
 
 	can0: can@0 {
 		compatible = "microchip,mcp251863", "microchip,mcp2518fd";
