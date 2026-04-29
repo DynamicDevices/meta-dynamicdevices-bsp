@@ -187,13 +187,13 @@
 		status = "okay";
 
 		tas6424_fault {
-			label = "tas6424-fault";
+			label = "tas6424-fault#";
 			gpios = <&gpio1 12 GPIO_ACTIVE_LOW>;
 			linux,code = <BTN_0>;
 		};
 
 		tas6424_warn {
-			label = "tas6424-warn";
+			label = "tas6424-warn#";
 			gpios = <&gpio1 13 GPIO_ACTIVE_LOW>;
 			linux,code = <BTN_1>;
 		};
@@ -694,24 +694,24 @@
 
 	/*
 	 * NEO-M9V GNSS_RES# — active-low reset from SoC; released high at boot.
-	 * sysfs line name: gnss-res-n (GPIO4_IO29). Toggle via /sys/class/gpio or libgpiod if hog removed later.
+	 * sysfs line name: gnss-res# (GPIO4_IO29). Toggle via /sys/class/gpio or libgpiod if hog removed later.
 	 */
-	gnss-res-n-hog {
+	gnss-res-hog {
 		gpio-hog;
 		gpios = <29 GPIO_ACTIVE_LOW>;
 		output-high;
-		line-name = "gnss-res-n";
+		line-name = "gnss-res#";
 	};
 
 	/*
 	 * CP2108 quad UART bridge — QUART_RES# (SAI1_RXD3 → GPIO4_IO5), active-low reset from SoC.
 	 * output-high = logical inactive for GPIO_ACTIVE_LOW → physical high → bridge out of reset at boot.
 	 */
-	quart-res-n-hog {
+	quart-res-hog {
 		gpio-hog;
 		gpios = <5 GPIO_ACTIVE_LOW>;
 		output-high;
-		line-name = "quart-res-n";
+		line-name = "quart-res#";
 	};
 
 	/*
