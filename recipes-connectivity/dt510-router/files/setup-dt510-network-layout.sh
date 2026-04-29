@@ -42,7 +42,7 @@ for p in 2 3 4; do
 	fi
 done
 
-# Drop legacy single-port DHCP profile from earlier dt510-networkmanager-dsa revisions.
+# Drop legacy single-port DHCP profile from earlier BSP revisions.
 nmcli connection delete DT510-lan1-dhcp 2>/dev/null || true
 
 nmcli connection up "${WAN_CON}" 2>/dev/null || true

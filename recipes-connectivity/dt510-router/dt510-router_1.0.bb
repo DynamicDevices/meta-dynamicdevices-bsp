@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-SUMMARY = "NetworkManager: DT510 KSZ9896 — DHCP client on lan1, DHCP server on lan2–lan4"
+SUMMARY = "dt510-router — NM WAN DHCP + LAN DHCP/NAT (KSZ9896 DSA)"
 DESCRIPTION = "Unmanages DSA master end0. DT510-wan: DHCP client on lan1 (WAN). \
 DT510-lan-bridge: br-lan with lan2–lan4 as bridge ports; ipv4.method shared provides \
 a DHCP server for devices on those ports plus NAT to WAN. Override DT510_WAN_IFACE \
