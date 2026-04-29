@@ -1,6 +1,9 @@
 #!/bin/sh
-# DT510 — KSZ9896 DSA: WAN on lan1 (DHCP upstream); LAN on bridge br-lan (lan2–lan4).
-# ipv4.method shared on the bridge = DHCP + NAT toward default route (WAN).
+# DT510 — KSZ9896 DSA
+#
+# - lan1 / WAN: DHCP client toward upstream (internet). Connection DT510-wan (ipv4.method auto).
+# - lan2–lan4 / LAN: bridged as br-lan; NetworkManager ipv4.method shared runs a DHCP server for
+#   hosts plugged into those ports and NATs outbound traffic via the WAN default route.
 set -e
 WAN_IF="${DT510_WAN_IFACE:-lan1}"
 BR_IF="${DT510_LAN_BRIDGE_NAME:-br-lan}"

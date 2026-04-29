@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: MIT
-SUMMARY = "NetworkManager: DT510 KSZ9896 — WAN on lan1, LAN bridge on lan2–lan4"
-DESCRIPTION = "Unmanages DSA master end0. Creates DT510-wan (DHCP on lan1) and \
-DT510-lan-bridge (br-lan: ipv4.method shared on lan2–lan4). Override DT510_WAN_IFACE \
+SUMMARY = "NetworkManager: DT510 KSZ9896 — DHCP client on lan1, DHCP server on lan2–lan4"
+DESCRIPTION = "Unmanages DSA master end0. DT510-wan: DHCP client on lan1 (WAN). \
+DT510-lan-bridge: br-lan with lan2–lan4 as bridge ports; ipv4.method shared provides \
+a DHCP server for devices on those ports plus NAT to WAN. Override DT510_WAN_IFACE \
 or DT510_LAN_BRIDGE_NAME via systemd Environment= if needed."
 
 LICENSE = "MIT"

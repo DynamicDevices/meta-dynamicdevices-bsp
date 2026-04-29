@@ -1,5 +1,5 @@
 [Unit]
-Description=DT510: WAN on lan1, LAN bridge br-lan (lan2–lan4)
+Description=DT510: DHCP client on lan1 (WAN); DHCP server + NAT on br-lan for lan2–lan4
 After=NetworkManager.service
 Wants=NetworkManager.service
 
