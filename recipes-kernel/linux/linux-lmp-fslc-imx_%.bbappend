@@ -49,6 +49,7 @@ do_configure:append:imx8mm-jaguar-sentai(){
 
 SRC_URI:append:imx8mm-jaguar-dt510 = " \
 		file://i2c-dev-interface.cfg \
+		file://imx8mm-jaguar-dt510/pmic-pca9450.cfg \
 		file://imx8mm-jaguar-dt510/bq25792-charger.cfg \
 		file://imx8mm-jaguar-dt510/cp2108-usb-serial.cfg \
 		file://imx8mm-jaguar-dt510/mcp251xfd-can.cfg \

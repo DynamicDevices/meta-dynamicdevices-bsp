@@ -14,7 +14,7 @@
  *   PMIC: inherited PCA9450 on &i2c1 @ 0x25 (imx8mm-evkb.dts).
  *   Cellular: USB OTG2 host; LTE_RST (GPIO2_IO8), LTE_OFF / power-down (GPIO3_IO1), SIM_SEL (GPIO5_IO3: low=nano, high=eSIM) via GPIO hogs + hoggrp mux.
  *   Storage: on-chip eMMC on USDHC3 (same NAND-pin mux as i.MX8MM EVK — imx8mm-evkb.dtsi does not pull in imx8mm-evk.dts, which enables this).
- *   WLAN/BT: IW612-class SDIO on USDHC2 + UART1 Bluetooth sideband; WLAN/BT wake and reset lines hogged.
+ *   WLAN/BT: IW612-class SDIO on USDHC2 + UART1 Bluetooth sideband; WIFI_PD# (GPIO3_IO7), WL_RST# (GPIO2_IO10 / SD1_RESET_B), BT straps hogged.
  *   Ethernet: i.MX FEC → Microchip KSZ9896 DSA (RGMII + I2C management on &i2c2 @ 0x5f); four LAN PHYs inside switch.
  *   Audio: TI TAS6424 (&sai1), TAS2563 (&sai3), TAC5301 analog (&sai6, I2C @0x50 — DTS ready; ASoC driver not in factory kernel yet).
  *            TAS6424 AMP_FAULT#/WARN# on gpio-keys (GPIO1_IO12/13).
@@ -209,7 +209,7 @@
  *   uart1 — UART1 + UART3 pins used as RTS/CTS for Bluetooth (IW8997 sideband).
  *   uart4 — MCXC144VFM MCU serial (RDC domain programmed for A53).
  *   usdhc2 — SDIO to WLAN module (4-bit).
- *   fec1 / ksz9896_sideband — RGMII to KSZ9896; SAI1 pins repurposed as switch PME/INTR/RST GPIOs.
+ *   fec1 / ksz9896_sideband — RGMII to KSZ9896; SAI1 pads: ENET_INTRP_N# (SAI1_RXFS→GPIO4_IO0), ENET_RST_N# (SAI1_RXC→GPIO4_IO1), + PME on GPIO4_IO4 (SAI1_RXD2).
  *   gpio1_dio — general-purpose DIO on GPIO1_IO00/01/04–09 (pad CFG per DT510 pin tool; IO02/03 N.C. on SKU).
  *   tas6424_gpio / sai1_tas6424 — TAS6424 enable/fault GPIOs + I2S to class-D.
  *   sai2 — Not wired for audio on DT510 (pads may overlap Zigbee); pinmux retained for reference.
@@ -228,15 +228,17 @@
 	/*
 	 * Boot-time strap pins. GPIO2_IO6 / GPIO2_IO11 are reserved for HDMI (see pinctrl_hdmi); WL_WAKE host wake
 	 * and SDIO wifi_wake_host nodes were removed — SDIO WLAN wake-from-sleep via that line is not available.
+	 * WLAN_RST# — SD1_RESET_B → GPIO2_IO10 (active-low), see &gpio2 wlan-rst-hog.
 	 */
 	pinctrl_hog: hoggrp {
 		fsl,pins = <
+			MX8MM_IOMUXC_SD1_RESET_B_GPIO2_IO10	0x140  /* WLAN_RST# / WL_RST# */
 			MX8MM_IOMUXC_SD1_DATA5_GPIO2_IO7	0x140  /* BT_WAKE_DEV */
 			MX8MM_IOMUXC_SD1_DATA6_GPIO2_IO8	0x140  /* LTE_RST */
 			MX8MM_IOMUXC_NAND_CE0_B_GPIO3_IO1	0x140  /* LTE_OFF / FUL_CARD_POWER_OFF# */
 			MX8MM_IOMUXC_NAND_DATA01_GPIO3_IO7      0x140  /* WIFI_PD# */
 			MX8MM_IOMUXC_NAND_DATA02_GPIO3_IO8	0x140  /* BT_WAKE_HOST */
-			MX8MM_IOMUXC_NAND_DATA03_GPIO3_IO9      0x140  /* BT_RST# */
+			MX8MM_IOMUXC_NAND_DATA03_GPIO3_IO9      0x140  /* BT_RST# — ISR / independent SW reset, active-low */
 			MX8MM_IOMUXC_SPDIF_RX_GPIO5_IO4         0x140  /* CODEC_SD# (TAS2563 reset strap) */
 			MX8MM_IOMUXC_SPDIF_TX_GPIO5_IO3         0x140  /* SIM_SEL: low=nano SIM, high=eSIM */
 		>;
@@ -426,12 +428,17 @@
 		>;
 	};
 
-	/* KSZ9896 — INT#, RST#, PME# when muxed on SAI1 pads (see gpio4 / switch node). */
+	/*
+	 * KSZ9896 / FEC sideband on SAI1 pads (see &ksz9896_sw).
+	 *   ENET_INTRP_N# — SAI1_RXFS → GPIO4_IO0, input to SoC, active-low (interrupt to MAC driver).
+	 *   ENET_RST_N#    — SAI1_RXC → GPIO4_IO1, output from SoC, active-low (switch reset).
+	 *   PME / wake     — SAI1_RXD2 → GPIO4_IO4 (ksz9896 PME hog).
+	 */
 	pinctrl_ksz9896_sideband: ksz9896sidebandgrp {
 		fsl,pins = <
-			MX8MM_IOMUXC_SAI1_RXFS_GPIO4_IO0	0x116
-			MX8MM_IOMUXC_SAI1_RXC_GPIO4_IO1	0x116
-			MX8MM_IOMUXC_SAI1_RXD2_GPIO4_IO4	0x116
+			MX8MM_IOMUXC_SAI1_RXFS_GPIO4_IO0	0x116	/* ENET_INTRP_N# */
+			MX8MM_IOMUXC_SAI1_RXC_GPIO4_IO1	0x116	/* ENET_RST_N# */
+			MX8MM_IOMUXC_SAI1_RXD2_GPIO4_IO4	0x116	/* KSZ9896 PME / ent-pme */
 		>;
 	};
 
@@ -569,9 +576,9 @@
 
 /*
  * GPIO hogs — lines that must stay at defined levels for WLAN/BT/LTE/switch wake; not runtime GPIO API.
- *   gpio2 — BT_WAKE_DEV (IO7), LTE_RST (IO8); GPIO2_IO6/IO11 = HDMI LT9611 mux — no WL_WAKE hog.
- *   gpio3 — LTE_OFF / full-card power off (IO1), WLAN PD, BT wake host + reset.
- *   gpio4 — KSZ9896 PME, GNSS_RES#, CP2108 QUART_RES#, MCP251863 CAN_STBY hog, CAN_INT# (IRQ — not hogged); TAC5301 strap GPIO4_IO14 (when codec enabled); HDMI fault; fec/switch sideband.
+ *   gpio2 — WLAN_RST# / WL_RST (IO10, SD1_RESET_B mux); BT_WAKE_DEV (IO7), LTE_RST (IO8); GPIO2_IO6/IO11 = HDMI.
+ *   gpio3 — LTE_OFF / full-card power off (IO1), WIFI_PD#, BT_WAKE_HOST (IO8), BT_RST# (IO9, NAND_DATA03 mux).
+ *   gpio4 — ENET_INTRP_N# (IO0), ENET_RST_N# via &ksz9896_sw (IO1), KSZ9896 PME (IO4); GNSS_RES#, QUART_RES#, CAN_STBY hog, CAN_INT#; TAC5301 strap IO14; HDMI fault.
  *   gpio5 — SIM_SEL (IO3): output-low at boot selects nano SIM per RF shield/BOM (drive high for eSIM).
  */
 &gpio2 {
@@ -591,6 +598,16 @@
 		gpios = <8 GPIO_ACTIVE_HIGH>;
 		output-low;
 		line-name = "lte-reset";
+	};
+
+	/*
+	 * WLAN_RST# / WL_RST — SD1_RESET_B → GPIO2_IO10, active-low from SoC. output-high = deasserted (module out of reset).
+	 */
+	wlan-rst-hog {
+		gpio-hog;
+		gpios = <10 GPIO_ACTIVE_LOW>;
+		output-high;
+		line-name = "wlan-rst#";
 	};
 };
 
@@ -614,11 +631,15 @@
 		input;
 		line-name = "bt-wake-host";
 	};
+
+	/*
+	 * BT_RST# — NAND_DATA03 → GPIO3_IO9; independent software reset (active-low from SoC).
+	 */
 	bt-reset-hog {
 		gpio-hog;
 		gpios = <9 GPIO_ACTIVE_LOW>;
 		output-low;
-		line-name = "bt-reset";
+		line-name = "bt-rst#";
 	};
 };
 
@@ -741,8 +762,10 @@
 	ksz9896_sw: switch@5f {
 		compatible = "microchip,ksz9896";
 		reg = <0x5f>;
+		/* ENET_RST_N# — SAI1_RXC → GPIO4_IO1; active-low reset output from SoC */
 		reset-gpios = <&gpio4 1 GPIO_ACTIVE_LOW>;
 		interrupt-parent = <&gpio4>;
+		/* ENET_INTRP_N# — SAI1_RXFS → GPIO4_IO0; active-low interrupt input */
 		interrupts = <0 IRQ_TYPE_LEVEL_LOW>;
 
 		ethernet-ports {
