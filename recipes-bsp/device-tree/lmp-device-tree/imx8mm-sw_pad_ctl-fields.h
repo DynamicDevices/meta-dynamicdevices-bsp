@@ -1,108 +1,60 @@
 /* SPDX-License-Identifier: (GPL-2.0 OR MIT) */
 /*
- * i.MX 8M Mini — SW_PAD_CTL_* bitfields for &iomuxc fsl,pins second cell.
+ * i.MX 8M Mini — SW_PAD_CTL_PAD_* bitfields (second cell of &iomuxc fsl,pins).
  *
- * Each pad has IOMUXC_SW_PAD_CTL_PAD_<NAME>; fsl,pins passes the full 32-bit image.
- * Use IMX8MM_SW_PAD_CTL_WVAL() or the helpers below to build values; match IMX8MMRM
- * "SW_PAD_CTL_PAD_<PADNAME>" for reserved bits on specific pads.
+ * **Not i.MX6:** Older family pads used a wider SW_PAD_CTL map (e.g. HYS at bit 16,
+ * SPEED at [7:6], DSE at [5:3]). On i.MX 8M Mini only bits [8:0] are meaningful for
+ * these pads; [31:9] are reserved — see IMX8MMRM Chapter 8 / section per pad.
  *
- * Typical layout (MSB .. LSB of interest for GPIO-class pads):
+ * Layout (matches NXP RM figure for GPIO-class pads and Linux
+ * arch/arm64/boot/dts/freescale/imx8mm-pinfunc.h MX8MM_* literals):
  *
- *     HYS  PUS  PUE  PKE  ODE  (res)  PDRV  SPEED  DSE   B21   SRE
- *     [16] [15:14] [13] [12] [11] [10] [9:8] [7:6] [5:3] [2:1] [0]
+ *     PE    HYS   PUE    ODE   FSEL    DSE
+ *    [8]   [7]   [6]    [5]   [4:3]   [2:0]
  *
- * B21: RM column name varies; EVK hex often sets bits [2:1]. PDRV: RM name varies (bits [9:8]).
+ * PE    — Pull Enable (often labeled PE in RM tables).
+ * HYS   — Hysteresis (CMOS vs Schmitt).
+ * PUE   — Pull direction when PE is set (see RM; Linux MX8MM_PULL_UP / PULL_DOWN).
+ * ODE   — Open Drain Enable.
+ * FSEL  — Slew / frequency select (Linux: MX8MM_FSEL_FAST / FSEL_SLOW).
+ * DSE   — Drive Strength; **encoding is not sequential** — use named macros below.
+ *
+ * Prior revisions of this file incorrectly used i.MX6 bit positions; Michael’s check
+ * against the IMX8MMRM table is correct.
  */
 
 #ifndef __IMX8MM_SW_PAD_CTL_FIELDS_H
 #define __IMX8MM_SW_PAD_CTL_FIELDS_H
 
-/* Shifts (bit position of field LSB) and width-one / multi-bit masks */
+/* Valid electrical bits for typical GPIO pads (reserved bits above must stay 0). */
+#define IMX8MM_SW_PAD_CTL_MASK_TRAILING		0x1ffu
 
-#define IMX8MM_SW_PAD_CTL_SRE_SHIFT		0u
-#define IMX8MM_SW_PAD_CTL_SRE_MASK		(1u << IMX8MM_SW_PAD_CTL_SRE_SHIFT)
+/*
+ * Drive strength [2:0] — values from Linux imx8mm-pinfunc.h (non-linear encoding).
+ */
+#define IMX8MM_SW_PAD_CTL_DSE_X1		0x0u
+#define IMX8MM_SW_PAD_CTL_DSE_X2		0x4u
+#define IMX8MM_SW_PAD_CTL_DSE_X4		0x2u
+#define IMX8MM_SW_PAD_CTL_DSE_X6		0x6u
 
-#define IMX8MM_SW_PAD_CTL_B21_SHIFT		1u
-#define IMX8MM_SW_PAD_CTL_B21_MASK		(3u << IMX8MM_SW_PAD_CTL_B21_SHIFT)
+#define IMX8MM_SW_PAD_CTL_FSEL_SLOW		0x0u
+#define IMX8MM_SW_PAD_CTL_FSEL_FAST		0x10u
 
-#define IMX8MM_SW_PAD_CTL_DSE_SHIFT		3u
-#define IMX8MM_SW_PAD_CTL_DSE_MASK		(7u << IMX8MM_SW_PAD_CTL_DSE_SHIFT)
+#define IMX8MM_SW_PAD_CTL_ODE_DIS		0x0u
+#define IMX8MM_SW_PAD_CTL_ODE_EN		0x20u
 
-#define IMX8MM_SW_PAD_CTL_SPEED_SHIFT		6u
-#define IMX8MM_SW_PAD_CTL_SPEED_MASK		(3u << IMX8MM_SW_PAD_CTL_SPEED_SHIFT)
+#define IMX8MM_SW_PAD_CTL_PUE_DOWN		0x0u
+#define IMX8MM_SW_PAD_CTL_PUE_UP		0x40u
 
-#define IMX8MM_SW_PAD_CTL_PDRV_SHIFT		8u
-#define IMX8MM_SW_PAD_CTL_PDRV_MASK		(3u << IMX8MM_SW_PAD_CTL_PDRV_SHIFT)
+#define IMX8MM_SW_PAD_CTL_HYS_CMOS		0x0u
+#define IMX8MM_SW_PAD_CTL_HYS_SCHMITT		0x80u
 
-#define IMX8MM_SW_PAD_CTL_ODE_SHIFT		11u
-#define IMX8MM_SW_PAD_CTL_ODE_MASK		(1u << IMX8MM_SW_PAD_CTL_ODE_SHIFT)
+#define IMX8MM_SW_PAD_CTL_PE_DIS		0x0u
+#define IMX8MM_SW_PAD_CTL_PE_EN			0x100u
 
-#define IMX8MM_SW_PAD_CTL_PKE_SHIFT		12u
-#define IMX8MM_SW_PAD_CTL_PKE_MASK		(1u << IMX8MM_SW_PAD_CTL_PKE_SHIFT)
-
-#define IMX8MM_SW_PAD_CTL_PUE_SHIFT		13u
-#define IMX8MM_SW_PAD_CTL_PUE_MASK		(1u << IMX8MM_SW_PAD_CTL_PUE_SHIFT)
-
-#define IMX8MM_SW_PAD_CTL_PUS_SHIFT		14u
-#define IMX8MM_SW_PAD_CTL_PUS_MASK		(3u << IMX8MM_SW_PAD_CTL_PUS_SHIFT)
-
-#define IMX8MM_SW_PAD_CTL_HYS_SHIFT		16u
-#define IMX8MM_SW_PAD_CTL_HYS_MASK		(1u << IMX8MM_SW_PAD_CTL_HYS_SHIFT)
-
-/* Insert *val* into a *width*-bit field starting at *shift* (no GCC builtins). */
-#define IMX8MM_SW_PAD_CTL_WVAL(shift, width, val)			\
-	((((unsigned int)(val)) & ((1u << (width)) - 1u)) << (shift))
-
-#define IMX8MM_SW_PAD_CTL_B21(v)					\
-	IMX8MM_SW_PAD_CTL_WVAL(IMX8MM_SW_PAD_CTL_B21_SHIFT, 2u, (unsigned int)(v))
-
-/* SRE — slew rate (bit 0) */
-
-#define IMX8MM_SW_PAD_CTL_SRE_SLOW		0u
-#define IMX8MM_SW_PAD_CTL_SRE_FAST		IMX8MM_SW_PAD_CTL_WVAL(IMX8MM_SW_PAD_CTL_SRE_SHIFT, 1u, 1u)
-
-/* DSE — drive strength (bits [5:3]); names follow RM DSE column */
-
-#define IMX8MM_SW_PAD_CTL_DSE_DISABLED		IMX8MM_SW_PAD_CTL_WVAL(IMX8MM_SW_PAD_CTL_DSE_SHIFT, 3u, 0u)
-#define IMX8MM_SW_PAD_CTL_DSE_X1		IMX8MM_SW_PAD_CTL_WVAL(IMX8MM_SW_PAD_CTL_DSE_SHIFT, 3u, 1u)
-#define IMX8MM_SW_PAD_CTL_DSE_X2		IMX8MM_SW_PAD_CTL_WVAL(IMX8MM_SW_PAD_CTL_DSE_SHIFT, 3u, 2u)
-#define IMX8MM_SW_PAD_CTL_DSE_X3		IMX8MM_SW_PAD_CTL_WVAL(IMX8MM_SW_PAD_CTL_DSE_SHIFT, 3u, 3u)
-#define IMX8MM_SW_PAD_CTL_DSE_X4		IMX8MM_SW_PAD_CTL_WVAL(IMX8MM_SW_PAD_CTL_DSE_SHIFT, 3u, 4u)
-#define IMX8MM_SW_PAD_CTL_DSE_X5		IMX8MM_SW_PAD_CTL_WVAL(IMX8MM_SW_PAD_CTL_DSE_SHIFT, 3u, 5u)
-#define IMX8MM_SW_PAD_CTL_DSE_X6		IMX8MM_SW_PAD_CTL_WVAL(IMX8MM_SW_PAD_CTL_DSE_SHIFT, 3u, 6u)
-#define IMX8MM_SW_PAD_CTL_DSE_X7		IMX8MM_SW_PAD_CTL_WVAL(IMX8MM_SW_PAD_CTL_DSE_SHIFT, 3u, 7u)
-
-/* SPEED — bits [7:6] */
-
-#define IMX8MM_SW_PAD_CTL_SPEED_LOW		IMX8MM_SW_PAD_CTL_WVAL(IMX8MM_SW_PAD_CTL_SPEED_SHIFT, 2u, 0u)
-#define IMX8MM_SW_PAD_CTL_SPEED_MEDIUM		IMX8MM_SW_PAD_CTL_WVAL(IMX8MM_SW_PAD_CTL_SPEED_SHIFT, 2u, 1u)
-#define IMX8MM_SW_PAD_CTL_SPEED_FAST		IMX8MM_SW_PAD_CTL_WVAL(IMX8MM_SW_PAD_CTL_SPEED_SHIFT, 2u, 2u)
-#define IMX8MM_SW_PAD_CTL_SPEED_MAX		IMX8MM_SW_PAD_CTL_WVAL(IMX8MM_SW_PAD_CTL_SPEED_SHIFT, 2u, 3u)
-
-/* PDRV — bits [9:8] */
-
-#define IMX8MM_SW_PAD_CTL_PDRV_0		IMX8MM_SW_PAD_CTL_WVAL(IMX8MM_SW_PAD_CTL_PDRV_SHIFT, 2u, 0u)
-#define IMX8MM_SW_PAD_CTL_PDRV_1		IMX8MM_SW_PAD_CTL_WVAL(IMX8MM_SW_PAD_CTL_PDRV_SHIFT, 2u, 1u)
-#define IMX8MM_SW_PAD_CTL_PDRV_2		IMX8MM_SW_PAD_CTL_WVAL(IMX8MM_SW_PAD_CTL_PDRV_SHIFT, 2u, 2u)
-#define IMX8MM_SW_PAD_CTL_PDRV_3		IMX8MM_SW_PAD_CTL_WVAL(IMX8MM_SW_PAD_CTL_PDRV_SHIFT, 2u, 3u)
-
-#define IMX8MM_SW_PAD_CTL_ODE_DIS		0u
-#define IMX8MM_SW_PAD_CTL_ODE_EN		IMX8MM_SW_PAD_CTL_WVAL(IMX8MM_SW_PAD_CTL_ODE_SHIFT, 1u, 1u)
-
-#define IMX8MM_SW_PAD_CTL_PKE_DIS		0u
-#define IMX8MM_SW_PAD_CTL_PKE_EN		IMX8MM_SW_PAD_CTL_WVAL(IMX8MM_SW_PAD_CTL_PKE_SHIFT, 1u, 1u)
-
-#define IMX8MM_SW_PAD_CTL_PUE_KEEPER		0u
-#define IMX8MM_SW_PAD_CTL_PUE_PULL		IMX8MM_SW_PAD_CTL_WVAL(IMX8MM_SW_PAD_CTL_PUE_SHIFT, 1u, 1u)
-
-/* PUS — bits [15:14] */
-
-#define IMX8MM_SW_PAD_CTL_PUS_100K_PD		IMX8MM_SW_PAD_CTL_WVAL(IMX8MM_SW_PAD_CTL_PUS_SHIFT, 2u, 0u)
-#define IMX8MM_SW_PAD_CTL_PUS_47K_PU		IMX8MM_SW_PAD_CTL_WVAL(IMX8MM_SW_PAD_CTL_PUS_SHIFT, 2u, 1u)
-#define IMX8MM_SW_PAD_CTL_PUS_100K_PU		IMX8MM_SW_PAD_CTL_WVAL(IMX8MM_SW_PAD_CTL_PUS_SHIFT, 2u, 2u)
-#define IMX8MM_SW_PAD_CTL_PUS_22K_PU		IMX8MM_SW_PAD_CTL_WVAL(IMX8MM_SW_PAD_CTL_PUS_SHIFT, 2u, 3u)
-
-#define IMX8MM_SW_PAD_CTL_HYS_DIS		0u
-#define IMX8MM_SW_PAD_CTL_HYS_EN		IMX8MM_SW_PAD_CTL_WVAL(IMX8MM_SW_PAD_CTL_HYS_SHIFT, 1u, 1u)
+/*
+ * Optional mux note (not SW_PAD_CTL): Linux sets SION via bit in IOMUXC mux register
+ * (e.g. I2C 0x400001c3) — do not confuse with pad electricals.
+ */
 
 #endif /* __IMX8MM_SW_PAD_CTL_FIELDS_H */

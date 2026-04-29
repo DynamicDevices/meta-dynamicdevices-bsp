@@ -241,22 +241,22 @@
 	 */
 	pinctrl_hog: hoggrp {
 		fsl,pins = <
-			MX8MM_IOMUXC_SD1_RESET_B_GPIO2_IO10	IMX8MM_PAD_EVK_STRAP  /* WLAN_RST# / WL_RST# */
-			MX8MM_IOMUXC_SD1_DATA5_GPIO2_IO7	IMX8MM_PAD_EVK_STRAP  /* BT_WAKE_DEV */
-			MX8MM_IOMUXC_SD1_DATA6_GPIO2_IO8	IMX8MM_PAD_EVK_STRAP  /* LTE_RST */
-			MX8MM_IOMUXC_NAND_CE0_B_GPIO3_IO1	IMX8MM_PAD_EVK_STRAP  /* LTE_OFF / FUL_CARD_POWER_OFF# */
-			MX8MM_IOMUXC_NAND_DATA01_GPIO3_IO7      IMX8MM_PAD_EVK_STRAP  /* WIFI_PD# */
-			MX8MM_IOMUXC_NAND_DATA02_GPIO3_IO8	IMX8MM_PAD_EVK_STRAP  /* BT_WAKE_HOST */
-			MX8MM_IOMUXC_NAND_DATA03_GPIO3_IO9      IMX8MM_PAD_EVK_STRAP  /* BT_RST# — ISR / independent SW reset, active-low */
-			MX8MM_IOMUXC_SPDIF_RX_GPIO5_IO4         IMX8MM_PAD_EVK_STRAP  /* CODEC_SD# (TAS2563 reset strap) */
-			MX8MM_IOMUXC_SPDIF_TX_GPIO5_IO3         IMX8MM_PAD_EVK_STRAP  /* SIM_SEL: low=nano SIM, high=eSIM */
+			MX8MM_IOMUXC_SD1_RESET_B_GPIO2_IO10	IMX8MM_PAD_EVK_BASIC  /* WLAN_RST# / WL_RST# */
+			MX8MM_IOMUXC_SD1_DATA5_GPIO2_IO7	IMX8MM_PAD_EVK_BASIC  /* BT_WAKE_DEV */
+			MX8MM_IOMUXC_SD1_DATA6_GPIO2_IO8	IMX8MM_PAD_EVK_BASIC  /* LTE_RST */
+			MX8MM_IOMUXC_NAND_CE0_B_GPIO3_IO1	IMX8MM_PAD_EVK_BASIC  /* LTE_OFF / FUL_CARD_POWER_OFF# */
+			MX8MM_IOMUXC_NAND_DATA01_GPIO3_IO7      IMX8MM_PAD_EVK_BASIC  /* WIFI_PD# */
+			MX8MM_IOMUXC_NAND_DATA02_GPIO3_IO8	IMX8MM_PAD_EVK_BASIC  /* BT_WAKE_HOST */
+			MX8MM_IOMUXC_NAND_DATA03_GPIO3_IO9      IMX8MM_PAD_EVK_BASIC  /* BT_RST# — ISR / independent SW reset, active-low */
+			MX8MM_IOMUXC_SPDIF_RX_GPIO5_IO4         IMX8MM_PAD_EVK_BASIC  /* CODEC_SD# (TAS2563 reset strap) */
+			MX8MM_IOMUXC_SPDIF_TX_GPIO5_IO3         IMX8MM_PAD_EVK_BASIC  /* SIM_SEL: low=nano SIM, high=eSIM */
 		>;
 	};
 
 	/* TI BQ25792 — CHGR_INT# (active-low alert from charger). */
 	pinctrl_bq25792_chgr_int: bq25792_chgr_int_grp {
 		fsl,pins = <
-			MX8MM_IOMUXC_SAI1_RXD7_GPIO4_IO9	IMX8MM_PAD_EVK_STRAP  /* CHGR_INT# */
+			MX8MM_IOMUXC_SAI1_RXD7_GPIO4_IO9	IMX8MM_PAD_EVK_BASIC  /* CHGR_INT# */
 		>;
 	};
 
@@ -266,7 +266,7 @@
 	 */
 	pinctrl_gnss_reset: gnssresetgrp {
 		fsl,pins = <
-			MX8MM_IOMUXC_SAI3_RXC_GPIO4_IO29	IMX8MM_PAD_EVK_STRAP
+			MX8MM_IOMUXC_SAI3_RXC_GPIO4_IO29	IMX8MM_PAD_EVK_BASIC
 		>;
 	};
 
@@ -277,9 +277,9 @@
 	 */
 	pinctrl_hdmi: hdmigrp {
 		fsl,pins = <
-			MX8MM_IOMUXC_SD1_STROBE_GPIO2_IO11	IMX8MM_PAD_EVK_STRAP
-			MX8MM_IOMUXC_SD1_DATA4_GPIO2_IO6	IMX8MM_PAD_EVK_STRAP
-			MX8MM_IOMUXC_SAI3_RXFS_GPIO4_IO28	IMX8MM_PAD_EVK_STRAP
+			MX8MM_IOMUXC_SD1_STROBE_GPIO2_IO11	IMX8MM_PAD_EVK_BASIC
+			MX8MM_IOMUXC_SD1_DATA4_GPIO2_IO6	IMX8MM_PAD_EVK_BASIC
+			MX8MM_IOMUXC_SAI3_RXFS_GPIO4_IO28	IMX8MM_PAD_EVK_BASIC
 		>;
 	};
 
@@ -289,7 +289,7 @@
 	 */
 	pinctrl_quart_reset: quartresetgrp {
 		fsl,pins = <
-			MX8MM_IOMUXC_SAI1_RXD3_GPIO4_IO5	IMX8MM_PAD_EVK_STRAP
+			MX8MM_IOMUXC_SAI1_RXD3_GPIO4_IO5	IMX8MM_PAD_EVK_BASIC
 		>;
 	};
 
@@ -314,10 +314,10 @@
 	/* Bluetooth (NXP IW8997): UART1 data + UART3 pins as HCI RTS/CTS. */
 	pinctrl_uart1: uart1grp {
 		fsl,pins = <
-			MX8MM_IOMUXC_UART1_RXD_UART1_DCE_RX     IMX8MM_PAD_EVK_STRAP
-			MX8MM_IOMUXC_UART1_TXD_UART1_DCE_TX     IMX8MM_PAD_EVK_STRAP
-			MX8MM_IOMUXC_UART3_TXD_UART1_DCE_RTS_B  IMX8MM_PAD_EVK_STRAP
-			MX8MM_IOMUXC_UART3_RXD_UART1_DCE_CTS_B  IMX8MM_PAD_EVK_STRAP
+			MX8MM_IOMUXC_UART1_RXD_UART1_DCE_RX     IMX8MM_PAD_EVK_BASIC
+			MX8MM_IOMUXC_UART1_TXD_UART1_DCE_TX     IMX8MM_PAD_EVK_BASIC
+			MX8MM_IOMUXC_UART3_TXD_UART1_DCE_RTS_B  IMX8MM_PAD_EVK_BASIC
+			MX8MM_IOMUXC_UART3_RXD_UART1_DCE_CTS_B  IMX8MM_PAD_EVK_BASIC
 		>;
 	};
 
@@ -326,8 +326,8 @@
 	 */
 	pinctrl_uart4: uart4grp {
 		fsl,pins = <
-			MX8MM_IOMUXC_UART4_RXD_UART4_DCE_RX     IMX8MM_PAD_EVK_STRAP
-			MX8MM_IOMUXC_UART4_TXD_UART4_DCE_TX     IMX8MM_PAD_EVK_STRAP
+			MX8MM_IOMUXC_UART4_RXD_UART4_DCE_RX     IMX8MM_PAD_EVK_BASIC
+			MX8MM_IOMUXC_UART4_TXD_UART4_DCE_TX     IMX8MM_PAD_EVK_BASIC
 		>;
 	};
 
@@ -502,27 +502,27 @@
 	/* ECSPI1 — SPI clock/data to Zigbee module; CS on GPIO5_IO9. */
 	pinctrl_ecspi1: ecspi1grp {
 		fsl,pins = <
-			MX8MM_IOMUXC_ECSPI1_SS0_GPIO5_IO9	IMX8MM_PAD_EVK_STRAP
-			MX8MM_IOMUXC_ECSPI1_SCLK_ECSPI1_SCLK	IMX8MM_PAD_EVK_STRAP
-			MX8MM_IOMUXC_ECSPI1_MISO_ECSPI1_MISO	IMX8MM_PAD_EVK_STRAP
-			MX8MM_IOMUXC_ECSPI1_MOSI_ECSPI1_MOSI	IMX8MM_PAD_EVK_STRAP
+			MX8MM_IOMUXC_ECSPI1_SS0_GPIO5_IO9	IMX8MM_PAD_EVK_BASIC
+			MX8MM_IOMUXC_ECSPI1_SCLK_ECSPI1_SCLK	IMX8MM_PAD_EVK_BASIC
+			MX8MM_IOMUXC_ECSPI1_MISO_ECSPI1_MISO	IMX8MM_PAD_EVK_BASIC
+			MX8MM_IOMUXC_ECSPI1_MOSI_ECSPI1_MOSI	IMX8MM_PAD_EVK_BASIC
 		>;
 	};
 
 	/* Zigbee — ZB_INT on GPIO4_IO22 only (GPIO2_IO11 remapped to HDMI_RES#). */
 	pinctrl_zigbee: zigbeegrp {
 		fsl,pins = <
-			MX8MM_IOMUXC_SAI2_RXC_GPIO4_IO22        IMX8MM_PAD_EVK_STRAP
+			MX8MM_IOMUXC_SAI2_RXC_GPIO4_IO22        IMX8MM_PAD_EVK_BASIC
 		>;
 	};
 
 	/* ECSPI2 — Microchip MCP251863 CAN controller (chip select SS0). */
 	pinctrl_ecspi2: ecspi2grp {
 		fsl,pins = <
-			MX8MM_IOMUXC_ECSPI2_SCLK_ECSPI2_SCLK	IMX8MM_PAD_EVK_STRAP
-			MX8MM_IOMUXC_ECSPI2_MISO_ECSPI2_MISO	IMX8MM_PAD_EVK_STRAP
-			MX8MM_IOMUXC_ECSPI2_MOSI_ECSPI2_MOSI	IMX8MM_PAD_EVK_STRAP
-			MX8MM_IOMUXC_ECSPI2_SS0_ECSPI2_SS0	IMX8MM_PAD_EVK_STRAP
+			MX8MM_IOMUXC_ECSPI2_SCLK_ECSPI2_SCLK	IMX8MM_PAD_EVK_BASIC
+			MX8MM_IOMUXC_ECSPI2_MISO_ECSPI2_MISO	IMX8MM_PAD_EVK_BASIC
+			MX8MM_IOMUXC_ECSPI2_MOSI_ECSPI2_MOSI	IMX8MM_PAD_EVK_BASIC
+			MX8MM_IOMUXC_ECSPI2_SS0_ECSPI2_SS0	IMX8MM_PAD_EVK_BASIC
 		>;
 	};
 
@@ -532,8 +532,8 @@
 	 */
 	pinctrl_can_mcp2518_gpio: canmcp2518gpiogrp {
 		fsl,pins = <
-			MX8MM_IOMUXC_SAI1_TXD3_GPIO4_IO15	IMX8MM_PAD_EVK_STRAP
-			MX8MM_IOMUXC_SAI1_TXD4_GPIO4_IO16	IMX8MM_PAD_EVK_STRAP
+			MX8MM_IOMUXC_SAI1_TXD3_GPIO4_IO15	IMX8MM_PAD_EVK_BASIC
+			MX8MM_IOMUXC_SAI1_TXD4_GPIO4_IO16	IMX8MM_PAD_EVK_BASIC
 		>;
 	};
 
@@ -588,13 +588,19 @@
 };
 
 /*
- * GPIO hogs — lines that must stay at defined levels for WLAN/BT/LTE/switch wake; not runtime GPIO API.
+ * GPIO hogs — kernel-owned GPIO lines with fixed direction/level at probe time (no /dev/gpiochip export).
+ * Purpose: (1) safe boot defaults before userspace or modular drivers (resets released, power domains on,
+ * SIM mux chosen); (2) reserve lines that are pure hardware straps or sideband so nothing else claims them.
  *   gpio2 — WLAN_RST# / WL_RST (IO10, SD1_RESET_B mux); BT_WAKE_DEV (IO7), LTE_RST (IO8); GPIO2_IO6/IO11 = HDMI.
  *   gpio3 — LTE_OFF / full-card power off (IO1), WIFI_PD#, BT_WAKE_HOST (IO8), BT_RST# (IO9, NAND_DATA03 mux).
- *   gpio4 — ENET_INTRP_N# (IO0), ENET_RST_N# via &ksz9896_sw (IO1), KSZ9896 PME (IO4); GNSS_RES#, QUART_RES#, CAN_STBY hog, CAN_INT#; TAC5301 strap IO14; HDMI fault.
+ *   gpio4 — ENET_INTRP_N# (IO0), ENET_RST_N# via &ksz9896_sw (IO1), KSZ9896 PME (IO4); GNSS_RES#, QUART_RES#, CAN_STBY; TAC5301 strap IO14; HDMI fault elsewhere.
  *   gpio5 — SIM_SEL (IO3): output-low at boot selects nano SIM per RF shield/BOM (drive high for eSIM).
  */
 &gpio2 {
+	/*
+	 * BT_WAKE_DEV — host-driven wake toward the BT/WLAN module (SD1_DATA5 / GPIO2_IO7). Holds the strap
+	 * the RF stack expects at boot; remove hog if firmware needs to pulse this at runtime.
+	 */
 	bt-wake-dev-hog {
 		gpio-hog;
 		gpios = <7 GPIO_ACTIVE_HIGH>;
@@ -627,6 +633,10 @@
 };
 
 &gpio3 {
+	/*
+	 * LTE_OFF / FUL_CARD_POWER_OFF# (NAND_CE0_B → GPIO3_IO1) — spreadsheet active-high: output-low keeps the
+	 * modem out of “full card off”; drive high to assert power-down when userspace controls the line.
+	 */
 	lte-power-down-hog {
 		gpio-hog;
 		gpios = <1 GPIO_ACTIVE_HIGH>;
@@ -634,12 +644,21 @@
 		line-name = "lte-power-down";
 	};
 
+	/*
+	 * WIFI_PD# (NAND_DATA01 → GPIO3_IO7) — active-low WLAN radio power-down. output-low = logical inactive =
+	 * PD# deasserted so Wi-Fi is not held in power-down at boot.
+	 */
 	wlan-power-down-hog {
 		gpio-hog;
 		gpios = <7 GPIO_ACTIVE_LOW>;
 		output-low;
 		line-name = "wlan-power-down#";
 	};
+
+	/*
+	 * BT_WAKE_HOST — input from BT/WLAN module toward the AP (NAND_DATA02 / GPIO3_IO8). Hogged as input so
+	 * the line is muxed and not exported as a free output; the module drives host-wake when needed.
+	 */
 	bt-wake-host-hog {
 		gpio-hog;
 		gpios = <8 GPIO_ACTIVE_HIGH>;
@@ -662,6 +681,10 @@
 	/* Sideband pads muxed with &fec1 / pinctrl_ksz9896_sideband — do not add gpio4 pinctrl-0 here. */
 	status = "okay";
 
+	/*
+	 * KSZ9896 PME / energy-detect (SAI1_RXD2 → GPIO4_IO4) — switch wake / link-energy sideband. Hogged as
+	 * input so the line stays associated with the hog until DSA/MAC path owns wake semantics.
+	 */
 	ksz9896_pme {
 		gpio-hog;
 		gpios = <4 GPIO_ACTIVE_HIGH>;
@@ -680,7 +703,10 @@
 		line-name = "gnss-res-n";
 	};
 
-	/* CP2108 — QUART_RES# released high at boot (active-low reset). */
+	/*
+	 * CP2108 quad UART bridge — QUART_RES# (SAI1_RXD3 → GPIO4_IO5), active-low reset from SoC.
+	 * output-high = logical inactive for GPIO_ACTIVE_LOW → physical high → bridge out of reset at boot.
+	 */
 	quart-res-n-hog {
 		gpio-hog;
 		gpios = <5 GPIO_ACTIVE_LOW>;
@@ -701,6 +727,10 @@
 };
 
 &gpio5 {
+	/*
+	 * SIM_SEL (SPDIF_TX → GPIO5_IO3) — mux between nano SIM slot and eSIM: output-low selects nano SIM,
+	 * output-high selects eSIM (matches spreadsheet active-high naming).
+	 */
 	sim-sel-hog {
 		gpio-hog;
 		gpios = <3 GPIO_ACTIVE_HIGH>;
