@@ -1076,11 +1076,11 @@
 	fsl,spi-num-chipselects = <1>;
 	/delete-property/ dmas;
 	/delete-property/ dma-names;
+	/delete-property/ cs-gpios;
 	status = "okay";
 
-	/* Deletes must follow properties (dtc: properties precede subnodes). */
+	/* /delete-property/ must precede /delete-node/ (dtc treats delete-node as subnode-related). */
 	/delete-node/ spi@0;
-	/delete-property/ cs-gpios;
 
 	can0: can@0 {
 		compatible = "microchip,mcp251863", "microchip,mcp2518fd";
