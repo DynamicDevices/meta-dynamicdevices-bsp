@@ -1,0 +1,12 @@
+[Unit]
+Description=DT510: DHCP on KSZ9896 DSA user port (lan1), not DSA master end0
+After=NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/setup-dt510-lan1-connection.sh
+
+[Install]
+WantedBy=multi-user.target
