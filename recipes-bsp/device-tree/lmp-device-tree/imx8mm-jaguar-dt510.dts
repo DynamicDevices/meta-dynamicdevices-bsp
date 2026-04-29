@@ -30,6 +30,11 @@
  *   SE050 secure element: I2C4 @ 0x48 — handled by U-Boot / OpTEE, not described here.
  *
  * I2C numbering: Linux adapter i2c-N corresponds to DTS &i2c(N+1) on this SoC (e.g. i2c-1 = &i2c2).
+ *
+ * Active-low GPIO lines (# suffix, GPIO_ACTIVE_LOW): for gpio-hog, output-low requests logical
+ * inactive (line electrically high for an active-low signal = enable released / reset deasserted);
+ * output-high requests logical active (electrically low = asserted). Getting this backwards holds
+ * chips in reset or powered down — see wlan-rst-hog under &gpio2.
  */
 
 #include "freescale/imx8mm-evkb.dts"
@@ -606,12 +611,14 @@
 	};
 
 	/*
-	 * WLAN_RST# / WL_RST — SD1_RESET_B → GPIO2_IO10, active-low from SoC. output-high = deasserted (module out of reset).
+	 * WLAN_RST# / WL_RST — SD1_RESET_B → GPIO2_IO10, active-low from SoC.
+	 * With GPIO_ACTIVE_LOW, gpio-hog "output-low" is logical inactive → physical HIGH → reset
+	 * deasserted (part running). "output-high" was logical active → physical LOW → held in reset.
 	 */
 	wlan-rst-hog {
 		gpio-hog;
 		gpios = <10 GPIO_ACTIVE_LOW>;
-		output-high;
+		output-low;
 		line-name = "wlan-rst#";
 	};
 };
