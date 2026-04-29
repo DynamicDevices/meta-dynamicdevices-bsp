@@ -63,17 +63,14 @@
 	/delete-node/ sound-ak5558;
 	/delete-node/ sound-ak4497;
 
+	/* EVK DSI→HDMI graph — uses hdmi@3d on &i2c2 (ADV7535); DT510 uses LT9611 on &i2c3 instead. */
+	/delete-node/ hdmi-connector;
+
 	/*
 	 * Fixed rails for on-board silicon:
-	 *   vddext — 3V3 digital / codec DVDD where referenced.
+	 *   3V3 — imx8mm-evk.dtsi `reg_vddext_3v3` (VDDEXT_3V3); use &reg_vddext_3v3 — do not duplicate regulator-name.
 	 *   tas6424_hi_rail — 12V class-D VBATT+PVDD net for TAS6424 (nominal; confirm vs BOM).
 	 */
-	vddext: regulator-vddext {
-		compatible = "regulator-fixed";
-		regulator-name = "VDDEXT_3V3";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-	};
 
 	/*
 	 * TAS6424 VBAT/PVDD: driver needs separate supplies; one fixed rail for both here.
@@ -775,13 +772,10 @@
 	/delete-node/ tcpc@50;
 
 	/*
-	 * EVK hdmi@3d (ADV7535 on DSI→HDMI) — not fitted / not used on DT510 (LT9611 @ &i2c3).
-	 * imx8mm-evk.dtsi assigns GPIO1_IO9 as IRQ for this chip; leave disabled so no GPIO claim
-	 * conflicts with pinctrl_gpio1_dio (same pad).
+	 * EVK hdmi@3d (ADV7535 / adv7511 driver) — remove entirely; NXP stacks may still probe or apply
+	 * pinctrl (synaptics_dsx_iogrp) if only status=disabled. GPIO1_IO9 then clashes with pinctrl_gpio1_dio.
 	 */
-	hdmi@3d {
-		status = "disabled";
-	};
+	/delete-node/ hdmi@3d;
 
 	/* TI TAS2563 — smart amp / speaker driver (control + diagnostics on I2C, audio on &sai3). */
 	tas2563: tas2563@4c {
@@ -807,7 +801,7 @@
 		#sound-dai-cells = <0>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_tas6424_gpio>;
-		dvdd-supply = <&vddext>;
+		dvdd-supply = <&reg_vddext_3v3>;
 		vbat-supply = <&tas6424_hi_rail>;
 		pvdd-supply = <&tas6424_hi_rail>;
 		standby-gpios = <&gpio1 10 GPIO_ACTIVE_LOW>;
@@ -827,8 +821,8 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_tac5301_gpio>;
 		reset-gpios = <&gpio4 14 GPIO_ACTIVE_LOW>;
-		avdd-supply = <&vddext>;
-		iovdd-supply = <&vddext>;
+		avdd-supply = <&reg_vddext_3v3>;
+		iovdd-supply = <&reg_vddext_3v3>;
 		status = "disabled";
 	};
 };
@@ -946,8 +940,8 @@
 		reset-gpios = <&gpio2 11 GPIO_ACTIVE_LOW>;
 		interrupt-parent = <&gpio2>;
 		interrupts = <6 IRQ_TYPE_LEVEL_HIGH>;
-		vdd-supply = <&vddext>;
-		vcc-supply = <&vddext>;
+		vdd-supply = <&reg_vddext_3v3>;
+		vcc-supply = <&reg_vddext_3v3>;
 	};
 };
 
@@ -984,6 +978,7 @@
  *   uart3 — not fitted / unused on this product.
  *   sai6 — TAC5301 path (see tac5301@50); enable with ti,tac5x1x ASoC when kernel supports it.
  *   ir_recv — EVK GPIO1_IR conflicts with TAS6424 GPIO usage.
+ *   snvs_pwrkey — EVK enables SNVS PMIC_ON_REQ power key; DT510 product has no wired key / avoid stray KEY_POWER input.
  *   reg_pcie0 / pcie0 — mini-PCIe power path not used (no M.2/NVMe on this SKU).
  *   backlight — no EVK-style LCD panel on DT510.
  *   mipi_dsi — display stack disabled until product HDMI/display bring-up.
@@ -1009,6 +1004,10 @@
 	status = "disabled";
 };
 
+&snvs_pwrkey {
+	status = "disabled";
+};
+
 &reg_pcie0 {
 	status = "disabled";
 };
@@ -1019,6 +1018,8 @@
 
 &mipi_dsi {
 	status = "disabled";
+	/* Drop dsi_out → adv7535_in link (hdmi@3d deleted). */
+	/delete-node/ ports;
 };
 
 &spdif1 {
@@ -1057,8 +1058,14 @@
 
 /*
  * ECSPI2 — Microchip MCP251863 CAN-FD controller (SPI). ECSPI2 pads are distinct from UART4 RX/TX balls on i.MX8MM.
+ *
+ * linux-imx imx8mm-evk.dtsi (not mainline) adds spidev0 @ spi@0 + cs-gpios on GPIO5_IO13 — same CS as MCP2518 →
+ * "chipselect 0 already in use". Remove EVK child and gpio-CS; MCP2518 uses native ECSPI2_SS0 (pinctrl_ecspi2).
  */
 &ecspi2 {
+	/delete-node/ spi@0;
+	/delete-property/ cs-gpios;
+
 	#address-cells = <1>;
 	#size-cells = <0>;
 	pinctrl-names = "default";
@@ -1075,7 +1082,7 @@
 		spi-max-frequency = <20000000>;
 		interrupt-parent = <&gpio4>;
 		interrupts = <16 IRQ_TYPE_LEVEL_LOW>;
-		vdd-supply = <&vddext>;
+		vdd-supply = <&reg_vddext_3v3>;
 	};
 };
 
