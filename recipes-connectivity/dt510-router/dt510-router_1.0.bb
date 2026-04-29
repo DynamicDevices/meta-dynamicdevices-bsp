@@ -6,7 +6,7 @@ a DHCP server for devices on those ports plus NAT to WAN. Override DT510_WAN_IFA
 or DT510_LAN_BRIDGE_NAME via systemd Environment= if needed."
 
 LICENSE = "MIT"
-LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=083fadedef074be8699806d522d018711"
+LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
 inherit systemd
 
