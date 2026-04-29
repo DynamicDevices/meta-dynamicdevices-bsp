@@ -263,7 +263,7 @@
 
 	/*
 	 * NEO-M9V GNSS — GNSS_RES# → GPIO4_IO29 (mux SAI3_RXC pad as GPIO).
-	 * Hog below drives inactive (high) so module is out of reset; pulse low in userspace if needed.
+	 * Hog uses GPIO_ACTIVE_LOW + output-low (same as bt-reset-hog) → reset deasserted at boot; pulse active in userspace if needed.
 	 */
 	pinctrl_gnss_reset: gnssresetgrp {
 		fsl,pins = <
@@ -286,7 +286,7 @@
 
 	/*
 	 * CP2108 USB–quad-UART — QUART_RES# (active-low) on SAI1_RXD3 → GPIO4_IO5.
-	 * Ports enumerate as /dev/ttyUSB* via usbserial once USB attaches (OTG host port).
+	 * Hog uses GPIO_ACTIVE_LOW + output-low like bt-reset-hog. Ports: /dev/ttyUSB* once USB attaches.
 	 */
 	pinctrl_quart_reset: quartresetgrp {
 		fsl,pins = <
@@ -694,24 +694,25 @@
 	};
 
 	/*
-	 * NEO-M9V GNSS_RES# — active-low reset from SoC; released high at boot.
-	 * sysfs line name: gnss-res# (GPIO4_IO29). Toggle via /sys/class/gpio or libgpiod if hog removed later.
+	 * NEO-M9V GNSS_RES# — active-low reset from SoC (same hog pattern as bt-reset-hog / wlan-rst-hog).
+	 * GPIO_ACTIVE_LOW + output-low → logical inactive → physical high → reset deasserted at boot.
+	 * sysfs line name: gnss-res# (GPIO4_IO29). Toggle via libgpiod if hog removed later.
 	 */
 	gnss-res-hog {
 		gpio-hog;
 		gpios = <29 GPIO_ACTIVE_LOW>;
-		output-high;
+		output-low;
 		line-name = "gnss-res#";
 	};
 
 	/*
 	 * CP2108 quad UART bridge — QUART_RES# (SAI1_RXD3 → GPIO4_IO5), active-low reset from SoC.
-	 * output-high = logical inactive for GPIO_ACTIVE_LOW → physical high → bridge out of reset at boot.
+	 * Same pattern as bt-reset-hog: GPIO_ACTIVE_LOW + output-low → reset deasserted (bridge running).
 	 */
 	quart-res-hog {
 		gpio-hog;
 		gpios = <5 GPIO_ACTIVE_LOW>;
-		output-high;
+		output-low;
 		line-name = "quart-res#";
 	};
 
@@ -1021,7 +1022,6 @@
 /*
  * ECSPI — Zigbee / 802.15.4 radio module
  *   Hardware SPI to RF IC; userspace opens spidev for Silicon Labs ZBOSS / spinel stacks.
- *   DT510: no dedicated ZB_RST# — radio reset is fixed in hardware or not exposed on this SKU.
  *   DMA disabled so transfers stay predictable for timing-sensitive firmware reloads.
  */
 &ecspi1 {
