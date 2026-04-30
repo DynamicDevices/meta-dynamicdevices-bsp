@@ -14,7 +14,7 @@
  *   PMIC: inherited PCA9450 on &i2c1 @ 0x25 (imx8mm-evkb.dts).
  *   Cellular: USB OTG2 host; LTE_RST (GPIO2_IO8), LTE_OFF / power-down (GPIO3_IO1), SIM_SEL (GPIO5_IO3: low=nano, high=eSIM) via GPIO hogs + hoggrp mux.
  *   Storage: on-chip eMMC on USDHC3 (same NAND-pin mux as i.MX8MM EVK — imx8mm-evkb.dtsi does not pull in imx8mm-evk.dts, which enables this).
- *   WLAN/BT: IW612 SDIO on USDHC2 + UART1; strap pins (hoggrp / gpio2 / gpio3):
+ *   WLAN/BT: IW612 SDIO on USDHC1 (mmc@30b40000) + UART1; strap pins (hoggrp / gpio2 / gpio3):
  *            WIFI_PD# NAND_DATA01→GPIO3_IO7; WL_WAKE SD1_DATA7→GPIO2_IO9 (IRQ 9); WL_RST# SD1_RESET_B→GPIO2_IO10;
  *            BT_WAKE_HOST NAND_DATA02→GPIO3_IO8; BT_RST# NAND_DATA03→GPIO3_IO9.
  *            SDIO VMMC from PCA9450 VDDEXT (`&reg_vddext_3v3`) — same rail approach as jaguar-sentai `regulator-vddext`.
@@ -216,7 +216,7 @@
  *   bq25792_chgr_int — CHGR_INT# from charger (muxed GPIO4).
  *   uart1 — UART1 + UART3 pins used as RTS/CTS for Bluetooth (IW8997 sideband).
  *   uart4 — MCXC144VFM MCU serial (RDC domain programmed for A53).
- *   usdhc2 — SDIO to WLAN module (4-bit).
+ *   usdhc1 — SDIO to WLAN module (4-bit; SD1_CLK/CMD/DATA0–3). SD1_DATA5–7 / RESET_B stay GPIO straps.
  *   fec1 / ksz9896_sideband — RGMII to KSZ9896; SAI1 pads: ENET_INTRP_N# (SAI1_RXFS→GPIO4_IO0), ENET_RST_N# (SAI1_RXC→GPIO4_IO1), + PME on GPIO4_IO4 (SAI1_RXD2).
  *   gpio1_dio — general-purpose DIO on GPIO1_IO00/01/04–09 (single SW_PAD GPIO_DEFAULT; IO02/03 N.C. on SKU).
  *   tas6424_gpio / sai1_tas6424 — TAS6424 enable/fault GPIOs + I2S to class-D.
@@ -329,37 +329,37 @@
 		>;
 	};
 
-	/* USDHC2 — Wi-Fi module SDIO (IW612 class / MAYA-W2 family). */
-	pinctrl_usdhc2: usdhc2grp {
+	/* USDHC1 — Wi-Fi module SDIO (IW612 / MAYA-W2); SD1_CLK/CMD/DATA0–3 only (RESET_B stays GPIO hog for WL_RST#). */
+	pinctrl_usdhc1: usdhc1grp {
 		fsl,pins = <
-			MX8MM_IOMUXC_SD2_CLK_USDHC2_CLK         IMX8MM_PAD_USDHC_CLK
-			MX8MM_IOMUXC_SD2_CMD_USDHC2_CMD         IMX8MM_PAD_USDHC_BUS
-			MX8MM_IOMUXC_SD2_DATA0_USDHC2_DATA0     IMX8MM_PAD_USDHC_BUS
-			MX8MM_IOMUXC_SD2_DATA1_USDHC2_DATA1     IMX8MM_PAD_USDHC_BUS
-			MX8MM_IOMUXC_SD2_DATA2_USDHC2_DATA2     IMX8MM_PAD_USDHC_BUS
-			MX8MM_IOMUXC_SD2_DATA3_USDHC2_DATA3     IMX8MM_PAD_USDHC_BUS
+			MX8MM_IOMUXC_SD1_CLK_USDHC1_CLK         IMX8MM_PAD_USDHC_CLK
+			MX8MM_IOMUXC_SD1_CMD_USDHC1_CMD         IMX8MM_PAD_USDHC_BUS
+			MX8MM_IOMUXC_SD1_DATA0_USDHC1_DATA0     IMX8MM_PAD_USDHC_BUS
+			MX8MM_IOMUXC_SD1_DATA1_USDHC1_DATA1     IMX8MM_PAD_USDHC_BUS
+			MX8MM_IOMUXC_SD1_DATA2_USDHC1_DATA2     IMX8MM_PAD_USDHC_BUS
+			MX8MM_IOMUXC_SD1_DATA3_USDHC1_DATA3     IMX8MM_PAD_USDHC_BUS
 		>;
 	};
 
-	pinctrl_usdhc2_100mhz: usdhc2-100mhzgrp {
+	pinctrl_usdhc1_100mhz: usdhc1-100mhzgrp {
 		fsl,pins = <
-			MX8MM_IOMUXC_SD2_CLK_USDHC2_CLK         IMX8MM_PAD_USDHC_CLK_100MHZ
-			MX8MM_IOMUXC_SD2_CMD_USDHC2_CMD         IMX8MM_PAD_USDHC_BUS_100MHZ
-			MX8MM_IOMUXC_SD2_DATA0_USDHC2_DATA0     IMX8MM_PAD_USDHC_BUS_100MHZ
-			MX8MM_IOMUXC_SD2_DATA1_USDHC2_DATA1     IMX8MM_PAD_USDHC_BUS_100MHZ
-			MX8MM_IOMUXC_SD2_DATA2_USDHC2_DATA2     IMX8MM_PAD_USDHC_BUS_100MHZ
-			MX8MM_IOMUXC_SD2_DATA3_USDHC2_DATA3     IMX8MM_PAD_USDHC_BUS_100MHZ
+			MX8MM_IOMUXC_SD1_CLK_USDHC1_CLK         IMX8MM_PAD_USDHC_CLK_100MHZ
+			MX8MM_IOMUXC_SD1_CMD_USDHC1_CMD         IMX8MM_PAD_USDHC_BUS_100MHZ
+			MX8MM_IOMUXC_SD1_DATA0_USDHC1_DATA0     IMX8MM_PAD_USDHC_BUS_100MHZ
+			MX8MM_IOMUXC_SD1_DATA1_USDHC1_DATA1     IMX8MM_PAD_USDHC_BUS_100MHZ
+			MX8MM_IOMUXC_SD1_DATA2_USDHC1_DATA2     IMX8MM_PAD_USDHC_BUS_100MHZ
+			MX8MM_IOMUXC_SD1_DATA3_USDHC1_DATA3     IMX8MM_PAD_USDHC_BUS_100MHZ
 		>;
 	};
 
-	pinctrl_usdhc2_200mhz: usdhc2-200mhzgrp {
+	pinctrl_usdhc1_200mhz: usdhc1-200mhzgrp {
 		fsl,pins = <
-			MX8MM_IOMUXC_SD2_CLK_USDHC2_CLK         IMX8MM_PAD_USDHC_CLK_200MHZ
-			MX8MM_IOMUXC_SD2_CMD_USDHC2_CMD         IMX8MM_PAD_USDHC_BUS_200MHZ
-			MX8MM_IOMUXC_SD2_DATA0_USDHC2_DATA0     IMX8MM_PAD_USDHC_BUS_200MHZ
-			MX8MM_IOMUXC_SD2_DATA1_USDHC2_DATA1     IMX8MM_PAD_USDHC_BUS_200MHZ
-			MX8MM_IOMUXC_SD2_DATA2_USDHC2_DATA2     IMX8MM_PAD_USDHC_BUS_200MHZ
-			MX8MM_IOMUXC_SD2_DATA3_USDHC2_DATA3     IMX8MM_PAD_USDHC_BUS_200MHZ
+			MX8MM_IOMUXC_SD1_CLK_USDHC1_CLK         IMX8MM_PAD_USDHC_CLK_200MHZ
+			MX8MM_IOMUXC_SD1_CMD_USDHC1_CMD         IMX8MM_PAD_USDHC_BUS_200MHZ
+			MX8MM_IOMUXC_SD1_DATA0_USDHC1_DATA0     IMX8MM_PAD_USDHC_BUS_200MHZ
+			MX8MM_IOMUXC_SD1_DATA1_USDHC1_DATA1     IMX8MM_PAD_USDHC_BUS_200MHZ
+			MX8MM_IOMUXC_SD1_DATA2_USDHC1_DATA2     IMX8MM_PAD_USDHC_BUS_200MHZ
+			MX8MM_IOMUXC_SD1_DATA3_USDHC1_DATA3     IMX8MM_PAD_USDHC_BUS_200MHZ
 		>;
 	};
 
@@ -1111,18 +1111,19 @@
 };
 
 /*
- * USDHC2 — SDIO interface to WLAN module (NXP IW612 / ublox MAYA-W2 class).
- *   vmmc-supply — PCA9450 VDDEXT (`&reg_vddext_3v3`). wifi_wake_host — GPIO2_IO9 (SD1_DATA7), IRQ 9.
- * imx8mm-evkb.dts disables &usdhc2; enable explicitly before other props so SDIO host cannot stay off.
+ * USDHC1 — SDIO to IW612 (MAYA-W2 class). mmc@30b40000 is alias mmc0 on imx8mm (not USDHC2 / 30b50000).
+ * imx8mm-evk.dtsi enables &usdhc2 for EVK SD2; DT510 WLAN SDIO is on SD1 → disable &usdhc2, drive &usdhc1.
+ * vmmc-supply — PCA9450 VDDEXT (`&reg_vddext_3v3`). wifi_wake_host — GPIO2_IO9 (SD1_DATA7 / WL_WAKE), IRQ 9.
  */
-&usdhc2 {
+&usdhc1 {
 	status = "okay";
-	/* SDIO I/O voltage / card power — PMIC VDDEXT rail (imx8mm-evkb PCA9450), not a discrete WLAN-only buck in DT */
+	assigned-clocks = <&clk IMX8MM_CLK_USDHC1_ROOT>;
+	assigned-clock-rates = <400000000>;
 	vmmc-supply = <&reg_vddext_3v3>;
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
-	pinctrl-0 = <&pinctrl_usdhc2>;
-	pinctrl-1 = <&pinctrl_usdhc2_100mhz>;
-	pinctrl-2 = <&pinctrl_usdhc2_200mhz>;
+	pinctrl-0 = <&pinctrl_usdhc1>;
+	pinctrl-1 = <&pinctrl_usdhc1_100mhz>;
+	pinctrl-2 = <&pinctrl_usdhc1_200mhz>;
 	bus-width = <4>;
 	keep-power-in-suspend;
 	non-removable;
@@ -1141,6 +1142,11 @@
 	};
 };
 
+/* EVK enables USDHC2 for on-board SD2; not used for DT510 WLAN — avoid claiming SDIO / wrong bus. */
+&usdhc2 {
+	status = "disabled";
+};
+
 /*
  * USDHC3 — eMMC (EVK-style). imx8mm-evkb.dtsi leaves this disabled; imx8mm-evk.dts enabled it — restore here.
  */
@@ -1157,9 +1163,8 @@
 };
 
 /*
- * Terminal override: keep mmc@30b40000 (USDHC2) enabled after any later included fragments.
- * Regression (IMAGE_VERSION 246): DT showed status "disabled" → no SDHCI probe → no IW612 SDIO / wlan0.
+ * Terminal override: keep mmc@30b40000 (USDHC1) enabled (imx8mm.dtsi default is disabled).
  */
-&usdhc2 {
+&usdhc1 {
 	status = "okay";
 };
