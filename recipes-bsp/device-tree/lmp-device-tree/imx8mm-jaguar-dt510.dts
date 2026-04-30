@@ -1113,8 +1113,10 @@
 /*
  * USDHC2 — SDIO interface to WLAN module (NXP IW612 / ublox MAYA-W2 class).
  *   vmmc-supply — PCA9450 VDDEXT (`&reg_vddext_3v3`). wifi_wake_host — GPIO2_IO9 (SD1_DATA7), IRQ 9.
+ * imx8mm-evkb.dts disables &usdhc2; enable explicitly before other props so SDIO host cannot stay off.
  */
 &usdhc2 {
+	status = "okay";
 	/* SDIO I/O voltage / card power — PMIC VDDEXT rail (imx8mm-evkb PCA9450), not a discrete WLAN-only buck in DT */
 	vmmc-supply = <&reg_vddext_3v3>;
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
@@ -1129,7 +1131,6 @@
 	fsl,sdio-async-interrupt-enabled;
 	pm-ignore-notify;
 	cap-power-off-card;
-	status = "okay";
 
 	wifi_wake_host {
 		compatible = "nxp,wifi-wake-host";
@@ -1152,5 +1153,13 @@
 	pinctrl-2 = <&pinctrl_usdhc3_200mhz>;
 	bus-width = <8>;
 	non-removable;
+	status = "okay";
+};
+
+/*
+ * Terminal override: keep mmc@30b40000 (USDHC2) enabled after any later included fragments.
+ * Regression (IMAGE_VERSION 246): DT showed status "disabled" → no SDHCI probe → no IW612 SDIO / wlan0.
+ */
+&usdhc2 {
 	status = "okay";
 };
