@@ -329,8 +329,11 @@
 		>;
 	};
 
-	/* USDHC1 — Wi-Fi module SDIO (IW612 / MAYA-W2); SD1_CLK/CMD/DATA0–3 only (RESET_B stays GPIO hog for WL_RST#). */
-	pinctrl_usdhc1: usdhc1grp {
+	/*
+	 * USDHC1 — Wi-Fi SDIO (IW612). Labels must not reuse imx8mm-evk.dtsi
+	 * pinctrl_usdhc1_* (EVK SD1 / usdhc1grp100mhz etc.) — DTC duplicate_label.
+	 */
+	pinctrl_dt510_usdhc1: dt510-usdhc1grp {
 		fsl,pins = <
 			MX8MM_IOMUXC_SD1_CLK_USDHC1_CLK         IMX8MM_PAD_USDHC_CLK
 			MX8MM_IOMUXC_SD1_CMD_USDHC1_CMD         IMX8MM_PAD_USDHC_BUS
@@ -341,7 +344,7 @@
 		>;
 	};
 
-	pinctrl_usdhc1_100mhz: usdhc1-100mhzgrp {
+	pinctrl_dt510_usdhc1_100mhz: dt510-usdhc1-100mhzgrp {
 		fsl,pins = <
 			MX8MM_IOMUXC_SD1_CLK_USDHC1_CLK         IMX8MM_PAD_USDHC_CLK_100MHZ
 			MX8MM_IOMUXC_SD1_CMD_USDHC1_CMD         IMX8MM_PAD_USDHC_BUS_100MHZ
@@ -352,7 +355,7 @@
 		>;
 	};
 
-	pinctrl_usdhc1_200mhz: usdhc1-200mhzgrp {
+	pinctrl_dt510_usdhc1_200mhz: dt510-usdhc1-200mhzgrp {
 		fsl,pins = <
 			MX8MM_IOMUXC_SD1_CLK_USDHC1_CLK         IMX8MM_PAD_USDHC_CLK_200MHZ
 			MX8MM_IOMUXC_SD1_CMD_USDHC1_CMD         IMX8MM_PAD_USDHC_BUS_200MHZ
@@ -1121,9 +1124,9 @@
 	assigned-clock-rates = <400000000>;
 	vmmc-supply = <&reg_vddext_3v3>;
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
-	pinctrl-0 = <&pinctrl_usdhc1>;
-	pinctrl-1 = <&pinctrl_usdhc1_100mhz>;
-	pinctrl-2 = <&pinctrl_usdhc1_200mhz>;
+	pinctrl-0 = <&pinctrl_dt510_usdhc1>;
+	pinctrl-1 = <&pinctrl_dt510_usdhc1_100mhz>;
+	pinctrl-2 = <&pinctrl_dt510_usdhc1_200mhz>;
 	bus-width = <4>;
 	keep-power-in-suspend;
 	non-removable;
