@@ -17,7 +17,8 @@
  *   WLAN/BT: IW612 SDIO on USDHC1 (mmc@30b40000) + UART1; strap pins (hoggrp / gpio2 / gpio3):
  *            WIFI_PD# NAND_DATA01→GPIO3_IO7; WL_WAKE SD1_DATA7→GPIO2_IO9 (IRQ 9); WL_RST# SD1_RESET_B→GPIO2_IO10;
  *            BT_WAKE_HOST NAND_DATA02→GPIO3_IO8; BT_RST# NAND_DATA03→GPIO3_IO9.
- *            SDIO VMMC from PCA9450 VDDEXT (`&reg_vddext_3v3`) — same rail approach as jaguar-sentai `regulator-vddext`.
+ *            SDIO VMMC: dedicated `&reg_wifi_sdio_vmmc` (fixed, always-on) so IW612 is not tied to
+ *            enable/disable of `&reg_vddext_3v3` used elsewhere when PCA9450 is active.
  *   Ethernet: i.MX FEC → Microchip KSZ9896 DSA (RGMII + I2C management on &i2c3 @ 0x5f); four LAN PHYs inside switch.
  *   Audio: TI TAS6424 (&sai1), TAS2563 (&sai3), TAC5301 analog (&sai6, I2C @0x50 — DTS ready; ASoC driver not in factory kernel yet).
  *            TAS6424 AMP_FAULT#/WARN# on gpio-keys (GPIO1_IO12/13).
@@ -71,9 +72,22 @@
 
 	/*
 	 * Fixed rails for on-board silicon:
-	 *   3V3 — imx8mm-evk.dtsi `reg_vddext_3v3` (VDDEXT_3V3); use &reg_vddext_3v3 — do not duplicate regulator-name.
+	 *   3V3 — imx8mm-evk.dtsi `reg_vddext_3v3` (VDDEXT_3V3) for audio/HDMI/CAN/etc.; do not reuse that name here.
 	 *   tas6424_hi_rail — 12V class-D VBATT+PVDD net for TAS6424 (nominal; confirm vs BOM).
+	 *   reg_wifi_sdio_vmmc — logical SDIO VMMC for IW612 (same 3.3 V net; isolates mmc from VDDEXT toggling).
 	 */
+
+	/*
+	 * IW612 USDHC1 VMMC: regulator-fixed + always-on — mmc host does not drive enable/disable on
+	 * the shared VDDEXT / PMIC path (Wi-Fi regression when vmmc was `&reg_vddext_3v3` with PCA9450 active).
+	 */
+	reg_wifi_sdio_vmmc: regulator-wifi-sdio-vmmc {
+		compatible = "regulator-fixed";
+		regulator-name = "WIFI_SDIO_VMMC";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
 
 	/*
 	 * TAS6424 VBAT/PVDD: driver needs separate supplies; one fixed rail for both here.
@@ -773,15 +787,8 @@
  * &i2c3 (Linux i2c-2): KSZ9896 switch @ 0x5f + charger + LT9611 HDMI bridge.
  * PMIC &i2c1 stays in imx8mm-evkb.dts (PCA9450).
  */
-/*
- * TEMP TEST: disable PCA9450 I2C client — imx8mm-evk.dtsi still references PMIC
- * buck/LDO phandles; expect possible boot failure or unstable rails. Revert after
- * Wi-Fi / VMMC isolation experiment.
- */
-&i2c1 {
-	pmic@25 {
-		status = "disabled";
-	};
+&reg_vddext_3v3 {
+	regulator-always-on;
 };
 
 &i2c2 {
@@ -1128,12 +1135,14 @@
 /*
  * USDHC1 — SDIO to IW612 (MAYA-W2 class). mmc@30b40000 is alias mmc0 on imx8mm (not USDHC2 / 30b50000).
  * imx8mm-evk.dtsi enables &usdhc2 for EVK SD2; DT510 WLAN SDIO is on SD1 → disable &usdhc2, drive &usdhc1.
- * TEMP TEST: no vmmc-supply (revert of PCA9450 VDDEXT wiring from 2d6daa3). wifi_wake_host — GPIO2_IO9 (WL_WAKE), IRQ 9.
+ * vmmc-supply — `&reg_wifi_sdio_vmmc` (fixed always-on), not `&reg_vddext_3v3`, for PCA9450 + IW612 stability.
+ * wifi_wake_host — GPIO2_IO9 (SD1_DATA7 / WL_WAKE), IRQ 9.
  */
 &usdhc1 {
 	status = "okay";
 	assigned-clocks = <&clk IMX8MM_CLK_USDHC1_ROOT>;
 	assigned-clock-rates = <400000000>;
+	vmmc-supply = <&reg_wifi_sdio_vmmc>;
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
 	pinctrl-0 = <&pinctrl_dt510_usdhc1>;
 	pinctrl-1 = <&pinctrl_dt510_usdhc1_100mhz>;
@@ -1145,7 +1154,6 @@
 	max-frequency = <100000000>;
 	fsl,sdio-async-interrupt-enabled;
 	pm-ignore-notify;
-	cap-power-off-card;
 
 	wifi_wake_host {
 		compatible = "nxp,wifi-wake-host";
