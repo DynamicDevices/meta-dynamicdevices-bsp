@@ -743,6 +743,17 @@
 
 &gpio5 {
 	/*
+	 * TAS2563 — same as imx8mm-jaguar-sentai: hold shutdown/strap line (GPIO5_IO4) inactive at boot
+	 * before the ti,tas2563 driver drives reset-gpios on the same line.
+	 */
+	audio-shutdown-hog {
+		gpio-hog;
+		gpios = <4 GPIO_ACTIVE_LOW>;
+		output-low;
+		line-name = "tas2563-shutdown";
+	};
+
+	/*
 	 * SIM_SEL (SPDIF_TX → GPIO5_IO3) — mux between nano SIM slot and eSIM: output-low selects nano SIM,
 	 * output-high selects eSIM (matches spreadsheet active-high naming).
 	 */
@@ -991,8 +1002,8 @@
 &sai3 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sai3>;
-	/* Same pattern as &sai1: root clock → AUDIO_PLL1 (evk uses CLK_SAI3 for WM8524 only). */
-	assigned-clocks = <&clk IMX8MM_CLK_SAI3_ROOT>;
+	/* Match imx8mm-jaguar-sentai (working TAS2563): CLK_SAI3 → AUDIO_PLL1, not CLK_SAI3_ROOT. */
+	assigned-clocks = <&clk IMX8MM_CLK_SAI3>;
 	assigned-clock-parents = <&clk IMX8MM_AUDIO_PLL1_OUT>;
 	assigned-clock-rates = <12288000>;
 	fsl,sai-mclk-direction-output;
