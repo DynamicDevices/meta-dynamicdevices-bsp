@@ -126,6 +126,8 @@
 	/* Charger IC (BQ25792) battery chemistry model — tune vs actual pack (1S placeholder). */
 	battery_dt510: battery-dt510 {
 		compatible = "simple-battery";
+		/* bq257xx_charger requires voltage-min-design (see power_supply_get_battery_info). */
+		voltage-min-design-microvolt = <3000000>;
 		constant-charge-voltage-max-microvolt = <4200000>;
 		constant-charge-current-max-microamp = <2000000>;
 		charge-term-current-microamp = <160000>;
