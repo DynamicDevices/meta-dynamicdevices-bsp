@@ -10,29 +10,42 @@
  * Hardware SSOT: VIX DT510 pinout / hardware spec (Google Doc — revise on schematic proof).
  * Bring-up plan & tiers: docs/DT510-BSP-PROJECT-PLAN.md
  *
- * Board highlights (this file vs EVK):
- *   PMIC: inherited PCA9450 on &i2c1 @ 0x25 (imx8mm-evkb.dts).
- *   Cellular: USB OTG2 host; LTE_RST (GPIO2_IO8), LTE_OFF / power-down (GPIO3_IO1), SIM_SEL (GPIO5_IO3: low=nano, high=eSIM) via GPIO hogs + hoggrp mux.
- *   Storage: on-chip eMMC on USDHC3 (same NAND-pin mux as i.MX8MM EVK — imx8mm-evkb.dtsi does not pull in imx8mm-evk.dts, which enables this).
- *   WLAN/BT: IW612 SDIO on USDHC1 (mmc@30b40000) + UART1; strap pins (hoggrp / gpio2 / gpio3):
- *            WIFI_PD# NAND_DATA01→GPIO3_IO7; WL_WAKE SD1_DATA7→GPIO2_IO9 (IRQ 9); WL_RST# SD1_RESET_B→GPIO2_IO10;
- *            BT_WAKE_HOST NAND_DATA02→GPIO3_IO8; BT_RST# NAND_DATA03→GPIO3_IO9.
- *            SDIO VMMC: dedicated `&reg_wifi_sdio_vmmc` (fixed, always-on) so IW612 is not tied to
- *            enable/disable of `&reg_vddext_3v3` used elsewhere when PCA9450 is active.
- *   Ethernet: i.MX FEC → Microchip KSZ9896 DSA (RGMII + I2C management on &i2c3 @ 0x5f); four LAN PHYs inside switch.
- *   Audio: TI TAS6424 (&sai1), TAS2563 (&sai3), TAC5301 analog (&sai6, I2C @0x50 — DTS ready; ASoC driver not in factory kernel yet).
+ * Hardware summary (this file vs EVK — SSOT pinout in product spec; blocks wired below):
+ *   PMIC: PCA9450 on &i2c1 @ 0x25 (imx8mm-evkb.dts base).
+ *   Cellular: USB OTG2 host; LTE_RST (GPIO2_IO8), LTE_OFF (GPIO3_IO1), SIM_SEL (GPIO5_IO3: low=nano, high=eSIM) via hogs.
+ *   Storage: on-chip eMMC on USDHC3 (EVKB NAND-pin mux).
+ *   WLAN/BT: IW612 SDIO on USDHC1 + UART1; WIFI_PD#/WL_WAKE/WL_RST#, BT_WAKE_HOST/BT_RST# on gpio2/3; SDIO VMMC is
+ *            `&reg_wifi_sdio_vmmc` (fixed, always-on) so Wi-Fi is not gated by `&reg_vddext_3v3` / PMIC sequencing.
+ *   Ethernet: FEC → Microchip KSZ9896 DSA (RGMII + I²C on &i2c3 @ 0x5f); internal PHYs on switch MDIO.
+ *   Audio: TAS6424 (&sai1), TAS2563 (&sai3); TAC5301 on &sai6 @ 0x50 — DTS present; upstream ASoC driver TBD for factory kernel.
  *            TAS6424 AMP_FAULT#/WARN# on gpio-keys (GPIO1_IO12/13).
- *   Power / sensing: TI BQ25792 charger on &i2c3.
- *   Zigbee: ECSPI1 to 802.15.4 module (userspace spidev); ZB_INT on GPIO4_IO22 only — no ZB_RST# on DT510 hardware.
- *   CAN: Microchip MCP251863 on &ecspi2 (UART4 uses different pads — no mux clash); CAN_INT# GPIO4_IO16, CAN_STBY GPIO4_IO15.
- *   GNSS: u-blox NEO-M9V — GNSS_RES# on GPIO4_IO29 (SAI3_RXC mux), active-low reset driven by SoC.
- *   USB UART: Silicon Labs CP2108 quad bridge — USB enumerates with cp210x; QUART_RES# on GPIO4_IO5 (SAI1_RXD3 mux).
- *   HDMI: Lontium LT9611 on &i2c3 @ 0x39 — SD1_STROBE / SD1_DATA4 → GPIO2_IO11 / GPIO2_IO6 (bridge disabled until DSI graph);
- *          HDMI2C1 fault on GPIO4_IO28 (SAI3_RXFS mux).
- *   Low-power MCU: NXP MCXC144VFM — async serial on UART4 (UART4_RXD/UART4_TXD pads; DT macros UART4_DCE_RX/TX).
- *   Digital I/O: GPIO1_IO00/01/04–09 muxed as GPIO (DI1–4 / DO1–4); IO10–IO13 reserved for TAS6424 (see &tas6424).
- *            EVK hdmi@3d (ADV7535/adv7511 on &i2c2) is status disabled — driver does not probe.
- *   SE050 secure element: I2C4 @ 0x48 — handled by U-Boot / OpTEE, not described here.
+ *   Charger: TI BQ25792 on &i2c3 @ 0x6b; CHGR_INT# GPIO4_IO9.
+ *   Zigbee: ECSPI1 + spidev; ZB_INT GPIO4_IO22 (no ZB_RST# on this SKU).
+ *   CAN: MCP251863 on &ecspi2; CAN_INT# GPIO4_IO16, CAN_STBY GPIO4_IO15.
+ *   GNSS: u-blox NEO-M9V; GNSS_RES# GPIO4_IO29 (SAI3_RXC mux).
+ *   USB UART: CP2108 (cp210x); QUART_RES# GPIO4_IO5 (SAI1_RXD3 mux).
+ *   HDMI: LT9611 on &i2c3 @ 0x39 (GPIO2_IO11/6); HDMI2C1 fault GPIO4_IO28; bridge disabled until DSI graph ready.
+ *   Low-power MCU: MCXC144VFM on UART4 (DCE RX/TX pads).
+ *   Digital I/O: GPIO1_IO00/01/04–09 (DI/DO); IO10–IO13 TAS6424 sideband (see &tas6424). EVK hdmi@3d on &i2c2 disabled.
+ *   SE050: I2C4 @ 0x48 — U-Boot / OpTEE; not expanded in this DTS.
+ *
+ * Bring-up status (lab — revise when verified):
+ *   PMIC: implemented and in use.
+ *   IW612 / WLAN: working on SDIO + VMMC rail.
+ *   Cellular modem: detected; data/voice connectivity still to be tested.
+ *   eMMC: boots; throughput / wear levelling TBD.
+ *   Bluetooth (IW612): TBD.
+ *   Ethernet (KSZ9896): forwarding works; I²C management errors on switch MIB path (see lab notes / bus rate experiments).
+ *   Audio: TAS2563 (and path) produces output; levels / mux / tuning still in progress; TAS6424 bring-up continues.
+ *   Charger / pack sensing: TBD.
+ *   Zigbee: TBD.
+ *   CAN: TBD.
+ *   GNSS: NMEA seen on UART; satellite lock / antenna path TBD.
+ *   USB (host/gadget): working.
+ *   HDMI (LT9611): TBD.
+ *   Low-power MCU link: TBD.
+ *   Digital I/O: needs validation.
+ *   SE050: reachable; board security posture unsecured / provisioning TBD.
  *
  * I2C numbering: Linux adapter i2c-N corresponds to DTS &i2c(N+1) (e.g. i2c-1 = &i2c2; i2c-2 = &i2c3 — KSZ9896 @ 0x5f).
  *
