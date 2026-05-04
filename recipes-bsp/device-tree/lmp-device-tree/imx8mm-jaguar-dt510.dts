@@ -999,13 +999,11 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sai1_tas6424>;
 	/*
-	 * SAI bit clock mux (see kernel debugfs …/clk/sai1/clk_possible_parents): only
-	 * osc_24m, audio_pll{1,2}_out, video_pll1_out, sys_pll1_133m, osc_hdmi, clk_ext*.
-	 * SYS_PLL2_OUT is not a valid parent (-22). Match imx8mm-evk.dtsi style: assign CLK_SAI1
-	 * (not SAI1_ROOT) and use AUDIO_PLL2_OUT for MCLK / BCLK derivation.
+	 * Same mux as Sentai / imx8mm-evk.dtsi: IMX8MM_CLK_SAI1 (not *_ROOT) + AUDIO_PLL1_OUT @ 12.288 MHz.
+	 * Sentai disables &sai1; DT510 drives TAS6424 here — clock parent line matches working EVK stack.
 	 */
 	assigned-clocks = <&clk IMX8MM_CLK_SAI1>;
-	assigned-clock-parents = <&clk IMX8MM_AUDIO_PLL2_OUT>;
+	assigned-clock-parents = <&clk IMX8MM_AUDIO_PLL1_OUT>;
 	assigned-clock-rates = <12288000>;
 	fsl,sai-mclk-direction-output;
 	#sound-dai-cells = <0>;
@@ -1015,9 +1013,9 @@
 &sai3 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sai3>;
-	/* Same mux rules as &sai1; imx8mm-evk.dtsi uses CLK_SAI3 + AUDIO_PLL1_OUT — PLL2 here if PLL1 reparent still fails. */
+	/* Match imx8mm-jaguar-sentai.dts &sai3 (TAS2563): CLK_SAI3 + AUDIO_PLL1_OUT @ 12.288 MHz. */
 	assigned-clocks = <&clk IMX8MM_CLK_SAI3>;
-	assigned-clock-parents = <&clk IMX8MM_AUDIO_PLL2_OUT>;
+	assigned-clock-parents = <&clk IMX8MM_AUDIO_PLL1_OUT>;
 	assigned-clock-rates = <12288000>;
 	fsl,sai-mclk-direction-output;
 	fsl,sai-synchronous-rx;
