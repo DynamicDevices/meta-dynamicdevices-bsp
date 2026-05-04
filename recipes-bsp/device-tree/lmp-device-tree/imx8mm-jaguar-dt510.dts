@@ -872,6 +872,12 @@
 };
 
 &i2c3 {
+	/*
+	 * EVK default is often 100 kHz on this adapter; raise to Fast-mode (400 kHz) for
+	 * experiments (KSZ9896 MIB / charger share this bus — confirm signal integrity).
+	 */
+	clock-frequency = <400000>;
+
 	/* Strip EVK audio/camera/gpio-expander children not fitted on DT510. */
 	/delete-node/ ak4458@10;
 	/delete-node/ ak4458@12;
