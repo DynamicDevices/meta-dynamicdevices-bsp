@@ -1,0 +1,47 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex J Lennon <ajlennon@dynamicdevices.co.uk>
+Date: Mon, 4 May 2026 12:00:00 +0100
+Subject: [PATCH] power: supply: bq257xx: fix usb_types for Linux 6.6 power_supply API
+
+Linux 6.6 __power_supply_register() rejects descriptors that expose
+POWER_SUPPLY_PROP_USB_TYPE unless usb_types is a non-NULL pointer to a
+const enum power_supply_usb_type[] and num_usb_types is non-zero.
+
+The backported bq257xx charger used the older BIT() bitmask assignment,
+which leaves num_usb_types zero and makes registration fail with -EINVAL.
+That prevented probe completion, IRQ registration (no "2-006b" line in
+/proc/interrupts), and any power_supply sysfs entries.
+
+Signed-off-by: Alex J Lennon <ajlennon@dynamicdevices.co.uk>
+---
+ drivers/power/supply/bq257xx_charger.c | 19 ++++++++++++-------
+ 1 file changed, 12 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/power/supply/bq257xx_charger.c b/drivers/power/supply/bq257xx_charger.c
+--- a/drivers/power/supply/bq257xx_charger.c
++++ b/drivers/power/supply/bq257xx_charger.c
+@@ -1047,14 +1047,19 @@
+ 	return IRQ_HANDLED;
+ }
+ 
++static const enum power_supply_usb_type bq257xx_psy_usb_types[] = {
++	POWER_SUPPLY_USB_TYPE_C,
++	POWER_SUPPLY_USB_TYPE_PD,
++	POWER_SUPPLY_USB_TYPE_PD_DRP,
++	POWER_SUPPLY_USB_TYPE_PD_PPS,
++	POWER_SUPPLY_USB_TYPE_UNKNOWN,
++};
++
+ static const struct power_supply_desc bq257xx_power_supply_desc = {
+ 	.name = "bq257xx-charger",
+ 	.type = POWER_SUPPLY_TYPE_USB,
+-	.usb_types = BIT(POWER_SUPPLY_USB_TYPE_C) |
+-		     BIT(POWER_SUPPLY_USB_TYPE_PD) |
+-		     BIT(POWER_SUPPLY_USB_TYPE_PD_DRP) |
+-		     BIT(POWER_SUPPLY_USB_TYPE_PD_PPS) |
+-		     BIT(POWER_SUPPLY_USB_TYPE_UNKNOWN),
++	.usb_types = bq257xx_psy_usb_types,
++	.num_usb_types = ARRAY_SIZE(bq257xx_psy_usb_types),
+ 	.properties = bq257xx_power_supply_props,
+ 	.num_properties = ARRAY_SIZE(bq257xx_power_supply_props),
+ 	.get_property = bq257xx_get_charger_property,
