@@ -42,6 +42,7 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
   file://board-info.sh \
   file://set-fio-passwd.sh \
   file://enable-firewall.sh \
+  file://emmc-wipe-boot-partitions.sh \
 "
 
 SRC_URI:append:imx93-jaguar-eink = " \
