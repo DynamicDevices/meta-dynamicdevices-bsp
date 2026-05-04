@@ -17,7 +17,7 @@
  *   WLAN/BT: IW612 SDIO on USDHC1 + UART1; WIFI_PD#/WL_WAKE/WL_RST#, BT_WAKE_HOST/BT_RST# on gpio2/3; SDIO VMMC is
  *            `&reg_wifi_sdio_vmmc` (fixed, always-on) so Wi-Fi is not gated by `&reg_vddext_3v3` / PMIC sequencing.
  *   Ethernet: FEC → Microchip KSZ9896 DSA (RGMII + I²C on &i2c3 @ 0x5f); internal PHYs on switch MDIO.
- *   Audio: TAS6424 (&sai1), TAS2563 (&sai3); TAC5301 on &sai6 @ 0x50 — DTS present; upstream ASoC driver TBD for factory kernel.
+ *   Audio: TAS6424 (&sai1), TAS2563 (&sai3); TAC5301 on &sai6 @ 0x50 (&i2c2) — ti,tac5x1x + simple-audio-card `tac5301-codec` when tac5x1x-audio is enabled in kernel.
  *            TAS6424 AMP_FAULT#/WARN# on gpio-keys (GPIO1_IO12/13).
  *   Charger: TI BQ25792 on &i2c3 @ 0x6b; CHGR_INT# GPIO4_IO9.
  *   Zigbee: ECSPI1 + spidev; ZB_INT GPIO4_IO22 (no ZB_RST# on this SKU).
@@ -36,7 +36,7 @@
  *   eMMC: boots; throughput / wear levelling TBD.
  *   Bluetooth (IW612): TBD.
  *   Ethernet (KSZ9896): forwarding works; I²C management errors on switch MIB path (see lab notes / bus rate experiments).
- *   Audio: TAS2563 (and path) produces output; levels / mux / tuning still in progress; TAS6424 bring-up continues.
+ *   Audio: TAS2563 (and path) produces output; levels / mux / tuning still in progress; TAS6424 bring-up continues; TAC5301 path enabled in-tree with tac5x1x lore series — lab validation TBD.
  *   Charger / pack sensing: TBD.
  *   Zigbee: TBD.
  *   CAN: TBD.
@@ -137,6 +137,7 @@
 	 * ALSA device naming:
 	 *   tas6424-classd — speaker power stage (TAS6424 on &sai1).
 	 *   tas2563-audio — TAS2563 smart amp path on &sai3 (Profile 8 TDM).
+	 *   tac5301-codec — TI TAC5301 on &sai6 (I2S via simple-audio-card + tac5x1x ASoC).
 	 */
 	sound-tas6424 {
 		compatible = "simple-audio-card";
@@ -180,6 +181,23 @@
 		simple-audio-card,codec {
 			sound-dai = <&tas2563>;
 			clocks = <&clk IMX8MM_CLK_SAI3_ROOT>;
+		};
+	};
+
+	sound-tac5301 {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "tac5301-codec";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,frame-master = <&tac5301_cpu_dai>;
+		simple-audio-card,bitclock-master = <&tac5301_cpu_dai>;
+
+		tac5301_cpu_dai: simple-audio-card,cpu {
+			sound-dai = <&sai6>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&tac5301>;
+			clocks = <&clk IMX8MM_CLK_SAI6_ROOT>;
 		};
 	};
 
@@ -868,11 +886,7 @@
 		status = "okay";
 	};
 
-	/*
-	 * TI TAC5301-Q1 — analog audio codec on &sai6.
-	 * Kernel: upstream ti,tac5x1x ASoC driver (e.g. Linux 6.10+) — not in current linux-lmp-fslc-imx line; leave disabled until driver lands.
-	 * Revise reset-gpios / supplies vs datasheet + tac5x1x YAML when enabling.
-	 */
+	/* TI TAC5301-Q1 — MFD + codec on &sai6; reset / supplies per tac5x1x binding (verify vs schematic). */
 	tac5301: tac5301@50 {
 		compatible = "ti,tac5301";
 		reg = <0x50>;
@@ -882,7 +896,7 @@
 		reset-gpios = <&gpio4 14 GPIO_ACTIVE_LOW>;
 		avdd-supply = <&reg_vddext_3v3>;
 		iovdd-supply = <&reg_vddext_3v3>;
-		status = "disabled";
+		status = "okay";
 	};
 };
 
@@ -1047,7 +1061,7 @@
 /*
  * Disabled — unused SKU options, EVK leftovers, or controller blocks pending driver / bring-up.
  *   uart3 — not fitted / unused on this product.
- *   sai6 — TAC5301 path (see tac5301@50); enable with ti,tac5x1x ASoC when kernel supports it.
+ *   sai6 — was pending tac5x1x; now enabled with tac5301@50 + sound-tac5301 (see &sai6).
  *   ir_recv — EVK GPIO1_IR conflicts with TAS6424 GPIO usage.
  *   snvs_pwrkey — EVK enables SNVS PMIC_ON_REQ power key; DT510 product has no wired key / avoid stray KEY_POWER input.
  *   reg_pcie0 / pcie0 — mini-PCIe power path not used (no M.2/NVMe on this SKU).
@@ -1068,7 +1082,7 @@
 	fsl,sai-mclk-direction-output;
 	fsl,sai-synchronous-rx;
 	#sound-dai-cells = <0>;
-	status = "disabled";
+	status = "okay";
 };
 
 &ir_recv {
