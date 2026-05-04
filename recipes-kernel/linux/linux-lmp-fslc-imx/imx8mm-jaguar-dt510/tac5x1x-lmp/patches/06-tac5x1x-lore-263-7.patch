@@ -137,7 +137,7 @@ diff --git a/drivers/pinctrl/Kconfig b/drivers/pinctrl/Kconfig
 index afecd9407f53..2054e9998880 100644
 --- a/drivers/pinctrl/Kconfig
 +++ b/drivers/pinctrl/Kconfig
-@@ -585,6 +585,17 @@ config PINCTRL_SX150X
+@@ -474,10 +474,21 @@ config PINCTRL_SX150X
  	  - 8 bits:  sx1508q, sx1502q
  	  - 16 bits: sx1509q, sx1506q
  
@@ -153,20 +153,24 @@ index afecd9407f53..2054e9998880 100644
 +	  or interrupt outputs.
 +
  config PINCTRL_TB10X
- 	bool "Pinctrl for TB10X" if COMPILE_TEST
- 	depends on OF && ARC_PLAT_TB10X || COMPILE_TEST
+ 	bool
+ 	depends on OF && ARC_PLAT_TB10X
+ 	select GPIOLIB
+ 
+ config PINCTRL_ZYNQ
+ 	bool "Pinctrl driver for Xilinx Zynq"
 diff --git a/drivers/pinctrl/Makefile b/drivers/pinctrl/Makefile
 index f7d5d5f76d0c..1fe6b0e8a666 100644
 --- a/drivers/pinctrl/Makefile
 +++ b/drivers/pinctrl/Makefile
-@@ -58,6 +58,7 @@ obj-$(CONFIG_PINCTRL_SINGLE)	+= pinctrl-single.o
+@@ -48,6 +48,7 @@ obj-$(CONFIG_PINCTRL_SINGLE)	+= pinctrl-single.o
  obj-$(CONFIG_PINCTRL_ST) 	+= pinctrl-st.o
  obj-$(CONFIG_PINCTRL_STMFX) 	+= pinctrl-stmfx.o
  obj-$(CONFIG_PINCTRL_SX150X)	+= pinctrl-sx150x.o
-+obj-$(CONFIG_PINCTRL_TI_TAC5X1X)+= pinctrl-tac5x1x.o
++obj-$(CONFIG_PINCTRL_TI_TAC5X1X)	+= pinctrl-tac5x1x.o
  obj-$(CONFIG_PINCTRL_TB10X)	+= pinctrl-tb10x.o
- obj-$(CONFIG_PINCTRL_TPS6594)	+= pinctrl-tps6594.o
- obj-$(CONFIG_PINCTRL_TH1520)	+= pinctrl-th1520.o
+ obj-$(CONFIG_PINCTRL_ZYNQMP)	+= pinctrl-zynqmp.o
+ obj-$(CONFIG_PINCTRL_ZYNQ)	+= pinctrl-zynq.o
 diff --git a/drivers/pinctrl/pinctrl-tac5x1x.c b/drivers/pinctrl/pinctrl-tac5x1x.c
 new file mode 100644
 index 000000000000..4e59501f3f78
