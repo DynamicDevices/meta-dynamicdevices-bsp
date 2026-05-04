@@ -2,7 +2,10 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
 SRC_URI += "file://dynamic-devices-banner"
 SRC_URI:append:imx8mm-jaguar-sentai = " file://sentai-banner"
-SRC_URI:append:imx8mm-jaguar-dt510 = " file://dt510-banner"
+SRC_URI:append:imx8mm-jaguar-dt510 = " \
+    file://dt510-banner \
+    ${@bb.utils.contains('MACHINE_FEATURES', 'bq25792-charger', 'file://bq257xx-charger-modprobe.conf', '', d)} \
+"
 
 do_install:append() {
     # Install shared Dynamic Devices banner
@@ -27,6 +30,12 @@ do_install:append:imx8mm-jaguar-dt510() {
     # For DT510 machine, install DT510-specific banner
     install -m 644 ${WORKDIR}/dt510-banner ${D}${datadir}/dynamic-devices/banner
     install -m 644 ${WORKDIR}/dt510-banner ${D}${sysconfdir}/ssh/banner
+
+    if ${@bb.utils.contains('MACHINE_FEATURES', 'bq25792-charger', 'true', 'false', d)}; then
+        install -d ${D}${sysconfdir}/modprobe.d
+        install -m 0644 ${WORKDIR}/bq257xx-charger-modprobe.conf \
+            ${D}${sysconfdir}/modprobe.d/bq257xx-charger.conf
+    fi
 }
 
 FILES:${PN} += " \
@@ -34,3 +43,5 @@ FILES:${PN} += " \
     ${sysconfdir}/motd \
     ${sysconfdir}/ssh/banner \
 "
+
+FILES:${PN}:append:imx8mm-jaguar-dt510 = "${@bb.utils.contains('MACHINE_FEATURES', 'bq25792-charger', ' ${sysconfdir}/modprobe.d/bq257xx-charger.conf', '', d)}"
