@@ -773,6 +773,17 @@
  * &i2c3 (Linux i2c-2): KSZ9896 switch @ 0x5f + charger + LT9611 HDMI bridge.
  * PMIC &i2c1 stays in imx8mm-evkb.dts (PCA9450).
  */
+/*
+ * TEMP TEST: disable PCA9450 I2C client — imx8mm-evk.dtsi still references PMIC
+ * buck/LDO phandles; expect possible boot failure or unstable rails. Revert after
+ * Wi-Fi / VMMC isolation experiment.
+ */
+&i2c1 {
+	pmic@25 {
+		status = "disabled";
+	};
+};
+
 &i2c2 {
 	/* EVK USB-C PD controller not populated — TCPC node removed (freed 0x50). */
 	/delete-node/ tcpc@50;
@@ -1117,13 +1128,12 @@
 /*
  * USDHC1 — SDIO to IW612 (MAYA-W2 class). mmc@30b40000 is alias mmc0 on imx8mm (not USDHC2 / 30b50000).
  * imx8mm-evk.dtsi enables &usdhc2 for EVK SD2; DT510 WLAN SDIO is on SD1 → disable &usdhc2, drive &usdhc1.
- * vmmc-supply — PCA9450 VDDEXT (`&reg_vddext_3v3`). wifi_wake_host — GPIO2_IO9 (SD1_DATA7 / WL_WAKE), IRQ 9.
+ * TEMP TEST: no vmmc-supply (revert of PCA9450 VDDEXT wiring from 2d6daa3). wifi_wake_host — GPIO2_IO9 (WL_WAKE), IRQ 9.
  */
 &usdhc1 {
 	status = "okay";
 	assigned-clocks = <&clk IMX8MM_CLK_USDHC1_ROOT>;
 	assigned-clock-rates = <400000000>;
-	vmmc-supply = <&reg_vddext_3v3>;
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
 	pinctrl-0 = <&pinctrl_dt510_usdhc1>;
 	pinctrl-1 = <&pinctrl_dt510_usdhc1_100mhz>;
