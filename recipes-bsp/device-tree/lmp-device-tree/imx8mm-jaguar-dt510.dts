@@ -39,7 +39,7 @@
  *   Ethernet (KSZ9896): forwarding works; I²C management errors on switch MIB path (see lab notes / bus rate experiments).
  *   Audio: TAS2563 (and path) produces output; levels / mux / tuning still in progress; TAS6424 bring-up continues; TAC5301 path enabled in-tree with tac5x1x lore series — lab validation TBD.
  *   Charger / pack sensing: TBD.
- *   Zigbee: DTS **`&ecspi1`** **`spidev`** + **`ZB_INT`** GPIO4_IO22; **`MACHINE_FEATURES`** **`zigbee`** → `zigbee-rcp-*` images — **end-to-end RCP / on-air TBD**.
+ *   Zigbee: DTS **`&ecspi1`** **`spidev`** + **`ZB_INT`** GPIO4_IO22; **`zb_mux`** / **`zb_app`** exercised on SPI — **RCP FW / MAC-split ACK / on-air**: align with **Sentai private NXP Zigbee IW612 firmware** (see **`meta-subscriber-overrides/conf/DT510-HARDWARE-BRINGUP.md`**).
  *   CAN: TBD.
  *   GNSS: NMEA on UART; **lab 2026-05-05:** valid fix with antenna — `$GNRMC`/`$GNGLL` status A, `$GNGGA` quality ≥1, `$GNGSA` 3D, multi-constellation in view.
  *   USB (host/gadget): working.

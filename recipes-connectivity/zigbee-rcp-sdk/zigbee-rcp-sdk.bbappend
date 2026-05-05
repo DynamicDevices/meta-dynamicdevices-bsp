@@ -12,4 +12,11 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " file://zb_mux.sh "
 
 do_install:append:imx8mm-jaguar-dt510() {
 	install -m 0755 ${WORKDIR}/zb_mux.sh ${D}${sbindir}/zb_mux.sh
+
+	# Tarball default references /usr/bin/simple_gw (not installed; sample GW binary is simple_gw_zc).
+	# OTA server path defaults under /usr/share/zboss which is not writable on typical LmP rootfs.
+	if [ -f "${D}${sysconfdir}/default/zb_app.env" ]; then
+		sed -i 's/^ZB_APP_NAME=simple_gw$/ZB_APP_NAME=simple_gw_zc/' "${D}${sysconfdir}/default/zb_app.env"
+		sed -i 's|^ZBOSS_OTA_SERVER_DIR=.*|ZBOSS_OTA_SERVER_DIR=/var/local/zboss/ota-server-files|' "${D}${sysconfdir}/default/zb_app.env"
+	fi
 }
