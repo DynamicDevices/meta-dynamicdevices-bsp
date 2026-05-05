@@ -1077,7 +1077,8 @@
 &sai6 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sai6_tac5301>;
-	assigned-clocks = <&clk IMX8MM_CLK_SAI6_ROOT>;
+	/* Match &sai1 / &sai3: use CLK_SAI6 (not *_ROOT) for reparent to AUDIO_PLL1_OUT — ROOT fails with -EINVAL. */
+	assigned-clocks = <&clk IMX8MM_CLK_SAI6>;
 	assigned-clock-parents = <&clk IMX8MM_AUDIO_PLL1_OUT>;
 	assigned-clock-rates = <12288000>;
 	fsl,sai-mclk-direction-output;
