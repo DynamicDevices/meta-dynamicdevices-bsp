@@ -22,17 +22,18 @@ index 621714b0e..000000000 100644
  {
  	struct tac5x1x_pin *priv = gpiochip_get_data(chip);
  	struct device *parent = priv->dev->parent;
-@@ -773,10 +773,21 @@
+@@ -773,10 +773,22 @@
  	return ret;
  }
  
 +static void tac5x1x_gpio_set(struct gpio_chip *chip, unsigned int offset,
 +			     int value)
 +{
++	struct tac5x1x_pin *priv = gpiochip_get_data(chip);
 +	int ret = tac5x1x_gpio_set_impl(chip, offset, value);
 +
 +	if (ret)
-+		dev_err(gpiochip_get_data(chip)->dev,
++		dev_err(priv->dev,
 +			"gpio set failed for offset %u: %d\n", offset, ret);
 +}
 +
