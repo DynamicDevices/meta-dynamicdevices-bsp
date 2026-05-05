@@ -15,7 +15,13 @@ diff --git a/sound/soc/codecs/tac5x1x.c b/sound/soc/codecs/tac5x1x.c
 index f3ce21464..39901ec4a 100644
 --- a/sound/soc/codecs/tac5x1x.c
 +++ b/sound/soc/codecs/tac5x1x.c
-@@ -166,9 +166,15 @@ static irqreturn_t irq_thread_func(s32 irq, void *dev_id)
+@@ -161,14 +161,19 @@ static irqreturn_t irq_thread_func(s32 irq, void *dev_id)
+ 	u8 latch_set = 0;
+ 	u32 latch_count;
+ 	s32 i, ret;
++	unsigned int val;
+ 	struct tac5x1x_priv *tac5x1x = (struct tac5x1x_priv *)dev_id;
+ 	struct device *dev = tac5x1x->tac5x1x->dev;
  
  	latch_count = ARRAY_SIZE(intr_info_list);
  
@@ -23,8 +29,6 @@ index f3ce21464..39901ec4a 100644
 -				    tac5x1x->irqinfo.latch_regs,
 -				    tac5x1x->irqinfo.latch_data, latch_count);
 +	for (i = 0; i < latch_count; i++) {
-+		unsigned int val;
-+
 +		ret = regmap_read(tac5x1x->tac5x1x->regmap,
 +				  tac5x1x->irqinfo.latch_regs[i], &val);
 +		if (ret)
@@ -34,7 +38,7 @@ index f3ce21464..39901ec4a 100644
  	if (ret) {
  		dev_err(dev,
  			"interrupt: latch register read failed");
-@@ -1740,7 +1746,7 @@ static s32 tac5x1x_add_widgets(struct snd_soc_component *component)
+@@ -1740,7 +1745,7 @@ static s32 tac5x1x_add_widgets(struct snd_soc_component *component)
  	    snd_soc_component_get_drvdata(component);
  	struct tac5x1x *tac5x1x = tac5x1x_priv->tac5x1x;
  	struct snd_soc_dapm_context *dapm =
@@ -43,7 +47,7 @@ index f3ce21464..39901ec4a 100644
  	s32 ret;
  
  	switch (tac5x1x->codec_type) {
-@@ -2058,12 +2064,13 @@ static int tac5x1x_probe(struct platform_device *pdev)
+@@ -2058,12 +2063,13 @@ static int tac5x1x_probe(struct platform_device *pdev)
  	return ret;
  }
  
