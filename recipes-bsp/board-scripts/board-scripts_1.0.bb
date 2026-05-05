@@ -45,6 +45,7 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
   file://emmc-wipe-boot-partitions.sh \
   file://rs485_tx_bytes.py \
   file://dt510-dio-toggle-outputs \
+  file://dt510-dio-toggle-outputs.sh \
 "
 
 SRC_URI:append:imx93-jaguar-eink = " \
@@ -77,4 +78,4 @@ RDEPENDS:${PN} = "bash"
 
 # Additional dependencies for specific machines
 RDEPENDS:${PN}:imx8mm-jaguar-sentai = "bash dtmf2num"
-RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = " python3 python3-gpiod"
+RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = " python3 python3-gpiod libgpiod-tools"
