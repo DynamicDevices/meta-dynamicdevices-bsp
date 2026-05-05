@@ -40,7 +40,7 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 
 | SSOT block | Bus / address (SSOT) | BSP status | Notes / DT / driver | Plan tier |
 |------------|----------------------|------------|----------------------|-----------|
-| Analog audio **TAC5301** | I2C2 `0x50`, SAI6 | **present (validate)** | **`tac5301@50`**, **`sound-tac5301`** (`tac5301-codec`); **`&sai6`** **without** `fsl,sai-synchronous-rx` so **`fsl-sai`** probes (BSP **`b216a8c+`**). **Lab:** confirm ALSA card + playback after flashing pinned image. | C2 |
+| Analog audio **TAC5301** | I2C2 `0x50`, SAI6 | **validated (lab)** | **`tac5301@50`**, **`sound-tac5301`** (`tac5301-codec`); **`&sai6`** **without** `fsl,sai-synchronous-rx` so **`fsl-sai`** probes (BSP **`b216a8c+`**, carry **`a7b3d64`** pin). **2026‑05‑05:** **`/proc/asound/cards`** shows **`tac5301-codec`**; **`aplay`/`speaker-test`** on **`plughw:3,0`** succeeds (audible output depends on analog path / amp). | C2 |
 | Driver speaker **TAS2563** | I2C2 `0x4C`, SAI3 | present | `tas2563@4C`, `sound-tas2563`, `&sai3` | — |
 | Mic **TAA5412** | I2C2 `0x51` | missing | SAI5 — not in DTS; **`ti,taa5412`** / **`snd_soc_pcm6240`** — **not** in factory **linux-fslc 6.6.52** @ LmP SRCREV; mainline **6.10+** — backport/kernel bump/out-of-tree before enable | C2 |
 | Class-D **TAS6424** | I2C2 `0x6A`, SAI1 | **enabled (validate)** | **`tas6424@6a` okay** + **`sound-tas6424`** (`tas6424-classd`); **`tas6424_hi_rail`** placeholder for vbat/pvdd — **confirm SSOT**; **`&sai1` okay** + `pinctrl_sai1_tas6424`; **`&micfil` / `sound-micfil` disabled**; `CONFIG_SND_SOC_TAS6424=m` | C2 |
@@ -48,11 +48,11 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 | HDMI **LT9611** | I2C3 — SSOT `0x72` (8-bit) → DT **7-bit `0x39`** | placeholder | `lt9611@39` **disabled** in DTS — enable Tier C3 | C3 |
 | Auth **SE050** | I2C4 `0x48` | **aligned with stack** | OpTEE **`CFG_CORE_SE05X_I2C_BUS=3`** = **`&i2c4`** (same as Sentai). Machine `se05x` + OEFID set. Optional: explicit DT node — see [`DT510-SE050.md`](DT510-SE050.md) | B4 |
 | **MCP2518xx** CAN | ECSPI2 + GPIO | **present (validate)** | **`&ecspi2` okay** — **`can0`** `microchip,mcp251863`; **`CAN_INT#`** GPIO4_IO16, **`CAN_STBY`** GPIO4_IO15; **`mcp251xfd-can`** machine feature pulls kernel/socketcan bits — confirm **`ip link`** / traffic on bench | C4 |
-| Ethernet **KSZ9896** | ENET RGMII + **MIIM (MDC/MDIO)** | in DT (validate) | `&fec1` + `mdio` subnode, **no** KSZ on I²C; DSA I²C not used — see `docs/DT510-ETHERNET-KSZ9896.md` | C1 |
+| Ethernet **KSZ9896** | ENET RGMII + **MIIM (MDC/MDIO)** | in DT (validate) | **`&fec1`** RGMII + DSA; **DT510:** **`/delete-node/ mdio`** under **`&fec1`** so **GPIO4_IO22** is **not** EVK PHY **`reset-gpios`** (clashes with **ZB_INT**). Switch-side **`mdio`** remains under DSA per DTS — see **`docs/DT510-ETHERNET-KSZ9896.md`**. | C1 |
 | GNSS **NEO-M9V** | UART NMEA + GPIO reset (`gnss-res#`) | **validated (lab)** | **2026-05-05:** antenna connected; NMEA shows valid fix (`RMC`/`GLL` **A**, `GGA` fix quality, `GSA` 3D, multiple sats used). SSOT reset hog unchanged. | C5 |
 | HDMI misc **HDMI2C1-6C1** | GPIO | partial | Fault line per SSOT — align with LT9611 bring-up | C3 |
 | **CP2108** quad-UART | GPIO reset | **doc / optional DT** | USB enumeration; DTS comment — add GPIO when SSOT names reset | B3 |
-| Digital I/O | GPIO1_IO0–9 | **partial** | **`pinctrl_gpio1_dio`** + EVK **`ir_recv` / `reg_pcie0` / `backlight`** disabled; validate on prototype | B2 |
+| Digital I/O | GPIO1_IO0–9 | **partial** | **`pinctrl_gpio1_dio`** + EVK **`ir_recv` / `reg_pcie0` / `backlight`** disabled; **`dt510-dio-toggle-outputs.sh`** + **`gpioset --toggle`** for DO bring-up (BSP board-scripts + **`libgpiod-tools`**) | B2 |
 | **MAYA‑W276 / IW612** (Wi‑Fi / BT / **802.15.4**) | SDIO + UART (HCI) + ECSPI (ZB MAC-split) | **Wi‑Fi / BT validated (lab)**; ZB DTS + **`zb_mux`** lab | **Wi‑Fi/BT:** **`&usdhc1`** (4‑bit SDIO; **`&usdhc2` disabled** — not EVK SD2); **`&uart1`** HCI **`nxp,88w8997-bt`** with UART3 pads as RTS/CTS; GPIO straps **`BT_WAKE_*`**, **`BT_RST#`**, **`WL_*`**, **`WIFI_PD#`** per `hoggrp` / `imx8mm-jaguar-dt510.dts`. **BT:** **2026‑05** — **`bluetoothctl scan`** finds BLE devices. **802.15.4 / Zigbee:** **ECSPI1** (**`&ecspi1`** **`spidev`**) + **`ZB_INT`** GPIO4_IO22 — **confirmed vs hardware (Ollie Hull)**; **`zb_app`** needs **Sentai private NXP Zigbee RCP FW** alignment (MAC-split ACK / on-air). See **`meta-subscriber-overrides/conf/DT510-HARDWARE-BRINGUP.md`**. | — |
 | **Cellular LTE** (Quectel **EM05** class) | **USB OTG2** host (`&usbotg2`); LTE_RST / LTE_OFF / SIM_SEL hogs | **partial (lab)** | **2026-05:** ModemManager **`mmcli -m 1`** — modem present, **primary SIM active** (`/SIM/1`), IMSI + operator name readable; earlier **`sim-missing`** seen until reboot/settle. **`cdc-wdm0`** MBIM + **option** ttys. Enable rf with **`mmcli -m 1 --enable`** if state **disabled**; bearer/data/voice **TBD**. Module reported **fixed-dialing** lock — confirm vs SIM/product. | — |
 | **STUSB4500** / USB‑C PD | — | **N/A (DT510)** | **Not populated** — no `stusb4500` machine feature; gadget uses **`&usbotg1`** peripheral only (see `DT510-USB-DUAL-AUDIO.md`). **Sentai** retains STUSB4500. | — |
@@ -69,7 +69,7 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 
 1. **TAS6424** @ `0x6A` / SAI1 — validate on hardware (kernel config, card, rails/GPIOs per #2); then TDM vs I2S if product chooses TDM.
 2. **TAA5412** @ I2C2 **`0x51`** / **SAI5** — add **`&sai5`** + pinctrl from SSOT / `pin_mux` reference; **kernel:** **pcm6240** driver **absent** from **6.6.52** imx tree — choose backport (mainline ≥ **6.10**), kernel advance, or out-of-tree (**plan §5**); then codec + ALSA card.
-3. **TAC5301** @ I2C2 **`0x50`** / **SAI6** — **validate on HW** with manifest-pinned BSP (**`b216a8c+`**, SAI6 probe fix). ALSA **`tac5301-codec`** + playback/capture vs product.
+3. **TAC5301** @ I2C2 **`0x50`** / **SAI6** — **playback validated (lab 2026‑05)** on pinned BSP; remaining: levels / routing / capture vs product, **`amixer`** / **`alsamixer`** if path is silent at the transducer.
 
 **Other tiers**
 
@@ -79,4 +79,4 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 
 ---
 
-*Last updated: 2026-05-04 — WLAN/BT checklist row aligned with **`&usdhc1`** + **`&uart1`**; MCP2518 **`&ecspi2`**; TAC5301 DTS present; Sentai vs DT510 **`tas2562`** vs **`tas2563`** clarification.*
+*Last updated: 2026-05-05 — TAC5301 lab playback; Ethernet **`fec1`** **`mdio`** delete + Zigbee GPIO note; DIO toggle script; manifest pins **`a7b3d64`** / **`2cda7ac`** documented in **`meta-subscriber-overrides/conf/DT510-HARDWARE-BRINGUP.md`**.*
