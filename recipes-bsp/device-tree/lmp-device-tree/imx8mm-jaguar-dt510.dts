@@ -25,7 +25,7 @@
  *   GNSS: u-blox NEO-M9V; GNSS_RES# GPIO4_IO29 (SAI3_RXC mux).
  *   USB UART: CP2108 (cp210x); QUART_RES# GPIO4_IO5 (SAI1_RXD3 mux).
  *   HDMI: LT9611 on &i2c3 @ 0x39 (GPIO2_IO11/6); HDMI2C1 fault GPIO4_IO28; bridge disabled until DSI graph ready.
- *   Low-power MCU: MCXC144VFM on UART4 (DCE RX/TX pads).
+ *   Low-power MCU: MCXC144VFM on UART4 (DCE RX/TX pads) — Linux **`ttymxc3`**; **not** the EVKB **`stdout-path`** UART (**`&uart2`** → **`ttymxc1`** @ **0x30890000** use the **UART2** debug header for Linux/U-Boot-style console unless HW docs say otherwise).
  *   Digital I/O: GPIO1_IO00/01/04–09 (DI/DO); IO10–IO13 TAS6424 sideband (see &tas6424). EVK hdmi@3d on &i2c2 disabled.
  *   SE050: I2C4 @ 0x48 — U-Boot / OpTEE; not expanded in this DTS.
  *

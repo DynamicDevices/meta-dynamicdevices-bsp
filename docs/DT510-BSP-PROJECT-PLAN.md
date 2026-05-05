@@ -55,6 +55,14 @@ Typical layout: that repo lives beside other factory checkouts (e.g. under a **`
 
 **SE050:** [`docs/DT510-SE050.md`](DT510-SE050.md) — SSOT **I2C4 @ `0x48`** matches **existing OpTEE SE05x** (`I2C_BUS=3` = `&i2c4`), same as Sentai; DT510 machine `se05x` / OEFID already correct.
 
+**Serial debug UART (Linux console):** DT510 DTS includes **`imx8mm-evkb.dts` → `imx8mm-evk.dtsi`**, which sets **`chosen { stdout-path = &uart2; }`** and **`&uart2`** pinctrl (**`UART2_RXD` / `UART2_TXD`** only). Linux therefore exposes the primary serial console as **`/dev/ttymxc1`** at **`0x30890000`**, matching **`console=ttymxc1,115200`** and **`earlycon=ec_imx6q,0x30890000`** in Foundries **`bootargs`** / **`fw_printenv`**. **`serial-getty@ttymxc1`** is expected once booted.
+
+If you see **no output on a USB–UART adapter**, first confirm you are on the **SoC UART2 debug header**, **115200 8N1**, TX/RX crossed + GND — **not** **`&uart4`** (**MCXC144 MCU** link → **`ttymxc3`** in DTS comments). Mixing those ports is the common lab mistake.
+
+**`SERIAL_CONSOLES = "115200:ttyUSBConsole"`** in **`imx8mm-jaguar-dt510.conf`** only adds a **udev symlink** for a host-side **FTDI (0403:6001)** when that device appears on the USB bus; it does **not** replace **`ttymxc1`** when **`console=ttymxc1`** is on the kernel cmdline (systemd still instantiates **`serial-getty@ttymxc1`**).
+
+**U-Boot:** **`bootcmd`** programs UART4 RDC then **`source 0x44800000`** (Foundries script). Lack of **pre-Linux** spam on serial is usually SPL/U‑Boot build defaults, not missing **`console=`** in Linux — compare with a second adapter on UART2 during power-on.
+
 ---
 
 ## 4. Guiding principles
@@ -172,6 +180,7 @@ Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md)
 
 | Date | Change |
 |------|--------|
+| 2026-05-06 | **Serial console:** Documented UART2/`ttymxc1` vs UART4 MCU (`ttymxc3`), **`chosen.stdout-path`**, **`SERIAL_CONSOLES` ↔ FTDI symlink — lab SSH checks showed Linux printk + getty on **`ttymxc1`** unchanged; “no serial” triage is usually **wrong header / baud / wiring**. |
 | 2026-05-06 | **Cellular:** ModemManager **`mmcli`** on lab DT510 — LTE modem + **SIM recognised** (primary SIM active, IMSI/operator readable post-reboot); checklist row + DTS bring-up note updated. Bearer/data **TBD**. |
 | 2026-05-05 | **Tier C5 / GNSS:** NEO-M9V validated on bench — NMEA indicates valid fix with antenna; checklist + DTS bring-up comment updated. |
 | 2026-04-13 | Tier A3 audit checklist; A4 I2C3 placeholders; plan §3/§7 synced. |

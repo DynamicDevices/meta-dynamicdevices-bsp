@@ -4,7 +4,7 @@
 
 **Milestone:** [Project plan §5 Tier A](DT510-BSP-PROJECT-PLAN.md#tier-a--do-first-high-value-low-boot-risk) is **complete** on `main` (test tag **`dt510-tier-a-test-1`**). Interim lab boards validated boot/software; **full SSOT ↔ bench checks** target **prototype hardware** when available.
 
-**Related:** [`DT510-BSP-PROJECT-PLAN.md`](DT510-BSP-PROJECT-PLAN.md) · **I²C bus / runtime status (update per build):** [`DT510-HARDWARE-I2C-STATUS.md`](DT510-HARDWARE-I2C-STATUS.md) · Tool reference: [`reference/dt510-ollie-tool-generated/`](reference/dt510-ollie-tool-generated/) · **Sentai vs DT510:** [§ below](#sentai-vs-dt510-product-clarification)
+**Related:** [`DT510-BSP-PROJECT-PLAN.md`](DT510-BSP-PROJECT-PLAN.md) (**§3 — serial debug UART / `ttymxc1` vs MCU UART4**) · **I²C bus / runtime status (update per build):** [`DT510-HARDWARE-I2C-STATUS.md`](DT510-HARDWARE-I2C-STATUS.md) · Tool reference: [`reference/dt510-ollie-tool-generated/`](reference/dt510-ollie-tool-generated/) · **Sentai vs DT510:** [§ below](#sentai-vs-dt510-product-clarification)
 
 **Legend — BSP status:** present | partial | missing | placeholder | conflict | N/A | **validated (lab)** (bench-confirmed on prototype; detail in row)
 
@@ -79,4 +79,4 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 
 ---
 
-*Last updated: 2026-05-06 — Cellular: ModemManager finds SIM (post-reboot **`mmcli`**); GNSS/C2 notes unchanged.*
+*Last updated: 2026-05-06 — Cellular SIM note + plan §3 link for serial (`ttymxc1` vs UART4).*
