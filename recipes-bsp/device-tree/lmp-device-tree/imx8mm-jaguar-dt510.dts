@@ -40,7 +40,7 @@
  *   Charger / pack sensing: TBD.
  *   Zigbee: TBD.
  *   CAN: TBD.
- *   GNSS: NMEA seen on UART; satellite lock / antenna path TBD.
+ *   GNSS: NMEA on UART; **lab 2026-05-05:** valid fix with antenna — `$GNRMC`/`$GNGLL` status A, `$GNGGA` quality ≥1, `$GNGSA` 3D, multi-constellation in view.
  *   USB (host/gadget): working.
  *   HDMI (LT9611): TBD.
  *   Low-power MCU link: TBD.

@@ -6,7 +6,7 @@
 
 **Related:** [`DT510-BSP-PROJECT-PLAN.md`](DT510-BSP-PROJECT-PLAN.md) · **I²C bus / runtime status (update per build):** [`DT510-HARDWARE-I2C-STATUS.md`](DT510-HARDWARE-I2C-STATUS.md) · Tool reference: [`reference/dt510-ollie-tool-generated/`](reference/dt510-ollie-tool-generated/) · **Sentai vs DT510:** [§ below](#sentai-vs-dt510-product-clarification)
 
-**Legend — BSP status:** present | partial | missing | placeholder | conflict | N/A
+**Legend — BSP status:** present | partial | missing | placeholder | conflict | N/A | **validated (lab)** (bench-confirmed on prototype; detail in row)
 
 ---
 
@@ -49,7 +49,7 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 | Auth **SE050** | I2C4 `0x48` | **aligned with stack** | OpTEE **`CFG_CORE_SE05X_I2C_BUS=3`** = **`&i2c4`** (same as Sentai). Machine `se05x` + OEFID set. Optional: explicit DT node — see [`DT510-SE050.md`](DT510-SE050.md) | B4 |
 | **MCP2518xx** CAN | ECSPI2 + GPIO | missing | `&ecspi2` disabled — **not** XM125 on DT510 (Sentai only); enable for CAN when ready | C4 |
 | Ethernet **KSZ9896** | ENET RGMII + **MIIM (MDC/MDIO)** | in DT (validate) | `&fec1` + `mdio` subnode, **no** KSZ on I²C; DSA I²C not used — see `docs/DT510-ETHERNET-KSZ9896.md` | C1 |
-| GNSS **NEO-M9V** | GPIO reset | missing | Per SSOT — no XM125 on DT510 (frees GPIOs that Sentai used for radar) | C5 |
+| GNSS **NEO-M9V** | UART NMEA + GPIO reset (`gnss-res#`) | **validated (lab)** | **2026-05-05:** antenna connected; NMEA shows valid fix (`RMC`/`GLL` **A**, `GGA` fix quality, `GSA` 3D, multiple sats used). SSOT reset hog unchanged. | C5 |
 | HDMI misc **HDMI2C1-6C1** | GPIO | partial | Fault line per SSOT — align with LT9611 bring-up | C3 |
 | **CP2108** quad-UART | GPIO reset | **doc / optional DT** | USB enumeration; DTS comment — add GPIO when SSOT names reset | B3 |
 | Digital I/O | GPIO1_IO0–9 | **partial** | **`pinctrl_gpio1_dio`** + EVK **`ir_recv` / `reg_pcie0` / `backlight`** disabled; validate on prototype | B2 |
@@ -78,4 +78,4 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 
 ---
 
-*Last updated: 2026-04-14 — Tier C2 codec order; TAA5412/pcm6240 kernel investigation (see plan §5).*
+*Last updated: 2026-05-05 — GNSS NEO-M9V lab validation (satellite lock + antenna); Tier C2 codec order unchanged.*

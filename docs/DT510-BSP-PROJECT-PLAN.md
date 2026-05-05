@@ -100,7 +100,7 @@ Work **in order** within each tier unless a dependency forces otherwise.
 | C2 | **Audio vs SSOT** | **TAS6424:** `pinctrl_sai1_tas6424`, **`&sai1` okay**, **`sound-tas6424`** (`simple-audio-card` → **`tas6424-classd`**), **`tas6424@6a` okay** with **`dvdd`** + placeholder **`tas6424_hi_rail`** for **vbat/pvdd** (SSOT must replace); **standby/mute GPIOs** when netlist confirms; **`CONFIG_SND_SOC_TAS6424=m`**; **micfil / sound-micfil** off. Still to do: **TAA5412**, **TAC5301**, TDM/4ch if needed. **I2C2 `0x50`:** TAC5301. |
 | C3 | **HDMI — LT9611** (I2C3 `0x72`) | Reset/int/fault lines per doc; check pinctrl vs other GPIO users. |
 | C4 | **CAN — MCP2518xx on ECSPI2** | **DT510 has no XM125** (Sentai only). `&ecspi2` free for CAN bring-up when ready. |
-| C5 | **GNSS** | Reset line per SSOT — no XM125/radar GPIO contention on DT510. |
+| C5 | **GNSS** | **Lab 2026-05-05:** NEO-M9V + antenna — NMEA shows valid navigation fix (e.g. `RMC`/`GLL` active, `GGA` fix quality, `GSA` 3D). Reset/`gnss-res#` per DTS hog; no XM125 GPIO contention on DT510. |
 
 #### Tier C2 — Scoped codec sequence (prototype hardware)
 
@@ -157,7 +157,7 @@ Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md)
 | Ethernet | KSZ9896 RGMII | `fec1` disabled |
 | SE050 | I2C4 `0x48` | **OpTEE/Sentai-aligned** — see [`DT510-SE050.md`](DT510-SE050.md); optional explicit DT child |
 | CAN | MCP2518xx, ECSPI2 | `&ecspi2` disabled — enable for CAN (no XM125 on DT510) |
-| GNSS | NEO-M9V | Per SSOT |
+| GNSS | NEO-M9V | UART NMEA + reset in DTS; **lab 2026-05-05:** satellite lock confirmed with antenna |
 
 ---
 
@@ -172,6 +172,7 @@ Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md)
 
 | Date | Change |
 |------|--------|
+| 2026-05-05 | **Tier C5 / GNSS:** NEO-M9V validated on bench — NMEA indicates valid fix with antenna; checklist + DTS bring-up comment updated. |
 | 2026-04-13 | Tier A3 audit checklist; A4 I2C3 placeholders; plan §3/§7 synced. |
 | 2026-04-13 | Linked §2 to **Sentai vs DT510** clarification in `DT510-HARDWARE-AUDIT-CHECKLIST.md` (issue #2 / product questions). |
 | 2026-04-13 | DT510: **removed** `tcpc@50` from DTS; **`stusb4500`** from `MACHINE_FEATURES` (no TCPC / STUSB4500 on board per Ollie). Docs + `production-test.sh` + `stusb4500-nvm` bbappend aligned. |
