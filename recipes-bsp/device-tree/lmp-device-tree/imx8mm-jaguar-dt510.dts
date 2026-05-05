@@ -259,6 +259,7 @@
  *
  * Order matches pinctrl-0: hog GPIOs + BQ25792 charger interrupt, then groups used by drivers.
  * Do not list pinctrl_ecspi2 here — &ecspi2 applies it; listing it twice causes "already requested by pinctrl" for 30830000.spi.
+ * Do not hog pinctrl_sai6_tac5301 or pinctrl_tac5301_gpio — &sai6 and tac5301@50 apply them; hogging duplicates pin claims (tac5x1x / imx8mm-pinctrl -EBUSY).
  *   hoggrp — WLAN/BT/LTE strap lines (SD1_DATA5/6/7, SD1_RESET_B, …); TAS2563 reset (CODEC_SD# on GPIO5).
  *   bq25792_chgr_int — CHGR_INT# from charger (muxed GPIO4).
  *   uart1 — UART1 + UART3 pins used as RTS/CTS for Bluetooth (IW8997 sideband).
@@ -271,14 +272,14 @@
  *   sai3 — TAS2563 I2S + codec interrupt on GPIO5.
  *   ecspi1 + zigbee — SPI to 802.15.4 module; ZB_INT on GPIO4_IO22 (no SoC ZB_RST# line on this SKU).
  *   ecspi2 + can_gpio — MCP251863: ECSPI2 pads via pinctrl_ecspi2 on &ecspi2 only; CAN sideband on GPIO4_IO15/16 (pinctrl_can_mcp2518_gpio).
- *   tac5301 — SAI6 on SAI1_RXD4/RXD5/RXD6 + SAI1_TXD5 pads; SAI1_TXD2 → GPIO4_IO14 codec strap (SAI1 TXD0/1 still &tas6424).
+ *   tac5301 — SAI6 + strap pads muxed only under &sai6 / tac5301@50 (not hogged here).
  *   gnss_reset — NEO-M9V GNSS_RES# (GPIO output; pad not used by &sai3 audio mux below).
  *   hdmi — LT9611 (SD1_STROBE / SD1_DATA4 / SAI3_RXFS): HDMI_RES#, HDMI_INT, HDMI2C1 fault (GPIO2_IO11, GPIO2_IO6, GPIO4_IO28).
  *   quart_reset — CP2108 QUART_RES# (GPIO4_IO5, SAI1_RXD3 pad; not in &sai1 TAS6424 pinctrl).
  */
 &iomuxc {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_hog>, <&pinctrl_bq25792_chgr_int>, <&pinctrl_gnss_reset>, <&pinctrl_hdmi>, <&pinctrl_quart_reset>, <&pinctrl_gpio1_dio>, <&pinctrl_can_mcp2518_gpio>, <&pinctrl_sai6_tac5301>, <&pinctrl_tac5301_gpio>;
+	pinctrl-0 = <&pinctrl_hog>, <&pinctrl_bq25792_chgr_int>, <&pinctrl_gnss_reset>, <&pinctrl_hdmi>, <&pinctrl_quart_reset>, <&pinctrl_gpio1_dio>, <&pinctrl_can_mcp2518_gpio>;
 
 	/*
 	 * Boot-time strap / sideband mux defaults (WLAN/BT/LTE/SIM/audio straps).
