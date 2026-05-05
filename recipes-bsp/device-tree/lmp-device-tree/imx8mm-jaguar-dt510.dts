@@ -1083,7 +1083,10 @@
 	assigned-clock-parents = <&clk IMX8MM_AUDIO_PLL1_OUT>;
 	assigned-clock-rates = <12288000>;
 	fsl,sai-mclk-direction-output;
-	fsl,sai-synchronous-rx;
+	/* No fsl,sai-synchronous-rx — with 6.6 fsl-sai, SAI6 probe failed (-EINVAL)
+	 * "invalid binding for synchronous mode", leaving sound-tac5301 deferred.
+	 * &sai1 (TAS6424) runs without this property; keep SAI6 async like that path.
+	 */
 	#sound-dai-cells = <0>;
 	status = "okay";
 };
