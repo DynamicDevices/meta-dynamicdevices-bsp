@@ -828,6 +828,12 @@
 		full-duplex;
 		pause;
 	};
+
+	/*
+	 * imx8mm-evk.dtsi keeps fec1/mdio + ethernet-phy@0 with reset-gpios on GPIO4_IO22.
+	 * DT510 uses GPIO4_IO22 for Zigbee ZB_INT (&ecspi1); FEC reaches KSZ9896 via fixed-link only.
+	 */
+	/delete-node/ mdio;
 };
 
 /*
