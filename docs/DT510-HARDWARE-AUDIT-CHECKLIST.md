@@ -79,4 +79,4 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 
 ---
 
-*Last updated: 2026-05-06 — Cellular SIM note + plan §3 link for serial (`ttymxc1` vs UART4).*
+*Last updated: 2026-05-07 — Serial console validated on HW after bench fix (plan §3).*

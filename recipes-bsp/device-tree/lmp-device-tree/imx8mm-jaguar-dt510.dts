@@ -30,6 +30,7 @@
  *   SE050: I2C4 @ 0x48 — U-Boot / OpTEE; not expanded in this DTS.
  *
  * Bring-up status (lab — revise when verified):
+ *   Serial console (**UART2** / **`ttymxc1`**): **lab 2026-05** — working after **hardware** fix on bench (BSP/U-Boot/cmdline were already consistent).
  *   PMIC: implemented and in use.
  *   IW612 / WLAN: working on SDIO + VMMC rail.
  *   Cellular modem: Quectel LTE-on-USB (e.g. EM05); ModemManager enumerates modem + **SIM** (lab 2026-05: **`mmcli -m 1`** shows active SIM, IMSI/operator after reboot; cold boot can briefly report **sim-missing** until modem settles). Radio may show **disabled** until **`mmcli -m 1 --enable`** / NM; data/voice **paths still to validate**.

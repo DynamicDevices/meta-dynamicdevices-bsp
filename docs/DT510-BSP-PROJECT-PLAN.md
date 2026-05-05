@@ -63,6 +63,8 @@ If you see **no output on a USB–UART adapter**, first confirm you are on the *
 
 **U-Boot:** **`bootcmd`** programs UART4 RDC then **`source 0x44800000`** (Foundries script). Lack of **pre-Linux** spam on serial is usually SPL/U‑Boot build defaults, not missing **`console=`** in Linux — compare with a second adapter on UART2 during power-on.
 
+**Lab note (2026-05):** A stretch where serial appeared “dead” was traced to **bench/hardware** (adapter/header/wiring), **not** DTS or cmdline; after HW correction, **UART2 / `ttymxc1`** console matches this stack end-to-end.
+
 ---
 
 ## 4. Guiding principles
@@ -180,6 +182,7 @@ Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md)
 
 | Date | Change |
 |------|--------|
+| 2026-05-07 | **Serial console:** Confirmed **working** on bench after **hardware** repair; BSP **`stdout-path` / `ttymxc1`** unchanged. |
 | 2026-05-06 | **Serial console:** Documented UART2/`ttymxc1` vs UART4 MCU (`ttymxc3`), **`chosen.stdout-path`**, **`SERIAL_CONSOLES` ↔ FTDI symlink — lab SSH checks showed Linux printk + getty on **`ttymxc1`** unchanged; “no serial” triage is usually **wrong header / baud / wiring**. |
 | 2026-05-06 | **Cellular:** ModemManager **`mmcli`** on lab DT510 — LTE modem + **SIM recognised** (primary SIM active, IMSI/operator readable post-reboot); checklist row + DTS bring-up note updated. Bearer/data **TBD**. |
 | 2026-05-05 | **Tier C5 / GNSS:** NEO-M9V validated on bench — NMEA indicates valid fix with antenna; checklist + DTS bring-up comment updated. |
