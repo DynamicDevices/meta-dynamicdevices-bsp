@@ -1,0 +1,76 @@
+diff --git a/drivers/pinctrl/pinctrl-tac5x1x.c b/drivers/pinctrl/pinctrl-tac5x1x.c
+index 621714b0e..000000000 100644
+--- a/drivers/pinctrl/pinctrl-tac5x1x.c
++++ b/drivers/pinctrl/pinctrl-tac5x1x.c
+@@ -679,7 +679,7 @@
+ 	.pin_config_group_set	= tac5x1x_pin_config_group_set,
+ };
+ 
+-static const struct pinctrl_desc tac5x1x_pin_desc = {
++static struct pinctrl_desc tac5x1x_pin_desc = {
+ 	.name		= "tac5x1x-pinctrl",
+ 	.owner		= THIS_MODULE,
+ 
+@@ -733,8 +733,8 @@
+ 	return ret;
+ }
+ 
+-static int tac5x1x_gpio_set(struct gpio_chip *chip, unsigned int offset,
+-			    int value)
++static int tac5x1x_gpio_set_impl(struct gpio_chip *chip, unsigned int offset,
++				 int value)
+ {
+ 	struct tac5x1x_pin *priv = gpiochip_get_data(chip);
+ 	struct device *parent = priv->dev->parent;
+@@ -773,10 +773,21 @@
+ 	return ret;
+ }
+ 
++static void tac5x1x_gpio_set(struct gpio_chip *chip, unsigned int offset,
++			     int value)
++{
++	int ret = tac5x1x_gpio_set_impl(chip, offset, value);
++
++	if (ret)
++		dev_err(gpiochip_get_data(chip)->dev,
++			"gpio set failed for offset %u: %d\n", offset, ret);
++}
++
+ static int tac5x1x_gpio_direction_in(struct gpio_chip *chip,
+ 				     unsigned int offset)
+ {
+ 	struct tac5x1x_pin *priv = gpiochip_get_data(chip);
++	unsigned int gpio;
+ 
+ 	dev_dbg(priv->dev, "setting %s to input",
+ 		tac5x1x_pin_pins[offset].name);
+@@ -787,19 +798,26 @@
+ 		return -EOPNOTSUPP;
+ 	}
+ 
+-	return pinctrl_gpio_direction_input(chip, offset);
++	if (chip->base < 0)
++		return -EINVAL;
++	gpio = chip->base + offset;
++	return pinctrl_gpio_direction_input(gpio);
+ }
+ 
+ static int tac5x1x_gpio_direction_out(struct gpio_chip *chip,
+ 				      unsigned int offset, int value)
+ {
++	unsigned int gpio;
+ 	int ret;
+ 
+-	ret = tac5x1x_gpio_set(chip, offset, value);
++	ret = tac5x1x_gpio_set_impl(chip, offset, value);
+ 	if (ret)
+ 		return ret;
+ 
+-	return pinctrl_gpio_direction_output(chip, offset);
++	if (chip->base < 0)
++		return -EINVAL;
++	gpio = chip->base + offset;
++	return pinctrl_gpio_direction_output(gpio);
+ }
+ 
+ static int tac5x1x_gpio_add_pin_ranges(struct gpio_chip *chip)
