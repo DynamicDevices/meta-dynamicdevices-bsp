@@ -20,7 +20,7 @@
  *   Audio: TAS6424 (&sai1), TAS2563 (&sai3); TAC5301 on &sai6 @ 0x50 (&i2c2) — ti,tac5x1x + simple-audio-card `tac5301-codec` when tac5x1x-audio is enabled in kernel.
  *            TAS6424 AMP_FAULT#/WARN# on gpio-keys (GPIO1_IO12/13).
  *   Charger: TI BQ25792 on &i2c3 @ 0x6b; CHGR_INT# GPIO4_IO9.
- *   Zigbee: ECSPI1 + spidev; ZB_INT GPIO4_IO22 (no ZB_RST# on this SKU).
+ *   Zigbee: ECSPI1 + spidev (HW SSOT — Ollie Hull); ZB_INT GPIO4_IO22 (no ZB_RST# on this SKU).
  *   CAN: MCP251863 on &ecspi2; CAN_INT# GPIO4_IO16, CAN_STBY GPIO4_IO15.
  *   GNSS: u-blox NEO-M9V; GNSS_RES# GPIO4_IO29 (SAI3_RXC mux).
  *   USB UART: CP2108 (cp210x); QUART_RES# GPIO4_IO5 (SAI1_RXD3 mux).
