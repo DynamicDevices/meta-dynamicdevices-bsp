@@ -44,6 +44,7 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
   file://enable-firewall.sh \
   file://emmc-wipe-boot-partitions.sh \
   file://rs485_tx_bytes.py \
+  file://dt510-dio-toggle-outputs \
 "
 
 SRC_URI:append:imx93-jaguar-eink = " \
@@ -68,6 +69,7 @@ do_install:append:imx8mm-jaguar-sentai() {
 
 do_install:append:imx8mm-jaguar-dt510() {
     install -m 0755 ${WORKDIR}/rs485_tx_bytes.py ${D}${sbindir}/rs485_tx_bytes
+    install -m 0755 ${WORKDIR}/dt510-dio-toggle-outputs ${D}${sbindir}/dt510-dio-toggle-outputs
 }
 
 # Runtime dependencies for all machines (board-info.sh and production-test.sh use bash)
@@ -75,4 +77,4 @@ RDEPENDS:${PN} = "bash"
 
 # Additional dependencies for specific machines
 RDEPENDS:${PN}:imx8mm-jaguar-sentai = "bash dtmf2num"
-RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = " python3"
+RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = " python3 python3-gpiod"
