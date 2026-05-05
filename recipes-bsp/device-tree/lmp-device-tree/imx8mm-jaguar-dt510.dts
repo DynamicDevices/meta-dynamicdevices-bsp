@@ -35,11 +35,11 @@
  *   IW612 / WLAN: working on SDIO + VMMC rail.
  *   Cellular modem: Quectel LTE-on-USB (e.g. EM05); ModemManager enumerates modem + **SIM** (lab 2026-05: **`mmcli -m 1`** shows active SIM, IMSI/operator after reboot; cold boot can briefly report **sim-missing** until modem settles). Radio may show **disabled** until **`mmcli -m 1 --enable`** / NM; data/voice **paths still to validate**.
  *   eMMC: boots; throughput / wear levelling TBD.
- *   Bluetooth (IW612): TBD.
+ *   Bluetooth (IW612): **lab 2026-05** — **`hci0`** UP; BLE discovery via **`bluetoothctl scan`** (see **`docs/DT510-HARDWARE-AUDIT-CHECKLIST.md`**, **`meta-subscriber-overrides/.../DT510-HARDWARE-BRINGUP.md`**). HCI: **`&uart1`** + UART3 pads as RTS/CTS; **`nxp,88w8997-bt`** @ 3 Mbaud init.
  *   Ethernet (KSZ9896): forwarding works; I²C management errors on switch MIB path (see lab notes / bus rate experiments).
  *   Audio: TAS2563 (and path) produces output; levels / mux / tuning still in progress; TAS6424 bring-up continues; TAC5301 path enabled in-tree with tac5x1x lore series — lab validation TBD.
  *   Charger / pack sensing: TBD.
- *   Zigbee: TBD.
+ *   Zigbee: DTS **`&ecspi1`** **`spidev`** + **`ZB_INT`** GPIO4_IO22; **`MACHINE_FEATURES`** **`zigbee`** → `zigbee-rcp-*` images — **end-to-end RCP / on-air TBD**.
  *   CAN: TBD.
  *   GNSS: NMEA on UART; **lab 2026-05-05:** valid fix with antenna — `$GNRMC`/`$GNGLL` status A, `$GNGGA` quality ≥1, `$GNGSA` 3D, multi-constellation in view.
  *   USB (host/gadget): working.

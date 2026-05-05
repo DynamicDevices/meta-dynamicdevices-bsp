@@ -26,7 +26,7 @@ Machine: **`imx8mm-jaguar-sentai`** vs **`imx8mm-jaguar-dt510`**. Use this when 
 
 ### Same `MACHINE_FEATURES` stack in both machine configs (not Sentai-only)
 
-Both append **`nxpiw612-sdio`**, **`zigbee`**, **`tas2562`**, and the same **`se05x`** / **`SE05X_OEFID`** pattern (when not local-dev). **Sentai** also enables **`stusb4500`** (`MACHINE_FEATURES`); **DT510 does not** — no STUSB4500 USB‑PD IC on board (not USB‑C powered). Wi‑Fi, Zigbee, amp, and SE050-class bring-up are not Sentai-only; **USB‑PD** is.
+Both append **`nxpiw612-sdio`** and **`zigbee`**, plus the same **`se05x`** / **`SE05X_OEFID`** pattern (when not local-dev). **Sentai** uses **`tas2562`** (smart amp feature stack); **DT510** uses **`tas2563`** + **`tas6424`** + **`tac5x1x-audio`** (see `imx8mm-jaguar-dt510.conf`). **Sentai** also enables **`stusb4500`** (`MACHINE_FEATURES`); **DT510 does not** — no STUSB4500 USB‑PD IC on board (not USB‑C powered). Wi‑Fi, Zigbee, amp, and SE050-class bring-up are not Sentai-only; **USB‑PD** is.
 
 **Product check:** `imx8mm-jaguar-dt510.conf` notes Wi‑Fi may still follow **Sentai for demo** until new hardware — confirm whether DT510 **hardware** matches Sentai or only the **software** profile.
 
@@ -36,24 +36,24 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 
 ### Open by SKU (use the table below + project plan)
 
-**CAN, GNSS, Ethernet switch, full audio codec set, HDMI** depend on **what is fitted** — not a single global “Sentai yes / DT510 no” flag. **ECSPI2:** on Sentai the XM125 GPIO story used those pins; on DT510 **`&ecspi2`** is **free for CAN** (e.g. MCP2518xx) when ready — see plan tiers C4/C5.
+**CAN, GNSS, Ethernet switch, full audio codec set, HDMI** depend on **what is fitted** — not a single global “Sentai yes / DT510 no” flag. **ECSPI2:** on Sentai the XM125 GPIO story used those pins; on DT510 **`&ecspi2`** is **`okay`** with **`can0`** (**MCP251863**) — validate SocketCAN on hardware — see plan tier C4/C5.
 
 | SSOT block | Bus / address (SSOT) | BSP status | Notes / DT / driver | Plan tier |
 |------------|----------------------|------------|----------------------|-----------|
-| Analog audio **TAC5301** | I2C2 `0x50` | missing | **No TCPC on DT510** — legacy `tcpc@50` **removed** from DTS; address free for TAC5301 per SSOT (enable Tier C2 when ready) | C2 |
+| Analog audio **TAC5301** | I2C2 `0x50`, SAI6 | **present (validate)** | **`tac5301@50`**, **`sound-tac5301`** (`tac5301-codec`); **`&sai6`** **without** `fsl,sai-synchronous-rx` so **`fsl-sai`** probes (BSP **`b216a8c+`**). **Lab:** confirm ALSA card + playback after flashing pinned image. | C2 |
 | Driver speaker **TAS2563** | I2C2 `0x4C`, SAI3 | present | `tas2563@4C`, `sound-tas2563`, `&sai3` | — |
 | Mic **TAA5412** | I2C2 `0x51` | missing | SAI5 — not in DTS; **`ti,taa5412`** / **`snd_soc_pcm6240`** — **not** in factory **linux-fslc 6.6.52** @ LmP SRCREV; mainline **6.10+** — backport/kernel bump/out-of-tree before enable | C2 |
 | Class-D **TAS6424** | I2C2 `0x6A`, SAI1 | **enabled (validate)** | **`tas6424@6a` okay** + **`sound-tas6424`** (`tas6424-classd`); **`tas6424_hi_rail`** placeholder for vbat/pvdd — **confirm SSOT**; **`&sai1` okay** + `pinctrl_sai1_tas6424`; **`&micfil` / `sound-micfil` disabled**; `CONFIG_SND_SOC_TAS6424=m` | C2 |
 | Charger **BQ25792** | I2C3 `0x6B`, `CHGR_INT#` | **partial (validate probe)** | **`bq25792@6b` enabled** + `simple-battery`; BSP kernel patches **0010–0024** (BQ25703A stack + binding import + Patchew v6 BQ25792) when **`bq25792-charger`** — **`git am`** checked on fslc **`97812d71`**; re-verify on your **`SRCREV`**. **CHGR_INT#** in DTS (GPIO4_IO9). Lab: **`i2c-dev`** on **`i2c-2`**. **Issue #3.** | B1 |
 | HDMI **LT9611** | I2C3 — SSOT `0x72` (8-bit) → DT **7-bit `0x39`** | placeholder | `lt9611@39` **disabled** in DTS — enable Tier C3 | C3 |
 | Auth **SE050** | I2C4 `0x48` | **aligned with stack** | OpTEE **`CFG_CORE_SE05X_I2C_BUS=3`** = **`&i2c4`** (same as Sentai). Machine `se05x` + OEFID set. Optional: explicit DT node — see [`DT510-SE050.md`](DT510-SE050.md) | B4 |
-| **MCP2518xx** CAN | ECSPI2 + GPIO | missing | `&ecspi2` disabled — **not** XM125 on DT510 (Sentai only); enable for CAN when ready | C4 |
+| **MCP2518xx** CAN | ECSPI2 + GPIO | **present (validate)** | **`&ecspi2` okay** — **`can0`** `microchip,mcp251863`; **`CAN_INT#`** GPIO4_IO16, **`CAN_STBY`** GPIO4_IO15; **`mcp251xfd-can`** machine feature pulls kernel/socketcan bits — confirm **`ip link`** / traffic on bench | C4 |
 | Ethernet **KSZ9896** | ENET RGMII + **MIIM (MDC/MDIO)** | in DT (validate) | `&fec1` + `mdio` subnode, **no** KSZ on I²C; DSA I²C not used — see `docs/DT510-ETHERNET-KSZ9896.md` | C1 |
 | GNSS **NEO-M9V** | UART NMEA + GPIO reset (`gnss-res#`) | **validated (lab)** | **2026-05-05:** antenna connected; NMEA shows valid fix (`RMC`/`GLL` **A**, `GGA` fix quality, `GSA` 3D, multiple sats used). SSOT reset hog unchanged. | C5 |
 | HDMI misc **HDMI2C1-6C1** | GPIO | partial | Fault line per SSOT — align with LT9611 bring-up | C3 |
 | **CP2108** quad-UART | GPIO reset | **doc / optional DT** | USB enumeration; DTS comment — add GPIO when SSOT names reset | B3 |
 | Digital I/O | GPIO1_IO0–9 | **partial** | **`pinctrl_gpio1_dio`** + EVK **`ir_recv` / `reg_pcie0` / `backlight`** disabled; validate on prototype | B2 |
-| **MAYA-W276** (Wi‑Fi / BT / 802.15.4) | SDIO, SPI, UART, SAI2 | partial | `&usdhc2`, `&ecspi1`, `&uart1`, `&sai2` etc. | — |
+| **MAYA‑W276 / IW612** (Wi‑Fi / BT) + **802.15.4 (Silabs RCP)** | SDIO + UART (HCI) + ECSPI (ZB) | **Wi‑Fi / BT validated (lab)**; ZB DTS ready | **Wi‑Fi/BT:** **`&usdhc1`** (4‑bit SDIO; **`&usdhc2` disabled** — not EVK SD2); **`&uart1`** HCI **`nxp,88w8997-bt`** with UART3 pads as RTS/CTS; GPIO straps **`BT_WAKE_*`**, **`BT_RST#`**, **`WL_*`**, **`WIFI_PD#`** per `hoggrp` / `imx8mm-jaguar-dt510.dts`. **BT:** **2026‑05** — **`bluetoothctl scan`** finds BLE devices. **802.15.4:** DT510 **`&ecspi1`** **`spidev`** + **`ZB_INT`** GPIO4_IO22 — **not** SAI2; userspace RCP **TBD**. See **`meta-subscriber-overrides/conf/DT510-HARDWARE-BRINGUP.md`**. | — |
 | **Cellular LTE** (Quectel **EM05** class) | **USB OTG2** host (`&usbotg2`); LTE_RST / LTE_OFF / SIM_SEL hogs | **partial (lab)** | **2026-05:** ModemManager **`mmcli -m 1`** — modem present, **primary SIM active** (`/SIM/1`), IMSI + operator name readable; earlier **`sim-missing`** seen until reboot/settle. **`cdc-wdm0`** MBIM + **option** ttys. Enable rf with **`mmcli -m 1 --enable`** if state **disabled**; bearer/data/voice **TBD**. Module reported **fixed-dialing** lock — confirm vs SIM/product. | — |
 | **STUSB4500** / USB‑C PD | — | **N/A (DT510)** | **Not populated** — no `stusb4500` machine feature; gadget uses **`&usbotg1`** peripheral only (see `DT510-USB-DUAL-AUDIO.md`). **Sentai** retains STUSB4500. | — |
 | **USB dual UAC2 gadget** | `usbotg1` peripheral + systemd | present | **Simulated / lab** path — see [`DT510-USB-DUAL-AUDIO.md`](DT510-USB-DUAL-AUDIO.md); feature `dt510-usb-dual-audio-autostart` | — |
@@ -69,7 +69,7 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 
 1. **TAS6424** @ `0x6A` / SAI1 — validate on hardware (kernel config, card, rails/GPIOs per #2); then TDM vs I2S if product chooses TDM.
 2. **TAA5412** @ I2C2 **`0x51`** / **SAI5** — add **`&sai5`** + pinctrl from SSOT / `pin_mux` reference; **kernel:** **pcm6240** driver **absent** from **6.6.52** imx tree — choose backport (mainline ≥ **6.10**), kernel advance, or out-of-tree (**plan §5**); then codec + ALSA card.
-3. **TAC5301** @ I2C2 **`0x50`** — **last** (low priority per lab). TCPC already removed; enable node + audio link when SSOT + driver path are ready.
+3. **TAC5301** @ I2C2 **`0x50`** / **SAI6** — **validate on HW** with manifest-pinned BSP (**`b216a8c+`**, SAI6 probe fix). ALSA **`tac5301-codec`** + playback/capture vs product.
 
 **Other tiers**
 
@@ -79,4 +79,4 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 
 ---
 
-*Last updated: 2026-05-07 — Serial console validated on HW after bench fix (plan §3).*
+*Last updated: 2026-05-04 — WLAN/BT checklist row aligned with **`&usdhc1`** + **`&uart1`**; MCP2518 **`&ecspi2`**; TAC5301 DTS present; Sentai vs DT510 **`tas2562`** vs **`tas2563`** clarification.*
