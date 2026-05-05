@@ -172,6 +172,7 @@ Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md)
 
 | Date | Change |
 |------|--------|
+| 2026-05-06 | **Cellular:** ModemManager **`mmcli`** on lab DT510 — LTE modem + **SIM recognised** (primary SIM active, IMSI/operator readable post-reboot); checklist row + DTS bring-up note updated. Bearer/data **TBD**. |
 | 2026-05-05 | **Tier C5 / GNSS:** NEO-M9V validated on bench — NMEA indicates valid fix with antenna; checklist + DTS bring-up comment updated. |
 | 2026-04-13 | Tier A3 audit checklist; A4 I2C3 placeholders; plan §3/§7 synced. |
 | 2026-04-13 | Linked §2 to **Sentai vs DT510** clarification in `DT510-HARDWARE-AUDIT-CHECKLIST.md` (issue #2 / product questions). |

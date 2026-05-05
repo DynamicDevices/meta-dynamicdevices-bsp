@@ -54,6 +54,7 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 | **CP2108** quad-UART | GPIO reset | **doc / optional DT** | USB enumeration; DTS comment — add GPIO when SSOT names reset | B3 |
 | Digital I/O | GPIO1_IO0–9 | **partial** | **`pinctrl_gpio1_dio`** + EVK **`ir_recv` / `reg_pcie0` / `backlight`** disabled; validate on prototype | B2 |
 | **MAYA-W276** (Wi‑Fi / BT / 802.15.4) | SDIO, SPI, UART, SAI2 | partial | `&usdhc2`, `&ecspi1`, `&uart1`, `&sai2` etc. | — |
+| **Cellular LTE** (Quectel **EM05** class) | **USB OTG2** host (`&usbotg2`); LTE_RST / LTE_OFF / SIM_SEL hogs | **partial (lab)** | **2026-05:** ModemManager **`mmcli -m 1`** — modem present, **primary SIM active** (`/SIM/1`), IMSI + operator name readable; earlier **`sim-missing`** seen until reboot/settle. **`cdc-wdm0`** MBIM + **option** ttys. Enable rf with **`mmcli -m 1 --enable`** if state **disabled**; bearer/data/voice **TBD**. Module reported **fixed-dialing** lock — confirm vs SIM/product. | — |
 | **STUSB4500** / USB‑C PD | — | **N/A (DT510)** | **Not populated** — no `stusb4500` machine feature; gadget uses **`&usbotg1`** peripheral only (see `DT510-USB-DUAL-AUDIO.md`). **Sentai** retains STUSB4500. | — |
 | **USB dual UAC2 gadget** | `usbotg1` peripheral + systemd | present | **Simulated / lab** path — see [`DT510-USB-DUAL-AUDIO.md`](DT510-USB-DUAL-AUDIO.md); feature `dt510-usb-dual-audio-autostart` | — |
 | **XM125** radar | — | **N/A (DT510)** | **Sentai only** — not on DT510; **`xm125@52`** node **not present** in `imx8mm-jaguar-dt510.dts` | — |
@@ -78,4 +79,4 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 
 ---
 
-*Last updated: 2026-05-05 — GNSS NEO-M9V lab validation (satellite lock + antenna); Tier C2 codec order unchanged.*
+*Last updated: 2026-05-06 — Cellular: ModemManager finds SIM (post-reboot **`mmcli`**); GNSS/C2 notes unchanged.*

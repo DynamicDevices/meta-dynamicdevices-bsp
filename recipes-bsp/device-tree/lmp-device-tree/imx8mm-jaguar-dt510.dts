@@ -32,7 +32,7 @@
  * Bring-up status (lab — revise when verified):
  *   PMIC: implemented and in use.
  *   IW612 / WLAN: working on SDIO + VMMC rail.
- *   Cellular modem: detected; data/voice connectivity still to be tested.
+ *   Cellular modem: Quectel LTE-on-USB (e.g. EM05); ModemManager enumerates modem + **SIM** (lab 2026-05: **`mmcli -m 1`** shows active SIM, IMSI/operator after reboot; cold boot can briefly report **sim-missing** until modem settles). Radio may show **disabled** until **`mmcli -m 1 --enable`** / NM; data/voice **paths still to validate**.
  *   eMMC: boots; throughput / wear levelling TBD.
  *   Bluetooth (IW612): TBD.
  *   Ethernet (KSZ9896): forwarding works; I²C management errors on switch MIB path (see lab notes / bus rate experiments).
