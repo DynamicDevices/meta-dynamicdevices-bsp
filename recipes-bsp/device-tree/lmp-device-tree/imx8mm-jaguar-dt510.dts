@@ -37,7 +37,7 @@
  *   eMMC: boots; throughput / wear levelling TBD.
  *   Bluetooth (IW612): **lab 2026-05** — **`hci0`** UP; BLE discovery via **`bluetoothctl scan`** (see **`docs/DT510-HARDWARE-AUDIT-CHECKLIST.md`**, **`meta-subscriber-overrides/.../DT510-HARDWARE-BRINGUP.md`**). HCI: **`&uart1`** + UART3 pads as RTS/CTS; **`nxp,88w8997-bt`** @ 3 Mbaud init.
  *   Ethernet (KSZ9896): forwarding works; I²C management errors on switch MIB path (see lab notes / bus rate experiments).
- *   Audio: TAS2563 (and path) produces output; levels / mux / tuning still in progress; TAS6424 bring-up continues; TAC5301 path enabled in-tree with tac5x1x lore series — lab validation TBD.
+ *   Audio: TAS2563 (and path) produces output; levels / mux / tuning still in progress; TAS6424 bring-up continues; TAC5301 on &sai6 (BCLK-only to codec, no MCLK wire) — tac5x1x + ALSA playback validated lab 2026-05; analog path / levels TBD.
  *   Charger / pack sensing: TBD.
  *   Zigbee: DTS **`&ecspi1`** **`spidev`** + **`ZB_INT`** GPIO4_IO22; **`zb_mux`** / **`zb_app`** exercised on SPI — **RCP FW / MAC-split ACK / on-air**: align with **Sentai private NXP Zigbee IW612 firmware** (see **`meta-subscriber-overrides/conf/DT510-HARDWARE-BRINGUP.md`**).
  *   CAN: TBD.
@@ -593,7 +593,8 @@
 
 	/*
 	 * TI TAC5301-Q1 — I2S on &sai6 (pads shared naming on SAI1_* muxOptions → SAI6).
-	 * No separate MCLK pad in SSOT pin list here — confirm vs BOM / driver when enabling.
+	 * HW: TAC5301 is wired with a bit clock (BCLK) only — no dedicated MCLK pin to the codec;
+	 * i.MX SAI6 still uses fsl,sai-mclk-direction-output per NXP SAI + simple-audio-card clock phandle.
 	 */
 	pinctrl_sai6_tac5301: sai6_tac5301_grp {
 		fsl,pins = <
@@ -894,7 +895,7 @@
 		status = "okay";
 	};
 
-	/* TI TAC5301-Q1 — MFD + codec on &sai6; reset / supplies per tac5x1x binding (verify vs schematic). */
+	/* TI TAC5301-Q1 — MFD + codec on &sai6; digital link is BCLK + LRCK + data (no MCLK pin). */
 	tac5301: tac5301@50 {
 		compatible = "ti,tac5301";
 		reg = <0x50>;
