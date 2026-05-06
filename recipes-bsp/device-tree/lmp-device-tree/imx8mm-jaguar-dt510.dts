@@ -21,7 +21,7 @@
  *            TAS6424 AMP_FAULT#/WARN# on gpio-keys (GPIO1_IO12/13).
  *   Charger: TI BQ25792 on &i2c3 @ 0x6b; CHGR_INT# GPIO4_IO9.
  *   Zigbee: ECSPI1 + spidev (HW SSOT — Ollie Hull); ZB_INT GPIO4_IO22 (no ZB_RST# on this SKU).
- *   CAN: MCP251863 on &ecspi2; CAN_INT# GPIO4_IO16, CAN_STBY GPIO4_IO15.
+ *   CAN: MCP251863 on &ecspi2 (20 MHz XTAL); CAN_INT# GPIO4_IO16, CAN_STBY GPIO4_IO15.
  *   GNSS: u-blox NEO-M9V; GNSS_RES# GPIO4_IO29 (SAI3_RXC mux).
  *   USB UART: CP2108 (cp210x); QUART_RES# GPIO4_IO5 (SAI1_RXD3 mux).
  *   HDMI: LT9611 on &i2c3 @ 0x39 (GPIO2_IO11/6); HDMI2C1 fault GPIO4_IO28; bridge disabled until DSI graph ready.
@@ -116,12 +116,12 @@
 	};
 
 	/*
-	 * MCP251863/MCP2518FD crystal — match BOM Hz (typ. 40 MHz); binding requires clocks + spi-max-frequency ≤ clock/2.
+	 * MCP251863/MCP2518FD crystal — BOM 20 MHz (HW: Michael Hull); binding requires clocks + spi-max-frequency ≤ XTAL/2.
 	 */
 	can0_osc: can0-osc {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
-		clock-frequency = <40000000>;
+		clock-frequency = <20000000>;
 	};
 
 	/* Charger IC (BQ25792) battery chemistry model — tune vs actual pack (1S placeholder). */
@@ -1238,7 +1238,8 @@
 		compatible = "microchip,mcp251863", "microchip,mcp2518fd";
 		reg = <0>;
 		clocks = <&can0_osc>;
-		spi-max-frequency = <20000000>;
+		/* 20 MHz XTAL → max 10 MHz SPI per Microchip / DT binding (≤ clock/2). */
+		spi-max-frequency = <10000000>;
 		interrupt-parent = <&gpio4>;
 		interrupts = <16 IRQ_TYPE_LEVEL_LOW>;
 		vdd-supply = <&reg_vddext_3v3>;
