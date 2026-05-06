@@ -170,6 +170,16 @@ cd linux-fslc && git checkout e0f9e2afd4cff3f02d71891244b4aa5899dfc786
 
 **Pragmatic alternative** if cherry-picks explode: **copy** mainline **`pcm6240.c` / `.h`** at a known-good **6.12** snapshot into a **single** `0001-asoc-pcm6240-import-from-mainline-v6.12.patch`, then **one** compat patch — trade history clarity for fewer conflict rounds (document snapshot SHA in commit message).
 
+#### Step 1 — recorded (vixdt workspace, 2026-05-06)
+
+| Item | Result |
+|------|--------|
+| **Mainline baseline** | **`torvalds/linux` tag `v6.10`** — `sound/soc/codecs/pcm6240.c` (~2217 lines), `pcm6240.h` (~252 lines); **`{ .compatible = "ti,taa5412" }`** and I²C id **`taa5412`** present. |
+| **`SND_SOC_PCM6240` in mainline `Kconfig`** | **`depends on I2C`** only (same block position as between **`SND_SOC_PCM512x_SPI`** and **`SND_SOC_PEB2466`**). |
+| **linux-fslc @ `e0f9e2a…`** | **No** `pcm6240.c` / **no** `SND_SOC_PCM6240` — import required. |
+| **Local compile smoke** | On extracted **6.6.52** tree at **`e0f9e2a…`**, after adding v6.10 sources + `Makefile` / `Kconfig` hunks: **`CC [M] sound/soc/codecs/pcm6240.o`** succeeds (**`aarch64-linux-gnu-gcc`**). Full **`M=sound/soc/codecs`** **`modpost`** expected to fail without a complete kernel **`Module.symvers`** — use **`bitbake virtual/kernel`** or a full **`modules`** build for link validation. |
+| **BSP integration** | Patch **`imx8mm-jaguar-dt510/pcm6240-lmp/0001-asoc-pcm6240-import-from-mainline-v6.10.patch`** + **`pcm6240-audio-codec.cfg`**; **`SRC_URI`** gated on **`MACHINE_FEATURES`** **`taa5412`** (off by default — append in machine conf to turn on). |
+
 ### Step 2 — Local kernel tree workflow
 
 ```bash
@@ -223,4 +233,4 @@ Fix compile errors **before** touching Yocto.
 
 ---
 
-*Last updated: 2026-05-06 — Added §8 executable sequence + §9 risk table; kernel tree still unchanged until patches merge.*
+*Last updated: 2026-05-06 — Step 1 baseline + compile smoke recorded; Yocto patch/cfg + `taa5412` **`MACHINE_FEATURES`** gate added (DT still Phase D).*

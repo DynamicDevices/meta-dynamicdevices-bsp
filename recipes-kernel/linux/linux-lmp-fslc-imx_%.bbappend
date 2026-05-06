@@ -61,6 +61,7 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
 		file://imx8mm-jaguar-dt510/video-disable.cfg \
 		${@bb.utils.contains('MACHINE_FEATURES', 'tas2563', 'file://imx8mm-jaguar-dt510/tas2562-audio-codec.cfg', '', d)} \
 		${@bb.utils.contains('MACHINE_FEATURES', 'tas6424', 'file://imx8mm-jaguar-dt510/tas6424-audio-codec.cfg', '', d)} \
+		${@bb.utils.contains('MACHINE_FEATURES', 'taa5412', 'file://imx8mm-jaguar-dt510/pcm6240-lmp/0001-asoc-pcm6240-import-from-mainline-v6.10.patch file://imx8mm-jaguar-dt510/pcm6240-audio-codec.cfg', '', d)} \
 		file://imx8mm-jaguar-dt510/wifi-power-management.cfg \
 		file://usb-gadgets.cfg \
 		${@bb.utils.contains('DISTRO', 'lmp-mfgtool', '', 'file://imx8mm-jaguar-dt510/usb-audio-gadget.cfg', d)} \
