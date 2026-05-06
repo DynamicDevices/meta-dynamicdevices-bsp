@@ -17,7 +17,7 @@
  *   WLAN/BT: IW612 SDIO on USDHC1 + UART1; WIFI_PD#/WL_WAKE/WL_RST#, BT_WAKE_HOST/BT_RST# on gpio2/3; SDIO VMMC is
  *            `&reg_wifi_sdio_vmmc` (fixed, always-on) so Wi-Fi is not gated by `&reg_vddext_3v3` / PMIC sequencing.
  *   Ethernet: FEC → Microchip KSZ9896 DSA (RGMII + I²C on &i2c3 @ 0x5f); internal PHYs on switch MDIO.
- *   Audio: TAS6424 (&sai1), TAS2563 (&sai3); TAC5301 on &sai6 @ 0x50 (&i2c2) — ti,tac5x1x + simple-audio-card `tac5301-codec` when tac5x1x-audio is enabled in kernel.
+ *   Audio: TAS6424 (&sai1), TAS2563 (&sai3); TAC5301 on &sai6 @ 0x50 (&i2c2); TAA5412 (PCM6240 family) on &sai5 @ 0x51 (&i2c2) — `ti,taa5412` + `snd_soc_pcm6240` when MACHINE_FEATURES `taa5412` is enabled.
  *            TAS6424 AMP_FAULT#/WARN# on gpio-keys (GPIO1_IO12/13).
  *   Charger: TI BQ25792 on &i2c3 @ 0x6b; CHGR_INT# GPIO4_IO9.
  *   Zigbee: ECSPI1 + spidev (HW SSOT — Ollie Hull); ZB_INT GPIO4_IO22 (no ZB_RST# on this SKU).
@@ -37,7 +37,7 @@
  *   eMMC: boots; throughput / wear levelling TBD.
  *   Bluetooth (IW612): **lab 2026-05** — **`hci0`** UP; BLE discovery via **`bluetoothctl scan`** (see **`docs/DT510-HARDWARE-AUDIT-CHECKLIST.md`**, **`meta-subscriber-overrides/.../DT510-HARDWARE-BRINGUP.md`**). HCI: **`&uart1`** + UART3 pads as RTS/CTS; **`nxp,88w8997-bt`** @ 3 Mbaud init.
  *   Ethernet (KSZ9896): forwarding works; I²C management errors on switch MIB path (see lab notes / bus rate experiments).
- *   Audio: TAS2563 (and path) produces output; levels / mux / tuning still in progress; TAS6424 bring-up continues; TAC5301 on &sai6 (BCLK-only to codec, no MCLK wire) — tac5x1x + ALSA playback validated lab 2026-05; analog path / levels TBD.
+ *   Audio: TAS2563 (and path) produces output; levels / mux / tuning still in progress; TAS6424 bring-up continues; TAC5301 on &sai6 (BCLK-only to codec, no MCLK wire) — tac5x1x + ALSA playback validated lab 2026-05; analog path / levels TBD. TAA5412: DT + pcm6240 module enabled — lab capture / levels TBD.
  *   Charger / pack sensing: TBD.
  *   Zigbee: DTS **`&ecspi1`** **`spidev`** + **`ZB_INT`** GPIO4_IO22; **`zb_mux`** / **`zb_app`** exercised on SPI — **RCP FW / MAC-split ACK / on-air**: align with **Sentai private NXP Zigbee IW612 firmware** (see **`meta-subscriber-overrides/conf/DT510-HARDWARE-BRINGUP.md`**).
  *   CAN: TBD.
@@ -139,6 +139,7 @@
 	 *   tas6424-classd — speaker power stage (TAS6424 on &sai1).
 	 *   tas2563-audio — TAS2563 smart amp path on &sai3 (Profile 8 TDM).
 	 *   tac5301-codec — TI TAC5301 on &sai6 (I2S via simple-audio-card + tac5x1x ASoC).
+	 *   taa5412-codec — TI TAA5412 on &sai5 (I2S via simple-audio-card + pcm6240 ASoC; I2C2 @ 0x51).
 	 */
 	sound-tas6424 {
 		compatible = "simple-audio-card";
@@ -199,6 +200,27 @@
 		simple-audio-card,codec {
 			sound-dai = <&tac5301>;
 			clocks = <&clk IMX8MM_CLK_SAI6_ROOT>;
+		};
+	};
+
+	/*
+	 * TI TAA5412-Q1 — 4ch automotive ADC (PCM6240 driver, compatible ti,taa5412).
+	 * Pads: SSOT pin_mux.dts (SAI5_RXC/RXD0/RXD1/RXD3); no dedicated SAI5_MCLK pad in that mux — BCLK/LRCK/data only (cf. TAC5301 on &sai6).
+	 */
+	sound-taa5412 {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "taa5412-codec";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,frame-master = <&taa5412_cpu_dai>;
+		simple-audio-card,bitclock-master = <&taa5412_cpu_dai>;
+
+		taa5412_cpu_dai: simple-audio-card,cpu {
+			sound-dai = <&sai5>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&taa5412>;
+			clocks = <&clk IMX8MM_CLK_SAI5_ROOT>;
 		};
 	};
 
@@ -611,6 +633,19 @@
 			MX8MM_IOMUXC_SAI1_TXD2_GPIO4_IO14		IMX8MM_PAD_SAI_DEFAULT
 		>;
 	};
+
+	/*
+	 * TI TAA5412 — I2S on &sai5 (pad names SAI5_RX* per NXP mux; SSOT: docs/reference/dt510-ollie-tool-generated/pin_mux.dts).
+	 * Do not hog here — &sai5 applies this group (same pattern as &sai6 / tac5301).
+	 */
+	pinctrl_sai5_taa5412: sai5_taa5412_grp {
+		fsl,pins = <
+			MX8MM_IOMUXC_SAI5_RXC_SAI5_RX_BCLK		IMX8MM_PAD_SAI_DEFAULT
+			MX8MM_IOMUXC_SAI5_RXD0_SAI5_RX_DATA0		IMX8MM_PAD_SAI_DEFAULT
+			MX8MM_IOMUXC_SAI5_RXD1_SAI5_TX_SYNC		IMX8MM_PAD_SAI_DEFAULT
+			MX8MM_IOMUXC_SAI5_RXD3_SAI5_TX_DATA0		IMX8MM_PAD_SAI_DEFAULT
+		>;
+	};
 };
 
 /*
@@ -907,6 +942,17 @@
 		iovdd-supply = <&reg_vddext_3v3>;
 		status = "okay";
 	};
+
+	/*
+	 * TI TAA5412-Q1 — PCM6240-family ADC; control on I2C2, digital audio on &sai5.
+	 * SSOT I2C address 0x51; reset-gpios / supplies TBD vs schematic — add when confirmed.
+	 */
+	taa5412: taa5412@51 {
+		compatible = "ti,taa5412";
+		reg = <0x51>;
+		#sound-dai-cells = <0>;
+		status = "okay";
+	};
 };
 
 &i2c3 {
@@ -1038,6 +1084,7 @@
  * SAI — serial audio interfaces to codec silicon
  *   sai1 — I2S/DSP to TAS6424 (playback path).
  *   sai3 — I2S/TDM to TAS2563 (Profile 8 echo reference / smart amp data).
+ *   sai5 — I2S to TAA5412 (mic / ADC path).
  */
 &sai1 {
 	pinctrl-names = "default";
@@ -1094,6 +1141,18 @@
 	 * "invalid binding for synchronous mode", leaving sound-tac5301 deferred.
 	 * &sai1 (TAS6424) runs without this property; keep SAI6 async like that path.
 	 */
+	#sound-dai-cells = <0>;
+	status = "okay";
+};
+
+&sai5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sai5_taa5412>;
+	/* Same AUDIO_PLL1 reparent pattern as &sai3 / &sai6 (CLK_SAI5, not *_ROOT). */
+	assigned-clocks = <&clk IMX8MM_CLK_SAI5>;
+	assigned-clock-parents = <&clk IMX8MM_AUDIO_PLL1_OUT>;
+	assigned-clock-rates = <12288000>;
+	fsl,sai-mclk-direction-output;
 	#sound-dai-cells = <0>;
 	status = "okay";
 };

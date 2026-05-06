@@ -42,7 +42,7 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 |------------|----------------------|------------|----------------------|-----------|
 | Analog audio **TAC5301** | I2C2 `0x50`, SAI6 | **validated (lab)** | **`tac5301@50`**, **`sound-tac5301`** (`tac5301-codec`); **`&sai6`** **without** `fsl,sai-synchronous-rx` so **`fsl-sai`** probes (BSP **`b216a8c+`**, carry **`a7b3d64`** pin). **Wiring:** codec has **BCLK only** (no dedicated **MCLK** pin to TAC5301). **2026‑05‑05:** **`/proc/asound/cards`** shows **`tac5301-codec`**; **`aplay`/`speaker-test`** on **`plughw:3,0`** succeeds (audible output depends on analog path / amp). | C2 |
 | Driver speaker **TAS2563** | I2C2 `0x4C`, SAI3 | present | `tas2563@4C`, `sound-tas2563`, `&sai3` | — |
-| Mic **TAA5412** | I2C2 `0x51` | missing | SAI5 — not in DTS; **`ti,taa5412`** / **`snd_soc_pcm6240`** — **not** in factory **linux-fslc 6.6.52** @ LmP SRCREV; mainline **6.10+** — backport/kernel bump/out-of-tree before enable | C2 |
+| Mic **TAA5412** | I2C2 `0x51` | partial | DTS: **`taa5412@51`**, **`&sai5`** + **`pinctrl_sai5_taa5412`**, **`sound-taa5412`**; kernel: **`taa5412`** `MACHINE_FEATURES` + pcm6240 patch — **bench** capture / `dmesg` / firmware TBD | C2 |
 | Class-D **TAS6424** | I2C2 `0x6A`, SAI1 | **enabled (validate)** | **`tas6424@6a` okay** + **`sound-tas6424`** (`tas6424-classd`); **`tas6424_hi_rail`** placeholder for vbat/pvdd — **confirm SSOT**; **`&sai1` okay** + `pinctrl_sai1_tas6424`; **`&micfil` / `sound-micfil` disabled**; `CONFIG_SND_SOC_TAS6424=m` | C2 |
 | Charger **BQ25792** | I2C3 `0x6B`, `CHGR_INT#` | **partial (validate probe)** | **`bq25792@6b` enabled** + `simple-battery`; BSP kernel patches **0010–0024** (BQ25703A stack + binding import + Patchew v6 BQ25792) when **`bq25792-charger`** — **`git am`** checked on fslc **`97812d71`**; re-verify on your **`SRCREV`**. **CHGR_INT#** in DTS (GPIO4_IO9). Lab: **`i2c-dev`** on **`i2c-2`**. **Issue #3.** | B1 |
 | HDMI **LT9611** | I2C3 — SSOT `0x72` (8-bit) → DT **7-bit `0x39`** | placeholder | `lt9611@39` **disabled** in DTS — enable Tier C3 | C3 |
@@ -68,7 +68,7 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 **Tier C2 codec order (prototype DT510 — see plan §5 Tier C2 scoped sequence):**
 
 1. **TAS6424** @ `0x6A` / SAI1 — validate on hardware (kernel config, card, rails/GPIOs per #2); then TDM vs I2S if product chooses TDM.
-2. **TAA5412** @ I2C2 **`0x51`** / **SAI5** — add **`&sai5`** + pinctrl from SSOT / `pin_mux` reference; **kernel:** **pcm6240** driver **absent** from **6.6.52** imx tree — choose backport (mainline ≥ **6.10**), kernel advance, or out-of-tree (**plan §5**); then codec + ALSA card.
+2. **TAA5412** @ I2C2 **`0x51`** / **SAI5** — **DTS + kernel backport landed** (`imx8mm-jaguar-dt510.dts`, **`taa5412`** feature); **next:** lab **`arecord`**, **`dmesg`** / probe, TI **firmware** blobs if required.
 3. **TAC5301** @ I2C2 **`0x50`** / **SAI6** — **playback validated (lab 2026‑05)** on pinned BSP; remaining: levels / routing / capture vs product, **`amixer`** / **`alsamixer`** if path is silent at the transducer.
 
 **Other tiers**
