@@ -48,21 +48,6 @@
 /* Front-panel / connector DIO — one SW_PAD recipe for all GPIO1_IO00/01/04–09 lines (imx8mm-evk general GPIO). */
 #define IMX8MM_PAD_GPIO_DEFAULT				IMX8MM_PAD_GPIO_STD
 
-/*
- * --- 0x156 — EVK GPIO1_IO05 recipe (pull-up select); optional per-pin override ---
- */
-#define IMX8MM_PAD_GPIO_PULLUP_STRONG					\
-	(   IMX8MM_SW_PAD_CTL_PE_EN				\
-	  | IMX8MM_SW_PAD_CTL_PUE_UP				\
-	  | IMX8MM_SW_PAD_CTL_FSEL_FAST				\
-	  | IMX8MM_SW_PAD_CTL_DSE_X6 )
-
-/*
- * CMOS push-pull GPIO outputs with internal pull-up (ODE clear — not open-drain).
- * Use for lines that must weakly idle high vs GPIO_STD (pull-down).
- */
-#define IMX8MM_PAD_GPIO_OUTPUT_PULLUP				IMX8MM_PAD_GPIO_PULLUP_STRONG
-
 #define IMX8MM_PAD_I2S_BUS					IMX8MM_PAD_GPIO_STD
 #define IMX8MM_PAD_I2S_SYNC					IMX8MM_PAD_GPIO_STD
 

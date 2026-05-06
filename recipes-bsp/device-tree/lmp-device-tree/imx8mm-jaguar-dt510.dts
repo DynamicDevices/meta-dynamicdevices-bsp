@@ -27,6 +27,7 @@
  *   HDMI: LT9611 on &i2c3 @ 0x39 (GPIO2_IO11/6); HDMI2C1 fault GPIO4_IO28; bridge disabled until DSI graph ready.
  *   Low-power MCU: MCXC144VFM on UART4 (DCE RX/TX pads) — Linux **`ttymxc3`**; **not** the EVKB **`stdout-path`** UART (**`&uart2`** → **`ttymxc1`** @ **0x30890000** use the **UART2** debug header for Linux/U-Boot-style console unless HW docs say otherwise).
  *   Digital I/O: GPIO1_IO00/01/04–09 (DI/DO); IO10–IO13 TAS6424 sideband (see &tas6424). EVK hdmi@3d on &i2c2 disabled.
+ *            `pinctrl_gpio1_dio`: IMX8MM_PAD_GPIO_DEFAULT (evk GPIO_STD). External pull-ups on PCB where required — not internal SoC pull-up on these outputs.
  *   SE050: I2C4 @ 0x48 — U-Boot / OpTEE; not expanded in this DTS.
  *
  * Bring-up status (lab — revise when verified):
@@ -37,7 +38,7 @@
  *   eMMC: boots; throughput / wear levelling TBD.
  *   Bluetooth (IW612): **lab 2026-05** — **`hci0`** UP; BLE discovery via **`bluetoothctl scan`** (see **`docs/DT510-HARDWARE-AUDIT-CHECKLIST.md`**, **`meta-subscriber-overrides/.../DT510-HARDWARE-BRINGUP.md`**). HCI: **`&uart1`** + UART3 pads as RTS/CTS; **`nxp,88w8997-bt`** @ 3 Mbaud init.
  *   Ethernet (KSZ9896): forwarding works; I²C management errors on switch MIB path (see lab notes / bus rate experiments).
- *   Audio: TAS2563 (and path) produces output; levels / mux / tuning still in progress; TAS6424 bring-up continues; TAC5301 on &sai6 (BCLK-only to codec, no MCLK wire) — tac5x1x + ALSA playback validated lab 2026-05; analog path / levels TBD. TAA5412: DT + pcm6240 module enabled — lab capture / levels TBD.
+ *   Audio: TAS2563 (and path) produces output; levels / mux / tuning still in progress; TAS6424 bring-up continues; TAC5301 on &sai6 (BCLK-only to codec, no MCLK wire) — tac5x1x + ALSA playback validated lab 2026-05; analog path / levels TBD. TAA5412: lab 2026-05-06 on factory 307 — I2C 1-0051 probes; taa5412-codec deferred (micfil claimed SAI5_RXC before &sai5); &micfil disabled in this DTS — reflash, then arecord / levels TBD.
  *   Charger / pack sensing: TBD.
  *   Zigbee: DTS **`&ecspi1`** **`spidev`** + **`ZB_INT`** GPIO4_IO22; **`zb_mux`** / **`zb_app`** exercised on SPI — **RCP FW / MAC-split ACK / on-air**: align with **Sentai private NXP Zigbee IW612 firmware** (see **`meta-subscriber-overrides/conf/DT510-HARDWARE-BRINGUP.md`**).
  *   CAN: TBD.
@@ -45,7 +46,7 @@
  *   USB (host/gadget): working.
  *   HDMI (LT9611): TBD.
  *   Low-power MCU link: TBD.
- *   Digital I/O: needs validation.
+ *   Digital I/O: pad mux + default GPIO_STD electricals; level/termination vs harness still needs validation.
  *   SE050: reachable; board security posture unsecured / provisioning TBD.
  *
  * I2C numbering: Linux adapter i2c-N corresponds to DTS &i2c(N+1) (e.g. i2c-1 = &i2c2; i2c-2 = &i2c3 — KSZ9896 @ 0x5f).
@@ -367,18 +368,18 @@
 	/*
 	 * General-purpose digital I/O — GPIO1_IO00/01/04–09 as GPIO (imx8mm-pinfunc.h pad macros through GPIO1_IO09).
 	 * Mapping vs connector: DI1–4 → IO00/01/04/05; DO1–4 → IO06–09. IO02/03 not bonded here; IO10–IO13 = &tas6424.
-	 * Pad recipe: CMOS push-pull (ODE off) + internal pull-up — not open-drain / not pull-down (see imx8mm-sw_pad_ctl.h).
+	 * Pad recipe: IMX8MM_PAD_GPIO_DEFAULT (imx8mm-evk general GPIO — see imx8mm-sw_pad_ctl.h). Board adds external pull-ups where needed.
 	 */
 	pinctrl_gpio1_dio: gpio1diogrp {
 		fsl,pins = <
-			MX8MM_IOMUXC_GPIO1_IO00_GPIO1_IO0	IMX8MM_PAD_GPIO_OUTPUT_PULLUP
-			MX8MM_IOMUXC_GPIO1_IO01_GPIO1_IO1	IMX8MM_PAD_GPIO_OUTPUT_PULLUP
-			MX8MM_IOMUXC_GPIO1_IO04_GPIO1_IO4	IMX8MM_PAD_GPIO_OUTPUT_PULLUP
-			MX8MM_IOMUXC_GPIO1_IO05_GPIO1_IO5	IMX8MM_PAD_GPIO_OUTPUT_PULLUP
-			MX8MM_IOMUXC_GPIO1_IO06_GPIO1_IO6	IMX8MM_PAD_GPIO_OUTPUT_PULLUP
-			MX8MM_IOMUXC_GPIO1_IO07_GPIO1_IO7	IMX8MM_PAD_GPIO_OUTPUT_PULLUP
-			MX8MM_IOMUXC_GPIO1_IO08_GPIO1_IO8	IMX8MM_PAD_GPIO_OUTPUT_PULLUP
-			MX8MM_IOMUXC_GPIO1_IO09_GPIO1_IO9	IMX8MM_PAD_GPIO_OUTPUT_PULLUP
+			MX8MM_IOMUXC_GPIO1_IO00_GPIO1_IO0	IMX8MM_PAD_GPIO_DEFAULT
+			MX8MM_IOMUXC_GPIO1_IO01_GPIO1_IO1	IMX8MM_PAD_GPIO_DEFAULT
+			MX8MM_IOMUXC_GPIO1_IO04_GPIO1_IO4	IMX8MM_PAD_GPIO_DEFAULT
+			MX8MM_IOMUXC_GPIO1_IO05_GPIO1_IO5	IMX8MM_PAD_GPIO_DEFAULT
+			MX8MM_IOMUXC_GPIO1_IO06_GPIO1_IO6	IMX8MM_PAD_GPIO_DEFAULT
+			MX8MM_IOMUXC_GPIO1_IO07_GPIO1_IO7	IMX8MM_PAD_GPIO_DEFAULT
+			MX8MM_IOMUXC_GPIO1_IO08_GPIO1_IO8	IMX8MM_PAD_GPIO_DEFAULT
+			MX8MM_IOMUXC_GPIO1_IO09_GPIO1_IO9	IMX8MM_PAD_GPIO_DEFAULT
 		>;
 	};
 
@@ -1113,6 +1114,15 @@
 	fsl,sai-synchronous-rx;
 	#sound-dai-cells = <0>;
 	status = "okay";
+};
+
+/*
+ * EVK imx8mm-evkb.dtsi leaves &micfil enabled; its pinctrl shares SAI5_RXC with the TAA5412 I2S mux on &sai5.
+ * We delete sound-micfil but the MICFIL block still probes and grabs the pad first → sai5_taa5412_grp fails and
+ * sound-taa5412 stays "deferred probe pending". Disable the IP on DT510; mic path is TAA5412, not PDM MICFIL.
+ */
+&micfil {
+	status = "disabled";
 };
 
 /*

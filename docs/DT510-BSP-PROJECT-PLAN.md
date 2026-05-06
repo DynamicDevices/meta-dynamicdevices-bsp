@@ -98,7 +98,7 @@ Work **in order** within each tier unless a dependency forces otherwise.
 | ID | Task | Notes |
 |----|------|--------|
 | B1 | **BQ25792** (charger, I2C3 `0x6B`, `CHGR_INT#`) | **Done (DT + lab path):** `battery-dt510` + `bq25792@6b` **okay**. **Kernel:** when **`bq25792-charger`** is enabled, **`linux-lmp-fslc-imx`** applies **0010–0024** (BQ25703A stack + mainline **`ti,bq25703a.yaml`** import + Patchew **v6** BQ25792 series). **`git am`** verified on **`Freescale/linux-fslc`** tip **`97812d71`** (re-verify if **`SRCREV_machine`** differs). **CHGR_INT#** in DTS (GPIO4_IO9). Lab: **`i2c-dev`** + **`i2c-2`**. Factory kernel identity: **`bitbake -e linux-lmp-fslc-imx \| grep SRCREV`**. See issue **#3**. |
-| B2 | **Digital I/O** (GPIO1 per doc) | **Done (mux):** **`pinctrl_gpio1_dio`** for **GPIO1_IO0–9**; **disabled** EVK **`ir_recv`**, **`reg_pcie0`**, **`backlight`** that clashed or unused; **prototype:** validate with SSOT / libgpiod. |
+| B2 | **Digital I/O** (GPIO1 per doc) | **Done (mux):** **`pinctrl_gpio1_dio`** for **GPIO1_IO0–9**; **disabled** EVK **`ir_recv`**, **`reg_pcie0`**, **`backlight`** that clashed or unused. **Pad / electrical (2026-05-06):** **`IMX8MM_PAD_GPIO_DEFAULT`** (see **`imx8mm-sw_pad_ctl.h`** next to this DTS) — **not** SoC internal pull-up on outputs; **external pull-ups** on the board where the design needs them. **Prototype:** validate with SSOT / **`libgpiod`** / **`dt510-dio-toggle-outputs.sh`**. |
 | B3 | **CP2108** quad-UART | **Done (doc):** USB-enumerated; **DTS** comment — add **reset GPIO** only when SSOT names a pin. |
 | B4 | **SE050** (I2C4 `0x48`) | **Done (doc):** Same as Sentai — **OpTEE** + **`se05x`**; optional Linux **`&i2c4`** child still **not** required — [`DT510-SE050.md`](DT510-SE050.md). |
 
@@ -315,4 +315,4 @@ Reply under the matching Implementation thread (or quote it):
 
 ---
 
-*Last updated: 2026-04-14 — Tier B implemented (BQ25792 cfg notes, GPIO1 DIO mux, EVK disables, doc)*
+*Last updated: 2026-05-06 — B2 GPIO1 DIO: **`GPIO_DEFAULT`** pad recipe + external pull-ups (doc / bring-up / checklist). 2026-04-14 — Tier B implemented (BQ25792 cfg notes, GPIO1 DIO mux, EVK disables, doc).*
