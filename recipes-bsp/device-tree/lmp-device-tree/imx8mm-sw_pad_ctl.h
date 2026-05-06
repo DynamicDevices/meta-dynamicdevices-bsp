@@ -57,6 +57,12 @@
 	  | IMX8MM_SW_PAD_CTL_FSEL_FAST				\
 	  | IMX8MM_SW_PAD_CTL_DSE_X6 )
 
+/*
+ * CMOS push-pull GPIO outputs with internal pull-up (ODE clear — not open-drain).
+ * Use for lines that must weakly idle high vs GPIO_STD (pull-down).
+ */
+#define IMX8MM_PAD_GPIO_OUTPUT_PULLUP				IMX8MM_PAD_GPIO_PULLUP_STRONG
+
 #define IMX8MM_PAD_I2S_BUS					IMX8MM_PAD_GPIO_STD
 #define IMX8MM_PAD_I2S_SYNC					IMX8MM_PAD_GPIO_STD
 
