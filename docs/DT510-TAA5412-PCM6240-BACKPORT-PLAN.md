@@ -31,6 +31,21 @@
 
 ---
 
+## 2.1 Interaction with existing BSP / LmP ASoC patches (important)
+
+**DT510 already carries kernel changes under** `recipes-kernel/linux/linux-lmp-fslc-imx/` **that touch the same subsystem.** The PCM6240 import is not isolated.
+
+| Area | What is already patched | Interaction with PCM6240 / `SND_SOC_PCM6240` |
+|------|-------------------------|-----------------------------------------------|
+| **`sound/soc/codecs/Makefile`** | **`0002-asoc-tas2781-add-tas2563-codec-support.patch`** adds **TAS2781 comlib-i2c** object lines in the **TAS27xx** block (~line 279 / ~658 in the pre-import tree). **TAC5x1x** uses **`07a-tac5x1x-fslc-codecs-makefile-objs.patch`** and **`07b-…-makefile-obj.patch`** in the **ST*/TAS** block (~268 / ~651). | **PCM6240** hunks sit in the **PCM512x → PEB2466** band (~199 / ~585). **No overlapping hunk in the current tree**, but **any** future Makefile edits in the BSP stack (or an **`SRCREV`** bump) can shift line numbers and cause **patch fuzz / rejects** when several series apply in one build. |
+| **`sound/soc/codecs/Kconfig`** | **`0002-asoc-tas2781-…`** edits the **TAS2781** block (~1784+). **TAC5x1x** lore patches add **TAC5x1x** `Kconfig` / codec files. | **PCM6240** `Kconfig` is inserted **before `SND_SOC_PEB2466`** (~1362). **Different region** from TAS2781; still **same file** — resolve rejects carefully so you do not drop TAS or TAC symbols. |
+| **`SRC_URI` apply order** (`linux-lmp-fslc-imx_%.bbappend`) | For **`imx8mm-jaguar-dt510`**, **`taa5412`** (PCM6240) patches are listed **before** **`0002-asoc-tas2781-…`** and the **TAC5x1x** series. | Order is intentional so **PCM6240 lands first**; downstream patches use **content-based** context and have applied cleanly so far. **Do not reorder** without re-running **`patch --dry-run`** on the pinned **`SRCREV`**. If BitBake reports **`.rej`** on **`sound/soc/codecs/Makefile`**, compare against **TAS2781** and **TAC5x1x** hunks and produce a **forward-port** of the failing patch rather than deleting lines blindly. |
+| **Runtime / DT** | **TAS2563**, **TAS6424**, **TAC5x1x** / **TAC5301** on **shared I2C** (see plan **§1** / **Phase D**). | **Probe order**, **`-EPROBE_DEFER`**, and **DT `status`** still dominate risk; the codec driver stack only changes **how many** modules compete on the bus. |
+
+**Takeaway:** treat PCM6240 as **one more member of an already-customised `sound/soc/codecs` tree** — kernel upgrades and **Makefile/Kconfig** edits for **any** TI/NXP codec patch can force a **manual three-way** with PCM6240.
+
+---
+
 ## 3. Preconditions (before writing patches)
 
 - [ ] Record **pinned** `linux-lmp-fslc-imx` **`SRCREV_machine`**, **`LINUX_VERSION`**, and **`KERNEL_BRANCH`** from **meta-lmp** (and your **lmp-manifest** pin).
@@ -233,4 +248,4 @@ Fix compile errors **before** touching Yocto.
 
 ---
 
-*Last updated: 2026-05-06 — Step 1 baseline + compile smoke recorded; Yocto patch/cfg + `taa5412` **`MACHINE_FEATURES`** gate added (DT still Phase D).*
+*Last updated: 2026-05-06 — §2.1 BSP ASoC patch interactions; Step 1 baseline + compile smoke; Yocto patch/cfg + `taa5412` gate (DT Phase D).*
