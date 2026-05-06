@@ -134,6 +134,26 @@ bitbake -e virtual/kernel | grep -E '^(SRCREV|PV|LINUX_VERSION|KERNEL_BRANCH)='
 
 Record **`SRCREV`** (40-char) in the PR and in **`DT510-HARDWARE-AUDIT-CHECKLIST.md`** when you merge.
 
+#### Step 0 — recorded snapshot (vixdt `lmp-base.xml` pin, 2026-05-06)
+
+Resolved from **`foundriesio/meta-lmp`** commit **`4dffdff79b4df49c683c9a7faea406595cb7e9ca`** (the **`meta-lmp`** revision in **`lmp-manifest/lmp-base.xml`** at this date), file **`meta-lmp-bsp/recipes-kernel/linux/linux-lmp-fslc-imx_6.6.bb`**:
+
+| Variable | Value |
+|----------|--------|
+| **`LINUX_VERSION`** | **`6.6.52`** |
+| **`KERNEL_BRANCH`** | **`6.6-2.2.x-imx`** |
+| **`SRCREV_machine`** | **`e0f9e2afd4cff3f02d71891244b4aa5899dfc786`** |
+| **Kernel git** | **`https://github.com/Freescale/linux-fslc.git`** (see **`linux-lmp-fslc-imx.inc`**) |
+
+**Clone for patch work:**
+
+```bash
+git clone --branch 6.6-2.2.x-imx https://github.com/Freescale/linux-fslc.git
+cd linux-fslc && git checkout e0f9e2afd4cff3f02d71891244b4aa5899dfc786
+```
+
+**Caveat:** If your factory **`lmp-manifest`** moves **`meta-lmp`** to a newer commit, **re-run `bitbake -e virtual/kernel`** (or re-read **`linux-lmp-fslc-imx_6.6.bb`** on that revision) — **`SRCREV_machine`** can change between LmP releases.
+
 ### Step 1 — Mainline commit selection (do not cherry-pick blind)
 
 1. Clone **`torvalds/linux`** (or use **GitHub** file history on `sound/soc/codecs/pcm6240.c`).
