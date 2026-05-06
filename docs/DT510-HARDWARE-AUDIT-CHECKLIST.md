@@ -41,9 +41,9 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 | SSOT block | Bus / address (SSOT) | BSP status | Notes / DT / driver | Plan tier |
 |------------|----------------------|------------|----------------------|-----------|
 | Analog audio **TAC5301** | I2C2 `0x50`, SAI6 | **validated (lab)** | **`tac5301@50`**, **`sound-tac5301`** (`tac5301-codec`); **`&sai6`** **without** `fsl,sai-synchronous-rx` so **`fsl-sai`** probes (BSP **`b216a8c+`**, carry **`a7b3d64`** pin). **Wiring:** codec has **BCLK only** (no dedicated **MCLK** pin to TAC5301). **2026‑05‑05:** **`/proc/asound/cards`** shows **`tac5301-codec`**; **`aplay`/`speaker-test`** on **`plughw:3,0`** succeeds (audible output depends on analog path / amp). | C2 |
-| Driver speaker **TAS2563** | I2C2 `0x4C`, SAI3 | present | `tas2563@4C`, `sound-tas2563`, `&sai3` | — |
-| Mic **TAA5412** | I2C2 `0x51` | partial | DTS: **`taa5412@51`**, **`&sai5`** + **`pinctrl_sai5_taa5412`**, **`sound-taa5412`**; kernel: **`taa5412`** + **`snd_soc_pcm6240`**. **Lab 2026-05-06** (factory **307**): I2C **`1-0051`** / name **`taa5412`** OK; **`taa5412-codec`** ALSA card **missing** — **`dmesg`:** **`&micfil`** (**`fsl,imx8mm-micfil`**, `30080000.audio-controller`) claimed **SAI5_RXC** before **`&sai5`** → **`sound-taa5412` deferred probe**. **BSP:** **`&micfil { status = "disabled"; };`** on DT510 (EVK PDM not used). **After reflash:** confirm **`/proc/asound/cards`**, **`arecord -l`**, TI firmware if required | C2 |
-| Class-D **TAS6424** | I2C2 `0x6A`, SAI1 | **enabled (validate)** | **`tas6424@6a` okay** + **`sound-tas6424`** (`tas6424-classd`); **`tas6424_hi_rail`** placeholder for vbat/pvdd — **confirm SSOT**; **`&sai1` okay** + `pinctrl_sai1_tas6424`; **`&micfil` / `sound-micfil` disabled**; `CONFIG_SND_SOC_TAS6424=m` | C2 |
+| Driver speaker **TAS2563** | I2C2 `0x4C`, SAI3 | present | `tas2563@4c`, `sound-tas2563`, `&sai3` — **digital / mono path** (see [§ Codec / amp — DT vs hardware](#codec--amp--dt-vs-hardware-engineering-notes-2026-05-06)) | — |
+| Mic **TAA5412** | I2C2 `0x51` | partial | DTS: **`taa5412@51`**, **`&sai5`** + **`pinctrl_sai5_taa5412`**, **`sound-taa5412`**; kernel: **`taa5412`** + **`snd_soc_pcm6240`**. **Lab 2026-05-06** (factory **307**): I2C **`1-0051`** / name **`taa5412`** OK; **`taa5412-codec`** ALSA card **missing** — **`dmesg`:** **`&micfil`** (**`fsl,imx8mm-micfil`**, `30080000.audio-controller`) claimed **SAI5_RXC** before **`&sai5`** → **`sound-taa5412` deferred probe**. **BSP:** **`&micfil { status = "disabled"; };`** on DT510 (EVK PDM not used). **After reflash:** confirm **`/proc/asound/cards`**, **`arecord -l`**, TI firmware if required. **IN1/IN2 differential:** not described in DTS — [§ Codec notes](#codec--amp--dt-vs-hardware-engineering-notes-2026-05-06) | C2 |
+| Class-D **TAS6424** | I2C2 `0x6A`, SAI1 | **enabled (validate)** | **`tas6424@6a` okay** + **`sound-tas6424`** (`tas6424-classd`); **`tas6424_hi_rail`** placeholder for vbat/pvdd — **confirm SSOT**; **`&sai1` okay** + `pinctrl_sai1_tas6424` (**TXD0+TXD1**); **`&micfil` / `sound-micfil` disabled**; `CONFIG_SND_SOC_TAS6424=m`. **OUT2/OUT3-only / TAS6422 migration:** [§ Codec notes](#codec--amp--dt-vs-hardware-engineering-notes-2026-05-06) | C2 |
 | Charger **BQ25792** | I2C3 `0x6B`, `CHGR_INT#` | **partial (validate probe)** | **`bq25792@6b` enabled** + `simple-battery`; BSP kernel patches **0010–0024** (BQ25703A stack + binding import + Patchew v6 BQ25792) when **`bq25792-charger`** — **`git am`** checked on fslc **`97812d71`**; re-verify on your **`SRCREV`**. **CHGR_INT#** in DTS (GPIO4_IO9). Lab: **`i2c-dev`** on **`i2c-2`**. **Issue #3.** | B1 |
 | HDMI **LT9611** | I2C3 — SSOT `0x72` (8-bit) → DT **7-bit `0x39`** | placeholder | `lt9611@39` **disabled** in DTS — enable Tier C3 | C3 |
 | Auth **SE050** | I2C4 `0x48` | **aligned with stack** | OpTEE **`CFG_CORE_SE05X_I2C_BUS=3`** = **`&i2c4`** (same as Sentai). Machine `se05x` + OEFID set. Optional: explicit DT node — see [`DT510-SE050.md`](DT510-SE050.md) | B4 |
@@ -63,6 +63,31 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 
 ---
 
+## Codec / amp — DT vs hardware (engineering notes, 2026-05-06)
+
+**Purpose:** Record what **`imx8mm-jaguar-dt510.dts`** actually configures versus what must come from **schematic, TI silicon behaviour, firmware, or ALSA topology** — so future bring-up does not assume a DT property exists when it does not.
+
+### TAS2563-Q1 (driver speaker codec)
+
+- **DTS covers:** `compatible = "ti,tas2563"`, `reg = <0x4c>`, **`ti,channels = <1>`** (mono path from SoC), **`ti,asi-format = <0>`**, **`ti,left-slot` / `ti,right-slot`**, **`sound-tas2563`** on **`&sai3`** with **Profile 8** TDM (**`dai-tdm-slot-num = <4>`**, **`dai-tdm-slot-width = <32>`**), **12.288 MHz** / **AUDIO_PLL1**, **`fsl,sai-synchronous-rx`**, reset + IRQ on GPIO5. Same pattern as **`imx8mm-jaguar-sentai.dts`** for this amp family.
+- **DTS does not set:** “differential speaker” as a flag — that is **BTL wiring** (OUT+ / OUT− across the load). **`GPIO_ACTIVE_*`** + hog/`output-*` still govern **logical vs electrical** reset/enable lines; derive per net (see project GPIO polarity notes).
+- **Revisit when:** smart-amp tuning, USB/RustDesk bridge health, or any SAI3 mux change.
+
+### TAA5412-Q1 (microphone codec — e.g. two differential inputs on IN1 / IN2)
+
+- **DTS covers:** **`taa5412@51`**, minimal required properties + **`sound-taa5412`** (**I²S**, **`&sai5`** as CPU clock master), **`pinctrl_sai5_taa5412`**, **`&micfil` disabled** so **SAI5_RXC** is not grabbed by EVK PDM (**deferred probe** issue — see table row above).
+- **DTS / upstream binding do not set:** differential vs single-ended **mic** routing for IN1/IN2. The **`snd_soc_pcm6240`** path uses **TI register-block firmware** (`.bin` under firmware search path). Validate **analog mode + levels** against **datasheet + schematic + correct `.bin`**, not DTS alone.
+- **Revisit when:** changing **`imx8mm-jaguar-dt510.conf`** **`taa5412`** feature, PCM6240 patch series, or capture topology.
+
+### TAS6424E-Q1 (class-D — product: two differential outputs on **OUT2** and **OUT3**; 4-ch IC; future **TAS6422E-Q1**)
+
+- **DTS covers:** **`tas6424@6a`**, **`ti,tas6424`**, **`dvdd` / `vbat` / `pvdd`** supplies, **`standby-gpios`** / **`mute-gpios`**, **`sound-tas6424`** (**`simple-audio-card`**, **`format = "i2s"`**), **`&sai1`** with **MCLK + BCLK + FS + TXD0 + TXD1**, **12.288 MHz** parent, **`tas6424_amp_keys`** (FAULT#/WARN#). Coherent for **two logical playback channels** into the amp family driver (**`snd_soc_tas6424`**: `channels_min` 1, `channels_max` 4).
+- **DTS does not set:** which **physical** half-bridge pairs (**OUT1…OUT4**) receive **PCM slot 0 / 1**. Product intent (**only OUT2 and OUT3**) must match **TAS6424 serial input mode, strapping, and `PIN_CTRL` (etc.)** per TI data sheet and board netlist. If plain stereo I²S maps to **OUT1/OUT2** instead of **OUT2/OUT3**, fix in **machine / TDM layout** (driver TDM slot logic expects **four contiguous slots** starting at **0** or **4** when TDM is configured) or hardware — **not** a `compatible`-only tweak.
+- **Differential outputs:** again **analog BTL** across each load; not a separate DT knob.
+- **TAS6422E-Q1 later:** different part; requires **confirmed kernel `compatible` + driver** (and likely new/updated DT node) — **not** a drop-in rename from **`ti,tas6424`**.
+
+---
+
 ## Next actions (from this audit)
 
 **Tier C2 codec order (prototype DT510 — see plan §5 Tier C2 scoped sequence):**
@@ -79,4 +104,4 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 
 ---
 
-*Last updated: 2026-05-06 — TAA5412 lab on **307**: I2C OK; **`&micfil`** vs **`&sai5`** pin clash + BSP **`&micfil` disabled** note. GPIO1 DIO **`GPIO_DEFAULT`** + external pull-ups ( **`DT510-HARDWARE-BRINGUP.md`** ). Earlier: 2026-05-05 — TAC5301 lab playback; **`fec1`** **`mdio`** delete; DIO script; pins **`a7b3d64`** / **`2cda7ac`**.*
+*Last updated: 2026-05-06 — **§ Codec / amp — DT vs hardware** added (TAS2563 / TAA5412 / TAS6424 + TAS6422 migration notes). TAA5412 lab on **307**: I2C OK; **`&micfil`** vs **`&sai5`** pin clash + BSP **`&micfil` disabled** note. GPIO1 DIO **`GPIO_DEFAULT`** + external pull-ups (**`DT510-HARDWARE-BRINGUP.md`**). Earlier: 2026-05-05 — TAC5301 lab playback; **`fec1`** **`mdio`** delete; DIO script; pins **`a7b3d64`** / **`2cda7ac`**.*
