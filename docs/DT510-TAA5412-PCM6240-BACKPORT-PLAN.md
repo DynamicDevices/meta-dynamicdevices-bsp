@@ -120,4 +120,87 @@ The mainline driver uses **`request_firmware()`** for register/coefficient binar
 
 ---
 
-*Last updated: 2026-04-14 — PCM6240 backport planning; kernel tree unchanged until patches are merged.*
+## 8. Executable sequence (operator checklist)
+
+Use this after **§3 Preconditions** are satisfied. Order is intentional: **build driver before** turning on DT.
+
+### Step 0 — Pin the exact kernel you patch
+
+From the **same** build environment as Foundries / local LmP:
+
+```bash
+bitbake -e virtual/kernel | grep -E '^(SRCREV|PV|LINUX_VERSION|KERNEL_BRANCH)='
+```
+
+Record **`SRCREV`** (40-char) in the PR and in **`DT510-HARDWARE-AUDIT-CHECKLIST.md`** when you merge.
+
+### Step 1 — Mainline commit selection (do not cherry-pick blind)
+
+1. Clone **`torvalds/linux`** (or use **GitHub** file history on `sound/soc/codecs/pcm6240.c`).
+2. Find the **first** mainline release tag where **`ti,taa5412`** appears in **`pcm6240.c`** / **`Kconfig`** (expect **≥ v6.10** per earlier BSP audit).
+3. From that commit **forward** to current **stable** (e.g. **v6.12.y**), list commits touching only:
+
+   - `sound/soc/codecs/pcm6240.c`
+   - `sound/soc/codecs/pcm6240.h`
+   - `sound/soc/codecs/Kconfig`
+   - `sound/soc/codecs/Makefile`
+   - `Documentation/devicetree/bindings/sound/ti,pcm6240.yaml` (optional for build; helps `dtbs_check`)
+
+4. For each cherry-pick onto **`linux-fslc @ SRCREV`**, expect **ASoC / regmap / module** API drift — keep **one small “imx-6.6-compat” patch** per break (same pattern as **`08-tac5x1x-linux-6.6-fslc-compat.patch`** for TAC5x1x).
+
+**Pragmatic alternative** if cherry-picks explode: **copy** mainline **`pcm6240.c` / `.h`** at a known-good **6.12** snapshot into a **single** `0001-asoc-pcm6240-import-from-mainline-v6.12.patch`, then **one** compat patch — trade history clarity for fewer conflict rounds (document snapshot SHA in commit message).
+
+### Step 2 — Local kernel tree workflow
+
+```bash
+git clone <linux-fslc-url> linux-fslc-work && cd linux-fslc-work
+git checkout <SRCREV>
+# create branch: taa5412-pcm6240-backport
+# apply patches / cherry-picks; build with same defconfig merge as Yocto or:
+make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
+make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- M=sound/soc/codecs modules
+```
+
+Fix compile errors **before** touching Yocto.
+
+### Step 3 — Yocto BSP integration
+
+1. Add ordered **`file://....patch`** files under **`recipes-kernel/linux/linux-lmp-fslc-imx/`** (or **`imx8mm-jaguar-dt510/`** subdir if you prefer).
+2. **`linux-lmp-fslc-imx_%.bbappend`**: append **`SRC_URI`** for **`imx8mm-jaguar-dt510`** only (or gate with **`MACHINE_FEATURES`** **`taa5412`** — recommended until sign-off).
+3. New cfg fragment **`imx8mm-jaguar-dt510/pcm6240-audio-codec.cfg`**:
+
+   - `CONFIG_SND_SOC_PCM6240=m`
+   - Mirror **mainline `Kconfig` “depends on”** lines exactly (regmap, I2C, ASoC core).
+
+4. **`bitbake virtual/kernel`** → fix **defconfig** merge / **`CONFIG`** warnings.
+
+### Step 4 — DT (still behind a feature flag)
+
+1. **`taa5412@51`** on **`&i2c2`**, **`compatible = "ti,taa5412"`**, **`status = "disabled"`** initially.
+2. **`&sai5`** + **`pinctrl_sai5_*`** from **`docs/reference/dt510-ollie-tool-generated/pin_mux.dts`**; add **GPIO4_IO18** only when binding documents the property name TI expects.
+3. **`sound-*`** card **CPU `&sai5` ↔ `taa5412`** — enable only in the same PR/commit that flips **`status = "okay"`** after **`modprobe`** succeeds on lab hardware.
+
+### Step 5 — Bench proof (issue #2)
+
+| Gate | Pass criterion |
+|------|----------------|
+| Boot | No regression vs previous image; **`tas2563` / `tas6424` / `tac5301`** cards still appear if enabled |
+| Module | **`modinfo snd_soc_pcm6240`** present; **`modprobe snd_soc_pcm6240`** no oops |
+| Probe | **`dmesg`** shows **TAA5412** / **pcm6240** probe **0** with DT enabled |
+| ALSA | **`arecord -l`** shows a capture PCM for the new card |
+| Firmware | No stuck **`request_firmware`** in **`dmesg`**; ship blobs under **`/lib/firmware`** if required |
+
+---
+
+## 9. Risk summary (for planning / PM)
+
+| Risk | Mitigation |
+|------|------------|
+| Large merge into **`sound/soc/codecs/Makefile`** | Minimal diff; conflict-check against NXP **`linux-fslc`** delta before PR |
+| **`i2c-1`** bus contention | Bring codec **disabled** first; device already **ACKs at `0x51`** on bench — no mystery I²C |
+| Firmware required for filters | Phase **§6** before “done”; package in **`linux-firmware`** or vendor recipe |
+| OTA / factory risk | **`MACHINE_FEATURES`** gate **`taa5412`** until sign-off; manifest pin per usual |
+
+---
+
+*Last updated: 2026-05-06 — Added §8 executable sequence + §9 risk table; kernel tree still unchanged until patches merge.*
