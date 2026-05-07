@@ -91,6 +91,8 @@
 
 ### Run from dev laptop (inline inventory)
 
+**Lab `sudo`:** Factory **`fio`** images use login password **`fio`** for **`sudo`** when a TTY prompts for it. For **non-interactive** SSH one-liners (no prompt), prefix privileged commands with **`echo fio | sudo -S`** (same caveat as bring-up docs: lab-only).
+
 ```bash
 ssh fio@192.168.2.239 '
 test -x /usr/bin/pipewire && test -x /usr/bin/wireplumber && test -x /usr/bin/bluetoothctl || exit 1
@@ -106,6 +108,39 @@ When **`dt510-auracast-image-check.sh`** is on the image:
 ```bash
 ssh fio@192.168.2.239 /usr/sbin/dt510-auracast-image-check.sh
 ```
+
+---
+
+## HCI (`hcitool`) — CIS / BIS opcodes (Linux)
+
+NXP **UM12155** §3 documents the Linux form:
+
+`hcitool -i hci0 cmd <OGF> <OCF> <other_parameters…>`
+
+The **OGF/OCF pairs** in UM12155 Table 3 are the standard **Bluetooth Core Specification** HCI LE / Link commands used for **Connected Isochronous Stream (CIS)** and **Broadcast Isochronous Stream (BIS)** setup (PHY, host features, CIG/CIS, ISO data path, extended advertising, etc.). **Do not paste UM12155 text or tables into git** — cite **UM12155** + section for parameter packing.
+
+**Quick opcode map (verify parameter lengths in Core Spec / UM12155 before sending):**
+
+| HCI command (Core Spec name) | OGF | OCF |
+|------------------------------|-----|-----|
+| Read BD_ADDR | `0x04` | `0x09` |
+| Write Connection Accept Timeout | `0x03` | `0x16` |
+| LE Write Suggested Default Data Length | `0x08` | `0x24` |
+| LE Set Default PHY | `0x08` | `0x31` |
+| LE Set Extended Advertising Parameters | `0x08` | `0x36` |
+| LE Enable Encryption | `0x08` | `0x19` |
+| LE Set Host Feature (e.g. isochronous channels) | `0x08` | `0x74` |
+| LE Set CIG Parameters | `0x08` | `0x62` |
+| LE Remove CIG | `0x08` | `0x65` |
+| LE Create CIS | `0x08` | `0x64` |
+| LE Accept CIS Request | `0x08` | `0x66` |
+| LE Setup ISO Data Path | `0x08` | `0x6E` |
+
+**Lab invocation:** non-interactive sudo on factory **`fio`** images: **`echo fio | sudo -S hcitool -i hci0 cmd …`** (see bring-up doc).
+
+**Stack interaction:** **`hcitool cmd`** can succeed for simple queries while **`bluetoothd`** is running (e.g. **Read BD_ADDR**). **LE scan**, **ISO**, and **CIG/CIS** sequences often need correct connection/advertising state and may **conflict** with BlueZ’s ownership of the adapter — expect bring-up scripts to coordinate with **`bluetoothd`** (or use **NXP / BlueZ BAP** paths) rather than raw HCI alone for product Auracast.
+
+**On-target spot-check (DT510, lab):** **Read BD_ADDR** (`0x04` `0x09`) → Command Complete **success**, BD_ADDR matches **`hciconfig`**. **LE Read Buffer Size V2** (`0x08` `0x77`, ISO-related buffers per Core Spec) → **Command Status** status **`0x11`** (*Unsupported Feature or Parameter Value*) on one **`6.6.52-lmp-standard`** IW612 build — treat as **FW/controller capability signal**, confirm against **IW612 + HCI** release notes if UM12155 flow requires it.
 
 ---
 
@@ -151,6 +186,7 @@ No separate **“auracast”** DT node: LE Audio rides on existing **UART HCI** 
 | 2026-05-07 | SSH `fio@192.168.2.239` | **`51-bluez-imx-le-audio.conf`** present; **`pipewire` 1.0.9**, **`wireplumber` 0.5.1**, **`bluetoothctl` 5.72** on **`6.6.52-lmp-standard`** (binary/config presence only). |
 | 2026-05-07 | SSH laptop → **`fio@192.168.2.239`** | **Filesystem check exit 0:** **`bluetoothd`**, WirePlumber fragment, **`/usr/lib/spa-0.2/bluez5/`** incl. **`libspa-codec-bluez5-lc3.so`**. **`/usr/sbin/dt510-auracast-image-check.sh`** missing on image (expected until BSP ships that `board-scripts` revision). |
 | 2026-05-07 | SSH **`fio@192.168.2.88`** (password auth; host **`imx8mm-jaguar-dt510-2d0c7209dabc234a`**) | **Bluetooth stack inventory (not CIS/BAP runtime):** **`6.6.52-lmp-standard`**; **`hci0`** UART **UP RUNNING**, HCI/LMP **5.4**, manufacturer **NXP (37)**; **`bluetoothd`/`bluetoothctl` 5.72**, **`bluetooth.service` active**, **`/usr/libexec/bluetooth/bluetoothd`**; **`bluetoothctl show`** — roles central+peripheral, extended adv **1M/2M/Coded**; **PipeWire 1.0.9**, **WirePlumber 0.5.1**, **`51-bluez-imx-le-audio.conf`**, **`libspa-codec-bluez5-lc3.so`** present. **`btmgmt`** absent on this **non–dev-mode** flash — **`bluez5-testtools`** now gated to **IW612 + dev** builds (see Yocto table). |
+| 2026-05-06 | SSH **`fio@192.168.2.166`** | **Rootfs LE Audio inventory PASS**; privileged **`hcitool cmd 0x04 0x09`** (Read BD_ADDR) **Command Complete success**. **`hcitool cmd 0x08 0x77`** (LE Read Buffer Size V2) → **Command Status** **`0x11`**. Not a full CIS/BIS sequence. |
 
 ---
 
@@ -193,3 +229,4 @@ No separate **“auracast”** DT node: LE Audio rides on existing **UART HCI** 
 | 2026-05-07 | **Rootfs inventory** section expanded: required vs SPA vs packaged script; laptop **`ssh`** one-liner. |
 | 2026-05-07 | Lab log: **`fio@192.168.2.88`** — Bluetooth / LE Audio host stack inventory (**`btmgmt`** absent). |
 | 2026-05-07 | **`bluez5-testtools`**: moved from always-on LE Audio inc to **`lmp-feature-iw612.inc`**, only when **`nxpiw612-sdio`** + (**`debug-tweaks`/`DEV_MODE`** or **`LOCAL_DEVELOPMENT_BUILD=1`**). |
+| 2026-05-06 | **HCI (`hcitool`)** §: UM12155-aligned **OGF/OCF** map for CIS/BIS; lab **`hcitool cmd`** notes + **Read BD_ADDR** / **LE Read Buffer Size V2** spot-check on **`192.168.2.166`**. |
