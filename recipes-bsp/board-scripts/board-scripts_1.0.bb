@@ -45,10 +45,11 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
   file://enable-firewall.sh \
   file://emmc-wipe-boot-partitions.sh \
 "
-SRC_URI:append:imx8mm-jaguar-dt510 = "${@bb.utils.contains('MACHINE_FEATURES', 'taa5412', 'file://dt510-taa5412-capture-check.sh', '', d)}"
-SRC_URI:append:imx8mm-jaguar-dt510 = "${@bb.utils.contains('MACHINE_FEATURES', 'auracast', 'file://dt510-auracast-image-check.sh file://dt510-auracast-hci-check.sh', '', d)}"
-SRC_URI:append:imx8mm-jaguar-dt510 = "${@bb.utils.contains('MACHINE_FEATURES', 'dt510-digital-io', 'file://dt510-dio-toggle-outputs file://dt510-dio-toggle-outputs.sh', '', d)}"
-SRC_URI:append:imx8mm-jaguar-dt510 = "${@bb.utils.contains('MACHINE_FEATURES', 'cp2108-usb-serial', 'file://rs485_tx_bytes.py', '', d)}"
+# Leading space required: SRC_URI:append concatenates without inserting separators.
+SRC_URI:append:imx8mm-jaguar-dt510 = "${@bb.utils.contains('MACHINE_FEATURES', 'taa5412', ' file://dt510-taa5412-capture-check.sh', '', d)}"
+SRC_URI:append:imx8mm-jaguar-dt510 = "${@bb.utils.contains('MACHINE_FEATURES', 'auracast', ' file://dt510-auracast-image-check.sh file://dt510-auracast-hci-check.sh', '', d)}"
+SRC_URI:append:imx8mm-jaguar-dt510 = "${@bb.utils.contains('MACHINE_FEATURES', 'dt510-digital-io', ' file://dt510-dio-toggle-outputs file://dt510-dio-toggle-outputs.sh', '', d)}"
+SRC_URI:append:imx8mm-jaguar-dt510 = "${@bb.utils.contains('MACHINE_FEATURES', 'cp2108-usb-serial', ' file://rs485_tx_bytes.py', '', d)}"
 
 SRC_URI:append:imx93-jaguar-eink = " \
   file://board-info.sh \
