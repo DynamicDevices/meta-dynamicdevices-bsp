@@ -6,7 +6,7 @@
 
 The **authoritative source** is TI’s **pcmdevice** drop: register image is **generated** from JSON + **Non_Integrated_Bin_Tool** (Windows NW.js app inside the same repo’s `tool/` zip), not committed as a finished `.bin`.
 
-This BSP directory therefore vendors the **GPL-2.0-only** TI JSON (**`taa5412-1dev-reg.json`**) plus **`TI-PCMJSN-ORIGIN.txt`** so you can reproduce or diff the input. You still have to **export the `.bin`** once (Windows GUI below), then add it beside this README for recipe **`firmware-taa5412_1.0.bb`**.
+This BSP directory therefore vendors the **GPL-2.0-only** TI JSON (**`taa5412-1dev-reg.json`**) plus **`TI-PCMJSN-ORIGIN.txt`** so you can reproduce or diff the input. You still have to **export the `.bin`** once (Windows GUI below), then add it beside this README and **enable** the recipe (see **Yocto / BSP** below). In git the recipe is **`firmware-taa5412_1.0.bb.disabled`** so CI does not parse **`SRC_URI`** without the blob.
 
 ## Why this file is not in the kernel backport
 
@@ -29,7 +29,7 @@ If you add **`ti,name-prefix`** in DTS, the driver uses **`<name-prefix>.bin`** 
 3. In the tool, **import** the register JSON (same content as this BSP’s **`taa5412-1dev-reg.json`**, or open it straight from a clone at **`jsn/taa5412-1dev-reg.json`**).
 4. **Export / save** the **register binary** using the tool’s UI so the output file name matches what Linux requests on your board — for DT510 **`&i2c2` → `i2c-1`** and a single device that is:
    - **`taa5412-i2c-1-1dev.bin`**
-5. Copy that file next to this README, **remove** the **`firmware-taa5412`** **`BBMASK`** in **`meta-dynamicdevices-bsp/conf/layer.conf`**, and enable **`firmware-taa5412`** on the machine (see **`imx8mm-jaguar-dt510.conf`** **`MACHINE_EXTRA_RDEPENDS`**).
+5. Copy that file next to this README, **`cp firmware-taa5412_1.0.bb.disabled firmware-taa5412_1.0.bb`** in this directory, and enable **`firmware-taa5412`** on the machine (see **`imx8mm-jaguar-dt510.conf`** **`MACHINE_EXTRA_RDEPENDS`**). Do **not** commit **`firmware-taa5412_1.0.bb`** or the **`.bin`** without redistribution clearance.
 
 The tool’s embedded layout uses **`configData.json`** `headerSize` **292** and **`binaryVersion` [0,0,1,5]** — aligned with the mainline kernel parser (`binary_version_num >= 0x105` enables 64-byte config names, etc.).
 
@@ -41,12 +41,14 @@ The tool’s embedded layout uses **`configData.json`** `headerSize` **292** and
 
 ## Yocto / BSP
 
-Recipe: **`meta-dynamicdevices-bsp/recipes-kernel/firmware/firmware-taa5412_1.0.bb`**
+**Tracked recipe (disabled — not parsed):** **`meta-dynamicdevices-bsp/recipes-kernel/firmware/firmware-taa5412_1.0.bb.disabled`**
 
-Place the file obtained from TI **next to this README** with the exact name:
+**Enable (local / private layer fork only, after vendoring the `.bin`):**
 
-- **`taa5412-i2c-1-1dev.bin`** (for the common DT510 `i2c-1` + single-device case)
+1. Place **`taa5412-i2c-1-1dev.bin`** next to this README (for the common DT510 **`i2c-1`** + single-device case).
+2. **`cp firmware-taa5412_1.0.bb.disabled firmware-taa5412_1.0.bb`** in the same directory (**`.bb`** is gitignored or kept out of public branches if policy requires).
+3. Uncomment **`MACHINE_EXTRA_RDEPENDS`** for **`firmware-taa5412`** in **`imx8mm-jaguar-dt510.conf`** when ready.
 
-Then **remove** the **`BBMASK`** line for **`firmware-taa5412`** in **`meta-dynamicdevices-bsp/conf/layer.conf`** (BitBake cannot parse the recipe until **`SRC_URI`**’s **`.bin`** exists). Enable **`firmware-taa5412`** on the machine (see **`imx8mm-jaguar-dt510.conf`** — uncomment **`MACHINE_EXTRA_RDEPENDS`** when ready).
+Without step 1–2, BitBake would fail checksum on **`file://taa5412-i2c-1-1dev.bin`** — hence the **`.bb.disabled`** suffix in the BSP repo.
 
 **License:** treat the **`.bin`** as **TI / proprietary** unless WHENCE or TI redistribution terms say otherwise; do not publish the blob in a public repo without clearance.

@@ -1,0 +1,3 @@
+# Enabled locally after vendoring TI blob — see firmware-taa5412/README.bin-provenance.md
+firmware-taa5412_1.0.bb
+firmware-taa5412/taa5412-i2c-*-1dev.bin
