@@ -123,6 +123,8 @@ The mainline driver uses **`request_firmware()`** for register/coefficient binar
 - Confirm **which** `.bin` files (if any) **TAA5412** needs on your board.
 - Package under **`/lib/firmware`** (or vendor path) and verify **file names** match driver expectations.
 
+**SSOT — where the firmware lives (not in the backport patch):** The **`.bin`** is a **TI deliverable**, not part of `torvalds/linux` or the BSP’s `0001-asoc-pcm6240-…patch`. Naming is defined in **`pcm6240.c`** (`%s-i2c-%d-%udev.bin` with `dev_name` **`taa5412`** for this part). Acquisition paths and Yocto packaging: **`meta-dynamicdevices-bsp/recipes-kernel/firmware/firmware-taa5412/README.bin-provenance.md`** and recipe **`firmware-taa5412_1.0.bb`**. Enable **`MACHINE_EXTRA_RDEPENDS`** for **`firmware-taa5412`** in **`imx8mm-jaguar-dt510.conf`** after vendoring the blob next to that README.
+
 ---
 
 ## 7. Ownership

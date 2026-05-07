@@ -1,0 +1,12 @@
+SPDX-License-Identifier: GPL-2.0-only
+
+The file taa5412-1dev-reg.json was copied from Texas Instruments’
+pcmdevice-linux-driver repository (same license as the driver sources).
+
+  Remote: https://git.ti.com/git/lpaa-android-drivers/pcmdevice-linux-driver.git
+  Path:   jsn/taa5412-1dev-reg.json
+  Commit: 54f500cfcbd34c6dd0fda5dac1d4ed40825b02a6
+
+The register-block firmware file taa5412-i2c-1-1dev.bin is NOT stored in
+that git tree; it is generated with TI’s Non_Integrated_Bin_Tool (see
+README.bin-provenance.md).

@@ -47,6 +47,7 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
   file://dt510-dio-toggle-outputs \
   file://dt510-dio-toggle-outputs.sh \
   file://dt510-taa5412-capture-check.sh \
+  file://dt510-auracast-image-check.sh \
 "
 
 SRC_URI:append:imx93-jaguar-eink = " \

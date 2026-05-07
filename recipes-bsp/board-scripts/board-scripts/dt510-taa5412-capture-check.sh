@@ -1,6 +1,7 @@
 #!/bin/bash
 # DT510 — TI TAA5412-Q1 (PCM6240 family) smoke checks.
-# Run on the target (as root if you need full dmesg). Exit 0 if I2C + ALSA card look good; non‑zero if broken.
+# Run on the target. Exit 0 if I2C + ALSA card look good; non‑zero if broken.
+# dmesg: under kernel.dmesg_restrict, use sudo — factory fio can sudo on DT510 (sudo -n if NOPASSWD).
 #
 # Firmware: snd_soc_pcm6240 requests (see driver) either:
 #   - <ti,name-prefix>.bin if the codec node has a name-prefix property, or
@@ -79,7 +80,17 @@ else
 fi
 
 echo "--- dmesg (taa5412 / pcm6240 / 0051 / firmware) ---"
-dmesg 2>/dev/null | grep -iE 'taa5412|pcm6240|0051|request_firmware|sound-taa5412|simple-card|deferred probe' | tail -30 || true
+_dmesg() {
+	if dmesg >/dev/null 2>&1; then
+		dmesg
+	elif sudo -n dmesg >/dev/null 2>&1; then
+		sudo -n dmesg
+	else
+		echo "(no dmesg: run as root, or sudo dmesg, or sudo -n dmesg if fio has NOPASSWD)" >&2
+		return 1
+	fi
+}
+_dmesg 2>/dev/null | grep -iE 'taa5412|pcm6240|0051|request_firmware|sound-taa5412|simple-card|deferred probe' | tail -30 || true
 
 echo "=== done (exit $RC) ==="
 exit "$RC"
