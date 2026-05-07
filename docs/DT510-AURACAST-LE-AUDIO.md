@@ -22,7 +22,7 @@
 **Build / image (Yocto — in tree)**
 
 - **`auracast`** is enabled on **`imx8mm-jaguar-dt510`** together with **`nxpiw612-sdio`** (IW612 prerequisite).
-- **`lmp-factory-image.bb`** pulls **`lmp-feature-le-audio.inc`** when **`auracast`** is set → rootfs gets **PipeWire**, **WirePlumber**, **bluez5**, **bluez5-testtools**, **`le-audio-wireplumber-config`**.
+- **`lmp-factory-image.bb`** pulls **`lmp-feature-le-audio.inc`** when **`auracast`** is set → rootfs gets **PipeWire**, **WirePlumber**, **bluez5**, **`le-audio-wireplumber-config`**. **`bluez5-testtools`** (**`btmgmt`**) is appended only from **`lmp-feature-iw612.inc`** on IW612 machines when dev builds are enabled (see Yocto table below).
 - **PipeWire** target build adds **alsa**, **pipewire-alsa**, **bluez**, **bluez-opus**, **bluez-lc3** via **`pipewire_%.bbappend`** (so LC3/BAP backend is not lost on headless distros).
 - **WirePlumber** installs **`51-bluez-imx-le-audio.conf`** (BAP unicast + **`bap_bcast_source` / `bap_bcast_sink`** + LC3 in codec list).
 - **LmP static IDs** for **`pipewire`** user via **`lmp-useradd-pipewire.inc`** (distro `*.conf` includes it).
