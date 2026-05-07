@@ -26,7 +26,7 @@
 - **PipeWire** target build adds **alsa**, **pipewire-alsa**, **bluez**, **bluez-opus**, **bluez-lc3** via **`pipewire_%.bbappend`** (so LC3/BAP backend is not lost on headless distros).
 - **WirePlumber** installs **`51-bluez-imx-le-audio.conf`** (BAP unicast + **`bap_bcast_source` / `bap_bcast_sink`** + LC3 in codec list).
 - **LmP static IDs** for **`pipewire`** user via **`lmp-useradd-pipewire.inc`** (distro `*.conf` includes it).
-- **On-target helper script** in BSP: **`dt510-auracast-image-check.sh`** — verifies the stack by **filesystem paths only** (no **`rpm`** / **`opkg`** on target). Installed via **`board-scripts_1.0.bb`** on **`imx8mm-jaguar-dt510`** when that recipe revision is in the built image.
+- **On-target helper scripts** in BSP: **`dt510-auracast-image-check.sh`** — filesystem-only LE Audio stack inventory; **`dt510-auracast-hci-check.sh`** — privileged **`hcitool`** reads/writes + negative tests (UM12155-style HCI, not BIS audio). Both install via **`board-scripts_1.0.bb`** on **`imx8mm-jaguar-dt510`** when that recipe revision is in the built image.
 
 **Docs / cross-links**
 
@@ -87,7 +87,8 @@
 
 | # | Role | Path | Notes |
 |---|------|------|--------|
-| 9 | BSP smoke script | `/usr/sbin/dt510-auracast-image-check.sh` | installed when **`board-scripts`** recipe revision on the image includes it — **not** on the **2026-05-07** lab flash; use inline checks until OTA catches up |
+| 9 | BSP smoke script (rootfs) | `/usr/sbin/dt510-auracast-image-check.sh` | installed when **`board-scripts`** recipe revision on the image includes it |
+| 10 | BSP HCI smoke script | `/usr/sbin/dt510-auracast-hci-check.sh` | **root + `hcitool` + `python3`** — see [HCI packaged script](#packaged-hci-check-script-root); **exit 0** = mandatory HCI tests passed on lab IW612 |
 
 ### Run from dev laptop (inline inventory)
 
@@ -107,6 +108,12 @@ When **`dt510-auracast-image-check.sh`** is on the image:
 
 ```bash
 ssh fio@192.168.2.239 /usr/sbin/dt510-auracast-image-check.sh
+```
+
+When **`dt510-auracast-hci-check.sh`** is on the image (must run **as root**):
+
+```bash
+ssh fio@192.168.2.239 'echo fio | sudo -S /usr/sbin/dt510-auracast-hci-check.sh'
 ```
 
 ---
@@ -136,11 +143,23 @@ The **OGF/OCF pairs** in UM12155 Table 3 are the standard **Bluetooth Core Speci
 | LE Accept CIS Request | `0x08` | `0x66` |
 | LE Setup ISO Data Path | `0x08` | `0x6E` |
 
-**Lab invocation:** non-interactive sudo on factory **`fio`** images: **`echo fio | sudo -S hcitool -i hci0 cmd …`** (see bring-up doc).
+### Packaged HCI check script (root)
+
+**Path:** **`/usr/sbin/dt510-auracast-hci-check.sh`** (BSP **`board-scripts`**).
+
+**Purpose:** Run a fixed set of **Read BD_ADDR**, **LE feature/state/data-length** reads, **Write Connection Accept Timeout**, **LE Write Suggested Default Data Length**, **LE Set Default PHY**, plus **informational** checks that match known IW612 quirks (**LE Read Buffer Size V2** → **`0x11`**, **LE Read Suggested Default Data Length** → **`0x12`** Command Status), and **negative** stubs for **LE Set CIG Parameters** / truncated **LE Set Extended Advertising Parameters**. Uses **`python3`** to parse **Command Complete** / **Command Status** lines from **`hcitool`** output.
+
+**Requirements:** **`root`** (use **`sudo`** or **`echo fio | sudo -S`** on lab images), **`hci0`** up, **`hcitool`** (**`bluez5`**), **`python3`**.
+
+**Exit codes:** **`0`** = all *mandatory* tests passed; **`1`** = at least one mandatory failure; **`2`** = missing root / **`hcitool`**.
+
+**Limits:** Does **not** stream Auracast audio, establish CIS/BIS, or replace UM12155 full procedures. Short **Command Complete** lines for some LE info commands (**`0x200a`**, **`0x200b`**) are parsed as **implicit status 00** when **`hcitool`** omits a separate status octet (IW612 behaviour observed **2026-05-07**).
+
+**Lab invocation:** non-interactive sudo on factory **`fio`** images: **`echo fio | sudo -S hcitool -i hci0 cmd …`** or run the packaged script (see bring-up doc).
 
 **Stack interaction:** **`hcitool cmd`** can succeed for simple queries while **`bluetoothd`** is running (e.g. **Read BD_ADDR**). **LE scan**, **ISO**, and **CIG/CIS** sequences often need correct connection/advertising state and may **conflict** with BlueZ’s ownership of the adapter — expect bring-up scripts to coordinate with **`bluetoothd`** (or use **NXP / BlueZ BAP** paths) rather than raw HCI alone for product Auracast.
 
-**On-target spot-check (DT510, lab):** **Read BD_ADDR** (`0x04` `0x09`) → Command Complete **success**, BD_ADDR matches **`hciconfig`**. **LE Read Buffer Size V2** (`0x08` `0x77`, ISO-related buffers per Core Spec) → **Command Status** status **`0x11`** (*Unsupported Feature or Parameter Value*) on one **`6.6.52-lmp-standard`** IW612 build — treat as **FW/controller capability signal**, confirm against **IW612 + HCI** release notes if UM12155 flow requires it.
+**On-target spot-check (DT510, lab):** Prefer **`/usr/sbin/dt510-auracast-hci-check.sh`** once shipped. Manual checks: **Read BD_ADDR** (`0x04` `0x09`) → Command Complete **success**, BD_ADDR matches **`hciconfig`**. **LE Read Buffer Size V2** (`0x08` `0x77`) → **Command Status** **`0x11`** on **`6.6.52-lmp-standard`** IW612 — treat as **FW/controller capability signal**, confirm against **IW612 + HCI** release notes if UM12155 flow requires it.
 
 ---
 
@@ -165,7 +184,7 @@ The **OGF/OCF pairs** in UM12155 Table 3 are the standard **Bluetooth Core Speci
 | PipeWire **PACKAGECONFIG**: `alsa`, `pipewire-alsa`, `bluez`, `bluez-opus`, `bluez-lc3` | `meta-dynamicdevices-distro/recipes-multimedia/pipewire/pipewire_%.bbappend` |
 | WirePlumber drop-in (**BAP + broadcast roles**, LC3 in codec list) | `meta-dynamicdevices-distro/recipes-connectivity/le-audio-wireplumber/le-audio-wireplumber-config/51-bluez-imx-le-audio.conf` |
 | Static **pipewire** user IDs (LmP) | `meta-dynamicdevices-distro/conf/distro/include/lmp-useradd-pipewire.inc` (included from distro `*.conf`) |
-| On-target smoke script (after BSP ships it) | `meta-dynamicdevices-bsp/recipes-bsp/board-scripts/board-scripts/dt510-auracast-image-check.sh` |
+| On-target smoke scripts (after BSP ships them) | `board-scripts/dt510-auracast-image-check.sh`, `board-scripts/dt510-auracast-hci-check.sh` → **`/usr/sbin/`** via **`board-scripts_1.0.bb`** |
 
 **Known gap vs NXP UM12155 lab flow:** no **`bluez5`** bbappend in this workspace swapping in **NXP LEA-patched** BlueZ — stock **`bluez5`** from the manifest pin is used unless another layer overrides it.
 
@@ -187,6 +206,7 @@ No separate **“auracast”** DT node: LE Audio rides on existing **UART HCI** 
 | 2026-05-07 | SSH laptop → **`fio@192.168.2.239`** | **Filesystem check exit 0:** **`bluetoothd`**, WirePlumber fragment, **`/usr/lib/spa-0.2/bluez5/`** incl. **`libspa-codec-bluez5-lc3.so`**. **`/usr/sbin/dt510-auracast-image-check.sh`** missing on image (expected until BSP ships that `board-scripts` revision). |
 | 2026-05-07 | SSH **`fio@192.168.2.88`** (password auth; host **`imx8mm-jaguar-dt510-2d0c7209dabc234a`**) | **Bluetooth stack inventory (not CIS/BAP runtime):** **`6.6.52-lmp-standard`**; **`hci0`** UART **UP RUNNING**, HCI/LMP **5.4**, manufacturer **NXP (37)**; **`bluetoothd`/`bluetoothctl` 5.72**, **`bluetooth.service` active**, **`/usr/libexec/bluetooth/bluetoothd`**; **`bluetoothctl show`** — roles central+peripheral, extended adv **1M/2M/Coded**; **PipeWire 1.0.9**, **WirePlumber 0.5.1**, **`51-bluez-imx-le-audio.conf`**, **`libspa-codec-bluez5-lc3.so`** present. **`btmgmt`** absent on this **non–dev-mode** flash — **`bluez5-testtools`** now gated to **IW612 + dev** builds (see Yocto table). |
 | 2026-05-06 | SSH **`fio@192.168.2.166`** | **Rootfs LE Audio inventory PASS**; privileged **`hcitool cmd 0x04 0x09`** (Read BD_ADDR) **Command Complete success**. **`hcitool cmd 0x08 0x77`** (LE Read Buffer Size V2) → **Command Status** **`0x11`**. Not a full CIS/BIS sequence. |
+| 2026-05-07 | SSH **`fio@192.168.2.166`** | **`dt510-auracast-hci-check.sh`** copied to **`/tmp`** + **`sudo`**: **exit 0** — mandatory HCI set passed; quirks **`0x77`**/**`0x26`** match expected **Command Status**; negative **CIG** / truncated **ext adv** failed as expected. |
 
 ---
 
@@ -202,19 +222,20 @@ No separate **“auracast”** DT node: LE Audio rides on existing **UART HCI** 
 - [x] **`le-audio-wireplumber-config`** installs BAP / **bcast** role drop-in
 - [x] Tracker doc + links (audit checklist, bring-up doc)
 - [x] **`dt510-auracast-image-check.sh`** in BSP `board-scripts` (+ `board-scripts_1.0.bb` for **`imx8mm-jaguar-dt510`**) — **filesystem-only** checks (no **`rpm`/`opkg`**)
+- [x] **`dt510-auracast-hci-check.sh`** — **HCI / `hcitool`** regression set (root); **`board-scripts_1.0.bb`** + **`RDEPENDS`** **`bluez5`**
 - [x] Basic **on-target** presence of binaries + drop-in (lab **192.168.2.239**)
 - [x] **Rootfs inventory** doc: [Filesystem evidence](#filesystem-evidence-on-target-no-rpmopkg) (policy, required table, lab SSH snippets) + maintenance rule
 
 ### Next (priority order)
 
 - [x] **Rootfs inventory (lab):** SSH from dev laptop → **`192.168.2.239`** — all paths in [Filesystem evidence](#filesystem-evidence-on-target-no-rpmopkg) present; LC3 BlueZ5 SPA plugin on disk (**`libspa-codec-bluez5-lc3.so`**).
-- [ ] **Rootfs inventory (shipping):** after BSP/manifest ships **`dt510-auracast-image-check.sh`**, confirm **`/usr/sbin/dt510-auracast-image-check.sh`** on image and run it; extend path table + script if layout changes.
+- [ ] **Rootfs inventory (shipping):** after BSP/manifest ships **`board-scripts`**, confirm **`/usr/sbin/dt510-auracast-image-check.sh`** and **`/usr/sbin/dt510-auracast-hci-check.sh`** on image; run both (HCI script needs **`sudo`**); extend path table + scripts if layout changes.
 - [ ] **NXP LEA BlueZ:** decide recipe source (NXP patch set vs OE); add **`bluez5`** bbappend or layer pin per NXP + IW612 release notes.
 - [ ] **Runtime:** boot policy for **`pipewire`/`wireplumber`** (user session + **linger** vs system units); **`bluetoothd`** args if NXP requires **`-E`** / debug for bring-up only.
 - [ ] **Coexistence:** PulseAudio vs PipeWire default for Bluetooth audio on DT510 (if both ship).
 - [ ] **UM12155 §5 flows on DT510:** CIS unicast then **BAP broadcast**; replace EVK **`wpctl`** node names with **DT510** sinks/sources (e.g. product codecs).
 - [ ] **Trim roles if needed:** if WirePlumber rejects **`bap_bcast_*`** tokens for a given BlueZ/WirePlumber pair, narrow `51-bluez-imx-le-audio.conf` per drop-in comment.
-- [ ] **Release process:** commit/push BSP and pin manifest so factory images pick up this doc + **`dt510-auracast-image-check.sh`**.
+- [ ] **Release process:** commit/push BSP and pin manifest so factory images pick up this doc + Auracast **`board-scripts`** (**`dt510-auracast-*`**).
 
 ---
 
@@ -230,3 +251,4 @@ No separate **“auracast”** DT node: LE Audio rides on existing **UART HCI** 
 | 2026-05-07 | Lab log: **`fio@192.168.2.88`** — Bluetooth / LE Audio host stack inventory (**`btmgmt`** absent). |
 | 2026-05-07 | **`bluez5-testtools`**: moved from always-on LE Audio inc to **`lmp-feature-iw612.inc`**, only when **`nxpiw612-sdio`** + (**`debug-tweaks`/`DEV_MODE`** or **`LOCAL_DEVELOPMENT_BUILD=1`**). |
 | 2026-05-06 | **HCI (`hcitool`)** §: UM12155-aligned **OGF/OCF** map for CIS/BIS; lab **`hcitool cmd`** notes + **Read BD_ADDR** / **LE Read Buffer Size V2** spot-check on **`192.168.2.166`**. |
+| 2026-05-07 | **`dt510-auracast-hci-check.sh`**: packaged HCI smoke (root, **`python3`** parser); doc table row + SSH example; lab **`192.168.2.166`** exit **0**. |
