@@ -9,4 +9,4 @@ MCU_PMU_KCONFIG ?= "${MCU_PMU_VARIANT}.mcuboot.kconfig"
 
 # Optional Zephyr application package name bundled with FEATURE_mcuboot (empty = omit).
 ZEPHYR_PMU_PN:imx93-jaguar-eink ?= "zephyr-mcxc444"
-ZEPHYR_PMU_PN:imx8mm-jaguar-dt510 ?= ""
+ZEPHYR_PMU_PN:imx8mm-jaguar-dt510 ?= "pmu-firmware-dt510"
