@@ -1,8 +1,9 @@
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
-# Staged MCU / companion Zephyr binaries for factory/boot-firmware artefacts (LwM `lmp-boot-firmware`).
-# imx93 Jaguar E-Ink and imx8mm Jaguar DT510 include PMU-related firmware here the same way (plus `mcumgr`
-# on the rootfs — see machine conf); this is distinct from FEATURE_mcuboot / ZEPHYR_PMU_PN image packages.
+# Staged MCU / companion images for LmP `lmp-boot-firmware` (factory / provisioning artefacts).
+# This path is distinct from FEATURE_mcuboot / ZEPHYR_PMU_PN packages on the rootfs.
+# IMPORTANT: one shared `zephyr.bin` under FILESPATH may not match every product — SoC M-core, external
+# companion MCU, and PMU UART images are not interchangeable. Replace or split per-machine files after audit.
 
 # Only add Zephyr firmware for Dynamic Devices machines that need it
 LMP_BOOT_FIRMWARE_FILES:append:imx8mm-jaguar-sentai = " zephyr.bin"
