@@ -53,7 +53,12 @@ else
 	if grep -q 'taa5412-codec' /proc/asound/cards; then
 		echo "ALSA:"
 		grep 'taa5412-codec' /proc/asound/cards
-		CARD_ID=$(awk '/\[taa5412-codec\]/ {print $1; exit}' /proc/asound/cards)
+		# /proc/asound/cards bracket id is sanitized (often "taa5412codec" not "taa5412-codec"); match the long name.
+		CARD_ID=$(awk '/simple-card - taa5412-codec/ {
+			sub(/^[[:space:]]+/, "");
+			print $1;
+			exit
+		}' /proc/asound/cards)
 		if [ -n "$CARD_ID" ]; then
 			echo "Card index: $CARD_ID"
 			echo "--- arecord -l (taa5412) ---"
