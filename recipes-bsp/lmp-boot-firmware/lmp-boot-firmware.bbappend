@@ -22,13 +22,21 @@ SRC_URI:append:imx8mm-jaguar-phasora = " file://zephyr.bin"
 SRC_URI:append:imx93-jaguar-eink = " file://imx93-jaguar-eink/zephyr.bin"
 
 # lmp-boot-firmware do_install expects ${WORKDIR}/zephyr.bin (flat).
-# Do not use do_unpack:append:<machine>() — hyphens in MACHINE break BitBake's shell-function
-# parse and the body is mistaken for Python. Branch on ${MACHINE} inside do_unpack:append() instead.
-do_unpack:append() {
-    if [ "${MACHINE}" = "imx8mm-jaguar-dt510" ] && [ -f "${WORKDIR}/imx8mm-jaguar-dt510/zephyr.bin" ]; then
-        install -m0644 "${WORKDIR}/imx8mm-jaguar-dt510/zephyr.bin" "${WORKDIR}/zephyr.bin"
-    fi
-    if [ "${MACHINE}" = "imx93-jaguar-eink" ] && [ -f "${WORKDIR}/imx93-jaguar-eink/zephyr.bin" ]; then
-        install -m0644 "${WORKDIR}/imx93-jaguar-eink/zephyr.bin" "${WORKDIR}/zephyr.bin"
-    fi
+# do_unpack is finalized as Python for this recipe — shell do_unpack:append() bodies raise SyntaxError.
+python do_unpack:append() {
+    import os
+    import shutil
+
+    wd = d.getVar("WORKDIR")
+    machine = d.getVar("MACHINE")
+    specs = (
+        ("imx8mm-jaguar-dt510", os.path.join(wd, "imx8mm-jaguar-dt510", "zephyr.bin")),
+        ("imx93-jaguar-eink", os.path.join(wd, "imx93-jaguar-eink", "zephyr.bin")),
+    )
+    for mach, src in specs:
+        if machine == mach:
+            dst = os.path.join(wd, "zephyr.bin")
+            if os.path.isfile(src):
+                shutil.copy2(src, dst)
+            break
 }
