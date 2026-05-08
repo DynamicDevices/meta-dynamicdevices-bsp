@@ -42,7 +42,7 @@ Practical split:
 3. **Menu → Open** **`jsn/taa5412-1dev-reg.json`** (or the BSP copy **`taa5412-1dev-reg.json`** beside this README — same content).
 4. **Export / save** the **register binary** using the tool’s UI so the output file name matches what Linux requests on your board — for DT510 **`&i2c2` → `i2c-1`** and a single device that is:
    - **`taa5412-i2c-1-1dev.bin`**
-5. Copy that file next to this README, **`cp firmware-taa5412_1.0.bb.disabled firmware-taa5412_1.0.bb`** in this directory, and enable **`firmware-taa5412`** on the machine (see **`imx8mm-jaguar-dt510.conf`** **`MACHINE_EXTRA_RDEPENDS`**). Do **not** commit **`firmware-taa5412_1.0.bb`** or the **`.bin`** without redistribution clearance.
+5. Install the blob as **`recipes-kernel/firmware/firmware-taa5412/taa5412-i2c-1-1dev.bin`** and build with **`MACHINE_FEATURES`** **`taa5412`** ( **`firmware-taa5412`** is enabled in **`imx8mm-jaguar-dt510.conf`**). Confirm TI redistribution terms before publishing the **`.bin`** in a public fork.
 
 **Export error `PRE_SHUTDOWN … Device not selected`:** TI’s **`jsn/taa5412-1dev-reg.json`** historically left **`PRE_SHUTDOWN`** with empty **`deviceName`** / **`deviceValue: null`**; **Non_Integrated_Bin_Tool** rejects that (`Block.prototype.isValid` requires both). Use the **BSP copy** **`taa5412-1dev-reg.json`** in this folder ( **`PRE_SHUTDOWN - Dev 1`** + **`Dev 1 - TAS2564`** / **`deviceValue`** **0**) or patch your JSON to match **`PRE_POWER_UP`**’s device fields before export.
 
@@ -56,14 +56,15 @@ The tool’s embedded layout uses **`configData.json`** `headerSize` **292** and
 
 ## Yocto / BSP
 
-**Tracked recipe (disabled — not parsed):** **`meta-dynamicdevices-bsp/recipes-kernel/firmware/firmware-taa5412_1.0.bb.disabled`**
+**Recipe enabled (DT510):** **`firmware-taa5412`** is active as **`recipes-kernel/firmware/firmware-taa5412_1.0.bb`**; **`MACHINE_EXTRA_RDEPENDS`** installs it when **`MACHINE_FEATURES`** includes **`taa5412`**. The **`taa5412-i2c-1-1dev.bin`** file lives in **`firmware-taa5412/`** (TI terms — confirm redistribution for your channel).
 
-**Enable (local / private layer fork only, after vendoring the `.bin`):**
+**Historical / template:** **`recipes-kernel/firmware/firmware-taa5412_1.0.bb.disabled`** (identical recipe text for diffing).
 
-1. Place **`taa5412-i2c-1-1dev.bin`** next to this README (for the common DT510 **`i2c-1`** + single-device case).
-2. **`cp firmware-taa5412_1.0.bb.disabled firmware-taa5412_1.0.bb`** in the same directory (**`.bb`** is gitignored or kept out of public branches if policy requires).
-3. Uncomment **`MACHINE_EXTRA_RDEPENDS`** for **`firmware-taa5412`** in **`imx8mm-jaguar-dt510.conf`** when ready.
+**Ship the blob in the rootfs when `taa5412` feature is on:**
 
-Without step 1–2, BitBake would fail checksum on **`file://taa5412-i2c-1-1dev.bin`** — hence the **`.bb.disabled`** suffix in the BSP repo.
+1. Place **`taa5412-i2c-1-1dev.bin`** in **`recipes-kernel/firmware/firmware-taa5412/`** (see **`firmware-taa5412_1.0.bb`** **`SRC_URI`**).
+2. **`MACHINE_FEATURES`** on **`imx8mm-jaguar-dt510`** must include **`taa5412`** (already typical for DT510 codec bring-up).
+
+Without the **`.bin`**, **`bitbake firmware-taa5412`** fails at fetch — **`file://`** requires the blob beside the recipe.
 
 **License:** treat the **`.bin`** as **TI / proprietary** unless WHENCE or TI redistribution terms say otherwise; do not publish the blob in a public repo without clearance.
