@@ -44,6 +44,8 @@ Practical split:
    - **`taa5412-i2c-1-1dev.bin`**
 5. Copy that file next to this README, **`cp firmware-taa5412_1.0.bb.disabled firmware-taa5412_1.0.bb`** in this directory, and enable **`firmware-taa5412`** on the machine (see **`imx8mm-jaguar-dt510.conf`** **`MACHINE_EXTRA_RDEPENDS`**). Do **not** commit **`firmware-taa5412_1.0.bb`** or the **`.bin`** without redistribution clearance.
 
+**Export error `PRE_SHUTDOWN … Device not selected`:** TI’s **`jsn/taa5412-1dev-reg.json`** historically left **`PRE_SHUTDOWN`** with empty **`deviceName`** / **`deviceValue: null`**; **Non_Integrated_Bin_Tool** rejects that (`Block.prototype.isValid` requires both). Use the **BSP copy** **`taa5412-1dev-reg.json`** in this folder ( **`PRE_SHUTDOWN - Dev 1`** + **`Dev 1 - TAS2564`** / **`deviceValue`** **0**) or patch your JSON to match **`PRE_POWER_UP`**’s device fields before export.
+
 The tool’s embedded layout uses **`configData.json`** `headerSize` **292** and **`binaryVersion` [0,0,1,5]** — aligned with the mainline kernel parser (`binary_version_num >= 0x105` enables 64-byte config names, etc.).
 
 ### B. Other places people used to look (often empty for this part)

@@ -104,7 +104,7 @@
                         "deviceShortName": ""
                     },
                     {
-                        "blockName": "PRE_SHUTDOWN",
+                        "blockName": "PRE_SHUTDOWN - Dev 1",
                         "commands": [
                             {
                                 "book": "0",
@@ -144,8 +144,8 @@
                             }
                         ],
                         "blockType": "PRE_SHUTDOWN",
-                        "deviceName": "",
-                        "deviceValue": null,
+                        "deviceName": "Dev 1 - TAS2564",
+                        "deviceValue": 0,
                         "deviceShortName": ""
                     }
                 ],
