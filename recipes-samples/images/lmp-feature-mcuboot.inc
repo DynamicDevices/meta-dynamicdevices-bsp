@@ -7,11 +7,12 @@ DESCRIPTION = "This feature adds MCUboot secure bootloader and Zephyr RTOS \
 firmware support for microcontrollers used in power management and system control. \
 Includes programming tools and development utilities."
 
-# MCUboot and Zephyr packages
+# MCUboot and Zephyr PMU app (recipe name comes from machine ZEPHYR_PMU_PN, see mcuboot-pmu-vars.inc)
 CORE_IMAGE_BASE_INSTALL += " \
     mcuboot \
-    zephyr-mcxc444 \
 "
+
+CORE_IMAGE_BASE_INSTALL += "${@(' ' + d.getVar('ZEPHYR_PMU_PN')) if d.getVar('ZEPHYR_PMU_PN') else ''}"
 
 # Development and programming tools
 CORE_IMAGE_BASE_INSTALL += " \

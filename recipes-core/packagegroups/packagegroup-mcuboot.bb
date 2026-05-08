@@ -6,11 +6,9 @@ LICENSE = "MIT"
 
 inherit packagegroup
 
-# MCUboot core packages
-RDEPENDS:${PN} = " \
-    mcuboot \
-    zephyr-mcxc444 \
-"
+RDEPENDS:${PN} = "mcuboot"
+
+RDEPENDS:${PN}:append = "${@(' ' + d.getVar('ZEPHYR_PMU_PN')) if d.getVar('ZEPHYR_PMU_PN') else ''}"
 
 # Programming and development tools
 RDEPENDS:${PN} += " \
