@@ -1,48 +1,22 @@
-From: Dynamic Devices DT510 <support@dynamicdevices.co.uk>
-Subject: [PATCH] mfd: tac5x1x: optional DT defaults for ADC1 SE and OUT1 mono SE
-
-Apply after tac5x1x-core.c exists (Lore 05). Lets device tree set boot-time
-register fields that tac5x1x_init() leaves at differential / reset defaults:
-
-- ti,adc1-single-ended: P0 0x50 bits [7:6] = 0b01 (ADC_CH1_INSRC single-ended)
-- ti,out1-mono-se-out1p: P0 0x64 bits [4:2] = 0b010 (OUT1 mono SE at OUT1P)
-
-Matches TAC5301-Q1 DT510 analog plan and Linux tac5x1x DAPM enum tables.
-
----
- drivers/mfd/tac5x1x-core.c | 25 ++++++++++++++++++++++++++
- 1 file changed, 25 insertions(+)
-
 diff --git a/drivers/mfd/tac5x1x-core.c b/drivers/mfd/tac5x1x-core.c
 --- a/drivers/mfd/tac5x1x-core.c
 +++ b/drivers/mfd/tac5x1x-core.c
-@@ -16,7 +16,8 @@
+@@ -13,6 +13,7 @@
+ #include <linux/mfd/tac5x1x/core.h>
  #include <linux/mfd/tac5x1x/registers.h>
  #include <linux/module.h>
 +#include <linux/property.h>
  #include <linux/of.h>
  #include <linux/pm_runtime.h>
  #include <linux/regmap.h>
- #include <linux/regulator/consumer.h>
- 
-@@ -555,12 +555,37 @@ static int tac5x1x_probe(struct device *dev, struct tac5x1x *tac5x1x)
- 	ret = tac5x1x_parse_dt(tac5x1x, np);
- 	if (ret) {
- 		dev_err(dev, "Failed to parse DT node: %d\n", ret);
- 		goto err_disable_regulators;
- 	}
- 
- 	/* update if vcom property is found */
- 	if (tac5x1x->out2x_vcom_cfg != -1) {
- 		regmap_update_bits(tac5x1x->regmap, TAC5X1X_OUT2CFG0,
+@@ -564,6 +565,29 @@
  				   TAC5X1X_OUT2CFG0_VCOM_MASK,
  				   tac5x1x->out2x_vcom_cfg);
  	}
-+
 +	/*
 +	 * Optional board defaults (device tree):
-+	 *   ti,adc1-single-ended — P0 R0x50 bits [7:6] ADC_CH1_INSRC = 0b01 (single-ended IN1).
-+	 *   ti,out1-mono-se-out1p — P0 R0x64 bits [4:2] OUT1x_CFG = 0b010 (mono SE at OUT1P).
++	 *   ti,adc1-single-ended -- P0 R0x50 bits [7:6] ADC_CH1_INSRC = 0b01 (single-ended IN1).
++	 *   ti,out1-mono-se-out1p -- P0 R0x64 bits [4:2] OUT1x_CFG = 0b010 (mono SE at OUT1P).
 +	 * Matches tac5x1x codec DAPM "ADC1 Analog MUX" / "OUT1X Config MUX" field placement.
 +	 */
 +	if (device_property_read_bool(dev, "ti,adc1-single-ended")) {
