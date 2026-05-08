@@ -22,7 +22,15 @@ If you add **`ti,name-prefix`** in DTS, the driver uses **`<name-prefix>.bin`** 
 
 ## Where to obtain the blob (engineering sources)
 
-### A. Generate from TI repo (recommended — matches mainline `pcm6240` driver)
+### PurePath Console 3 (bench / tuning)
+
+**PPC3** is the normal place to **design** mic path, gains, and metadata for **TAA5412** (EVM collateral, **SLAU903**). It is **not** interchangeable with the Linux `request_firmware()` blob unless TI’s export explicitly produces the **pcmdevice register binary** format (same family as **Non_Integrated_Bin_Tool** output — see kernel parser comments in `pcm6240.c`).
+
+Practical split:
+
+- Use **PPC3** to decide *what* registers/coefficients you want.
+- For the **`.bin` the kernel loads**, still use **`jsn/taa5412-1dev-reg.json`** → **Non_Integrated_Bin_Tool** (steps in **§ A** below), unless TI documents a PPC3 export that byte-matches that format—then rename to **`taa5412-i2c-1-1dev.bin`** and confirm **`request_firmware`** succeeds on hardware.
+
 
 1. Clone **`https://git.ti.com/git/lpaa-android-drivers/pcmdevice-linux-driver.git`** (shallow is fine).
 2. On **Windows**, unzip **`tool/Non_Integrated_Bin_Tool_1.3.7.zip`** and run **`nw.exe`** (NW.js shell).
