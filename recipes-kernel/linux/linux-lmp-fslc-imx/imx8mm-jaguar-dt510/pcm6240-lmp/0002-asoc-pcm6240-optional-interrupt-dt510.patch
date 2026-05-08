@@ -1,0 +1,59 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+Subject: [PATCH] ASoC: pcm6240: treat missing OF interrupt as optional (DT510)
+
+The TI pcmdevice driver treats of_irq_get(,0) failures as a hard dev_err even
+when boards wire no interrupt to the codec. When the part is used without a
+strap IRQ, log at debug level and continue probe.
+
+Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
+---
+ sound/soc/codecs/pcm6240.c | 39 +++++++++++++++++++++----------------
+ 1 file changed, 21 insertions(+), 18 deletions(-)
+
+diff --git a/sound/soc/codecs/pcm6240.c b/sound/soc/codecs/pcm6240.c
+--- a/sound/soc/codecs/pcm6240.c
++++ b/sound/soc/codecs/pcm6240.c
+@@ -2163,22 +2163,26 @@ static int pcmdevice_i2c_probe(struct i2c_client *i2c)
+ 	}
+ 
+ 	if (pcm_dev->chip_id == PCM1690)
+ 		goto skip_interrupt;
+-	if (gpio_is_valid(pcm_dev->irq_info.gpio)) {
+-		dev_dbg(pcm_dev->dev, "irq-gpio = %d", pcm_dev->irq_info.gpio);
+-
+-		ret = gpio_request(pcm_dev->irq_info.gpio, "PCMDEV-IRQ");
+-		if (!ret) {
+-			int gpio = pcm_dev->irq_info.gpio;
+-
+-			gpio_direction_input(gpio);
+-			pcm_dev->irq_info.nmb = gpio_to_irq(gpio);
+-
+-		} else
+-			dev_err(pcm_dev->dev, "%s: GPIO %d request error\n",
+-				__func__, pcm_dev->irq_info.gpio);
+-	} else
+-		dev_err(pcm_dev->dev, "Looking up irq-gpio failed %d\n",
+-			pcm_dev->irq_info.gpio);
++	if (!gpio_is_valid(pcm_dev->irq_info.gpio)) {
++		dev_dbg(pcm_dev->dev,
++			"pcmdevice: interrupt not in DT or invalid gpio (%d); continuing without IRQ\n",
++			pcm_dev->irq_info.gpio);
++		goto skip_interrupt;
++	}
++
++	dev_dbg(pcm_dev->dev, "irq-gpio = %d\n", pcm_dev->irq_info.gpio);
++
++	ret = gpio_request(pcm_dev->irq_info.gpio, "PCMDEV-IRQ");
++	if (!ret) {
++		int gpio = pcm_dev->irq_info.gpio;
++
++		gpio_direction_input(gpio);
++		pcm_dev->irq_info.nmb = gpio_to_irq(gpio);
++
++	} else {
++		dev_err(pcm_dev->dev, "%s: GPIO %d request error\n",
++			__func__, pcm_dev->irq_info.gpio);
++	}
+ 
+ skip_interrupt:
+ 	ret = devm_snd_soc_register_component(&i2c->dev,

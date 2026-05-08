@@ -961,6 +961,8 @@
 	/*
 	 * TI TAA5412-Q1 — PCM6240-family ADC; control on I2C2, digital audio on &sai5.
 	 * SSOT I2C address 0x51; reset-gpios / supplies TBD vs schematic — add when confirmed.
+	 * No codec interrupt line muxed in DTS on current DT510 SKU — kernel patch
+	 * 0002-asoc-pcm6240-optional-interrupt-dt510.patch treats missing interrupts as OK.
 	 */
 	taa5412: taa5412@51 {
 		compatible = "ti,taa5412";
