@@ -31,10 +31,15 @@ Practical split:
 - Use **PPC3** to decide *what* registers/coefficients you want.
 - For the **`.bin` the kernel loads**, still use **`jsn/taa5412-1dev-reg.json`** → **Non_Integrated_Bin_Tool** (steps in **§ A** below), unless TI documents a PPC3 export that byte-matches that format—then rename to **`taa5412-i2c-1-1dev.bin`** and confirm **`request_firmware`** succeeds on hardware.
 
+### A. Generate from TI repo (`Non_Integrated_Bin_Tool`)
+
+**Why “TAA5412” is not in the first-screen dropdown:** The wizard’s **Device 1 / amplifier** list is hard-coded to **TAS2558 / TAS2560 / TAS2562 / TAS2564** (plus **TAS2783** in Integrated-only mode) in the tool’s **`configData.json`** — it is aimed at those smart amps, **not** PCM6240-family ADC parts. **Do not wait for TAA5412 there.**
+
+**What to do instead:** After **`nw.exe`** starts, open the top-left **menu (≡)** → **Open**, and pick **`taa5412-1dev-reg.json`** from the pcmdevice clone (**`jsn/taa5412-1dev-reg.json`**). That loads the register script **directly** and skips the bogus amp picker. (The JSON may carry a legacy **`amplifierType`** value such as **`TAS2564`** inside **`settings`** — TI ships it that way; it does **not** mean you should pick a different part on the wizard.)
 
 1. Clone **`https://git.ti.com/git/lpaa-android-drivers/pcmdevice-linux-driver.git`** (shallow is fine).
 2. On **Windows**, unzip **`tool/Non_Integrated_Bin_Tool_1.3.7.zip`** and run **`nw.exe`** (NW.js shell).
-3. In the tool, **import** the register JSON (same content as this BSP’s **`taa5412-1dev-reg.json`**, or open it straight from a clone at **`jsn/taa5412-1dev-reg.json`**).
+3. **Menu → Open** **`jsn/taa5412-1dev-reg.json`** (or the BSP copy **`taa5412-1dev-reg.json`** beside this README — same content).
 4. **Export / save** the **register binary** using the tool’s UI so the output file name matches what Linux requests on your board — for DT510 **`&i2c2` → `i2c-1`** and a single device that is:
    - **`taa5412-i2c-1-1dev.bin`**
 5. Copy that file next to this README, **`cp firmware-taa5412_1.0.bb.disabled firmware-taa5412_1.0.bb`** in this directory, and enable **`firmware-taa5412`** on the machine (see **`imx8mm-jaguar-dt510.conf`** **`MACHINE_EXTRA_RDEPENDS`**). Do **not** commit **`firmware-taa5412_1.0.bb`** or the **`.bin`** without redistribution clearance.
