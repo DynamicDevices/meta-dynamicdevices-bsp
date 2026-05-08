@@ -38,6 +38,7 @@
 
 /*
  * --- 0x116 — Fast slew + DSE X6 + pull-down select (general GPIO, ENET switch sideband, codec GPIOs) ---
+ *     PE=1, PUE=0 → internal pull *down* enabled (not pull-up; PUE_UP would be 0x40).
  */
 #define IMX8MM_PAD_GPIO_STD						\
 	(   IMX8MM_SW_PAD_CTL_PE_EN				\
@@ -45,7 +46,16 @@
 	  | IMX8MM_SW_PAD_CTL_DSE_X6				\
 	  | IMX8MM_SW_PAD_CTL_PUE_DOWN )
 
-/* Front-panel / connector DIO — one SW_PAD recipe for all GPIO1_IO00/01/04–09 lines (imx8mm-evk general GPIO). */
+/*
+ * --- 0x010 — DIO *inputs*: PE=0 (`PE_DIS`), no internal pull.
+ *     FSEL_FAST | DSE_X1: DSE affects *output* drive if the pad drives; for input GPIOs use min DSE (unlike DO pads @ X6).
+ */
+#define IMX8MM_PAD_GPIO_DIO_INPUT_NOPULL				\
+	(   IMX8MM_SW_PAD_CTL_PE_DIS				\
+	  | IMX8MM_SW_PAD_CTL_FSEL_FAST				\
+	  | IMX8MM_SW_PAD_CTL_DSE_X1 )
+
+/* Front-panel / connector DIO outputs — imx8mm-evk general GPIO (with internal pull-down). SW_PAD_CTL = 0x116 */
 #define IMX8MM_PAD_GPIO_DEFAULT				IMX8MM_PAD_GPIO_STD
 
 #define IMX8MM_PAD_I2S_BUS					IMX8MM_PAD_GPIO_STD

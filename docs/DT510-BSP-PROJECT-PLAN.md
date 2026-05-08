@@ -98,7 +98,7 @@ Work **in order** within each tier unless a dependency forces otherwise.
 | ID | Task | Notes |
 |----|------|--------|
 | B1 | **BQ25792** (charger, I2C3 `0x6B`, `CHGR_INT#`) | **Done (DT + lab path):** `battery-dt510` + `bq25792@6b` **okay**. **Kernel:** when **`bq25792-charger`** is enabled, **`linux-lmp-fslc-imx`** applies **0010–0024** (BQ25703A stack + mainline **`ti,bq25703a.yaml`** import + Patchew **v6** BQ25792 series). **`git am`** verified on **`Freescale/linux-fslc`** tip **`97812d71`** (re-verify if **`SRCREV_machine`** differs). **CHGR_INT#** in DTS (GPIO4_IO9). Lab: **`i2c-dev`** + **`i2c-2`**. Factory kernel identity: **`bitbake -e linux-lmp-fslc-imx \| grep SRCREV`**. See issue **#3**. |
-| B2 | **Digital I/O** (GPIO1 per doc) | **Done (mux):** **`pinctrl_gpio1_dio`** for **GPIO1_IO0–9**; **disabled** EVK **`ir_recv`**, **`reg_pcie0`**, **`backlight`** that clashed or unused. **Pad / electrical (2026-05-06):** **`IMX8MM_PAD_GPIO_DEFAULT`** (see **`imx8mm-sw_pad_ctl.h`** next to this DTS) — **not** SoC internal pull-up on outputs; **external pull-ups** on the board where the design needs them. **Prototype:** validate with SSOT / **`libgpiod`** / **`dt510-dio-toggle-outputs.sh`** ( **`dt510-digital-io`** **`MACHINE_FEATURES`** ). |
+| B2 | **Digital I/O** (GPIO1 per doc) | **Done (mux + pad split):** **`pinctrl_gpio1_dio_in`** (GPIO1_IO0/1/4/5 → DI) / **`pinctrl_gpio1_dio_out`** (IO6–9 → DO); EVK clashes disabled. **`SW_PAD_CTL`:** DI **`0x010`** (**`IMX8MM_PAD_GPIO_DIO_INPUT_NOPULL`** — **`PE`** off, min **`DSE`**, fast slew — no internal pull); DO **`0x116`** (**`GPIO_STD`** — internal pull-down + **`DSE_X6`**). **`imx8mm-sw_pad_ctl.h`** / **`imx8mm-sw_pad_ctl-fields.h`**. **`dt510-digital-io`:** **`dt510-dio-toggle-outputs.sh`**, **`dt510-dio-poll-inputs.sh`**, **`libgpiod-tools`**. |
 | B3 | **CP2108** quad-UART | **Done (doc):** USB-enumerated; **DTS** comment — add **reset GPIO** only when SSOT names a pin. |
 | B4 | **SE050** (I2C4 `0x48`) | **Done (doc):** Same as Sentai — **OpTEE** + **`se05x`**; optional Linux **`&i2c4`** child still **not** required — [`DT510-SE050.md`](DT510-SE050.md). |
 
@@ -182,6 +182,7 @@ Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md)
 
 | Date | Change |
 |------|--------|
+| 2026-05-08 | **Digital I/O:** **`pinctrl_gpio1_dio_in`/`_out`** — DI **`SW_PAD`** **`0x010`** (**PE** disabled, **`DSE_X1`**, no SoC bias); DO **`0x116`** (**`GPIO_STD`**). Scripts **`dt510-dio-toggle-outputs.sh`**, **`dt510-dio-poll-inputs.sh`**. RM bit decode: **`imx8mm-sw_pad_ctl-fields.h`**. See **`DT510-HARDWARE-AUDIT-CHECKLIST.md`** / **`DT510-HARDWARE-BRINGUP.md`**. |
 | 2026-05-07 | **Serial console:** Confirmed **working** on bench after **hardware** repair; BSP **`stdout-path` / `ttymxc1`** unchanged. |
 | 2026-05-06 | **Serial console:** Documented UART2/`ttymxc1` vs UART4 MCU (`ttymxc3`), **`chosen.stdout-path`**, **`SERIAL_CONSOLES` ↔ FTDI symlink — lab SSH checks showed Linux printk + getty on **`ttymxc1`** unchanged; “no serial” triage is usually **wrong header / baud / wiring**. |
 | 2026-05-06 | **Cellular:** ModemManager **`mmcli`** on lab DT510 — LTE modem + **SIM recognised** (primary SIM active, IMSI/operator readable post-reboot); checklist row + DTS bring-up note updated. Bearer/data **TBD**. |

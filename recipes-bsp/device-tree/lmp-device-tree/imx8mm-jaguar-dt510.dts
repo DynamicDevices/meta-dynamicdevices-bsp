@@ -27,7 +27,7 @@
  *   HDMI: LT9611 on &i2c3 @ 0x39 (GPIO2_IO11/6); HDMI2C1 fault GPIO4_IO28; bridge disabled until DSI graph ready.
  *   Low-power MCU: MCXC144VFM on UART4 (DCE RX/TX pads) — Linux **`ttymxc3`**; **not** the EVKB **`stdout-path`** UART (**`&uart2`** → **`ttymxc1`** @ **0x30890000** use the **UART2** debug header for Linux/U-Boot-style console unless HW docs say otherwise).
  *   Digital I/O: GPIO1_IO00/01/04–09 (DI/DO); IO10–IO13 TAS6424 sideband (see &tas6424). EVK hdmi@3d on &i2c2 disabled.
- *            `pinctrl_gpio1_dio`: IMX8MM_PAD_GPIO_DEFAULT (evk GPIO_STD). External pull-ups on PCB where required — not internal SoC pull-up on these outputs.
+ *            `pinctrl_gpio1_dio_{in,out}`: DI pads 0x010 (PE=0, min DSE); DO pads 0x116 (`GPIO_STD`, internal pull-down). External pulls on PCB as required.
  *   SE050: I2C4 @ 0x48 — U-Boot / OpTEE; not expanded in this DTS.
  *
  * Bring-up status (lab — revise when verified):
@@ -46,7 +46,7 @@
  *   USB (host/gadget): working.
  *   HDMI (LT9611): TBD.
  *   Low-power MCU link: TBD.
- *   Digital I/O: pad mux + default GPIO_STD electricals; level/termination vs harness still needs validation.
+ *   Digital I/O: DI pads 0x010 (PE=0, DSE_X1); DO pads 0x116; level/termination vs harness still needs validation.
  *   SE050: reachable; board security posture unsecured / provisioning TBD.
  *
  * I2C numbering: Linux adapter i2c-N corresponds to DTS &i2c(N+1) (e.g. i2c-1 = &i2c2; i2c-2 = &i2c3 — KSZ9896 @ 0x5f).
@@ -290,7 +290,7 @@
  *   uart4 — MCXC144VFM MCU serial (RDC domain programmed for A53).
  *   usdhc1 — SDIO to WLAN module (4-bit; SD1_CLK/CMD/DATA0–3). SD1_DATA5–7 / RESET_B stay GPIO straps.
  *   fec1 / ksz9896_sideband — RGMII to KSZ9896; SAI1 pads: ENET_INTRP_N# (SAI1_RXFS→GPIO4_IO0), ENET_RST_N# (SAI1_RXC→GPIO4_IO1), + PME on GPIO4_IO4 (SAI1_RXD2).
- *   gpio1_dio — general-purpose DIO on GPIO1_IO00/01/04–09 (single SW_PAD GPIO_DEFAULT; IO02/03 N.C. on SKU).
+ *   gpio1_dio_in/out — DT510 DIO: DI1–4 (IO0/1/4/5) SW_PAD 0x010 (PE=0); DO1–4 (IO6–9) SW_PAD 0x116 — see imx8mm-sw_pad_ctl.h.
  *   tas6424_gpio / sai1_tas6424 — TAS6424 enable/fault GPIOs + I2S to class-D.
  *   sai2 — Not wired for audio on DT510 (pads may overlap Zigbee); pinmux retained for reference.
  *   sai3 — TAS2563 I2S + codec interrupt on GPIO5.
@@ -303,7 +303,7 @@
  */
 &iomuxc {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_hog>, <&pinctrl_bq25792_chgr_int>, <&pinctrl_gnss_reset>, <&pinctrl_hdmi>, <&pinctrl_quart_reset>, <&pinctrl_gpio1_dio>, <&pinctrl_can_mcp2518_gpio>;
+	pinctrl-0 = <&pinctrl_hog>, <&pinctrl_bq25792_chgr_int>, <&pinctrl_gnss_reset>, <&pinctrl_hdmi>, <&pinctrl_quart_reset>, <&pinctrl_gpio1_dio_in>, <&pinctrl_gpio1_dio_out>, <&pinctrl_can_mcp2518_gpio>;
 
 	/*
 	 * Boot-time strap / sideband mux defaults (WLAN/BT/LTE/SIM/audio straps).
@@ -366,16 +366,22 @@
 	};
 
 	/*
-	 * General-purpose digital I/O — GPIO1_IO00/01/04–09 as GPIO (imx8mm-pinfunc.h pad macros through GPIO1_IO09).
-	 * Mapping vs connector: DI1–4 → IO00/01/04/05; DO1–4 → IO06–09. IO02/03 not bonded here; IO10–IO13 = &tas6424.
-	 * Pad recipe: IMX8MM_PAD_GPIO_DEFAULT (imx8mm-evk general GPIO — see imx8mm-sw_pad_ctl.h). Board adds external pull-ups where needed.
+	 * General-purpose digital I/O — GPIO1_IO00/01/04–09 as GPIO.
+	 * DI1–4 → IO00/01/04/05: SW_PAD 0x010 — PE=0, FSEL_FAST, DSE_X1 (minimal output drive on an input-centric pad; PE off).
+	 * DO1–4 → IO06–09: SW_PAD 0x116 — IMX8MM_PAD_GPIO_DEFAULT (PE + internal pull-down + fast + DSE X6).
+	 * IO02/03 N.C.; IO10–IO13 = &tas6424. Board may add external pull-ups on inputs.
 	 */
-	pinctrl_gpio1_dio: gpio1diogrp {
+	pinctrl_gpio1_dio_in: gpio1dioinputgrp {
 		fsl,pins = <
-			MX8MM_IOMUXC_GPIO1_IO00_GPIO1_IO0	IMX8MM_PAD_GPIO_DEFAULT
-			MX8MM_IOMUXC_GPIO1_IO01_GPIO1_IO1	IMX8MM_PAD_GPIO_DEFAULT
-			MX8MM_IOMUXC_GPIO1_IO04_GPIO1_IO4	IMX8MM_PAD_GPIO_DEFAULT
-			MX8MM_IOMUXC_GPIO1_IO05_GPIO1_IO5	IMX8MM_PAD_GPIO_DEFAULT
+			MX8MM_IOMUXC_GPIO1_IO00_GPIO1_IO0	IMX8MM_PAD_GPIO_DIO_INPUT_NOPULL
+			MX8MM_IOMUXC_GPIO1_IO01_GPIO1_IO1	IMX8MM_PAD_GPIO_DIO_INPUT_NOPULL
+			MX8MM_IOMUXC_GPIO1_IO04_GPIO1_IO4	IMX8MM_PAD_GPIO_DIO_INPUT_NOPULL
+			MX8MM_IOMUXC_GPIO1_IO05_GPIO1_IO5	IMX8MM_PAD_GPIO_DIO_INPUT_NOPULL
+		>;
+	};
+
+	pinctrl_gpio1_dio_out: gpio1diooutputgrp {
+		fsl,pins = <
 			MX8MM_IOMUXC_GPIO1_IO06_GPIO1_IO6	IMX8MM_PAD_GPIO_DEFAULT
 			MX8MM_IOMUXC_GPIO1_IO07_GPIO1_IO7	IMX8MM_PAD_GPIO_DEFAULT
 			MX8MM_IOMUXC_GPIO1_IO08_GPIO1_IO8	IMX8MM_PAD_GPIO_DEFAULT
