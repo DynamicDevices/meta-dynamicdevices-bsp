@@ -7,9 +7,18 @@ SRC_URI:append:imx8mm-jaguar-sentai = " \
     file://tas2563-init.service \
 "
 
+SRC_URI:append:imx8mm-jaguar-dt510 = " \
+    file://imx8mm-jaguar-dt510/tas6424-init.sh \
+    file://imx8mm-jaguar-dt510/tas6424-init.service \
+"
+
 inherit systemd
 
 SYSTEMD_SERVICE:${PN}:imx8mm-jaguar-sentai = "tas2563-init.service"
+
+SYSTEMD_SERVICE:${PN}:imx8mm-jaguar-dt510 = "tas6424-init.service"
+
+RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = " alsa-utils"
 
 do_install:append:imx8mm-jaguar-sentai() {
     # Install the main ALSA configuration
@@ -32,4 +41,17 @@ FILES:${PN}:append:imx8mm-jaguar-sentai = " \
     ${sysconfdir}/asound.conf \
     ${bindir}/tas2563-init \
     ${systemd_unitdir}/system/tas2563-init.service \
+"
+
+do_install:append:imx8mm-jaguar-dt510() {
+    install -d ${D}${bindir}
+    install -m 0755 ${WORKDIR}/imx8mm-jaguar-dt510/tas6424-init.sh ${D}${bindir}/tas6424-init
+
+    install -d ${D}${systemd_unitdir}/system
+    install -m 0644 ${WORKDIR}/imx8mm-jaguar-dt510/tas6424-init.service ${D}${systemd_unitdir}/system/
+}
+
+FILES:${PN}:append:imx8mm-jaguar-dt510 = " \
+    ${bindir}/tas6424-init \
+    ${systemd_unitdir}/system/tas6424-init.service \
 "
