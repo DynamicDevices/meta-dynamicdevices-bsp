@@ -17,7 +17,7 @@
  *   WLAN/BT: IW612 SDIO on USDHC1 + UART1; WIFI_PD#/WL_WAKE/WL_RST#, BT_WAKE_HOST/BT_RST# on gpio2/3; SDIO VMMC is
  *            `&reg_wifi_sdio_vmmc` (fixed, always-on) so Wi-Fi is not gated by `&reg_vddext_3v3` / PMIC sequencing.
  *   Ethernet: FEC → Microchip KSZ9896 DSA (RGMII + I²C on &i2c3 @ 0x5f); internal PHYs on switch MDIO.
- *   Audio: **TAS6424E‑Q1** (**&sai1** @ 0x6a) — four channels on silicon; DT510 **routes two differential speakers on OUT2 and OUT3 only**. Use ALSA **Speaker Driver CH2 / CH3** for those paths; keep **CH1 / CH4 muted (0)** unless hardware uses them. Production move: **TAS6422E‑Q1** (2‑ch) for VIX. **TAS2563 (&sai3)**; **TAC5301** on **&sai6** @ **0x50 (&i2c2)**;
+ *   Audio: **TAS6424E‑Q1** (**&sai1** @ 0x6a) — four channels on silicon; DT510 **routes two differential speakers on OUT2 and OUT3 only**. Mixer: **Speaker Driver CH2 / CH3** on those analogue paths (**CH1 / CH4** typically muted). **IEC 4-slot class‑D playback:** product uses **IEC indices 2 and 3** to the pair (BSP **`tannoy_slot2`**/**`tannoy_slot3`**); **0–1** unused — see **`alsa-state`** `imx8mm-jaguar-dt510/asound.conf`. Production move: **TAS6422E‑Q1** (2‑ch) for VIX. **TAS2563 (&sai3)**; **TAC5301** on **&sai6** @ **0x50 (&i2c2)**;
  *            **TAA5412** on **&sai5** @ **0x51 (&i2c2)** (`ti,taa5412`, `snd_soc_pcm6240` when MACHINE_FEATURES **`taa5412`**). **TAS6424 AMP_FAULT#/WARN#** gpio-keys (GPIO1_IO12/IO13).
  *   Charger: TI BQ25792 on &i2c3 @ 0x6b; CHGR_INT# GPIO4_IO9.
  *   Zigbee: ECSPI1 + spidev (HW SSOT — Ollie Hull); ZB_INT GPIO4_IO22 (no ZB_RST# on this SKU).
