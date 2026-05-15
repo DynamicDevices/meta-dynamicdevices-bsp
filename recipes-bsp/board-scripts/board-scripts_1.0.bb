@@ -38,7 +38,10 @@ SRC_URI:append:imx8mm-jaguar-inst = " \
   file://enable-firewall.sh \
 "
 
-# imx8mm-jaguar-dt510 — minimal scripts always; optional scripts via MACHINE_FEATURES (keeps RDEPENDS lean).
+# imx8mm-jaguar-dt510 — minimal scripts always; optional via MACHINE_FEATURES (lean RDEPENDS).
+# DT510 installs to sbindir: board-info set-fio-passwd enable-firewall emmc-wipe-boot-partitions;
+# optional: dt510-dio-toggle-outputs + dt510-dio-poll-inputs (libgpiod-tools),
+# dt510-taa5412-capture-check.sh (+alsa-utils), dt510-auracast-* (+bluez5/python3), CP2108 python helpers (+pyusb).
 SRC_URI:append:imx8mm-jaguar-dt510 = " \
   file://board-info.sh \
   file://set-fio-passwd.sh \
@@ -48,8 +51,8 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
 # Leading space required: SRC_URI:append concatenates without inserting separators.
 SRC_URI:append:imx8mm-jaguar-dt510 = "${@bb.utils.contains('MACHINE_FEATURES', 'taa5412', ' file://dt510-taa5412-capture-check.sh', '', d)}"
 SRC_URI:append:imx8mm-jaguar-dt510 = "${@bb.utils.contains('MACHINE_FEATURES', 'auracast', ' file://dt510-auracast-image-check.sh file://dt510-auracast-hci-check.sh', '', d)}"
-SRC_URI:append:imx8mm-jaguar-dt510 = "${@bb.utils.contains('MACHINE_FEATURES', 'dt510-digital-io', ' file://dt510-dio-toggle-outputs file://dt510-dio-toggle-outputs.sh file://dt510-dio-poll-inputs.sh', '', d)}"
-SRC_URI:append:imx8mm-jaguar-dt510 = "${@bb.utils.contains('MACHINE_FEATURES', 'cp2108-usb-serial', ' file://rs485_tx_bytes.py file://dt510-cp2108-read-config.sh', '', d)}"
+SRC_URI:append:imx8mm-jaguar-dt510 = "${@bb.utils.contains('MACHINE_FEATURES', 'dt510-digital-io', ' file://dt510-dio-toggle-outputs file://dt510-dio-poll-inputs', '', d)}"
+SRC_URI:append:imx8mm-jaguar-dt510 = "${@bb.utils.contains('MACHINE_FEATURES', 'cp2108-usb-serial', ' file://rs485_tx_bytes.py file://cp2108-get-portconfig.py file://cp2108-set-portconfig.py', '', d)}"
 
 SRC_URI:append:imx93-jaguar-eink = " \
   file://board-info.sh \
@@ -74,9 +77,12 @@ do_install:append:imx8mm-jaguar-sentai() {
 do_install:append:imx8mm-jaguar-dt510() {
     if ${@bb.utils.contains('MACHINE_FEATURES', 'cp2108-usb-serial', 'true', 'false', d)}; then
         install -m 0755 ${WORKDIR}/rs485_tx_bytes.py ${D}${sbindir}/rs485_tx_bytes
+        install -m 0755 ${WORKDIR}/cp2108-get-portconfig.py ${D}${sbindir}/cp2108-get-portconfig
+        install -m 0755 ${WORKDIR}/cp2108-set-portconfig.py ${D}${sbindir}/cp2108-set-portconfig
     fi
     if ${@bb.utils.contains('MACHINE_FEATURES', 'dt510-digital-io', 'true', 'false', d)}; then
         install -m 0755 ${WORKDIR}/dt510-dio-toggle-outputs ${D}${sbindir}/dt510-dio-toggle-outputs
+        install -m 0755 ${WORKDIR}/dt510-dio-poll-inputs ${D}${sbindir}/dt510-dio-poll-inputs
     fi
 }
 
@@ -89,6 +95,6 @@ RDEPENDS:${PN}:imx8mm-jaguar-sentai = "bash dtmf2num"
 # DT510: pull deps only when matching MACHINE_FEATURES (see imx8mm-jaguar-dt510.conf).
 RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = "${@bb.utils.contains('MACHINE_FEATURES', 'taa5412', ' alsa-utils', '', d)}"
 RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = "${@bb.utils.contains('MACHINE_FEATURES', 'auracast', ' bluez5', '', d)}"
-RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = "${@bb.utils.contains('MACHINE_FEATURES', 'cp2108-usb-serial', ' cp210x-program', '', d)}"
 RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = "${@' python3' if bb.utils.contains('MACHINE_FEATURES', 'auracast', True, False, d) or bb.utils.contains('MACHINE_FEATURES', 'cp2108-usb-serial', True, False, d) else ''}"
+RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = "${@bb.utils.contains('MACHINE_FEATURES', 'cp2108-usb-serial', ' python3-pyusb', '', d)}"
 RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = "${@bb.utils.contains('MACHINE_FEATURES', 'dt510-digital-io', ' libgpiod-tools', '', d)}"

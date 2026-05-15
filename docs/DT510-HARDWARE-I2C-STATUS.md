@@ -4,7 +4,7 @@
 
 **Last bench pass:** build **173** (IMAGE_VERSION=173, `6.6.52-lmp-standard`), `imx8mm-jaguar-dt510` — spot-check via SSH; **re-validate** on a cold boot if drivers look stuck.
 
-**Related:** [`DT510-HARDWARE-AUDIT-CHECKLIST.md`](DT510-HARDWARE-AUDIT-CHECKLIST.md) · [`DT510-TAS6424-TANNOY-ALSA.md`](DT510-TAS6424-TANNOY-ALSA.md) (class‑D **`tannoys`**) · Ethernet/switch: [`DT510-ETHERNET-KSZ9896.md`](DT510-ETHERNET-KSZ9896.md)
+**Related:** [`DT510-HARDWARE-AUDIT-CHECKLIST.md`](DT510-HARDWARE-AUDIT-CHECKLIST.md) · [`DT510-TAS6424-TANNOY-ALSA.md`](DT510-TAS6424-TANNOY-ALSA.md) (class‑D **`tannoys`**) · [`DT510-TAS2563-DRIVER-SPEAKER-ALSA.md`](DT510-TAS2563-DRIVER-SPEAKER-ALSA.md) (**`driver_speaker`**) · [`DT510-TAC5301-AUDIO-LOOP-ALSA.md`](DT510-TAC5301-AUDIO-LOOP-ALSA.md) (**`audio_loop`** / **`aux`**) · [`DT510-TAA5412-DRIVER-MIC-ALSA.md`](DT510-TAA5412-DRIVER-MIC-ALSA.md) (**`driver_mic`** — Driver Mic) · Ethernet/switch: [`DT510-ETHERNET-KSZ9896.md`](DT510-ETHERNET-KSZ9896.md)
 
 ---
 
@@ -31,9 +31,11 @@
 | **0** | `0x44` | **Sensirion SHT4x** | `sht40@44`, `sensirion,sht4x` | `sht4x.ko` (hwmon) | **Not working (↗)**: `i2cget` **read error**; **no** `/sys/.../0-0044/driver`; I²C not usable — fix **wiring, population,** or **I²C** before trusting humidity/temp. |
 | **2** | `0x5f` | **Microchip KSZ9896** (DSA / switch mgmt) | **`switch@5f`** under **`&i2c2`** (**confirm** bus + addr vs straps) | `microchip,ksz9896` | **Pending (↗)**: probe succeeds only after **I²C strap** + routing match DTS; see [`DT510-ETHERNET-KSZ9896.md`](DT510-ETHERNET-KSZ9896.md). |
 | **1** | `0x3d` | **ADV7535** (DSI→HDMI) | EVK carry-over | `adv7533` (optional) | **On bus (↗)**: not DT510 end-product focus; **display stack disabled** in DT510. |
-| **1** | `0x4c` | **TI TAS2563** | `tas2563@4C` | ASoC / `snd_soc_tas2563` | **Driver bound (↗)** — validate audio path separately. |
+| **1** | `0x4c` | **TI TAS2563** | `tas2563@4C` | ASoC / `snd_soc_tas2563` | **Driver bound (↗)** — **`alsa-state`**: **`driver_speaker`**, **`drivers`**, **`tas2563-init`**; see **`docs/DT510-TAS2563-DRIVER-SPEAKER-ALSA.md`**. |
 | **1** | `0x6a` | **TI TAS6424** | `tas6424@6a` | ASoC | **Driver bound (↗)** — **userspace ALSA path validated** (**`aplay`** via **`tannoy_slot2`/`3`**, **`tannoys`**) when **`alsa-state`** **`/etc/asound.conf`** present; **`sai1` clock** regressions historically separate from I²C — see **`docs/DT510-TAS6424-TANNOY-ALSA.md`**. |
-| **1** | `0x48`, `0x50`, `0x51` | (scan hits) | TAC5301 / mic reserved in plan | — | **Unknown (↗)**: `i2cdetect` can show **devices without** a matching `*-00xx` sysfs node—confirm **BOM** (e.g. TAA5412, TAC5301, stray bridges). |
+| **1** | `0x50` | **TI TAC5301** | `tac5301@50`, `sound-tac5301` | ASoC / `tac5301-codec` | **Driver bound (↗)** — friendly ALSA **`audio_loop`** (**playback**, cabin **loop** analogue out) + **`aux`** (**capture**, **reserved/unused** aux in per product); **`docs/DT510-TAC5301-AUDIO-LOOP-ALSA.md`**. |
+| **1** | `0x51` | **TI TAA5412** | `taa5412@51` | `snd_soc_pcm6240` | **Partial / lab (↗)** — **`alsa-state`** **`driver_mic`** when card **`taa5412-codec`** probes; **`docs/DT510-TAA5412-DRIVER-MIC-ALSA.md`**. Firmware, **`&micfil`**, **`sound-taa5412`** — see checklist. |
+| **1** | `0x48` | *(verify vs schematic / BOM)* | — | — | **Unknown (↗)**: **`i2cdetect`** can show extra addresses vs shipped DT — confirm vs SSOT (**not** **I2C4** SE050 **`0x48`**). |
 | **2** | `0x28` | **TI LP5024** (RGB LED bank) | `led-controller@28`, `ti,lp5024` | leds-lp5xx / hwmon | **Not working (↗)**: **no** `driver` on `2-0028`, **`waiting_for_supplier`**, **no** `led5` / multi-led in `/sys/class/leds` — check **VDD/enable** graph and duplicate `VDDEXT` / regulator warnings. |
 | **2** | `0x3f` | **ST STTS22H** temp | `stts22h@3F` | `stts22` (IIO/hwmon) | **Not working (↗)**: `i2cget` **read error**; **no** `driver` on `2-003f`. |
 | **2** | `0x6b` | **TI BQ25792** charger | `bq25792@6b` | `bq257xx` MFD, charger, regulator | **Partial (↗)**: **`bq257xx` bound** to `2-006b`, **`bq257xx-charger.*`** / **`bq257xx-regulator.*`** present; **no** `power_supply` entries in `/sys/class/power_supply/` on that check — verify **Kconfig** / **MFD** child probe / `simple-battery` and **CHGR_INT#** (GPIO4_IO9) handling. |

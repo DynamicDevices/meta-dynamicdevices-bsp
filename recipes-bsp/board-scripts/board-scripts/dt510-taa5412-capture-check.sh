@@ -1,16 +1,14 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-only
+#
 # DT510 — TI TAA5412-Q1 (PCM6240 family) smoke checks.
-# Run on the target. Exit 0 if I2C + ALSA card look good; non‑zero if broken.
-# dmesg: under kernel.dmesg_restrict, use sudo — factory fio can sudo on DT510 (sudo -n if NOPASSWD).
+# Prefers ALSA pcm **driver_mic** (alsa-state asound.conf → Driver Mic); falls back to plughw.
+# Exit 0 if I2C + ALSA card look reasonable; non-zero if broken.
 #
-# Firmware: snd_soc_pcm6240 requests (see driver) either:
-#   - <ti,name-prefix>.bin if the codec node has a name-prefix property, or
-#   - taa5412-i2c-<adapter>-<ndev>dev.bin with ndev=1 for a single I2C address.
-# On DT510, &i2c2 is usually Linux adapter **1** and reg 0x51 → expect:
-#   meta-dynamicdevices-bsp/recipes-kernel/linux/.../lib/firmware/taa5412-i2c-1-1dev.bin
-# (ship via linux-firmware / own recipe — not in this repo by default).
-#
-# Related: meta-dynamicdevices-bsp/docs/DT510-HARDWARE-AUDIT-CHECKLIST.md (TAA5412 + micfil).
+# Firmware: snd_soc_pcm6240 requests taa5412-i2c-<adapter>-1dev.bin (typ. i2c-1 on DT510).
+# Related: meta-dynamicdevices-bsp/docs/DT510-TAA5412-DRIVER-MIC-ALSA.md
+
+shopt -s nullglob
 
 RC=0
 warn() { echo "WARN: $*" >&2; RC=1; }
@@ -20,7 +18,7 @@ echo "=== TAA5412 / PCM6240 smoke ($(date -Iseconds)) ==="
 
 # --- I2C: DT510 &i2c2 @ 0x51 is typically sysfs 1-0051 (verify if your image differs) ---
 I2C_NODE=""
-	for p in /sys/bus/i2c/devices/*-0051/name; do
+for p in /sys/bus/i2c/devices/*-0051/name; do
 	if [ -r "$p" ] && [ "$(tr -d '\r\n' <"$p")" = taa5412 ]; then
 		I2C_NODE="${p%/name}"
 		echo "I2C OK: $(basename "$I2C_NODE") name=$(cat "$p")"
@@ -31,29 +29,24 @@ if [ -z "$I2C_NODE" ]; then
 	err "No I2C device *-0051 with name 'taa5412'. Check wiring, DT reg, and i2cdetect."
 fi
 
-# --- Kernel module ---
 if ! lsmod | grep -q '^snd_soc_pcm6240'; then
 	warn "snd_soc_pcm6240 not loaded. Try: modprobe snd_soc_pcm6240"
 fi
 
-# --- Firmware on disk (optional but usually required for pcm6240 probe) ---
-shopt -s nullglob
 FW=(/lib/firmware/taa5412*.bin)
-shopt -u nullglob
 if [ ${#FW[@]} -eq 0 ]; then
 	warn "No /lib/firmware/taa5412*.bin — capture may fail until TI register-block FW is installed."
 else
 	for f in "${FW[@]}"; do echo "FW: $f"; done
 fi
+shopt -u nullglob
 
-# --- ALSA card from simple-audio-card,name ---
 if [ ! -r /proc/asound/cards ]; then
 	err "/proc/asound/cards missing"
 else
 	if grep -q 'taa5412-codec' /proc/asound/cards; then
 		echo "ALSA:"
 		grep 'taa5412-codec' /proc/asound/cards
-		# /proc/asound/cards bracket id is sanitized (often "taa5412codec" not "taa5412-codec"); match the long name.
 		CARD_ID=$(awk '/simple-card - taa5412-codec/ {
 			sub(/^[[:space:]]+/, "");
 			print $1;
@@ -63,24 +56,41 @@ else
 			echo "Card index: $CARD_ID"
 			echo "--- arecord -l (taa5412) ---"
 			arecord -l 2>/dev/null | grep -A2 "card $CARD_ID:" || arecord -l
-			# Short capture: driver accepts 44.1 / 48 kHz (see pcm6240 hw_params).
 			OUT=/tmp/taa5412-smoke.wav
 			rm -f "$OUT"
-			if arecord -D "plughw:${CARD_ID},0" -c2 -r48000 -fS16_LE -d2 "$OUT" 2>/tmp/taa5412-arecord.err; then
+			ERRF=/tmp/taa5412-arecord.err
+			ok=0
+			if arecord -D driver_mic -c4 -r48000 -fS16_LE -d2 "$OUT" 2>"$ERRF"; then
+				echo "Capture via driver_mic OK"
+				ok=1
+			else
+				rm -f "$OUT"
+				if arecord -D "plughw:${CARD_ID},0" -c4 -r48000 -fS16_LE -d2 "$OUT" 2>"$ERRF"; then
+					echo "Capture via plughw (4ch) OK"
+					ok=1
+				else
+					rm -f "$OUT"
+					if arecord -D "plughw:${CARD_ID},0" -c2 -r48000 -fS16_LE -d2 "$OUT" 2>"$ERRF"; then
+						echo "Capture via plughw (2ch) OK"
+						ok=1
+					fi
+				fi
+			fi
+			if [ "$ok" -eq 1 ]; then
 				if [ -s "$OUT" ]; then
-					echo "Capture OK: wrote $OUT ($(wc -c <"$OUT") bytes)"
+					echo "Wrote $OUT ($(wc -c <"$OUT") bytes)"
 				else
 					err "arecord succeeded but $OUT is empty"
 				fi
 			else
-				err "arecord failed — see /tmp/taa5412-arecord.err"
-				cat /tmp/taa5412-arecord.err >&2 || true
+				err "arecord failed (driver_mic then plughw 4ch/2ch) — see $ERRF"
+				cat "$ERRF" >&2 || true
 			fi
 		else
 			err "Could not parse card index for taa5412-codec"
 		fi
 	else
-		err "No ALSA card 'taa5412-codec' in /proc/asound/cards (sound card not bound — check dmesg, micfil disabled, FW)."
+		err "No ALSA card 'taa5412-codec' in /proc/asound/cards (probe / dmesg / micfil / FW)."
 	fi
 fi
 

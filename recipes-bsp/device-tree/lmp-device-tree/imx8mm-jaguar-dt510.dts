@@ -17,8 +17,7 @@
  *   WLAN/BT: IW612 SDIO on USDHC1 + UART1; WIFI_PD#/WL_WAKE/WL_RST#, BT_WAKE_HOST/BT_RST# on gpio2/3; SDIO VMMC is
  *            `&reg_wifi_sdio_vmmc` (fixed, always-on) so Wi-Fi is not gated by `&reg_vddext_3v3` / PMIC sequencing.
  *   Ethernet: FEC → Microchip KSZ9896 DSA (RGMII + I²C on &i2c3 @ 0x5f); internal PHYs on switch MDIO.
- *   Audio: **TAS6424E‑Q1** (**&sai1** @ 0x6a) — four channels on silicon; DT510 **routes two differential speakers on OUT2 and OUT3 only**. Mixer: **Speaker Driver CH2 / CH3** on those analogue paths (**CH1 / CH4** typically muted). **IEC 4-slot class‑D playback:** product uses **IEC indices 2 and 3** to the pair (BSP **`tannoy_slot2`**/**`tannoy_slot3`**); **0–1** unused — see **`alsa-state`** `imx8mm-jaguar-dt510/asound.conf`. Production move: **TAS6422E‑Q1** (2‑ch) for VIX. **TAS2563 (&sai3)**; **TAC5301** on **&sai6** @ **0x50 (&i2c2)**;
- *            **TAA5412** on **&sai5** @ **0x51 (&i2c2)** (`ti,taa5412`, `snd_soc_pcm6240` when MACHINE_FEATURES **`taa5412`**). **TAS6424 AMP_FAULT#/WARN#** gpio-keys (GPIO1_IO12/IO13).
+ *   Audio: **TAS6424E‑Q1** (**&sai1** @ 0x6a) — four channels on silicon; DT510 **routes two differential speakers on OUT2 and OUT3 only**. Mixer: **Speaker Driver CH2 / CH3** on those analogue paths (**CH1 / CH4** typically muted). **IEC 4-slot class‑D playback:** product uses **IEC indices 2 and 3** to the pair (BSP PCMs **`tannoy_slot2`** and **`tannoy_slot3`**); **0–1** unused — see **`alsa-state`** `imx8mm-jaguar-dt510/asound.conf`. Production move: **TAS6422E‑Q1** (2‑ch) for VIX. **TAS2563 (&sai3)** — IEC **slots 0/1** in DTS (`ti,left/right-slot`); userspace **`driver_speaker`**, **`drivers`**, **`driver_slot*`** (**`tas2563audio`**) — see **`docs/DT510-TAS2563-DRIVER-SPEAKER-ALSA.md`**. **TAC5301-Q1** (**&sai6**, `0x50`) — analogue **playback** for **vehicle audio loop**: ALSA PCM **`audio_loop`**; **`aux`** (**capture‑only**) = **reserved / unused analogue input**. **`docs/DT510-TAC5301-AUDIO-LOOP-ALSA.md`**. **TAA5412‑Q1** on **&sai5** @ **0x51 (&i2c2)** — **Driver‑facing microphone** ADC; **`alsa-state`** **`driver_mic`** (**capture‑only**) — **`docs/DT510-TAA5412-DRIVER-MIC-ALSA.md`** (`ti,taa5412`, `snd_soc_pcm6240` when MACHINE_FEATURES **`taa5412`** + TI firmware). **TAS6424 AMP_FAULT#/WARN#** gpio-keys (GPIO1_IO12/IO13).
  *   Charger: TI BQ25792 on &i2c3 @ 0x6b; CHGR_INT# GPIO4_IO9.
  *   Zigbee: ECSPI1 + spidev (HW SSOT — Ollie Hull); ZB_INT GPIO4_IO22 (no ZB_RST# on this SKU).
  *   CAN: MCP251863 on &ecspi2 (20 MHz XTAL); CAN_INT# GPIO4_IO16, CAN_STBY GPIO4_IO15.
@@ -41,11 +40,11 @@
  *   IW612 / WLAN: working on SDIO + VMMC rail.
  *   Cellular modem: Quectel LTE-on-USB (e.g. EM05); ModemManager enumerates modem + **SIM** (lab 2026-05: **`mmcli -m 1`** shows active SIM, IMSI/operator after reboot; cold boot can briefly report **sim-missing** until modem settles). Radio may show **disabled** until **`mmcli -m 1 --enable`** / NM; data/voice **paths still to validate**.
  *   eMMC: boots; throughput / wear levelling TBD.
- *   Bluetooth (IW612): **lab 2026-05** — **`hci0`** UP; BLE discovery via **`bluetoothctl scan`** (see **`docs/DT510-HARDWARE-AUDIT-CHECKLIST.md`**, **`meta-subscriber-overrides/.../DT510-HARDWARE-BRINGUP.md`**). HCI: **`&uart1`** + UART3 pads as RTS/CTS; **`nxp,88w8997-bt`** @ 3 Mbaud init.
+ *   Bluetooth (IW612): **lab 2026-05** — **`hci0`** UP; BLE discovery via **`bluetoothctl scan`** (see **`docs/DT510-HARDWARE-AUDIT-CHECKLIST.md`**, **`meta-subscriber-overrides/docs/DT510-HARDWARE-BRINGUP.md`**). HCI: **`&uart1`** + UART3 pads as RTS/CTS; **`nxp,88w8997-bt`** @ 3 Mbaud init.
  *   Ethernet (KSZ9896): forwarding works; I²C management errors on switch MIB path (see lab notes / bus rate experiments).
  *   Audio: TAS2563 (and path) produces output; levels / mux / tuning still in progress; TAS6424 bring-up continues; TAC5301 on &sai6 (BCLK-only to codec, no MCLK wire) — tac5x1x + ALSA playback validated lab 2026-05; analog path / levels TBD. TAA5412: lab 2026-05-06 on factory 307 — I2C 1-0051 probes; taa5412-codec deferred (micfil claimed SAI5_RXC before &sai5); &micfil disabled in this DTS — reflash, then arecord / levels TBD.
  *   Charger / pack sensing: TBD.
- *   Zigbee: DTS **`&ecspi1`** **`spidev`** + **`ZB_INT`** GPIO4_IO22; **`zb_mux`** / **`zb_app`** exercised on SPI — **RCP FW / MAC-split ACK / on-air**: align with **Sentai private NXP Zigbee IW612 firmware** (see **`meta-subscriber-overrides/conf/DT510-HARDWARE-BRINGUP.md`**).
+ *   Zigbee: DTS **`&ecspi1`** **`spidev`** + **`ZB_INT`** GPIO4_IO22; **`zb_mux`** / **`zb_app`** exercised on SPI — **RCP FW / MAC-split ACK / on-air**: align with **Sentai private NXP Zigbee IW612 firmware** (see **`meta-subscriber-overrides/docs/DT510-HARDWARE-BRINGUP.md`**).
  *   CAN: TBD.
  *   GNSS: NMEA on UART; **lab 2026-05-05:** valid fix with antenna — `$GNRMC`/`$GNGLL` status A, `$GNGGA` quality ≥1, `$GNGSA` 3D, multi-constellation in view.
  *   USB (host/gadget): working.
@@ -802,6 +801,8 @@
 	 * NEO-M9V GNSS_RES# — active-low reset from SoC (same hog pattern as bt-reset-hog).
 	 * GPIO_ACTIVE_LOW + output-low → logical inactive → physical high → reset deasserted at boot.
 	 * sysfs line name: gnss-res# (GPIO4_IO29). Toggle via libgpiod if hog removed later.
+	 *
+	 * GNSS USB serial (NMEA) for apps: BSP udev symlink **`/dev/gnss`** — see **`udev-rules-imx`** **`99-dt510-gnss.rules`**.
 	 */
 	gnss-res-hog {
 		gpio-hog;

@@ -58,4 +58,4 @@ Track in [**`DT510-BSP-PROJECT-PLAN.md`**](DT510-BSP-PROJECT-PLAN.md) Tier **C2*
 
 ---
 
-*Last updated: 2026-05-06 — TAS6424 userspace path validated; **`tannoy_slot2`/`slot3`** product wiring; **`TAS6422`** migration note.*
+*Last updated: 2026-05-06 — TAS6424 userspace path validated; **`tannoy_slot2`/`slot3`** product wiring; **`TAS6422`** migration note. **Companion (driver amp):** [`DT510-TAS2563-DRIVER-SPEAKER-ALSA.md`](DT510-TAS2563-DRIVER-SPEAKER-ALSA.md).*

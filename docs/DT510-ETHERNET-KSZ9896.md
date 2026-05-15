@@ -169,7 +169,7 @@ This is the suggested **phase 1** pattern for **hardware prove-out** before a mo
 
 ## Build → flash → test (short)
 
-1. Pin BSP / manifest per `conf/DT510-HARDWARE-BRINGUP.md`.  
+1. Pin BSP / manifest per `meta-subscriber-overrides/docs/DT510-HARDWARE-BRINGUP.md`.  
 2. Build **`imx8mm-jaguar-dt510`**.  
 3. On device: `dmesg | grep -iE 'fec|mdio|phy'`, `ip link` — expect a single **FEC**-backed link (e.g. `end0` / `eth0`), not DSA `lan*`.  
 4. **MDIO:** `ls /sys/bus/mdio/devices` — expect **PHY @1…@5** if the internal PHYs respond; **`phy-handle` is not** used for the **CPU** RGMII path (`fixed-link`). `i2cdetect` will **not** show the switch at I²C `0x5F` (expected).  

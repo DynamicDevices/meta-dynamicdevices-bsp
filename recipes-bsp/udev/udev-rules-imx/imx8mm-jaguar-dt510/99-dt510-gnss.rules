@@ -1,0 +1,19 @@
+# DT510 — stable device name for the NEO-M9V / GNSS USB serial path.
+#
+# Creates:  /dev/gnss  →  symlink to ttyUSB* or ttyACM* (underlying node must match rules below).
+#
+# Lab units often see GNSS on /dev/ttyUSB4 — that minor changes with enumeration; use /dev/gnss from apps.
+#
+# If the symlink never appears after flash:
+#   udevadm info -a -n /dev/ttyUSB4 | head -80
+#   → note idVendor / idProduct (+ ATTRS{serial} if multiple identical adapters)
+#   → adjust this file or add another SUBSYSTEM=="tty", KERNEL== line.
+#
+# Do not widen rules to overlap Quectel / other modems.
+
+# u-blox GNSS USB (often 1546:01a8 / 01a9 — driver may expose ttyACM* or ttyUSB*)
+SUBSYSTEM=="tty", KERNEL=="ttyUSB*|ttyACM*", ATTRS{idVendor}=="1546", ATTRS{idProduct}=="01a9", SYMLINK+="gnss", TAG+="uaccess"
+SUBSYSTEM=="tty", KERNEL=="ttyUSB*|ttyACM*", ATTRS{idVendor}=="1546", ATTRS{idProduct}=="01a8", SYMLINK+="gnss", TAG+="uaccess"
+
+# Silicon Labs CP210x (10c4:ea60 typical) — enable if GNSS enumerate as CP210 not u-blox
+# SUBSYSTEM=="tty", KERNEL=="ttyUSB*", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", SYMLINK+="gnss", TAG+="uaccess"

@@ -2,7 +2,7 @@
 
 Inventory of **kernel `SRC_URI` fragments** wired for **`MACHINE = imx8mm-jaguar-dt510`** in **`recipes-kernel/linux/linux-lmp-fslc-imx_%.bbappend`** (`SRC_URI:append:imx8mm-jaguar-dt510`). Use this when bumping **`SRCREV_machine`** for **`linux-lmp-fslc-imx`**: determine what still applies, what merged upstream, and what can drop.
 
-**Related:** `imx8mm-jaguar-dt510/bq25792-charger.cfg`, `imx8mm-jaguar-dt510/tac5x1x-lmp/tac5x1x-lmp.cfg`, subscriber **`meta-subscriber-overrides/conf/DT510-HARDWARE-BRINGUP.md`**, BSP **`docs/DT510-HARDWARE-AUDIT-CHECKLIST.md`**.
+**Related:** `imx8mm-jaguar-dt510/bq25792-charger.cfg`, `imx8mm-jaguar-dt510/tac5x1x-lmp/tac5x1x-lmp.cfg`, subscriber **`meta-subscriber-overrides/docs/DT510-HARDWARE-BRINGUP.md`**, BSP **`docs/DT510-HARDWARE-AUDIT-CHECKLIST.md`**.
 
 ---
 

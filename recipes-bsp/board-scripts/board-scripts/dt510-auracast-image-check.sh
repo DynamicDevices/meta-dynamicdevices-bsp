@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-only
 # DT510 — Auracast / LE Audio image smoke: confirm stack by **files on the image** (no rpm/opkg).
 # Run on the target after flash. See: meta-dynamicdevices-distro/recipes-samples/images/lmp-feature-le-audio.inc
 # Tracker: meta-dynamicdevices-bsp/docs/DT510-AURACAST-LE-AUDIO.md

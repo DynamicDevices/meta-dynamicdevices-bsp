@@ -1,5 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-only
+#
 # Poll DT510 digital inputs DI1–DI4 on gpiochip0 (GPIO1).
 #
 # Mapping (see imx8mm-jaguar-dt510.dts pinctrl_gpio1_dio_in/out):
@@ -8,16 +9,13 @@
 #   DI3 = GPIO1_IO4  (offset 4)
 #   DI4 = GPIO1_IO5  (offset 5)
 #
-# Outputs DO1–DO4 use offsets 6–9 (dt510-dio-toggle-outputs.sh); this script
+# Outputs DO1–DO4 use offsets 6–9 (dt510-dio-toggle-outputs); this script
 # only reads DI lines and does not claim them.
 #
-# Usage: sudo dt510-dio-poll-inputs.sh [interval_seconds] [--once]
-#   default: poll every 0.5 s until Ctrl+C
-#   --once: single sample and exit
-#   example: sudo dt510-dio-poll-inputs.sh 1
-#            sudo dt510-dio-poll-inputs.sh --once
+# Usage: sudo dt510-dio-poll-inputs [interval_seconds] [--once]
 
 set -e
+
 CHIP=gpiochip0
 LINES="0 1 4 5"
 

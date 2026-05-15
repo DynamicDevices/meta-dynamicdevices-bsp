@@ -13,7 +13,7 @@
 
 **External SSOT (do not paste NXP confidential text into git):** NXP **UM12155** (*Bluetooth LE Audio* user manual) and NXP **LEA-patched** Yocto / BlueZ guidance (e.g. **UG10164**, **LEA Patches** user guide). Keep PDFs and NXP-only drops **out of the public repo** unless distribution is cleared.
 
-**Related:** [`DT510-HARDWARE-AUDIT-CHECKLIST.md`](DT510-HARDWARE-AUDIT-CHECKLIST.md) · [`meta-subscriber-overrides/conf/DT510-HARDWARE-BRINGUP.md`](../../meta-subscriber-overrides/conf/DT510-HARDWARE-BRINGUP.md)
+**Related:** [`DT510-HARDWARE-AUDIT-CHECKLIST.md`](DT510-HARDWARE-AUDIT-CHECKLIST.md) · [`meta-subscriber-overrides/docs/DT510-HARDWARE-BRINGUP.md`](../../meta-subscriber-overrides/docs/DT510-HARDWARE-BRINGUP.md)
 
 ---
 
