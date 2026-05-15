@@ -1,9 +1,0 @@
-# Mixer device defined in /etc/asound.conf (ctl.tannoys).
-TAS6424_MIXER=tannoys
-
-# IEC 4-slot stream on this DT510 wiring: indices 2–3 = Tannoys; 0–1 unused here.
-# TI ALSA mixer names still use “Speaker Driver CH1–CH4” (datasheet)—map to schematic separately.
-TAS6424_VOL_CH1='Speaker Driver CH1'
-TAS6424_VOL_TANNOY_1='Speaker Driver CH2'
-TAS6424_VOL_TANNOY_2='Speaker Driver CH3'
-TAS6424_VOL_CH4='Speaker Driver CH4'

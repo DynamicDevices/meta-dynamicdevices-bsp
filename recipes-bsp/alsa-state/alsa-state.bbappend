@@ -9,7 +9,6 @@ SRC_URI:append:imx8mm-jaguar-sentai = " \
 
 SRC_URI:append:imx8mm-jaguar-dt510 = " \
     file://imx8mm-jaguar-dt510/asound.conf \
-    file://imx8mm-jaguar-dt510/tas6424-alsa.default \
     file://imx8mm-jaguar-dt510/tas6424-init.sh \
     file://imx8mm-jaguar-dt510/tas6424-init.service \
 "
@@ -49,9 +48,6 @@ do_install:append:imx8mm-jaguar-dt510() {
     install -d ${D}${sysconfdir}
     install -m 0644 ${WORKDIR}/imx8mm-jaguar-dt510/asound.conf ${D}${sysconfdir}/asound.conf
 
-    install -d ${D}${sysconfdir}/default
-    install -m 0644 ${WORKDIR}/imx8mm-jaguar-dt510/tas6424-alsa.default ${D}${sysconfdir}/default/tas6424-alsa
-
     install -d ${D}${bindir}
     install -m 0755 ${WORKDIR}/imx8mm-jaguar-dt510/tas6424-init.sh ${D}${bindir}/tas6424-init
 
@@ -61,7 +57,6 @@ do_install:append:imx8mm-jaguar-dt510() {
 
 FILES:${PN}:append:imx8mm-jaguar-dt510 = " \
     ${sysconfdir}/asound.conf \
-    ${sysconfdir}/default/tas6424-alsa \
     ${bindir}/tas6424-init \
     ${systemd_unitdir}/system/tas6424-init.service \
 "
