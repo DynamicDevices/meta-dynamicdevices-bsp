@@ -12,8 +12,9 @@
 # Silicon Labs programming utilities and export NVM from there (docs: DT510-HARDWARE-AUDIT-CHECKLIST CP2108 §).
 #
 # Usage:
+#   sudo dt510-cp2108-read-config.sh
+#   sudo dt510-cp2108-read-config.sh --hex /tmp/cp2108.hex   # default hex path: /tmp/cp2108-read.hex
 #   sudo dt510-cp2108-read-config.sh --ini /tmp/cp2108.ini
-#   sudo dt510-cp2108-read-config.sh --hex /tmp/cp2108.hex
 #   sudo dt510-cp2108-read-config.sh --ini /tmp/cp2108.ini --hex /tmp/cp2108.hex
 #   sudo dt510-cp2108-read-config.sh --match 001/004 --ini -
 #
@@ -22,7 +23,8 @@
 set -euo pipefail
 
 usage_err() {
-	echo "Usage: $0 [--match BUS/DEV] --ini PATH | --hex PATH | --ini PATH --hex PATH" >&2
+	echo "Usage: $0 [--match BUS/DEV] [--hex PATH] [--ini PATH]" >&2
+	echo "  (omit --hex/--ini: write Intel HEX only to /tmp/cp2108-read.hex)" >&2
 	echo "  --match 001/004   libusb match: 3-digit bus and device (default: auto-detect CP2108 10c4:ea71)" >&2
 	echo "  --ini PATH        decoded field values (\`-' = stdout)" >&2
 	echo "  --hex PATH        Intel HEX image (\`-' = stdout)" >&2
@@ -30,7 +32,8 @@ usage_err() {
 }
 
 usage_help() {
-	echo "Usage: $0 [--match BUS/DEV] --ini PATH | --hex PATH | --ini PATH --hex PATH"
+	echo "Usage: $0 [--match BUS/DEV] [--hex PATH] [--ini PATH]"
+	echo "  Default: hex only -> /tmp/cp2108-read.hex"
 	echo "  --match 001/004   libusb match (default: auto-detect 10c4:ea71)"
 	echo "  --ini PATH        field dump (\`-' = stdout)"
 	echo "  --hex PATH        Intel HEX (\`-' = stdout)"
@@ -65,9 +68,11 @@ while [ $# -gt 0 ]; do
 	esac
 done
 
+# Default output: Intel HEX (cp210x raw image); INI is optional.
+DEFAULT_HEX="/tmp/cp2108-read.hex"
 if [ -z "$INI_OUT" ] && [ -z "$HEX_OUT" ]; then
-	echo "ERR: specify at least one of --ini PATH or --hex PATH" >&2
-	usage_err
+	HEX_OUT="$DEFAULT_HEX"
+	echo "Note: no --hex/--ini; writing hex to ${HEX_OUT}" >&2
 fi
 
 if [ "$(id -u)" -ne 0 ]; then
@@ -141,6 +146,10 @@ MATCH="${BUSNUM}/${DEVNUM}"
 
 echo "=== dt510-cp2108-read-config ($(date -Iseconds)) ==="
 echo "Sysfs: ${CP2108_BASE}  match: -m ${MATCH}"
+outparts=()
+[ -n "$HEX_OUT" ] && outparts+=("hex:${HEX_OUT}")
+[ -n "$INI_OUT" ] && outparts+=("ini:${INI_OUT}")
+echo "Output: ${outparts[*]}"
 
 for i in 0 1 2 3; do
 	if [ ! -e "/sys/bus/usb/devices/${CP2108_BASE}:1.${i}" ]; then
