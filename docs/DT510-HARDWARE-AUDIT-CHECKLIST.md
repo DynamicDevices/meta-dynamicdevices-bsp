@@ -51,7 +51,7 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 | Ethernet **KSZ9896** | ENET RGMII + **MIIM (MDC/MDIO)** | in DT (validate) | **`&fec1`** RGMII + DSA; **DT510:** **`/delete-node/ mdio`** under **`&fec1`** so **GPIO4_IO22** is **not** EVK PHY **`reset-gpios`** (clashes with **ZB_INT**). Switch-side **`mdio`** remains under DSA per DTS — see **`docs/DT510-ETHERNET-KSZ9896.md`**. | C1 |
 | GNSS **NEO-M9V** | UART NMEA + GPIO reset (`gnss-res#`) | **validated (lab)** | **2026-05-05:** antenna connected; NMEA shows valid fix (`RMC`/`GLL` **A**, `GGA` fix quality, `GSA` 3D, multiple sats used). SSOT reset hog unchanged. | C5 |
 | HDMI misc **HDMI2C1-6C1** | GPIO | partial | Fault line per SSOT — align with LT9611 bring-up | C3 |
-| **CP2108** quad-UART | GPIO reset | **doc / optional DT** | USB enumeration; DTS comment — add GPIO when SSOT names reset | B3 |
+| **CP2108** quad-UART (U13, USB HS) | **Internal UART [0–3]** (not `ttyUSBn` order) | **present** | **`cp210x`** kernel; **`cp210x-program`** (**`MACHINE_EXTRA_RDEPENDS`** when **`cp2108-usb-serial`**) — **CP2108 support unvalidated upstream**. **Port map (hardware — O.H.):** **[0]** RS-232 `RS232TXD1`/`RS232RXD1`; **[1]** RS-232 `RS232TXD2`/`RS232RXD2`; **[2]** RS-485 `RS485_TX1`/`RS485_RX1` + **`GPIO.10` → `RS485_DE1`**; **[3]** RS-485 `RS485_TX2`/`RS485_RX2` + **`GPIO.14` → `RS485_DE2`**. **GPIO.2/GPIO.6** (datasheet RS-485 ALT for streams 0/1) **NC**. **Timing:** datasheet **`t_ACTIVE`** typ **1 bit-time** post stop-bit on RS-485 DE. **Programming:** Silicon Labs **Xpress Configurator / manufacturing tools + [AN721](https://www.silabs.com/documents/public/application-notes/AN721.pdf)**; EEPROM/customization SSOT ≠ kernel DT. **`QUART_RES#`:** **`QUART_RES#_3V3`** (**GPIO4_IO5** hog). Stable **`/dev`** names: **`/dev/serial/by-id/`** or **by-path**. See subsection **CP2108 (U13)** below. | B3 |
 | Digital I/O | GPIO1_IO0–9 | **validated (lab)** | **`pinctrl_gpio1_dio_in`** (DI → GPIO1_IO0/1/4/5) + **`pinctrl_gpio1_dio_out`** (DO → IO6–9); EVK **`ir_recv` / `reg_pcie0` / `backlight`** disabled. **SW_PAD (`fsl,pins` 2nd cell, IMX8MMRM Ch.8 — see `imx8mm-sw_pad_ctl-fields.h`):** DI **`0x010`** (**`PE_DIS`**, FSEL fast, **`DSE_X1`**) — no SoC bias; DO **`0x116`** (**`GPIO_STD`**: PE + internal pull-down). Board adds external terminations where required. Scripts when **`dt510-digital-io`**: **`dt510-dio-toggle-outputs.sh`** (DO), **`dt510-dio-poll-inputs.sh`** (DI) + **`libgpiod-tools`**. Lab **2026-05-08**: **DO** toggle and **DI** input paths validated (**O.H.**). | B2 |
 | **MAYA‑W276 / IW612** (Wi‑Fi / BT / **802.15.4**) | SDIO + UART (HCI) + ECSPI (ZB MAC-split) | **Wi‑Fi / BT validated (lab)**; ZB DTS + **`zb_mux`** lab | **Wi‑Fi/BT:** **`&usdhc1`** (4‑bit SDIO; **`&usdhc2` disabled** — not EVK SD2); **`&uart1`** HCI **`nxp,88w8997-bt`** with UART3 pads as RTS/CTS; GPIO straps **`BT_WAKE_*`**, **`BT_RST#`**, **`WL_*`**, **`WIFI_PD#`** per `hoggrp` / `imx8mm-jaguar-dt510.dts`. **BT:** **2026‑05** — **`bluetoothctl scan`** finds BLE devices. **802.15.4 / Zigbee:** **ECSPI1** (**`&ecspi1`** **`spidev`**) + **`ZB_INT`** GPIO4_IO22 — **confirmed vs hardware (Ollie Hull)**; **`zb_app`** needs **Sentai private NXP Zigbee RCP FW** alignment (MAC-split ACK / on-air). See **`meta-subscriber-overrides/conf/DT510-HARDWARE-BRINGUP.md`**. | — |
 | **Cellular LTE** (Quectel **EM05** class) | **USB OTG2** host (`&usbotg2`); LTE_RST / LTE_OFF / SIM_SEL hogs | **partial (lab)** | **2026-05:** ModemManager **`mmcli -m 1`** — modem present, **primary SIM active** (`/SIM/1`), IMSI + operator name readable; earlier **`sim-missing`** seen until reboot/settle. **`cdc-wdm0`** MBIM + **option** ttys. Enable rf with **`mmcli -m 1 --enable`** if state **disabled**; bearer/data/voice **TBD**. Module reported **fixed-dialing** lock — confirm vs SIM/product. | — |
@@ -86,6 +86,27 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 - **Differential outputs:** again **analog BTL** across each load; not a separate DT knob.
 - **TAS6422E-Q1 later:** different part; requires **confirmed kernel `compatible` + driver** (and likely new/updated DT node) — **not** a drop-in rename from **`ti,tas6424`**.
 
+### CP2108 (U13) — quad USB UART (SSOT)
+
+**Purpose:** Eliminate ambiguity between **`cp2108` bridge channel index**, **SiLabs datasheet GPIO.2/.6/.10/.14 (RS‑485 ALT)**, schematic nets, and **Linux `/dev/ttyUSB*`** minors.
+
+**Product wiring (engineering statement, align with schematic *U13*):**
+
+| **Bridge UART index** | **Product interface** | **Data nets** | **RS‑485 bus control / notes** |
+|----------------------|------------------------|---------------|----------------------------------|
+| **0** | RS‑232 | `RS232TXD1`, `RS232RXD1` | **GPIO.2 / RS485_0** unused (NC); no CP2108 DE for this channel on this SKU |
+| **1** | RS‑232 | `RS232TXD2`, `RS232RXD2` | **GPIO.6 / RS485_1** unused (NC) |
+| **2** | RS‑485 | `RS485_TX1`, `RS485_RX1` | **GPIO.10 / RS485_2** tied to **`RS485_DE1`** (driver enable pattern per transceiver BOM) |
+| **3** | RS‑485 | `RS485_TX2`, `RS485_RX2` | **GPIO.14 / RS485_3** tied to **`RS485_DE2`** |
+
+**Datasheet correlation:** Silicon Labs **[CP2108 datasheet](https://www.silabs.com/documents/public/data-sheets/cp2108-datasheet.pdf)** §**9.3** — **`GPIO.2`, `GPIO.6`, `GPIO.10`, `GPIO.14`** are the pins that **may** assume **RS‑485 transceiver control** behaviour for UART **0–3** respectively. **§3.1.3 Table 3.3** — **`t_ACTIVE`**, RS‑485 active time **after stop bit**, **typical 1 bit-time** (**1/baud_rate**).
+
+**Linux:** Four **ACM/VCP interfaces** enumerate as **`/dev/ttyUSB0` … `ttyUSB3`** *usually* in bridge order — **confirm per image with** `ls -l /dev/serial/by-path` **or read** sysfs **before hard-coding.** Helper: **`recipes-bsp/board-scripts/board-scripts/rs485_tx_bytes.py`** (**`rs485_tx_bytes`** on image; lab TX only; DE normally automatic when NVM is programmed).
+
+**Customization / factory:** Programming is **SiLabs NVM/customization**, not Linux device-tree. Use **Simplicity Studio / Xpress Configurator** and **standalone manufacturing utilities** documented in **[AN721](https://www.silabs.com/documents/public/application-notes/AN721.pdf)** (**[GPIO / port AN223](https://www.silabs.com/documents/public/application-notes/an223.pdf)** for pin modes). **Open-source [`cp210x-program`](https://github.com/VCTLabs/cp210x-program)** is packaged for bring-up (**`recipes-devtools/cp210x-program`**) — **no CP2108 guarantee** on the image; validate read/write on hardware before production.
+
+**Reset:** SoC hog **`QUART_RES#`** on **GPIO4_IO5** (**`quart-res-hog`** — see `imx8mm-jaguar-dt510.dts`).
+
 ---
 
 ## Next actions (from this audit)
@@ -104,4 +125,4 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 
 ---
 
-*Last updated: 2026-05-08 — **Digital I/O:** **O.H.** confirmed **DI** inputs and **DO** outputs on hardware (same session as pad split + scripts). Split **`pinctrl_gpio1_dio_in`/`_out`**; DI **`SW_PAD`** **`0x010`** (**`PE`** off, **`DSE_X1`**); DO **`0x116`**; **`dt510-dio-poll-inputs.sh`**. Earlier **2026-05-06** — **§ Codec / amp — DT vs hardware** (TAS2563 / TAA5412 / TAS6424 + TAS6422 migration). TAA5412 lab **307**: I2C OK; **`&micfil`** vs **`&sai5`** + BSP **`&micfil` disabled**. GPIO1 DIO bring-up (**`BRINGUP.md`**). Earlier: **2026-05-05** — TAC5301 lab playback; **`fec1`** **`mdio`** delete; **`a7b3d64`** / **`2cda7ac`**.*
+*Last updated: 2026-05-15 — **§ CP2108:** bridge UART **[0]/[1]** RS‑232; **[2]/[3]** RS‑485 with **`GPIO.10`→`RS485_DE1`**, **`GPIO.14`→`RS485_DE2`** ( **`t_ACTIVE`** 1 bit-time ); factory = **AN721** / NVM. Earlier **2026-05-08** — **Digital I/O:** **O.H.** confirmed **DI** / **DO**; **`pinctrl_gpio1_dio_in`/`_out`**. Earlier **2026-05-06** — codec vs hardware §; TAA5412 lab **307**; **`&micfil` disabled**. Earlier **2026-05-05** — TAC5301; **`fec1`** **`mdio`** delete.*

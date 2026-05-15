@@ -23,7 +23,12 @@
  *   Zigbee: ECSPI1 + spidev (HW SSOT — Ollie Hull); ZB_INT GPIO4_IO22 (no ZB_RST# on this SKU).
  *   CAN: MCP251863 on &ecspi2 (20 MHz XTAL); CAN_INT# GPIO4_IO16, CAN_STBY GPIO4_IO15.
  *   GNSS: u-blox NEO-M9V; GNSS_RES# GPIO4_IO29 (SAI3_RXC mux).
- *   USB UART: CP2108 (cp210x); QUART_RES# GPIO4_IO5 (SAI1_RXD3 mux).
+ *   USB UART: CP2108 (**U13**, `cp210x`). **Bridge UART index (0..3) vs board:** **[0] RS-232** (`RS232TXD1`/`RS232RXD1`);
+ *            **[1] RS-232** (`RS232TXD2`/`RS232RXD2`); **[2] RS-485** (`RS485_TX1`/`RS485_RX1`, **`GPIO.10` -> `RS485_DE1`**);
+ *            **[3] RS-485** (`RS485_TX2`/`RS485_RX2`, **`GPIO.14` -> `RS485_DE2`**). **GPIO.2 / GPIO.6** (RS-485 ALT for ch 0/1 per
+ *            datasheet) **NC** here. **DE timing:** `t_ACTIVE` typ **1 bit-time** after stop bit (datasheet Table 3.3). Customize part via
+ *            Silicon Labs flow (**AN721**); open-source **`cp210x-program`** is unverified on CP2108 — see BSP docs. **QUART_RES#** on
+ *            GPIO4_IO5 (SAI1_RXD3); enumerate **`ttyUSB*`** with **`udev` by-path**, not blindly by minor number.
  *   HDMI: LT9611 on &i2c3 @ 0x39 (GPIO2_IO11/6); HDMI2C1 fault GPIO4_IO28; bridge disabled until DSI graph ready.
  *   Low-power MCU: MCXC144VFM on UART4 (DCE RX/TX pads) — Linux **`ttymxc3`**; **not** the EVKB **`stdout-path`** UART (**`&uart2`** → **`ttymxc1`** @ **0x30890000** use the **UART2** debug header for Linux/U-Boot-style console unless HW docs say otherwise).
  *   Digital I/O: GPIO1_IO00/01/04–09 (DI/DO); IO10–IO13 TAS6424 sideband (see &tas6424). EVK hdmi@3d on &i2c2 disabled.

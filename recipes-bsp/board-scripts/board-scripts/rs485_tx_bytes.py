@@ -2,6 +2,9 @@
 """
 Transmit fixed bytes on a serial TTY (e.g. CP2108 /dev/ttyUSB*) for RS-485 lab bring-up.
 
+DT510 CP2108 (U13): bridge UART **[2]**/**[3]** are RS‑485 (**DE** from CP2108 **GPIO.10**/**GPIO.14** when NVM programmed); **[0]**/**[1]** are RS‑232 —
+do not assume **`ttyUSB2`**=`UART2`; use **`udev` by-path/by-id`** to map minors.
+
   - Sets 8n1 raw port via stty(1) for baud (works with many non-standard integer rates).
   - Optional: TIOCSRS485 so the kernel toggles RTS around TX (driver must support it).
 

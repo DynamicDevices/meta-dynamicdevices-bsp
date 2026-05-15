@@ -1,7 +1,8 @@
 SUMMARY = "Read/write Silicon Labs CP210x USB UART EEPROM (userspace, PyUSB)"
 DESCRIPTION = "Python tool to read or program the on-chip EEPROM of Silabs CP210x bridges. \
 Useful on boards such as DT510 (CP2108) for inspecting USB descriptor and GPIO/RS-485-related \
-configuration. CP2108 layout support may be partial; prefer read-only use until validated on hardware."
+configuration. CP2108: UART [0]/[1] RS-232, [2]/[3] RS-485 (+ GPIO.10/14 DE per datasheet when programmed). \
+Upstream does not certify CP2108; prefer read/compare on hardware before production writes."
 HOMEPAGE = "https://github.com/VCTLabs/cp210x-program"
 SECTION = "devel"
 LICENSE = "LGPL-2.1-only"
