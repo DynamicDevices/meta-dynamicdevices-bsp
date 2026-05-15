@@ -4,7 +4,7 @@
 
 **Last bench pass:** build **173** (IMAGE_VERSION=173, `6.6.52-lmp-standard`), `imx8mm-jaguar-dt510` — spot-check via SSH; **re-validate** on a cold boot if drivers look stuck.
 
-**Related:** [`DT510-HARDWARE-AUDIT-CHECKLIST.md`](DT510-HARDWARE-AUDIT-CHECKLIST.md) · Ethernet/switch: [`DT510-ETHERNET-KSZ9896.md`](DT510-ETHERNET-KSZ9896.md)
+**Related:** [`DT510-HARDWARE-AUDIT-CHECKLIST.md`](DT510-HARDWARE-AUDIT-CHECKLIST.md) · [`DT510-TAS6424-TANNOY-ALSA.md`](DT510-TAS6424-TANNOY-ALSA.md) (class‑D **`tannoys`**) · Ethernet/switch: [`DT510-ETHERNET-KSZ9896.md`](DT510-ETHERNET-KSZ9896.md)
 
 ---
 
@@ -32,7 +32,7 @@
 | **2** | `0x5f` | **Microchip KSZ9896** (DSA / switch mgmt) | **`switch@5f`** under **`&i2c2`** (**confirm** bus + addr vs straps) | `microchip,ksz9896` | **Pending (↗)**: probe succeeds only after **I²C strap** + routing match DTS; see [`DT510-ETHERNET-KSZ9896.md`](DT510-ETHERNET-KSZ9896.md). |
 | **1** | `0x3d` | **ADV7535** (DSI→HDMI) | EVK carry-over | `adv7533` (optional) | **On bus (↗)**: not DT510 end-product focus; **display stack disabled** in DT510. |
 | **1** | `0x4c` | **TI TAS2563** | `tas2563@4C` | ASoC / `snd_soc_tas2563` | **Driver bound (↗)** — validate audio path separately. |
-| **1** | `0x6a` | **TI TAS6424** | `tas6424@6a` | ASoC | **Driver bound (↗)** — SAI1 clock reparent `(-EINVAL)` seen in dmesg on same image; full audio TBD. |
+| **1** | `0x6a` | **TI TAS6424** | `tas6424@6a` | ASoC | **Driver bound (↗)** — **userspace ALSA path validated** (**`aplay`** via **`tannoy_slot2`/`3`**, **`tannoys`**) when **`alsa-state`** **`/etc/asound.conf`** present; **`sai1` clock** regressions historically separate from I²C — see **`docs/DT510-TAS6424-TANNOY-ALSA.md`**. |
 | **1** | `0x48`, `0x50`, `0x51` | (scan hits) | TAC5301 / mic reserved in plan | — | **Unknown (↗)**: `i2cdetect` can show **devices without** a matching `*-00xx` sysfs node—confirm **BOM** (e.g. TAA5412, TAC5301, stray bridges). |
 | **2** | `0x28` | **TI LP5024** (RGB LED bank) | `led-controller@28`, `ti,lp5024` | leds-lp5xx / hwmon | **Not working (↗)**: **no** `driver` on `2-0028`, **`waiting_for_supplier`**, **no** `led5` / multi-led in `/sys/class/leds` — check **VDD/enable** graph and duplicate `VDDEXT` / regulator warnings. |
 | **2** | `0x3f` | **ST STTS22H** temp | `stts22h@3F` | `stts22` (IIO/hwmon) | **Not working (↗)**: `i2cget` **read error**; **no** `driver` on `2-003f`. |

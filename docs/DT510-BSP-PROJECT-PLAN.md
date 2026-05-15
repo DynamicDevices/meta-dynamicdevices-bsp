@@ -49,7 +49,7 @@ Typical layout: that repo lives beside other factory checkouts (e.g. under a **`
 
 **Reference (not built):** Tool-generated / review-only DTS snapshots from hardware (e.g. Ollie’s generator output) live under **`docs/reference/dt510-ollie-tool-generated/`**. Use them for **requirements review and diffs** only — not as the shipping device tree until merged deliberately into the recipes above.
 
-**Hardware audit (SSOT ↔ BSP):** Living checklist — [`docs/DT510-HARDWARE-AUDIT-CHECKLIST.md`](DT510-HARDWARE-AUDIT-CHECKLIST.md).
+**Hardware audit (SSOT ↔ BSP):** Living checklist — [`docs/DT510-HARDWARE-AUDIT-CHECKLIST.md`](DT510-HARDWARE-AUDIT-CHECKLIST.md). **TAS6424 class‑D — ALSA “Tannoy” / `tannoy_*` PCMs:** [`docs/DT510-TAS6424-TANNOY-ALSA.md`](DT510-TAS6424-TANNOY-ALSA.md).
 
 **USB dual audio (gadget) vs codecs:** [`docs/DT510-USB-DUAL-AUDIO.md`](DT510-USB-DUAL-AUDIO.md) — gadget support **stays in the image**; enable/bind for simulation or leave stopped for real codec use. **`dt510-usb-dual-audio-autostart`** only toggles **boot autostart** (optional remove for codec-first boots).
 
@@ -107,7 +107,7 @@ Work **in order** within each tier unless a dependency forces otherwise.
 | ID | Task | Notes |
 |----|------|--------|
 | C1 | **Ethernet — `&fec1` + KSZ9896** | **Phase 1 (prove hardware):** single CPU netdev, **`&fec1` + `fixed-link`**, **no** DSA, **no** I²C switch node — in-tree **`microchip,ksz9896`** DSA uses **I²C/SPI** regmap, not MIIM as full switch management for this product’s strap; see [`docs/DT510-ETHERNET-KSZ9896.md`](DT510-ETHERNET-KSZ9896.md) (*Phased plan* + *Simple bring-up*). RGMII pinctrl = **SSOT / board (Ollie)**, not EVK, unless schematics match EVK ENET. **Future:** I²C/SPI strap + DSA or richer switch control when the product needs per-port / VLAN / manageability; incremental bring-up, risk of boot hang if MDIO/PHY wrong — validate link before “full” bridge features. |
-| C2 | **Audio vs SSOT** | **TAS6424:** `pinctrl_sai1_tas6424`, **`&sai1` okay**, **`sound-tas6424`** (`simple-audio-card` → **`tas6424-classd`**), **`tas6424@6a` okay** with **`dvdd`** + placeholder **`tas6424_hi_rail`** for **vbat/pvdd** (SSOT must replace); **standby/mute GPIOs** when netlist confirms; **`CONFIG_SND_SOC_TAS6424=m`**; **micfil / sound-micfil** off. Still to do: **TAA5412**, **TAC5301**, TDM/4ch if needed. **I2C2 `0x50`:** TAC5301. |
+| C2 | **Audio vs SSOT** | **TAS6424 — working (kernel + userspace “Tannoy” ALSA; lab):** **`alsa-state`** [`docs/DT510-TAS6424-TANNOY-ALSA.md`](DT510-TAS6424-TANNOY-ALSA.md) — **`pcm`/`ctl` `tannoys`**, IEC **`tannoy_slot2`/`slot3`**, **`tannoy_both_*`**, **`tas6424-init`**. **`TAS6422`** (2‑ch) later: move PCM **`ttable`** from **IEC 2–3 → 0–1** (`slot0`/`slot1`). DTS: **`pinctrl_sai1_tas6424`**, **`&sai1`**, **`sound-tas6424`** / **`tas6424-classd`**, **`tas6424@6a`**, **`tas6424_hi_rail`** SSOT placeholder, **`CONFIG_SND_SOC_TAS6424=m`**, **micfil** off. **Still to do (C2):** **TAA5412**, **TAC5301**, optional TDM. **I2C2 `0x50`:** TAC5301. |
 | C3 | **HDMI — LT9611** (I2C3 `0x72`) | Reset/int/fault lines per doc; check pinctrl vs other GPIO users. |
 | C4 | **CAN — MCP2518xx on ECSPI2** | **DT510 has no XM125** (Sentai only). `&ecspi2` free for CAN bring-up when ready. |
 | C5 | **GNSS** | **Lab 2026-05-05:** NEO-M9V + antenna — NMEA shows valid navigation fix (e.g. `RMC`/`GLL` active, `GGA` fix quality, `GSA` 3D). Reset/`gnss-res#` per DTS hog; no XM125 GPIO contention on DT510. |
@@ -118,9 +118,15 @@ Work **in order** within each tier unless a dependency forces otherwise.
 
 **TAS6424 DAI format:** Use **I2S** for initial software and lab testing (`sound-tas6424` already sets `simple-audio-card,format = "i2s"`). **TDM / 4-channel** stays a follow-on with hardware SSOT and issue #2 — not required for the first bring-up pass.
 
+**TAS6424 userspace ALSA (“Tannoy” naming — 2026‑05):** **`alsa-state`** ships **`/etc/asound.conf`** with **`pcm`/`ctl` `tannoys`** (kernel card id **`tas6424classd`**) plus route PCMs (**`tannoy_slot2`/`slot3`**, **`tannoy_both_mono`/`tannoy_both_lr`**, **`tannoy_all`** for lab) and systemd **`tas6424-init`**. Reference: **`docs/DT510-TAS6424-TANNOY-ALSA.md`**.
+
+**IEC slot note for **`TAS6422E‑Q1`** (future 2‑ch):** Replumb **`asound.conf`** so the analogue pair rides **IEC indices 0 and 1**, not today’s **`tannoy_slot2`/`slot3`** (indices 2–3 on the 4‑open **`TAS6424`** PCM). Update **`tas6424-init`** (or tas6422 successor) and DTS/driver when swapping silicon — see **`docs/DT510-TAS6424-TANNOY-ALSA.md`** § Future.
+
+**Test-release tag:** **`dt510-tier-c2-tannoy-test-1`** (annotated) — snapshot of **`main`** documenting Tier C2 TAS6424 + “Tannoy” userspace (**`alsa-state`** / IEC **2–3**); same scope as **`docs/DT510-TAS6424-TANNOY-ALSA.md`** and Tier C2 notes here (mirrors **`dt510-tier-a-test-1`** for Tier A).
+
 | Step | Part | Bus | Audio link (SSOT / tool mux) | BSP focus |
 |------|------|-----|------------------------------|-----------|
-| 1 | **TAS6424** (class-D) | I2C2 `0x6A` | **SAI1** (+ SAI6 pins muxed via `pinctrl_sai1_tas6424`) | Validate rails + GPIOs + `CONFIG_SND_SOC_TAS6424`; TDM vs I2S decision (#2). |
+| 1 | **TAS6424** (class-D) | I2C2 `0x6A` | **SAI1** (+ SAI6 pins muxed via `pinctrl_sai1_tas6424`) | **Validated (BSP + lab)** — **`tannoy_*`** ALSA + **`tas6424-init`** (**[`DT510-TAS6424-TANNOY-ALSA.md`](DT510-TAS6424-TANNOY-ALSA.md)**); revisit rails/GPIO SSOT vs placeholder **`tas6424_hi_rail`**; TDM vs I2S if product revisits issue #2. |
 | 2 | **TAA5412** (mic) | I2C2 `0x51` | **SAI5** — *not in shipping DTS yet* | Add **`&sai5`** + SSOT `pinctrl`; codec **`compatible = "ti,taa5412"`**; **`CONFIG_SND_SOC_PCM6240`** — **not** in current factory i.MX 6.6 kernel (see **TAA5412 kernel status** below); backport/patch or kernel advance before `status = "okay"`. |
 | 3 | **TAC5301** (analog audio) | I2C2 `0x50` | Per SSOT (enable after **0x50** free — TCPC already removed) | Node + supplies/MCLK/`simple-audio-card` link; align with kernel `CONFIG_*` when driver story is clear. |
 
@@ -160,7 +166,7 @@ Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md)
 | Area | SSOT (doc) | BSP today (summary) |
 |------|------------|---------------------|
 | Driver speaker | TAS2563 @ `0x4C`, SAI3 | Present |
-| Analog / mic / class-D | TAC5301, TAA5412, TAS6424 on I2C2 + SAI5/6/1 | Not fully described; SAI1 disabled |
+| Analog / mic / class-D | TAC5301, TAA5412, TAS6424 on I2C2 + SAI5/6/1 | **TAS6424 / SAI1** on (**`tas6424-classd`**). **Userspace (“Tannoy”):** [`DT510-TAS6424-TANNOY-ALSA.md`](DT510-TAS6424-TANNOY-ALSA.md). Mic / analog codecs: Tier C2 follow-on. |
 | I2C `0x50` | TAC5301 | **TCPC node removed** from DT510 DTS — address free for TAC5301 when Tier C2 enables it |
 | Charger | BQ25792 @ `0x6B` | **DT enabled** — kernel charger driver pending suitable upstream/kernel version |
 | HDMI | LT9611 (`0x72` 8-bit → `0x39` 7-bit) | Placeholder `lt9611@39` **disabled** — enable Tier C3 |
@@ -182,6 +188,7 @@ Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md)
 
 | Date | Change |
 |------|--------|
+| 2026-05-06 | **Tier C2 — TAS6424 (“Tannoy” ALSA):** **`alsa-state`** **`/etc/asound.conf`** + **`tas6424-init`** (**`tannoys`**, **`tannoy_slot2`/`slot3`**, **`tannoy_both_*`**). Doc: **`docs/DT510-TAS6424-TANNOY-ALSA.md`**. Checklist / I²C status **validated** for class-D userspace path. **Future `TAS6422E-Q1`:** replumb IEC to **`slot0`/`slot1`** (vs today’s **`slot2`/`slot3`**). **Annotated tag:** **`dt510-tier-c2-tannoy-test-1`** (Tier C2 doc snapshot). |
 | 2026-05-08 | **Digital I/O:** **`pinctrl_gpio1_dio_in`/`_out`** — DI **`SW_PAD`** **`0x010`** (**PE** disabled, **`DSE_X1`**, no SoC bias); DO **`0x116`** (**`GPIO_STD`**). Scripts **`dt510-dio-toggle-outputs.sh`**, **`dt510-dio-poll-inputs.sh`**. RM bit decode: **`imx8mm-sw_pad_ctl-fields.h`**. **Lab:** **O.H.** confirmed **DO** + **DI** (GPIO inputs) on target. See **`DT510-HARDWARE-AUDIT-CHECKLIST.md`** / **`DT510-HARDWARE-BRINGUP.md`**. |
 | 2026-05-07 | **Serial console:** Confirmed **working** on bench after **hardware** repair; BSP **`stdout-path` / `ttymxc1`** unchanged. |
 | 2026-05-06 | **Serial console:** Documented UART2/`ttymxc1` vs UART4 MCU (`ttymxc3`), **`chosen.stdout-path`**, **`SERIAL_CONSOLES` ↔ FTDI symlink — lab SSH checks showed Linux printk + getty on **`ttymxc1`** unchanged; “no serial” triage is usually **wrong header / baud / wiring**. |
