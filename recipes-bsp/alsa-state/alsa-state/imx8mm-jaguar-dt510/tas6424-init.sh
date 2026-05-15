@@ -2,7 +2,7 @@
 # DT510 TAS6424E-Q1: boot mixer defaults. Uses ctl name "tannoys" from /etc/asound.conf.
 # Optional env overrides: TAS6424_MIXER, TAS6424_BOOT_VOL, TAS6424_VOL_CH1, TAS6424_VOL_CH2–CH4 strings.
 
-VOL=${TAS6424_BOOT_VOL:-16}
+VOL=${TAS6424_BOOT_VOL:-20}
 MIX=${TAS6424_MIXER:-tannoys}
 VOL_CH1=${TAS6424_VOL_CH1:-"Speaker Driver CH1"}
 VOL_CH2=${TAS6424_VOL_CH2:-"Speaker Driver CH2"}

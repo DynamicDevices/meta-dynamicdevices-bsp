@@ -29,7 +29,7 @@
 
 **TI mixer widgets** remain **`Speaker Driver CH1`–`CH4`** in **`amixer`**; mapping to schematic slots is documented in DTS header + this file.
 
-Boot script **`tas6424-init`** uses **`amixer -D tannoys`** (falls back to **`hw:<card>`**). Overrides: **`TAS6424_MIXER`**, **`TAS6424_BOOT_VOL`**, **`TAS6424_VOL_CH1`**–**`CH4`** (environment / systemd **`Environment=`**).
+Boot script **`tas6424-init`** uses **`amixer -D tannoys`** (falls back to **`hw:<card>`**). Default boot level: **Speaker Driver CH1–CH4** all **20**/255 unless **`TAS6424_BOOT_VOL`** is set (same value applied to each channel via **`sset`**). Overrides: **`TAS6424_MIXER`**, **`TAS6424_VOL_CH1`**–**`CH4`** (control **names**, not values) via environment / systemd **`Environment=`**.
 
 ---
 
