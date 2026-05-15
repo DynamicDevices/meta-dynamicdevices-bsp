@@ -49,6 +49,7 @@
  *   CAN: TBD.
  *   GNSS: NMEA on UART; **lab 2026-05-05:** valid fix with antenna — `$GNRMC`/`$GNGLL` status A, `$GNGGA` quality ≥1, `$GNGSA` 3D, multi-constellation in view.
  *   USB (host/gadget): working.
+ *   CP2108 (**U13**) quad VCP: **[0]/[1]** RS‑232; **[2]/[3]** RS‑485 (**GPIO.10→`RS485_DE1`**, **GPIO.14→`RS485_DE2`** on bridge die — not SoC GPIO). **GPIO.2/GPIO.6** NC. **`quart-res-hog`** only line SoC drives to the bridge; stable **`/dev`** → **udev by-path**.
  *   HDMI (LT9611): TBD.
  *   Low-power MCU link: TBD.
  *   Digital I/O: DI pads 0x010 (PE=0, DSE_X1); DO pads 0x116; level/termination vs harness still needs validation.
@@ -304,7 +305,8 @@
  *   tac5301 — SAI6 + strap pads muxed only under &sai6 / tac5301@50 (not hogged here).
  *   gnss_reset — NEO-M9V GNSS_RES# (GPIO output; pad not used by &sai3 audio mux below).
  *   hdmi — LT9611 (SD1_STROBE / SD1_DATA4 / SAI3_RXFS): HDMI_RES#, HDMI_INT, HDMI2C1 fault (GPIO2_IO11, GPIO2_IO6, GPIO4_IO28).
- *   quart_reset — CP2108 QUART_RES# (GPIO4_IO5, SAI1_RXD3 pad; not in &sai1 TAS6424 pinctrl).
+ *   quart_reset — CP2108 (**U13**) QUART_RES# (**GPIO4_IO5**, SAI1_RXD3 pad; not in &sai1). Bridge UART **[0]/[1]** RS‑232,
+ *                 **[2]/[3]** RS‑485 + **DE** on CP2108 **GPIO.10/GPIO.14** → **`RS485_DE1`/`RS485_DE2`** (datasheet §9.3); **GPIO.2/6** NC here.
  */
 &iomuxc {
 	pinctrl-names = "default";
@@ -361,8 +363,10 @@
 	};
 
 	/*
-	 * CP2108 USB–quad-UART — QUART_RES# (active-low) on SAI1_RXD3 → GPIO4_IO5.
-	 * Hog uses GPIO_ACTIVE_LOW + output-low like bt-reset-hog. Ports: /dev/ttyUSB* once USB attaches.
+	 * CP2108 (**U13**) USB quad-UART — SoC only muxes **QUART_RES#** here (SAI1_RXD3 → GPIO4_IO5, active-low).
+	 * Data / RS‑485 DE are **on-chip** on the bridge (not described in this DT): UART **[0]/[1]** RS‑232 nets;
+	 * **[2]/[3]** RS‑485 with **GPIO.10→RS485_DE1**, **GPIO.14→RS485_DE2** when NVM programmed (see checklist).
+	 * **`quart-res-hog`:** GPIO_ACTIVE_LOW + output-low → bridge out of reset. **`ttyUSB*` minors:** use udev **by-path/by-id**.
 	 */
 	pinctrl_quart_reset: quartresetgrp {
 		fsl,pins = <
@@ -697,7 +701,7 @@
  *   gpio2 — WLAN/BT/LTE: BT_WAKE_DEV (IO7), LTE_RST (IO8), WL_WAKE (IO9), WL_RST# (IO10).
  *   gpio2 — LT9611: HDMI_INT (IO6), HDMI_RES# (IO11).
  *   gpio3 — LTE_OFF / full-card power off (IO1), WIFI_PD#, BT_WAKE_HOST (IO8), BT_RST# (IO9, NAND_DATA03 mux).
- *   gpio4 — ENET_INTRP_N# (IO0), ENET_RST_N# via &ksz9896_sw (IO1), KSZ9896 PME (IO4); GNSS_RES#, QUART_RES#, CAN_STBY; TAC5301 strap IO14; HDMI fault elsewhere.
+ *   gpio4 — ENET_INTRP_N# (IO0), ENET_RST_N# via &ksz9896_sw (IO1), KSZ9896 PME (IO4); GNSS_RES#, QUART_RES# (CP2108 U13 only SoC-facing reset), CAN_STBY; TAC5301 strap IO14; HDMI fault elsewhere.
  *   gpio5 — SIM_SEL (IO3): output-low at boot selects nano SIM per RF shield/BOM (drive high for eSIM).
  */
 &gpio2 {
@@ -807,8 +811,10 @@
 	};
 
 	/*
-	 * CP2108 quad UART bridge — QUART_RES# (SAI1_RXD3 → GPIO4_IO5), active-low reset from SoC.
+	 * CP2108 (**U13**) — **QUART_RES#** (SAI1_RXD3 → GPIO4_IO5), active-low reset from SoC.
 	 * Same pattern as bt-reset-hog: GPIO_ACTIVE_LOW + output-low → reset deasserted (bridge running).
+	 * **RS‑232 vs RS‑485** and **`RS485_DE1`/`RS485_DE2`** are configured **inside the CP2108** (UART **[0]/[1]** vs **[2]/[3]**,
+	 * datasheet **GPIO.2/.6/.10/.14**) — Linux sees four **`/dev/ttyUSB*`**; map with udev **by-path** (BSP checklist SSOT).
 	 */
 	quart-res-hog {
 		gpio-hog;
