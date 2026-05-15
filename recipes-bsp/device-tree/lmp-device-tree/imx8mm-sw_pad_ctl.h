@@ -61,6 +61,14 @@
 #define IMX8MM_PAD_I2S_BUS					IMX8MM_PAD_GPIO_STD
 #define IMX8MM_PAD_I2S_SYNC					IMX8MM_PAD_GPIO_STD
 
+/*
+ * I²S / SAI **frame sync** (LRCK / FS / TX_SYNC pin role): full i.MX pad CONFIG **0x1916**.
+ * Base electricals match IMX8MM_PAD_I2S_SYNC ((0x1916 & 0x1ff) == 0x116) but this word keeps extension
+ * bits (e.g. 0x1800) that a plain **0x116** drops — use wherever the SoC reference/evidence requires that
+ * full word for the FS pin (DT510: mux `SAI1_TXFS` / `SAI1_TX_SYNC`).
+ */
+#define IMX8MM_PAD_I2S_FRAME_SYNC_EXT				0x1916
+
 /* USDHC — imx8mm-evk usdhc2grp / 100 MHz / 200 MHz */
 
 #define IMX8MM_PAD_USDHC_CLK						\
