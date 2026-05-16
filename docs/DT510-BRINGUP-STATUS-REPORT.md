@@ -1,156 +1,120 @@
-# DT510 board bring-up — status report (for Vix)
+# Vix DT510 — progress report
 
-**Product:** i.MX 8M Mini **Jaguar DT510** (`imx8mm-jaguar-dt510`)  
-**Audience:** Vix / programme stakeholders (summary); engineering detail in linked docs below.  
-**Hardware SSOT:** [VIX DT510 pinout / hardware spec](https://docs.google.com/document/d/1dlVcfW7SrOifR-rGjkJnVbnQBO4uU8HeS1MEfDmgcYE/edit?usp=sharing) (Ollie Hull)  
-**Software:** `DynamicDevices/meta-dynamicdevices-bsp` + Foundries factory **`vixdt`** (`meta-subscriber-overrides` branch **`main-imx8mm-jaguar-dt510`**)  
-**Report basis:** Project plan errata, hardware audit checklist, lab bring-up log, and git history on BSP `main` (through **2026-05-16**).  
-**Lab hardware:** Interim DT510 units on the bench (not necessarily final prototype BOM); re-validate on prototype boards when available.
-
----
-
-## 1. Executive summary
-
-Dynamic Devices has aligned the **DT510 Linux BSP and Foundries factory image** with Ollie Hull’s hardware definition: device tree, kernel fragments, userspace recipes, and lab tooling. **Foundation work (Tier A) is complete** — the board boots Foundries images, OTA/SSH work, and a single canonical DTS drives factory builds.
-
-On **current lab hardware**, multiple subsystems are **bench-validated**: power/PMIC + **Wi‑Fi/BT (IW612)**, **GNSS**, **digital I/O**, **CAN controller bring-up**, **analog loop (TAC5301)**, **class-D / Tannoy path (TAS6424)**, and **both RS‑485 UART channels on the CP2108** (including correct driver-enable polarity and a documented **one-time manufacturing NVM step**).
-
-**Still open** for product-ready sign-off: **Ethernet (KSZ9896)** advanced **DSA / switch-management** items (basic **CPU `fec1` + switch** path reported on bench **2026-05-04** — see bring-up log), **TAA5412 driver mic** (kernel/firmware/ALSA card polish), **Zigbee end-to-end** (NXP RCP firmware and on-air validation), **HDMI (LT9611)**, full **charger driver** integration, **cellular data path**, and **prototype-board electrical SSOT review** when units match final BOM.
+**For:** Vix programme / project management  
+**From:** Dynamic Devices  
+**Product:** DT510 (in-vehicle Linux platform)  
+**Status date:** May 2026  
+**Hardware reference:** Vix DT510 pinout specification (Ollie Hull)
 
 ---
 
-## 2. What we did (by area)
+## At a glance
 
-| Area | Status | What was delivered |
-|------|--------|-------------------|
-| **BSP foundation (Tier A)** | **Done** | Single DTS source; SSOT header; audit checklist; I2C3 placeholders; boot/OTA on lab images; tag **`dt510-tier-a-test-1`**. |
-| **DT510 DTS baseline** | **Done** | Removed non-DT510 inherited nodes (XM125, STUSB4500/TCPC@0x50, EVK USB-C / TCPC conflicts); DT510-specific machine features. |
-| **Wi‑Fi / Bluetooth (IW612)** | **Validated (lab)** | USDHC1 SDIO + dedicated VMMC regulator fix; HCI on UART1; BLE scan works. |
-| **Digital I/O (GPIO1)** | **Validated (lab 2026-05-08)** | Pinmux in/out split, pad config, **`dt510-dio-*`** scripts; O.H. confirmed DI/DO. |
-| **CP2108 quad UART (U13)** | **Validated (lab 2026-05-16)** | UART 0/1 RS‑232; UART 2/3 RS‑485 with NVM **`EnhancedFxn_IFC2/3 = 0x0c`**; DE high on TX; **`cp2108-get/set-portconfig`** + manufacturing procedure. |
-| **GNSS (NEO-M9V)** | **Validated (lab 2026-05-05)** | NMEA fix with antenna; **`/dev/gnss`** udev symlink. |
-| **CAN (MCP251863)** | **Driver validated (lab 2026-05-06)** | **`can0`** up; 20 MHz XTAL / 10 MHz SPI in DTS; on-air peer test TBD. |
-| **Analog audio TAC5301** | **Validated (lab)** | SAI6 card; **`audio_loop`** / **`aux`** ALSA aliases. |
-| **Class-D TAS6424 (Tannoy)** | **Validated (lab 2026-05-06)** | DTS + **`tannoy_*`** ALSA + **`tas6424-init`**; tag **`dt510-tier-c2-tannoy-test-1`**. |
-| **Driver speaker TAS2563** | **Present in BSP** | DTS + **`driver_*`** ALSA routes; less full lab narrative than Tannoy. |
-| **Driver mic TAA5412** | **Partial** | DTS + PCM6240 kernel backport; **`&micfil` off**; **`pinctrl_sai5_taa5412`** / codec GPIO mux aligned to MCUXpresso **`BOARD_InitPins`** (**BSP `e1a1033`** chain); I2C probe OK on lab images. **Open:** stable **`taa5412-codec`** card on factory images, TI **`.bin`** provisioned, **`arecord -D driver_mic`**, analogue + digital bench (FSYNC/data — see **`DT510-TAA5412-DRIVER-MIC-ALSA.md`**). |
-| **Charger BQ25792** | **Partial** | DTS + patches in tree; ModemManager/cellular separate; kernel charger path needs factory kernel alignment. |
-| **Cellular LTE** | **Partial (lab)** | Modem + SIM recognised via **`mmcli`**; bearer/data TBD. |
-| **Zigbee (802.15.4)** | **Partial** | ECSPI1 + **`zb_mux`** run on bench; NXP Zigbee RCP firmware on image and on-air validation still required. |
-| **Ethernet KSZ9896** | **In progress** | Phased plan (simple **`fec1` + fixed-link** first); DSA/switch management later — see **`DT510-ETHERNET-KSZ9896.md`**. |
-| **HDMI LT9611** | **Not started** | Placeholder in DTS (**disabled**). |
-| **SE050 secure element** | **Documented** | OpTEE I²C access path; optional explicit DT node (Tier B4) deferred — see **`DT510-SE050.md`**. |
-| **USB dual UAC2 gadget** | **Present (lab/sim)** | Optional autostart feature; separate from production codec path. |
-| **PMU / MCXC144** | **In progress** | MCUboot-style PMU firmware pattern added for DT510 line (eink-derived workflow). |
+| | |
+|---|---|
+| **Overall** | **On track** — core platform is running in the lab; major interfaces are proven or in active close-out. |
+| **Factory software** | Reproducible builds via Foundries; over-the-air updates and remote access working on bench units. |
+| **Risk posture** | We are validating hardware early on real boards, documenting factory steps, and fixing issues in software before prototype volume — not waiting for “everything at once.” |
 
 ---
 
-## 3. Timeline (from documented milestones)
+## What this means for delivery
 
-Dates come from project plan §8 errata, checklist “last updated” notes, bring-up log session headers, and BSP commit history. Where only a month is known, the **first documented** activity in that month is listed.
+Dynamic Devices is bringing the **DT510 board up against Vix’s hardware definition** so Vix can ship on a **known-good Linux image**, not ad-hoc bench hacks.
 
-| Date | Milestone |
-|------|-----------|
-| **2026-04 (early)** | **Project plan** and **hardware audit checklist** created; tracking via GitHub **`meta-dynamicdevices-bsp#2`**. |
-| **2026-04-13** | **Tier A3** audit checklist; **Tier A4** I2C3 placeholders; **Tier B1** `bq25792@6b` enabled in DTS; **Tier C2** TAS6424 DTS steps (SAI1, disabled → enabled with placeholder rail). |
-| **2026-04-13** | Removed **TCPC@0x50** / **STUSB4500** (not on DT510); frees I2C **0x50** for TAC5301. |
-| **2026-04-13** | **Tier A1–A2:** single canonical DTS + symlink; SSOT comment block in DTS. |
-| **2026-04-14** | **Tier A marked complete**; interim lab validation on current boards; tag **`dt510-tier-a-test-1`**. Tier **B** GPIO1 DIO pinmux started; **TAA5412** driver gap documented (needs mainline PCM6240 backport). |
-| **2026-04-14** | Codec bring-up order documented: **TAS6424 → TAA5412 → TAC5301**. |
-| **2026-04-15** | DTS cleanup: XM125 removed, TAS2563 reset ownership, USB gadget / TCPC DTC fixes. |
-| **2026-04-23** | Foundries bring-up doc baseline: pin BSP SHAs for reproducible factory experiments. |
-| **2026-05-04** | Lab: **PMIC + IW612 Wi‑Fi + KSZ9896** reported working together on bench image; **Bluetooth** verified. |
-| **2026-05-05** | **GNSS** valid fix with antenna; **Zigbee** mux starts; **TAC5301** enablement work. |
-| **2026-05-06** | **TAS6424 / Tannoy** userspace path validated; **CAN** `mcp251xfd` + **`can0`**; **TAA5412** lab on factory build **307** (I2C OK, deferred probe / micfil — later fixed in DTS). |
-| **2026-05-06** | **Cellular:** SIM/modem recognised (ModemManager). **Serial console** triage documented (UART2 vs MCU UART4). |
-| **2026-05-07** | Serial console confirmed on bench after **hardware** fix (wiring), not BSP change. |
-| **2026-05-08** | **Digital I/O** validated (O.H.). |
-| **2026-05-15** | CP2108 **port map** documented in BSP (RS‑232 on [0]/[1], RS‑485 + DE on [2]/[3]). |
-| **2026-05-16** | **CP2108 RS‑485:** NVM programmed **`0x0c`** on IFC2/3; scope confirms **DE high on TX**; tools **`cp2108-get/set-portconfig`** extended (DE invert flags, manufacturing notes). |
-| **2026-05-06** | **BSP `main` (`e1a1033`):** TAA5412 **`&sai5`** pinctrl vs MCUXpresso **`BOARD_InitPins`** / codec GPIO hog; **`&sai5`** without **`fsl,sai-synchronous-rx`** (**`EINVAL`** if re-added). Subsequent **`ffe960b`** docs + **`layer.conf`** (no DTS delta). **`vixdt.xml` `revision=`** updated with subscriber BRINGUP (see Foundries **`lmp-manifest`** branch **`main-imx8mm-jaguar-dt510`**). |
+**Already de-risked:**
 
----
+- **Platform foundation** — Boards boot, update, and are debuggable in the lab (April 2026).
+- **Connectivity** — Wi‑Fi and Bluetooth proven; cellular modem and SIM recognised (data session still to close).
+- **Location** — GNSS receives a valid fix with antenna (May 2026).
+- **Vehicle I/O** — Digital inputs/outputs exercised on hardware (May 2026).
+- **Field buses** — CAN interface up in software; RS‑485 ports working with correct timing for the transceiver, including a **documented one-time factory programming step** per unit (May 2026).
+- **Audio (major paths)** — Cabin loop and public-address (Tannoy) paths validated on bench; driver microphone path in progress.
+- **Power / radio bring-up** — PMIC, Wi‑Fi, and Ethernet switch reported working together on lab image (early May 2026).
 
-## 4. What remains (priority view)
+**Still to close for production confidence:**
 
-### High impact for product
+- Final sign-off on **prototype** boards when Vix hardware matches released BOM.
+- **Driver microphone** — end-to-end capture on factory images.
+- **Zigbee** — firmware on the image and real over-the-air test (software stack starts; product proof pending).
+- **Ethernet** — basic connectivity proven; advanced switch features only if the product needs them.
+- **HDMI display** — not started (held until display path is confirmed on BOM).
+- **Battery charging** — hardware described in software; full driver integration with factory kernel release.
+- **Cellular** — move from “modem seen” to reliable data connectivity.
 
-1. **Prototype hardware sign-off** — Re-run checklist against **final BOM** (not only interim lab boards).  
-2. **Ethernet** — Execute phased KSZ9896 plan; prove link, then richer switch features if required.  
-3. **TAA5412 driver mic** — Stable **`taa5412-codec`** card, TI firmware on image, **`arecord -D driver_mic`** on production line.  
-4. **Zigbee** — Ship and validate **NXP Zigbee RCP firmware** and ZBOSS stack on DT510; verify on-air, not only mux/PTY.  
-5. **CP2108 manufacturing** — Run **one-time** NVM program on each unit (**`cp2108-set-portconfig --rs485-de-invert`**) before RS‑485 system test (or equivalent Xpress Configurator flow).
-
-### Medium / scheduled (Tier C / B follow-up)
-
-- **HDMI LT9611** — Enable when BOM and pinctrl signed off.  
-- **BQ25792** — Kernel **`bq257xx`** enablement matched to factory kernel **`SRCREV`**.  
-- **Cellular** — Bearer/data validation, policy for **`mmcli`**.  
-- **TAS2563** — Full acoustic validation vs product.  
-- **Auracast / LE Audio** — Tracker in **`DT510-AURACAST-LE-AUDIO.md`** (HCI smoke exists; product audio path TBD).  
-- **CAN** — Peer on bus, termination, application protocol.  
-- **PMU (MCXC144)** — Field programming workflow on production line.
-
-### Lower risk / defer
-
-- Optional **SE050** explicit DT node (B4 — doc-only parity today).  
-- **TAS6422** silicon migration (IEC slot replumb in ALSA).  
-- Wide **pinctrl** changes without schematic review (Tier D).
+We are **not** blocked on a single unknown; remaining work is **scoped, ordered, and already partially implemented** in the factory pipeline.
 
 ---
 
-## 5. Factory image and repositories
+## Progress by capability
 
-| Item | Location |
-|------|----------|
-| BSP (DT, kernel, recipes) | `github.com/DynamicDevices/meta-dynamicdevices-bsp` branch **`main`** |
-| Factory subscriber / bring-up log | `source.foundries.io` — **`vixdt/meta-subscriber-overrides`** branch **`main-imx8mm-jaguar-dt510`** |
-| Machine | **`imx8mm-jaguar-dt510`** |
-| Canonical DTS | `recipes-bsp/device-tree/lmp-device-tree/imx8mm-jaguar-dt510.dts` |
-| Build discipline | Pin BSP to a **40-char SHA** (or tag) per experiment; push **`meta-subscriber-overrides`** to trigger Foundries CI |
+Plain-language status on **current lab DT510 units** (interim boards; full re-test planned on prototype hardware).
 
-Example lab image cited in bring-up log: **LmP Dynamic Devices Headless 5.0.9-288-96** class builds (exact build ID varies with CI).
-
----
-
-## 6. RS‑485 / CP2108 (recent close-out)
-
-Relevant for Vix if the product uses the on-board RS‑485 ports:
-
-| UART (bridge index) | Product | Linux (typical) | NVM `EnhancedFxn` |
-|---------------------|---------|-----------------|-------------------|
-| 0, 1 | RS‑232 | `ttyUSB0`, `ttyUSB1` | `0x00` |
-| 2, 3 | RS‑485 + DE | `ttyUSB2`, `ttyUSB3` | **`0x0c`** (RS‑485 + polarity invert) |
-
-**Manufacturing (once per board):**  
-`sudo cp2108-set-portconfig --rs485-de-invert -y --bus-reset`  
-then verify with `sudo cp2108-get-portconfig` (expect IFC2/IFC3 **`raw=0x0c`**).
-
-Detail: checklist § **CP2108 (U13)**.
+| Capability | Status | Notes for PM |
+|------------|--------|----------------|
+| Boot, updates, remote support | **Done** | Factory image pipeline in use. |
+| Board-specific software baseline | **Done** | DT510-only configuration; wrong inherited design blocks removed. |
+| Wi‑Fi / Bluetooth | **Proven in lab** | Devices discoverable; suitable for app bring-up. |
+| GNSS | **Proven in lab** | Fix with antenna; stable device name for applications. |
+| Digital I/O | **Proven in lab** | Inputs and outputs confirmed with hardware team. |
+| RS‑232 / RS‑485 serial | **Proven in lab** | All four USB-serial channels characterised; RS‑485 factory step written down. |
+| CAN bus | **Software proven** | Interface up; full vehicle bus test with partner ECU still to schedule. |
+| Cabin audio loop | **Proven in lab** | Playback/capture path for loop audio. |
+| Tannoy / PA audio | **Proven in lab** | Amplifier path validated for announcement use case. |
+| Driver microphone | **In progress** | Chip talks on the bus; stable “record from mic” on production image is next gate. |
+| Driver speaker | **In software** | Less bench narrative than Tannoy; acoustic sign-off TBD. |
+| Cellular LTE | **Partial** | Modem and SIM OK; mobile data path TBD. |
+| Ethernet | **Partial** | Link-level bring-up reported; product-specific switch features phased. |
+| Zigbee | **Partial** | Stack starts; product firmware and air test remain. |
+| HDMI | **Not started** | Waiting on product/display decision. |
+| Battery charger | **Partial** | Described for hardware; driver completion tied to kernel release. |
+| Companion PMU MCU | **In progress** | Update workflow being aligned with factory process. |
 
 ---
 
-## 7. Where to read more (engineering)
+## How we are de-risking delivery (process)
 
-| Document | Use for |
-|----------|---------|
-| [`DT510-BSP-PROJECT-PLAN.md`](DT510-BSP-PROJECT-PLAN.md) | Phased plan (Tier A–D), principles, errata log |
-| [`DT510-HARDWARE-AUDIT-CHECKLIST.md`](DT510-HARDWARE-AUDIT-CHECKLIST.md) | Per-block status table (SSOT ↔ BSP) |
-| [`meta-subscriber-overrides/docs/DT510-HARDWARE-BRINGUP.md`](https://source.foundries.io/factories/vixdt/meta-subscriber-overrides/src/branch/main-imx8mm-jaguar-dt510/docs/DT510-HARDWARE-BRINGUP.md) | Bench session smoke list; narrative BSP pin (**`vixdt.xml`** lists **40-char** **`revision=`** values — canonical) |
-| GitHub issue | [meta-dynamicdevices-bsp#2](https://github.com/DynamicDevices/meta-dynamicdevices-bsp/issues/2) — time-ordered handoffs |
-
-Topic guides: `DT510-TAS6424-TANNOY-ALSA.md`, `DT510-TAA5412-DRIVER-MIC-ALSA.md`, `DT510-TAC5301-AUDIO-LOOP-ALSA.md`, `DT510-ETHERNET-KSZ9896.md`, `DT510-AURACAST-LE-AUDIO.md`.
+1. **Single hardware truth** — Software tracked against Vix’s pinout document; gaps logged in a living checklist, not email.
+2. **Lab before volume** — Each capability is bench-tested on real DT510 boards as soon as software lands; failures are fixed before the next factory build.
+3. **Repeatable factory builds** — Every test references a **pinned factory image** so Vix and Dynamic Devices see the same behaviour.
+4. **Manufacturing hooks early** — Example: RS‑485 needs a **one-time programming step** on the production line; procedure and check script exist before line trial.
+5. **Phased complexity** — Ethernet and audio are brought up in **simple-first** order (link and main use cases before optional features).
+6. **Transparent backlog** — Open items are prioritised (product-blocking vs nice-to-have); engineering detail is maintained separately for the technical team.
 
 ---
 
-## 8. Contacts
+## Timeline (milestones)
+
+| When | What Vix can rely on |
+|------|---------------------|
+| **Apr 2026** | Programme plan and hardware checklist in place; DT510 boots and updates on factory images; platform baseline complete. |
+| **Early May 2026** | Power, Wi‑Fi, Bluetooth, and basic Ethernet switch path on bench; GNSS fix; Zigbee stack starts. |
+| **Mid May 2026** | Tannoy audio, CAN, cabin loop audio, cellular SIM recognition; driver mic work advanced in software. |
+| **8 May 2026** | Digital I/O signed off with hardware. |
+| **16 May 2026** | RS‑485 ports signed off (including factory programming instruction). |
+| **Next** | Prototype-board pass; close driver mic, Zigbee air test, cellular data; factory image with latest line tools. |
+
+---
+
+## Recommended focus for the programme
+
+| Priority | Action | Why it matters |
+|----------|--------|----------------|
+| 1 | Confirm **prototype board** availability and BOM freeze date | Unlocks final electrical sign-off. |
+| 2 | Agree **must-have vs phase-2** for HDMI, advanced Ethernet, Auracast | Avoids scope creep on the critical path. |
+| 3 | Schedule **driver mic** and **Zigbee** acceptance tests when next factory image is flashed | Closes two partial items with clear pass/fail. |
+| 4 | Plan **RS‑485 factory step** on pilot build | Already documented; low effort, high impact if RS‑485 is in MVP. |
+
+---
+
+## Contacts
 
 | Role | Name |
 |------|------|
-| Hardware SSOT | Ollie Hull |
-| BSP / device tree | Alex Lennon |
-| Factory / apps | Dynamic Devices / Vix programme (assign) |
+| Hardware (Vix DT510) | Ollie Hull |
+| Software / platform | Alex Lennon |
+| Programme / factory | *as assigned by Vix and Dynamic Devices* |
 
 ---
 
-*This report is a snapshot for stakeholder communication. For live status, prefer the audit checklist table and project plan §5–§8.*
+*Engineering detail (schematics, drivers, test commands): see `DT510-BSP-PROJECT-PLAN.md` and `DT510-HARDWARE-AUDIT-CHECKLIST.md` in the same repository — not required for programme review.*
