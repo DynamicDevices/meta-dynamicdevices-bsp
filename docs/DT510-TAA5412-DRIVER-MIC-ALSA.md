@@ -106,4 +106,4 @@ If analog coupling / firmware look sane but **`arecord`** is still flat zeros, v
 - **`docs/DT510-HARDWARE-AUDIT-CHECKLIST.md`** (TAA5412 rows + § Codec notes)
 - **`docs/DT510-TAS2563-DRIVER-SPEAKER-ALSA.md`** (**Driver** **playback**: smart amp **`driver_speaker`**)
 
-*Last updated: **2026‑05‑06** — **`pinctrl_sai5_taa5412`**: BCLK/data pads use **`IMX8MM_PAD_GPIO_STD`** (**SSOT `0x116`**) vs EVK **`IMX8MM_PAD_SAI_DEFAULT`** (**`0xd6`**); **`pinctrl_taa5412_codec_gpio`** for **`GPIO4_IO18`**. **`&sai5`**: no **`fsl,sai-synchronous-rx`**; **BCLK** gating §; **`driver_mic_in*` / `driver_mic_slot*`** PCMs.*
+*Last updated: **2026‑05‑16** — **`pinctrl_sai5_taa5412`**: BCLK/data pads **`IMX8MM_PAD_GPIO_STD`** (**SSOT `0x116`**) vs EVK **`IMX8MM_PAD_SAI_DEFAULT`** (**`0xd6`**); **`pinctrl_taa5412_codec_gpio`** for **`GPIO4_IO18`**. **`&sai5`**: no **`fsl,sai-synchronous-rx`** (**`lmp-350`** **`EINVAL`** / deferred **`sound-taa5412`**); **BCLK** gating §; Michael bench **FSYNC**/data **2026‑05‑16** §; **`driver_mic_in*` / `driver_mic_slot*`** PCMs.*

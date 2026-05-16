@@ -15,7 +15,7 @@ Dynamic Devices has aligned the **DT510 Linux BSP and Foundries factory image** 
 
 On **current lab hardware**, multiple subsystems are **bench-validated**: power/PMIC + **Wi‑Fi/BT (IW612)**, **GNSS**, **digital I/O**, **CAN controller bring-up**, **analog loop (TAC5301)**, **class-D / Tannoy path (TAS6424)**, and **both RS‑485 UART channels on the CP2108** (including correct driver-enable polarity and a documented **one-time manufacturing NVM step**).
 
-**Still open** for product-ready sign-off: **Ethernet (KSZ9896) phased plan**, **TAA5412 driver mic** (kernel/firmware/ALSA card polish), **Zigbee end-to-end** (NXP RCP firmware and on-air validation), **HDMI (LT9611)**, full **charger driver** integration, **cellular data path**, and **prototype-board electrical SSOT review** when units match final BOM.
+**Still open** for product-ready sign-off: **Ethernet (KSZ9896)** advanced **DSA / switch-management** items (basic **CPU `fec1` + switch** path reported on bench **2026-05-04** — see bring-up log), **TAA5412 driver mic** (kernel/firmware/ALSA card polish), **Zigbee end-to-end** (NXP RCP firmware and on-air validation), **HDMI (LT9611)**, full **charger driver** integration, **cellular data path**, and **prototype-board electrical SSOT review** when units match final BOM.
 
 ---
 
@@ -33,7 +33,7 @@ On **current lab hardware**, multiple subsystems are **bench-validated**: power/
 | **Analog audio TAC5301** | **Validated (lab)** | SAI6 card; **`audio_loop`** / **`aux`** ALSA aliases. |
 | **Class-D TAS6424 (Tannoy)** | **Validated (lab 2026-05-06)** | DTS + **`tannoy_*`** ALSA + **`tas6424-init`**; tag **`dt510-tier-c2-tannoy-test-1`**. |
 | **Driver speaker TAS2563** | **Present in BSP** | DTS + **`driver_*`** ALSA routes; less full lab narrative than Tannoy. |
-| **Driver mic TAA5412** | **Partial** | DTS + PCM6240 kernel backport; I2C probe OK; **`&micfil` disabled**; firmware + **`driver_mic`** card still being closed out on images. |
+| **Driver mic TAA5412** | **Partial** | DTS + PCM6240 kernel backport; **`&micfil` off**; **`pinctrl_sai5_taa5412`** / codec GPIO mux aligned to MCUXpresso **`BOARD_InitPins`** (**BSP `e1a1033`** chain); I2C probe OK on lab images. **Open:** stable **`taa5412-codec`** card on factory images, TI **`.bin`** provisioned, **`arecord -D driver_mic`**, analogue + digital bench (FSYNC/data — see **`DT510-TAA5412-DRIVER-MIC-ALSA.md`**). |
 | **Charger BQ25792** | **Partial** | DTS + patches in tree; ModemManager/cellular separate; kernel charger path needs factory kernel alignment. |
 | **Cellular LTE** | **Partial (lab)** | Modem + SIM recognised via **`mmcli`**; bearer/data TBD. |
 | **Zigbee (802.15.4)** | **Partial** | ECSPI1 + **`zb_mux`** run on bench; NXP Zigbee RCP firmware on image and on-air validation still required. |
@@ -67,6 +67,7 @@ Dates come from project plan §8 errata, checklist “last updated” notes, bri
 | **2026-05-08** | **Digital I/O** validated (O.H.). |
 | **2026-05-15** | CP2108 **port map** documented in BSP (RS‑232 on [0]/[1], RS‑485 + DE on [2]/[3]). |
 | **2026-05-16** | **CP2108 RS‑485:** NVM programmed **`0x0c`** on IFC2/3; scope confirms **DE high on TX**; tools **`cp2108-get/set-portconfig`** extended (DE invert flags, manufacturing notes). |
+| **2026-05-06** | **Foundries pin:** **`vixdt.xml`** → **BSP `e1a1033`** — TAA5412 **`&sai5`** **`pinctrl`** vs MCUXpresso **`BOARD_InitPins`**; **`&sai5`** without **`fsl,sai-synchronous-rx`** (probe **`EINVAL`** on some images if reintroduced). Subscriber manifest / BRINGUP refreshed. |
 
 ---
 
@@ -135,7 +136,7 @@ Detail: checklist § **CP2108 (U13)**.
 |----------|---------|
 | [`DT510-BSP-PROJECT-PLAN.md`](DT510-BSP-PROJECT-PLAN.md) | Phased plan (Tier A–D), principles, errata log |
 | [`DT510-HARDWARE-AUDIT-CHECKLIST.md`](DT510-HARDWARE-AUDIT-CHECKLIST.md) | Per-block status table (SSOT ↔ BSP) |
-| [`meta-subscriber-overrides/docs/DT510-HARDWARE-BRINGUP.md`](https://source.foundries.io/factories/vixdt/meta-subscriber-overrides/src/branch/main-imx8mm-jaguar-dt510/docs/DT510-HARDWARE-BRINGUP.md) | Bench session notes, factory pin SHAs |
+| [`meta-subscriber-overrides/docs/DT510-HARDWARE-BRINGUP.md`](https://source.foundries.io/factories/vixdt/meta-subscriber-overrides/src/branch/main-imx8mm-jaguar-dt510/docs/DT510-HARDWARE-BRINGUP.md) | Bench session smoke list; narrative BSP pin (**`vixdt.xml`** lists **40-char** **`revision=`** values — canonical) |
 | GitHub issue | [meta-dynamicdevices-bsp#2](https://github.com/DynamicDevices/meta-dynamicdevices-bsp/issues/2) — time-ordered handoffs |
 
 Topic guides: `DT510-TAS6424-TANNOY-ALSA.md`, `DT510-TAA5412-DRIVER-MIC-ALSA.md`, `DT510-TAC5301-AUDIO-LOOP-ALSA.md`, `DT510-ETHERNET-KSZ9896.md`, `DT510-AURACAST-LE-AUDIO.md`.
