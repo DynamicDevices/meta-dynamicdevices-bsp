@@ -652,9 +652,10 @@
 
 	/*
 	 * TI TAA5412 — I2S on &sai5 (SSOT: docs/reference/dt510-ollie-tool-generated/pin_mux.dts BOARD_InitPins).
-	 * MCUXpresso **0x116** on RXC/RXD*/TX_DATA pads = **`IMX8MM_PAD_GPIO_STD`** (PE + fast slew + DSE X6 + int. pull-*down*,
-	 * hysteresis CMOS). **Do not use `IMX8MM_PAD_SAI_DEFAULT`** here: EVK sai2/sai3 recipe is **0xd6**, not SSOT.
-	 * **`SAI5_RXD1` / TX_SYNC:** **0x1916** ⇒ **`IMX8MM_PAD_I2S_FRAME_SYNC_EXT`** (same cell as **`SAI1_TXFS`** in SSOT).
+	 * MCUXpresso **0x116** on RXC, RXD0 RXD3, and TX DATA pads ⇒ IMX8MM_PAD_GPIO_STD
+	 * (PE + fast slew + DSE X6 + internal pull-down, hysteresis CMOS). Do not use IMX8MM_PAD_SAI_DEFAULT here:
+	 * EVK sai2,sai3 recipe is 0xd6, not SSOT. SAI5_RXD1 TX_SYNC ⇒ 0x1916 ⇒ IMX8MM_PAD_I2S_FRAME_SYNC_EXT
+	 * (same cell as SAI1_TXFS in SSOT).
 	 */
 	pinctrl_sai5_taa5412: sai5_taa5412_grp {
 		fsl,pins = <
