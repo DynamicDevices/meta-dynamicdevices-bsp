@@ -112,7 +112,16 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 
 **Linux:** Four **ACM/VCP interfaces** enumerate as **`/dev/ttyUSB0` … `ttyUSB3`** *usually* in bridge order — **confirm per image with** `ls -l /dev/serial/by-path` **or read** sysfs **before hard-coding.** Helper: **`recipes-bsp/board-scripts/board-scripts/rs485_tx_bytes.py`** (**`rs485_tx_bytes`** on image; lab TX only; DE normally automatic when NVM is programmed).
 
-**Customization / factory:** Programming is **SiLabs NVM/customization**, not Linux device-tree. Use **Simplicity Studio / Xpress Configurator** and **standalone manufacturing utilities** documented in **[AN721](https://www.silabs.com/documents/public/application-notes/AN721.pdf)** (**[GPIO / port AN223](https://www.silabs.com/documents/public/application-notes/an223.pdf)** for pin modes). **Open-source [`cp210x-program`](https://github.com/VCTLabs/cp210x-program)** is packaged for bring-up (**`recipes-devtools/cp210x-program`**) — **no CP2108 guarantee** on the image; validate read/write on hardware before production.
+**Customization / factory:** Programming is **SiLabs NVM/customization** (on-chip **OTP/EEPROM**), not Linux device-tree. Use **Simplicity Studio / Xpress Configurator** and **standalone manufacturing utilities** documented in **[AN721](https://www.silabs.com/documents/public/application-notes/AN721.pdf)** (**[GPIO / port AN223](https://www.silabs.com/documents/public/application-notes/an223.pdf)** for pin modes). **Open-source [`cp210x-program`](https://github.com/VCTLabs/cp210x-program)** is packaged for bring-up (**`recipes-devtools/cp210x-program`**) — **no CP2108 guarantee** on the image; validate read/write on hardware before production.
+
+**Production manufacturing (mandatory once per unit):** After board assembly and before RS‑485 system test, program the CP2108 **once** so UART **[2]/[3]** have RS‑485 GPIO alternates and **DT510 DE polarity** (**`EnhancedFxn_IFC2`/`IFC3` = `0x0c`**: `0x04` RS‑485 + `0x08` invert → **DE high during TX**, low when idle). **Not** repeated on every flash of the SoC — only when the bridge NVM is still factory-default or after bridge replacement. **Line procedure (Linux test fixture or manufacturing PC, USB to U13):**
+
+1. `sudo cp2108-get-portconfig > /tmp/cp2108-nvm-before.txt` (record)
+2. `sudo cp2108-set-portconfig --rs485-de-invert --dry-run` then `sudo cp2108-set-portconfig --rs485-de-invert -y --bus-reset`
+3. `sudo cp2108-get-portconfig` — confirm **IFC2/IFC3 `raw=0x0c`**, IFC0/IFC1 **`0x00`**
+4. Optional scope: **`rs485_tx_bytes --tty`** on **`ttyUSB2`** / **`ttyUSB3`** with **`RS485_DE1`/`DE2`**
+
+Equivalent: Xpress Configurator RS‑485 on UART 2 & 3 + polarity invert, then program (same NVM fields). Scripts ship in **`board-scripts`** when **`cp2108-usb-serial`** (`/usr/sbin/cp2108-set-portconfig`, `cp2108-get-portconfig`).
 
 **Reset:** SoC hog **`QUART_RES#`** on **GPIO4_IO5** (**`quart-res-hog`** — see `imx8mm-jaguar-dt510.dts`).
 
