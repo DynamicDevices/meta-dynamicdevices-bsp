@@ -15,7 +15,7 @@ Dynamic Devices has aligned the **DT510 Linux BSP and Foundries factory image** 
 
 On **current lab hardware**, multiple subsystems are **bench-validated**: power/PMIC + **Wi‑Fi/BT (IW612)**, **GNSS**, **digital I/O**, **CAN controller bring-up**, **analog loop (TAC5301)**, **class-D / Tannoy path (TAS6424)**, and **both RS‑485 UART channels on the CP2108** (including correct driver-enable polarity and a documented **one-time manufacturing NVM step**).
 
-**Still open** for product-ready sign-off: **Ethernet (KSZ9896) phased plan**, **TAA5412 driver mic** (kernel/firmware/ALSA card polish), **Zigbee end-to-end** (Sentai RCP firmware alignment), **HDMI (LT9611)**, full **charger driver** integration, **cellular data path**, and **prototype-board electrical SSOT review** when units match final BOM.
+**Still open** for product-ready sign-off: **Ethernet (KSZ9896) phased plan**, **TAA5412 driver mic** (kernel/firmware/ALSA card polish), **Zigbee end-to-end** (NXP RCP firmware and on-air validation), **HDMI (LT9611)**, full **charger driver** integration, **cellular data path**, and **prototype-board electrical SSOT review** when units match final BOM.
 
 ---
 
@@ -24,7 +24,7 @@ On **current lab hardware**, multiple subsystems are **bench-validated**: power/
 | Area | Status | What was delivered |
 |------|--------|-------------------|
 | **BSP foundation (Tier A)** | **Done** | Single DTS source; SSOT header; audit checklist; I2C3 placeholders; boot/OTA on lab images; tag **`dt510-tier-a-test-1`**. |
-| **Sentai vs DT510 cleanup** | **Done** | Removed XM125, STUSB4500/TCPC@0x50, Sentai USB-C conflicts; DT510-specific machine features. |
+| **DT510 DTS baseline** | **Done** | Removed non-DT510 inherited nodes (XM125, STUSB4500/TCPC@0x50, EVK USB-C / TCPC conflicts); DT510-specific machine features. |
 | **Wi‑Fi / Bluetooth (IW612)** | **Validated (lab)** | USDHC1 SDIO + dedicated VMMC regulator fix; HCI on UART1; BLE scan works. |
 | **Digital I/O (GPIO1)** | **Validated (lab 2026-05-08)** | Pinmux in/out split, pad config, **`dt510-dio-*`** scripts; O.H. confirmed DI/DO. |
 | **CP2108 quad UART (U13)** | **Validated (lab 2026-05-16)** | UART 0/1 RS‑232; UART 2/3 RS‑485 with NVM **`EnhancedFxn_IFC2/3 = 0x0c`**; DE high on TX; **`cp2108-get/set-portconfig`** + manufacturing procedure. |
@@ -36,10 +36,10 @@ On **current lab hardware**, multiple subsystems are **bench-validated**: power/
 | **Driver mic TAA5412** | **Partial** | DTS + PCM6240 kernel backport; I2C probe OK; **`&micfil` disabled**; firmware + **`driver_mic`** card still being closed out on images. |
 | **Charger BQ25792** | **Partial** | DTS + patches in tree; ModemManager/cellular separate; kernel charger path needs factory kernel alignment. |
 | **Cellular LTE** | **Partial (lab)** | Modem + SIM recognised via **`mmcli`**; bearer/data TBD. |
-| **Zigbee (802.15.4)** | **Partial** | ECSPI1 + **`zb_mux`** run; MAC-split / RCP FW alignment with Sentai stack still required. |
+| **Zigbee (802.15.4)** | **Partial** | ECSPI1 + **`zb_mux`** run on bench; NXP Zigbee RCP firmware on image and on-air validation still required. |
 | **Ethernet KSZ9896** | **In progress** | Phased plan (simple **`fec1` + fixed-link** first); DSA/switch management later — see **`DT510-ETHERNET-KSZ9896.md`**. |
 | **HDMI LT9611** | **Not started** | Placeholder in DTS (**disabled**). |
-| **SE050 secure element** | **Doc parity** | OpTEE path same as Sentai; optional explicit DT node not required for parity. |
+| **SE050 secure element** | **Documented** | OpTEE I²C access path; optional explicit DT node (Tier B4) deferred — see **`DT510-SE050.md`**. |
 | **USB dual UAC2 gadget** | **Present (lab/sim)** | Optional autostart feature; separate from production codec path. |
 | **PMU / MCXC144** | **In progress** | MCUboot-style PMU firmware pattern added for DT510 line (eink-derived workflow). |
 
@@ -57,7 +57,7 @@ Dates come from project plan §8 errata, checklist “last updated” notes, bri
 | **2026-04-13** | **Tier A1–A2:** single canonical DTS + symlink; SSOT comment block in DTS. |
 | **2026-04-14** | **Tier A marked complete**; interim lab validation on current boards; tag **`dt510-tier-a-test-1`**. Tier **B** GPIO1 DIO pinmux started; **TAA5412** driver gap documented (needs mainline PCM6240 backport). |
 | **2026-04-14** | Codec bring-up order documented: **TAS6424 → TAA5412 → TAC5301**. |
-| **2026-04-15** | Sentai inheritance cleanup: XM125, audio-shutdown hog vs TAS2563 reset, USB gadget / TCPC DTC fixes. |
+| **2026-04-15** | DTS cleanup: XM125 removed, TAS2563 reset ownership, USB gadget / TCPC DTC fixes. |
 | **2026-04-23** | Foundries bring-up doc baseline: pin BSP SHAs for reproducible factory experiments. |
 | **2026-05-04** | Lab: **PMIC + IW612 Wi‑Fi + KSZ9896** reported working together on bench image; **Bluetooth** verified. |
 | **2026-05-05** | **GNSS** valid fix with antenna; **Zigbee** mux starts; **TAC5301** enablement work. |
@@ -77,7 +77,7 @@ Dates come from project plan §8 errata, checklist “last updated” notes, bri
 1. **Prototype hardware sign-off** — Re-run checklist against **final BOM** (not only interim lab boards).  
 2. **Ethernet** — Execute phased KSZ9896 plan; prove link, then richer switch features if required.  
 3. **TAA5412 driver mic** — Stable **`taa5412-codec`** card, TI firmware on image, **`arecord -D driver_mic`** on production line.  
-4. **Zigbee** — Align DT510 with **Sentai NXP RCP / ZBOSS** artefacts; verify on-air, not only mux/PTY.  
+4. **Zigbee** — Ship and validate **NXP Zigbee RCP firmware** and ZBOSS stack on DT510; verify on-air, not only mux/PTY.  
 5. **CP2108 manufacturing** — Run **one-time** NVM program on each unit (**`cp2108-set-portconfig --rs485-de-invert`**) before RS‑485 system test (or equivalent Xpress Configurator flow).
 
 ### Medium / scheduled (Tier C / B follow-up)
