@@ -34,13 +34,28 @@ Working document for aligning **Ollie Hull’s DT510 pinout / hardware specifica
 
 ### Foundries: how DT510 images get built and tested
 
-The LmP manifest pulls **`meta-dynamicdevices-bsp`** (e.g. `main` from GitHub) into the factory build. **To trigger a Foundries build** for the DT510 factory line, the team **commits and pushes** to **`meta-subscriber-overrides`** on the active factory branch (e.g. **`main-imx8mm-jaguar-dt510`**) — remote **`source.foundries.io/factories/vixdt/meta-subscriber-overrides`**.
+**Workspace:** Factory work is usually done from a **`vixdt`** checkout with sibling repos: `meta-dynamicdevices-bsp/`, `lmp-manifest/`, `meta-subscriber-overrides/`, `containers/`, etc.
 
-Typical layout: that repo lives beside other factory checkouts (e.g. under a **`vixdt`** workspace as `meta-subscriber-overrides/`). A small commit there (even a doc or comment bump) starts the pipeline that **repo syncs** layers and builds **`imx8mm-jaguar-dt510`**.
+**Development rhythm (2026-05 — batch CI, do not burn builds on every commit):**
 
-**Ordering:** Merge BSP changes to **`DynamicDevices/meta-dynamicdevices-bsp`** `main` first, **then** push **`meta-subscriber-overrides`** so the factory build picks up the new BSP revision (manifest tracks BSP `main` unless pinned otherwise).
+| Step | What | Triggers factory CI? |
+|------|------|----------------------|
+| **Routine BSP work** | Commit + push **`meta-dynamicdevices-bsp`** to GitHub **`main`** only | **No** |
+| **Factory image** | After BSP (and distro, if any) is on GitHub at known SHAs: update **`lmp-manifest/vixdt.xml`** `revision=` pins (40-char SHAs for BSP/distro/subscriber), commit, push **`lmp-manifest`** branch **`main-imx8mm-jaguar-dt510`** | **Yes** (one run per coordinated push) |
+| **Subscriber / local.conf** | Push **`meta-subscriber-overrides`** only when that repo actually changed | **Yes** — avoid a second push “to rerun” if manifest already moved in the same batch |
+| **Containers / AVM** | Push **`containers`** after bumping **`vix-apps`** submodule (see `containers/README.md`) | **Yes** (container pipeline) |
 
-**BSP revision policy (factory / CI):** For routine build testing, keep the LmP manifest / layer setup following **`meta-dynamicdevices-bsp` `main`** (upstream **`DynamicDevices/meta-dynamicdevices-bsp`**). Avoid long-lived pins to a fork or stray SHA unless a release explicitly requires it — it keeps Foundries builds aligned with merged BSP work and reduces merge-test friction.
+**Pre-push checks** (from `vixdt` root): `./scripts/vixdt-pre-push-checks.sh` — DTS `**/` comment trap on BSP, `py_compile`, `bash -n`, `xmllint` on manifest XML. Cursor: **`/push`** (GitHub only) and **`/build`** (one batched factory run).
+
+**BSP pin (required for new BSP to reach the image):** `lmp-manifest/vixdt.xml` pins **`meta-dynamicdevices-bsp`** with a fixed **`revision="<40-char-sha>"`**. GitHub **`main`** alone is not enough — bump that SHA and push **manifest** after BSP is merged.
+
+**Ordering:** (1) Push BSP to GitHub `main`. (2) Set manifest BSP `revision=` to that SHA (plus any other layer pins in the **same** manifest commit). (3) Push manifest once. (4) Push subscriber only if it changed.
+
+**Do not** use empty subscriber commits to rerun CI when manifest pins already moved — that starts a **second** build.
+
+**BSP revision policy:** Pin **`meta-dynamicdevices-bsp`** to merged **`main`** SHAs for routine DT510 testing; avoid stale forks or forgotten manifest bumps. Distro pin: `meta-dynamicdevices-distro` in the same manifest file.
+
+**Dashboard:** `https://app.foundries.io/factories/vixdt/` — factory line **imx8mm-jaguar-dt510** / machine **`imx8mm-jaguar-dt510`**.
 
 **Key paths inside this BSP layer (relative to repo root):**
 
