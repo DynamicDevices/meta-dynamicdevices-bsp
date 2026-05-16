@@ -67,7 +67,7 @@ Dates come from project plan §8 errata, checklist “last updated” notes, bri
 | **2026-05-08** | **Digital I/O** validated (O.H.). |
 | **2026-05-15** | CP2108 **port map** documented in BSP (RS‑232 on [0]/[1], RS‑485 + DE on [2]/[3]). |
 | **2026-05-16** | **CP2108 RS‑485:** NVM programmed **`0x0c`** on IFC2/3; scope confirms **DE high on TX**; tools **`cp2108-get/set-portconfig`** extended (DE invert flags, manufacturing notes). |
-| **2026-05-06** | **Foundries pin:** **`vixdt.xml`** → **BSP `e1a1033`** — TAA5412 **`&sai5`** **`pinctrl`** vs MCUXpresso **`BOARD_InitPins`**; **`&sai5`** without **`fsl,sai-synchronous-rx`** (probe **`EINVAL`** on some images if reintroduced). Subscriber manifest / BRINGUP refreshed. |
+| **2026-05-06** | **BSP `main` (`e1a1033`):** TAA5412 **`&sai5`** pinctrl vs MCUXpresso **`BOARD_InitPins`** / codec GPIO hog; **`&sai5`** without **`fsl,sai-synchronous-rx`** (**`EINVAL`** if re-added). Subsequent **`ffe960b`** docs + **`layer.conf`** (no DTS delta). **`vixdt.xml` `revision=`** updated with subscriber BRINGUP (see Foundries **`lmp-manifest`** branch **`main-imx8mm-jaguar-dt510`**). |
 
 ---
 
