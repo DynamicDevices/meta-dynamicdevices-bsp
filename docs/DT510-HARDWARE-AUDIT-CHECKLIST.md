@@ -76,8 +76,9 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 
 ### TAA5412-Q1 (microphone codec — driver-facing “Driver Mic”)
 
-- **DTS covers:** **`taa5412@51`**, minimal required properties + **`sound-taa5412`** (**`simple-audio-card,name = "taa5412-codec"`** → ALSA short id **`taa5412codec`**), **`I²S`**, **`&sai5`** as CPU clock master, **`pinctrl_sai5_taa5412`**, **`&micfil` disabled** so **SAI5_RXC** is not grabbed by EVK PDM (**deferred probe** issue — see table row above).
-- **Userspace ALSA (DT510):** **`driver_mic`** — **`type asym`** **capture‑only** ( **`playback.pcm`** **`null`** ) for the **driver / cab microphone** stream; **`amixer -D driver_mic`**. Reference: **`docs/DT510-TAA5412-DRIVER-MIC-ALSA.md`**.
+- **DTS covers:** **`taa5412@51`**, minimal required properties + **`sound-taa5412`** (**`simple-audio-card,name = "taa5412-codec"`** → ALSA short id **`taa5412codec`**), **`I²S`**, **`&sai5`** as CPU clock master, **`pinctrl_sai5_taa5412`**, **`fsl,sai-synchronous-rx`** on **`&sai5`** (**lab 2026‑05‑16** — FS mux **`SAI5_TX_SYNC`** inactive without TX/RX sync; Sentai **`&sai3`** pattern — **revert if probe/link breaks**), **`&micfil` disabled** so **SAI5_RXC** is not grabbed by EVK PDM (**deferred probe** issue — see table row above).
+- **Userspace ALSA (DT510):** **`driver_mic`** — **`type asym`** **capture‑only** ( **`playback.pcm`** **`null`** ) for the **driver / cab microphone** stream; **`amixer -D driver_mic`**. Reference: **`docs/DT510-TAA5412-DRIVER-MIC-ALSA.md`** (**§ Mic input connectivity** — product **I²C / SAI5 / GPIO4_IO18** table vs BSP).
+- **DTS / upstream binding do not set:** **`GPIO4_IO18`** (**`SAI1_TXD6`** mux) described in product spec as **codec GPIO** — **`taa5412@51`** has **no** **`reset-gpios`** / **`interrupts`** / hog until schematic confirms net (**may affect I²S bring‑up**).
 - **DTS / upstream binding do not set:** differential vs single-ended **mic** routing for IN1/IN2. The **`snd_soc_pcm6240`** path uses **TI register-block firmware** (`.bin` under firmware search path). Validate **analog mode + levels** against **datasheet + schematic + correct `.bin`**, not DTS alone.
 - **Revisit when:** changing **`imx8mm-jaguar-dt510.conf`** **`taa5412`** feature, PCM6240 patch series, or capture topology.
 

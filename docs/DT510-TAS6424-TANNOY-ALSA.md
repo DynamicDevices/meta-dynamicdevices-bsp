@@ -26,7 +26,7 @@
 | **`tannoy_out2` / `tannoy_out3`** | Same **`route`** as **`tannoy_slot2`/`slot3`** — schematic **OUT2** / **OUT3** naming for the same two physical feeds. |
 | **`ctl.tannoy_out2` / `ctl.tannoy_out3`** | Same **`hw`** mixer card as **`ctl.tannoys`** (**optional** convenience for **`amixer -D tannoy_out2`** …). |
 | **`tannoy_both_mono`** | Mono duplicated to **slots 2+3** only. |
-| **`tannoy_both_lr`** | Stereo: **L→slot2**, **R→slot3** (use real 2 ch WAV). |
+| **`tannoy_both_lr`** | Stereo: **L→slot2**, **R→slot3**. **Real 2ch** WAV (or **`aplay -c 2`**) exercises both paths independently. **`vix-apps` / AVM** dual passenger output currently sends **mono** duplicated to identical L+R (same summed loudness as **`tannoy_both_mono`**) via **`audio_player`** until independent L/R content is mixed. **Typical onboard default:** **`passengers_output_device`** targets **`audio_loop`** (TAC5301 cabin loop); use **`tannoy_both_*`** when this class‑D path must carry passenger announcements instead. |
 | **`tannoy_all`** | Mono duplicated to **IEC 0–3** (hits unused 0–1 — **lab / soak**, not routine product playback). |
 
 **TI mixer widgets** remain **`Speaker Driver CH1`–`CH4`** in **`amixer`**; mapping to schematic slots is documented in DTS header + this file.

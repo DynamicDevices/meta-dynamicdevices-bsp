@@ -6,7 +6,7 @@
 
 | Friendly name | Direction | Typical use |
 |---------------|-----------|-----------|
-| **`audio_loop`** | **Playback only** (`aplay`) | Analog **output** path wired for the **vehicle / cabin audio loop** (DAC side). |
+| **`audio_loop`** | **Playback only** (`aplay`) | Analog **output** path wired for the **vehicle / cabin audio loop** (DAC side). **AVM onboard default:** **`passengers_output_device = audio_loop`** (passenger/group announcements into the analogue loop mix). Use **`tannoy_*`** (TAS6424) instead in **`AVM`** when PA horns—not the cabin loop—should carry the passenger channel (**`docs/DT510-TAS6424-TANNOY-ALSA.md`**). |
 | **`aux`** | **Capture only** (`arecord`) | **Analog input** presently **unused / reserved as aux** — record here if wired later. |
 
 **Implementation:** **`/etc/asound.conf`** **`type asym`** — **`playback.pcm`** / **`capture.pcm`** so apps get a clear **`Invalid argument`** if they **`arecord`** on **`audio_loop`** or **`aplay`** on **`aux`** (instead of silently sharing one logical bus).

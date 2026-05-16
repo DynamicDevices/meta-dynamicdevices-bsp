@@ -652,13 +652,16 @@
 
 	/*
 	 * TI TAA5412 — I2S on &sai5 (pad names SAI5_RX* per NXP mux; SSOT: docs/reference/dt510-ollie-tool-generated/pin_mux.dts).
-	 * Do not hog here — &sai5 applies this group (same pattern as &sai6 / tac5301).
+	 * Frame-sync pad must use SW_PAD **0x1916** (`IMX8MM_PAD_I2S_FRAME_SYNC_EXT`), same recipe as **`SAI1_TXFS`** /
+	 * **`pinctrl_sai1_tas6424`** — pin_mux assigns **0x116** to BCLK/data but **0x1916** to **`SAI5_RXD1`** (**`TX_SYNC`** /
+	 * LRCK). Using **`PAD_SAI_DEFAULT`** there mismatched SSOT and can break codec framing vs **`SAI6`** (where **`TX_SYNC`**
+	 * stays **0x116** per pin_mux).
 	 */
 	pinctrl_sai5_taa5412: sai5_taa5412_grp {
 		fsl,pins = <
 			MX8MM_IOMUXC_SAI5_RXC_SAI5_RX_BCLK		IMX8MM_PAD_SAI_DEFAULT
 			MX8MM_IOMUXC_SAI5_RXD0_SAI5_RX_DATA0		IMX8MM_PAD_SAI_DEFAULT
-			MX8MM_IOMUXC_SAI5_RXD1_SAI5_TX_SYNC		IMX8MM_PAD_SAI_DEFAULT
+			MX8MM_IOMUXC_SAI5_RXD1_SAI5_TX_SYNC		IMX8MM_PAD_I2S_FRAME_SYNC_EXT
 			MX8MM_IOMUXC_SAI5_RXD3_SAI5_TX_DATA0		IMX8MM_PAD_SAI_DEFAULT
 		>;
 	};
@@ -972,9 +975,10 @@
 
 	/*
 	 * TI TAA5412-Q1 — PCM6240-family ADC; control on I2C2, digital audio on &sai5.
-	 * SSOT I2C address 0x51; reset-gpios / supplies TBD vs schematic — add when confirmed.
-	 * No codec interrupt line muxed in DTS on current DT510 SKU — kernel patch
-	 * 0002-asoc-pcm6240-optional-interrupt-dt510.patch treats missing interrupts as OK.
+	 * Product spec (Mic Input): I2C 0x51; SAI5 — RXD1→TX_SYNC (frame), RXC→RX_BCLK,
+	 * RXD3→TX_DATA0, RXD0→RX_DATA0; GPIO4_IO18 (pad SAI1_TXD6 mux) = configurable GPIO
+	 * to codec — not described in this node yet (reset / IRQ / strap TBD vs schematic).
+	 * Kernel patch 0002-asoc-pcm6240-optional-interrupt-dt510.patch treats absent IRQ OK.
 	 */
 	taa5412: taa5412@51 {
 		compatible = "ti,taa5412";
@@ -1191,6 +1195,14 @@
 	assigned-clock-parents = <&clk IMX8MM_AUDIO_PLL1_OUT>;
 	assigned-clock-rates = <12288000>;
 	fsl,sai-mclk-direction-output;
+	/*
+	 * Bench 2026-05-16 (Michael Hull): **BCLK** toggling at TAA5412, **FSYNC** + serial **inactive**.
+	 * FS is muxed as **SAI5_TX_SYNC** (pad RXD1). On imx **`fsl,sai`**, tying RX to the TX clock
+	 * domain (**`fsl,sai-synchronous-rx`**) matches **`&sai3`** / **`imx8mm-jaguar-sentai.dts`**
+	 * (“RX uses TX clocks”). **`&sai6`** omits this — tac5301 probe hit **-EINVAL** with sync there;
+	 * re-scope FSYNC/DOUT after flashing; revert if **`&sai5`** probe or link breaks.
+	 */
+	fsl,sai-synchronous-rx;
 	#sound-dai-cells = <0>;
 	status = "okay";
 };
