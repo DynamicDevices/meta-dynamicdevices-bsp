@@ -10,21 +10,32 @@
 
 | Name | Direction | Use |
 |------|------------|-----|
-| **`driver_mic`** | **Capture only** (`arecord`) | Driver-facing **cabinet / operator microphone** path (ADC stream from **TAA5412**). Playback on this alias is **`null`** (**`asym`**) so **`aplay`** does not accidentally open the Mic card. |
-| **`ctl.driver_mic`** | — | **`amixer -D driver_mic …`** (same hardware controls as **`hw:taa5412codec`**). |
+| **`driver_mic`** | **Capture only** (`arecord`) | **Stereo** capture — **IN1 + IN2** when the PCM exposes **two** logical ADC channels (**`-c 2`**). Playback on these aliases is **`null`** (**`asym`**) so **`aplay`** does not open the Mic card. |
+| **`driver_mic_in1`** | Capture only | **Mono** — **ALSA channel 0** only (= hardware **IN1** per SSOT mapping — confirm on bench). |
+| **`driver_mic_in2`** | Capture only | **Mono** — **ALSA channel 1** only (**IN2**). |
+| **`driver_mic_slot0`** | Capture only | Alias of **`driver_mic_in1`** (IEC-style slot naming, parallel to **`tannoy_slot*`**). |
+| **`driver_mic_slot1`** | Capture only | Alias of **`driver_mic_in2`**. |
+| **`ctl.driver_mic`** | — | **`amixer -D driver_mic …`** (same TI controls as **`hw:taa5412codec`**). |
+| **`ctl.driver_mic_in1`** / **`ctl.driver_mic_in2`** | — | Same mixer card (**optional** convenience names). |
+| **`ctl.driver_mic_slot0`** / **`ctl.driver_mic_slot1`** | — | Same (**optional** slot naming). |
 
-Raw device: **`pcm._taa5412_hw`** → **`hw:taa5412codec`**, **device 0** (do not use from apps — treat as internal).
+Raw device: **`pcm._taa5412_hw`** → **`hw:taa5412codec`**, **device 0** (internal).
+
+If **`snd_pcm_hw_params`** shows **four** logical capture channels on this board, remap mono **`route`** **`slave.channels`** / **`ttable`** columns (keep **`driver_mic`** as full-stream **`plug`** until then).
 
 ---
 
 ## Commands
 
 ```sh
-arecord -D driver_mic -f S16_LE -c 4 -r 48000 -d 3 /tmp/driver-mic.wav   # ch count per product / driver
+arecord -D driver_mic -f S16_LE -c 2 -r 48000 -d 3 /tmp/driver-mic-stereo.wav
+arecord -D driver_mic_in1 -f S16_LE -c 1 -r 48000 -d 3 /tmp/driver-mic-in1.wav
+arecord -D driver_mic_in2 -f S16_LE -c 1 -r 48000 -d 3 /tmp/driver-mic-in2.wav
+# Slot aliases (same as in1/in2): driver_mic_slot0 | driver_mic_slot1
 amixer -D driver_mic scontrols
 ```
 
-**Channel count:** TAA5412 is a **4‑ch** ADC family; product may use **fewer** routed channels — negotiate with **`plug`** ( **`driver_mic`** already uses **`plug`** on capture) or trim **`-c`** / format to match drivers and wiring.
+**Channel count:** On **DT510**, hardware SSOT is **two differential microphone inputs — IN1 and IN2** (two analog mic channels into the codec). The **TAA5412 / PCM6240** silicon can still expose **more logical ADC slots** over **I²S** than those two nets use — treat **`-c`** / routing as **hardware + firmware + driver**, not DTS alone (checklist § TAA5412 notes **IN1/IN2**). Prefer validating capture channels against schematic + **`arecord`** HW params after firmware is correct.
 
 ---
 
@@ -33,4 +44,4 @@ amixer -D driver_mic scontrols
 - **`docs/DT510-HARDWARE-AUDIT-CHECKLIST.md`** (TAA5412 rows + § Codec notes)
 - **`docs/DT510-TAS2563-DRIVER-SPEAKER-ALSA.md`** (**Driver** **playback**: smart amp **`driver_speaker`**)
 
-*Last updated: 2026-05-06 — **`driver_mic`** in **`imx8mm-jaguar-dt510/asound.conf`**.*
+*Last updated: 2026-05-16 — per‑channel **`driver_mic_in*` / `driver_mic_slot*`** PCMs in **`imx8mm-jaguar-dt510/asound.conf`**.*
