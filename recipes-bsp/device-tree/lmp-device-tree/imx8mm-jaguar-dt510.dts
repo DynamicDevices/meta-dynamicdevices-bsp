@@ -651,18 +651,24 @@
 	};
 
 	/*
-	 * TI TAA5412 — I2S on &sai5 (pad names SAI5_RX* per NXP mux; SSOT: docs/reference/dt510-ollie-tool-generated/pin_mux.dts).
-	 * Frame-sync pad must use SW_PAD **0x1916** (`IMX8MM_PAD_I2S_FRAME_SYNC_EXT`), same recipe as **`SAI1_TXFS`** /
-	 * **`pinctrl_sai1_tas6424`** — pin_mux assigns **0x116** to BCLK/data but **0x1916** to **`SAI5_RXD1`** (**`TX_SYNC`** /
-	 * LRCK). Using **`PAD_SAI_DEFAULT`** there mismatched SSOT and can break codec framing vs **`SAI6`** (where **`TX_SYNC`**
-	 * stays **0x116** per pin_mux).
+	 * TI TAA5412 — I2S on &sai5 (SSOT: docs/reference/dt510-ollie-tool-generated/pin_mux.dts BOARD_InitPins).
+	 * MCUXpresso **0x116** on RXC/RXD*/TX_DATA pads = **`IMX8MM_PAD_GPIO_STD`** (PE + fast slew + DSE X6 + int. pull-*down*,
+	 * hysteresis CMOS). **Do not use `IMX8MM_PAD_SAI_DEFAULT`** here: EVK sai2/sai3 recipe is **0xd6**, not SSOT.
+	 * **`SAI5_RXD1` / TX_SYNC:** **0x1916** ⇒ **`IMX8MM_PAD_I2S_FRAME_SYNC_EXT`** (same cell as **`SAI1_TXFS`** in SSOT).
 	 */
 	pinctrl_sai5_taa5412: sai5_taa5412_grp {
 		fsl,pins = <
-			MX8MM_IOMUXC_SAI5_RXC_SAI5_RX_BCLK		IMX8MM_PAD_SAI_DEFAULT
-			MX8MM_IOMUXC_SAI5_RXD0_SAI5_RX_DATA0		IMX8MM_PAD_SAI_DEFAULT
+			MX8MM_IOMUXC_SAI5_RXC_SAI5_RX_BCLK		IMX8MM_PAD_GPIO_STD
+			MX8MM_IOMUXC_SAI5_RXD0_SAI5_RX_DATA0		IMX8MM_PAD_GPIO_STD
 			MX8MM_IOMUXC_SAI5_RXD1_SAI5_TX_SYNC		IMX8MM_PAD_I2S_FRAME_SYNC_EXT
-			MX8MM_IOMUXC_SAI5_RXD3_SAI5_TX_DATA0		IMX8MM_PAD_SAI_DEFAULT
+			MX8MM_IOMUXC_SAI5_RXD3_SAI5_TX_DATA0		IMX8MM_PAD_GPIO_STD
+		>;
+	};
+
+	/* TAA5412 codec sideband pad — SSOT: SAI1_TXD6 → GPIO4_IO18, SW_PAD 0x116. Applied on &taa5412 probe. */
+	pinctrl_taa5412_codec_gpio: taa5412_codec_gpiogrp {
+		fsl,pins = <
+			MX8MM_IOMUXC_SAI1_TXD6_GPIO4_IO18		IMX8MM_PAD_GPIO_STD
 		>;
 	};
 };
@@ -983,6 +989,8 @@
 	taa5412: taa5412@51 {
 		compatible = "ti,taa5412";
 		reg = <0x51>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_taa5412_codec_gpio>;
 		#sound-dai-cells = <0>;
 		status = "okay";
 	};
@@ -1196,13 +1204,13 @@
 	assigned-clock-rates = <12288000>;
 	fsl,sai-mclk-direction-output;
 	/*
-	 * Bench 2026-05-16 (Michael Hull): **BCLK** toggling at TAA5412, **FSYNC** + serial **inactive**.
-	 * FS is muxed as **SAI5_TX_SYNC** (pad RXD1). On imx **`fsl,sai`**, tying RX to the TX clock
-	 * domain (**`fsl,sai-synchronous-rx`**) matches **`&sai3`** / **`imx8mm-jaguar-sentai.dts`**
-	 * (“RX uses TX clocks”). **`&sai6`** omits this — tac5301 probe hit **-EINVAL** with sync there;
-	 * re-scope FSYNC/DOUT after flashing; revert if **`&sai5`** probe or link breaks.
+	 * No fsl,sai-synchronous-rx: enabling it breaks 30050000.sai probe with
+	 * invalid binding for synchronous mode (-EINVAL) on 6.6 fsl-sai; sound-taa5412
+	 * stays deferred (seen on factory lmp-350). imx8mm base sai5 inherits MICFIL-era
+	 * bits that contradict sync-RX. sai3 can use sync-RX; sai6 cannot (-EINVAL too).
+	 * sai5 matches sai1/sai6: fsl,sai-mclk-direction-output only. FSYNC/DOUT bench
+	 * issues need HW/TI ASI debug after sai probes cleanly.
 	 */
-	fsl,sai-synchronous-rx;
 	#sound-dai-cells = <0>;
 	status = "okay";
 };

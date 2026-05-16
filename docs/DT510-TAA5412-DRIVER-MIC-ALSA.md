@@ -14,16 +14,16 @@
 
 | i.MX8MM IOMUX option | SAI function | Signal / notes |
 |---------------------|--------------|----------------|
-| **`MX8MM_IOMUXC_SAI5_RXD1_SAI5_TX_SYNC`** | **SAI5 TX Frame Sync** | LRCK / FS — CPU master drives frame sync toward codec (**BSP:** **`IMX8MM_PAD_I2S_FRAME_SYNC_EXT`**). |
-| **`MX8MM_IOMUXC_SAI5_RXC_SAI5_RX_BCLK`** | **SAI5 RX Bit Clock** | **BCLK** — CPU master. |
-| **`MX8MM_IOMUXC_SAI5_RXD3_SAI5_TX_DATA0`** | **SAI5 TX Data 0** | Host→codec serial data (**product spec** fourth I²S wire). |
-| **`MX8MM_IOMUXC_SAI5_RXD0_SAI5_RX_DATA0`** | **SAI5 RX Data 0** | Codec→host ADC data. |
+| **`MX8MM_IOMUXC_SAI5_RXD1_SAI5_TX_SYNC`** | **SAI5 TX Frame Sync** | LRCK / FS — CPU master drives frame sync toward codec (**BSP:** **`IMX8MM_PAD_I2S_FRAME_SYNC_EXT`** = SSOT **0x1916**). |
+| **`MX8MM_IOMUXC_SAI5_RXC_SAI5_RX_BCLK`** | **SAI5 RX Bit Clock** | **BCLK** — CPU master (**BSP:** **`IMX8MM_PAD_GPIO_STD`** = SSOT **0x116** — *not* **`IMX8MM_PAD_SAI_DEFAULT`** EVK recipe **0xd6**). |
+| **`MX8MM_IOMUXC_SAI5_RXD3_SAI5_TX_DATA0`** | **SAI5 TX Data 0** | Host→codec serial data (**BSP:** **`IMX8MM_PAD_GPIO_STD`**). |
+| **`MX8MM_IOMUXC_SAI5_RXD0_SAI5_RX_DATA0`** | **SAI5 RX Data 0** | Codec→host ADC data (**BSP:** **`IMX8MM_PAD_GPIO_STD`**). |
 
-**Sideband GPIO:** **`MX8MM_IOMUXC_SAI1_TXD6_GPIO4_IO18`** — **GPIO4_IO18**, product description **configurable GPIO connected to codec**.
+**Sideband GPIO:** **`MX8MM_IOMUXC_SAI1_TXD6_GPIO4_IO18`** — **GPIO4_IO18**, product description **configurable GPIO connected to codec**. **`taa5412@51`** applies **`pinctrl_taa5412_codec_gpio`** (**`IMX8MM_PAD_GPIO_STD`**) so mux + pad electricals match SSOT **`BOARD_InitPins`**.
 
-**BSP gap:** **`taa5412@51`** currently declares **`compatible`**, **`reg`**, **`#sound-dai-cells`**, **`status`** only — **no** **`reset-gpios`**, **`interrupts`**, or **`pinctrl`** entry for **`GPIO4_IO18`**. **`snd_soc_pcm6240`** supports optional **`reset-gpios`** (hardware reset pulse at probe) and optional **`interrupts`** when wired; if **`GPIO4_IO18`** gates reset, power‑down, or an IRQ strap required before **I²S** / ADC activity, bring‑up must add the correct binding once **polarity + net name** are confirmed on schematic (**TI datasheet / EE**).
+**Optional DT still TBD:** **`reset-gpios`**, **`interrupts`** on **`GPIO4_IO18`** once schematic polarity / net behaviour are fixed (**TI / EE**).
 
-SSOT pad SW_PAD for **`SAI1_TXD6 → GPIO4_IO18`** is **`0x116`** in **`docs/reference/dt510-ollie-tool-generated/pin_mux.dts`**.
+SSOT (**`docs/reference/dt510-ollie-tool-generated/pin_mux.dts`**): **`SAI5_RXC`**, **RXD0**, **RXD3** → **`0x00000116`**; **`SAI5_RXD1`** → **`0x00001916`**; **`SAI1_TXD6`** → **`GPIO4_IO18`**, **`0x00000116`**.
 
 ---
 
@@ -72,10 +72,10 @@ If analog coupling / firmware look sane but **`arecord`** is still flat zeros, v
 
 | Pad / ball naming | SAI role | Notes |
 |-------------------|---------|--------|
-| **`SAI5_RXC`** | **`SAI5_RX_BCLK`** | Bit clock (**BCLK**) |
-| **`SAI5_RXD1`** | **`SAI5_TX_SYNC`** | Frame sync / LRCK — BSP uses **`IMX8MM_PAD_I2S_FRAME_SYNC_EXT`** on this pad (same electrical framing recipe as **`pinctrl_sai1_tas6424`** / **`SAI1_TXFS`** — see DTS banner comment). Wrong pad electrical mode can produce **present-but-useless clocks**. |
-| **`SAI5_RXD0`** | **`SAI5_RX_DATA0`** | Serial **ADC data into SoC** |
-| **`SAI5_RXD3`** | **`SAI5_TX_DATA0`** | CPU-side **TX data** line muxed from **`RXD3`** — confirm against **schematic / TI slave-mode wiring** whether this net must toggle, tie, or N/C for your revision. |
+| **`SAI5_RXC`** | **`SAI5_RX_BCLK`** | Bit clock (**BCLK**) — **`IMX8MM_PAD_GPIO_STD`** (**SSOT `0x116`**) |
+| **`SAI5_RXD1`** | **`SAI5_TX_SYNC`** | Frame sync / LRCK — **`IMX8MM_PAD_I2S_FRAME_SYNC_EXT`** (**SSOT `0x1916`**) — same framing recipe pattern as **`SAI1_TXFS`** (**`pinctrl_sai1_tas6424`**). Wrong pad electrical mode can produce **present-but-useless clocks**. |
+| **`SAI5_RXD0`** | **`SAI5_RX_DATA0`** | Serial **ADC data into SoC** — **`IMX8MM_PAD_GPIO_STD`** |
+| **`SAI5_RXD3`** | **`SAI5_TX_DATA0`** | CPU-side **TX data** (**`IMX8MM_PAD_GPIO_STD`**) — confirm against **schematic / TI slave-mode wiring** whether this net must toggle, tie, or N/C for your revision. |
 
 **`&sai5` clocks:** **`assigned-clock-rates = <12288000>`**, parent **`AUDIO_PLL1_OUT`** — software intends **12.288 MHz** MCLK/internal reference consistent with **`fsl,sai-mclk-direction-output`** (same pattern as **`&sai3`** / **`&sai6`**).
 
@@ -95,7 +95,7 @@ If analog coupling / firmware look sane but **`arecord`** is still flat zeros, v
 | **FSYNC** (LRCK / frame on **`SAI5_TX_SYNC`**) | **Not active** — **blocking**: codec framing never advances; explains flat **`arecord`** / zeros even when analogue path is sane. |
 | **DOUT / DIN** (codec vs host naming; ↔ **`RX_DATA0`** / **`TX_DATA0`**) | **Not active** — **expected consequence** of missing FSYNC (no slot boundaries → no meaningful serial toggling). |
 
-**BSP response:** **`imx8mm-jaguar-dt510.dts`** **`&sai5`** now sets **`fsl,sai-synchronous-rx`** (same idea as **`&sai3`** / **`imx8mm-jaguar-sentai.dts`**) so RX capture runs **synchronized with the TX clock domain** — hypothesis: FS muxed as **`TX_SYNC`** only toggles when that linkage is enabled. **Contrast:** **`&sai6`** deliberately omits **`fsl,sai-synchronous-rx`** (tac5301 probe **`-EINVAL`** with sync on **6.6** **`fsl,sai`**); if **`&sai5`** fails probe or audio regresses, **revert** synchronous RX and escalate with **`dmesg`**.
+**BSP note (DT):** **`&sai5`** does **not** use **`fsl,sai-synchronous-rx`**. An attempt to mirror **`&sai3`** failed: **`fsl-sai`** returned **`invalid binding for synchronous mode`** (**-EINVAL**), **`30050000.sai` did not probe**, and **`sound-taa5412` stayed deferred** (observed on **`lmp-350`**). **`&sai5`** matches **`&sai1`** / **`&sai6`**: **`fsl,sai-mclk-direction-output`** only. Residual **FSYNC / DOUT** issues need **hardware / TI ASI** analysis with SAI probing clean.
 
 **Still validate HW:** continuity / probe **correct ball** per product § Mic input connectivity; pad **`IMX8MM_PAD_I2S_FRAME_SYNC_EXT`** vs stuck-low solder bridge.
 
@@ -106,4 +106,4 @@ If analog coupling / firmware look sane but **`arecord`** is still flat zeros, v
 - **`docs/DT510-HARDWARE-AUDIT-CHECKLIST.md`** (TAA5412 rows + § Codec notes)
 - **`docs/DT510-TAS2563-DRIVER-SPEAKER-ALSA.md`** (**Driver** **playback**: smart amp **`driver_speaker`**)
 
-*Last updated: **2026‑05‑16** — **BCLK only during `arecord`** documented (normal gating); Michael bench (**FSYNC/data idle**) + **`&sai5`** **`fsl,sai-synchronous-rx`**; **2026‑05‑06** — Mic input connectivity §; **`driver_mic_in*` / `driver_mic_slot*`** PCMs.*
+*Last updated: **2026‑05‑06** — **`pinctrl_sai5_taa5412`**: BCLK/data pads use **`IMX8MM_PAD_GPIO_STD`** (**SSOT `0x116`**) vs EVK **`IMX8MM_PAD_SAI_DEFAULT`** (**`0xd6`**); **`pinctrl_taa5412_codec_gpio`** for **`GPIO4_IO18`**. **`&sai5`**: no **`fsl,sai-synchronous-rx`**; **BCLK** gating §; **`driver_mic_in*` / `driver_mic_slot*`** PCMs.*
