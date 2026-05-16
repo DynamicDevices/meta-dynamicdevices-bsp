@@ -1,8 +1,35 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
-"""CP2108: GET QUAD_PORT_CONFIG (SiLabs wValue 0x370c, 73 B) matching linux cp210x.c."""
+"""CP2108: GET QUAD_PORT_CONFIG (SiLabs wValue 0x370c, 73 B) matching linux cp210x.c.
 
-from __future__ import annotations
+DT510 (U13 CP2108) — read back GPIO alternate / RS-485 DE settings
+-------------------------------------------------------------------
+Hardware (bridge UART index, not always ttyUSBn order — use udev by-path):
+
+  IFC0 / IFC1  RS-232  (no RS-485 DE on this SKU)
+  IFC2         RS-485  GPIO.10 -> RS485_DE1   typical /dev/ttyUSB2  (USB 1-1.3:1.2)
+  IFC3         RS-485  GPIO.14 -> RS485_DE2   typical /dev/ttyUSB3  (USB 1-1.3:1.3)
+
+Correct NVM for DT510 transceiver (DE high during TX, low when idle):
+
+  EnhancedFxn_IFC2 = 0x0c  (0x04 RS-485 alternate + 0x08 logic invert)
+  EnhancedFxn_IFC3 = 0x0c
+  EnhancedFxn_IFC0 = EnhancedFxn_IFC1 = 0x00
+
+Check after programming (root; detaches cp210x briefly if using set-portconfig):
+
+  sudo cp2108-get-portconfig --quiet-text | grep -E '^--- IFC|raw='
+
+Expect IFC2/IFC3 raw=0x0c (GPIO_RS485_DRIVE + RS485_LOGIC_POLARITY in the decode tables).
+IFC0/IFC1 should stay raw=0x00. Optional machine-readable dump: --json.
+
+Wrong polarity on scope (DE high idle, low during TX) means IFC2/3 still 0x04 — use
+cp2108-set-portconfig --rs485-de-invert (see that script's DT510 note).
+
+Lab TX test after NVM is correct: rs485_tx_bytes --tty /dev/ttyUSB2 (or by-path :1.2-port0).
+"""
+
+from __future__ import annotations  # noqa: E402
 
 import argparse
 import json
@@ -353,8 +380,19 @@ def resolve_dev(cfg: argparse.Namespace):
     return d
 
 
+DT510_EPILOG = """
+DT510: expect EnhancedFxn_IFC2/IFC3 = 0x0c after set-portconfig --rs485-de-invert.
+  sudo cp2108-get-portconfig --quiet-text | grep -E '^--- IFC|raw='
+See script header for full port map (IFC2=ttyUSB2/RS485_DE1, IFC3=ttyUSB3/RS485_DE2).
+"""
+
+
 def main() -> int:
-    p = argparse.ArgumentParser(description="GET+decode CP2108 quad NVM config blob")
+    p = argparse.ArgumentParser(
+        description="GET+decode CP2108 quad NVM config blob",
+        epilog=DT510_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     p.add_argument("--vid", type=lambda x: int(x, 0), default=0x10C4)
     p.add_argument("--pid", type=lambda x: int(x, 0), default=0xEA71)
     p.add_argument("--bus-device", dest="busadr", metavar="BBB/DDD")

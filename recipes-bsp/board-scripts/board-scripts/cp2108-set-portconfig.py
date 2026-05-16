@@ -10,6 +10,37 @@ DEVICE/INTERFACE Vendor OUT setups (wValue trials) documented in-code. If progra
 use Silicon Labs CP210xManufacturing.dll / official tools after USB-tracing which transfer
 actually sticks.
 
+EnhancedFxn_IFC bits (AN978): 0x04 RS-485 alternate (DE timed with UART TX);
+0x08 RS-485_LOGIC (invert DE polarity vs default active-high-idle).
+
+DT510 (U13) — program GPIO alternate + DE invert for both RS-485 UARTs
+-----------------------------------------------------------------------
+Run as root on the target (PyUSB detaches cp210x on interface 0; ttyUSB* drop briefly).
+
+1) Snapshot current NVM (backup):
+
+     sudo cp2108-get-portconfig > /tmp/cp2108-nvm-before.txt
+
+2) Program RS-485 alternate on bridge IFC2 & IFC3 (GPIO.10 / GPIO.14) with DT DE polarity
+   (DE high during TX, low when idle — requires 0x08 invert on this board):
+
+     sudo cp2108-set-portconfig --rs485-de-invert --dry-run
+     sudo cp2108-set-portconfig --rs485-de-invert -y --bus-reset
+
+   Default --rs485-ifc is 2 and 3; only IFC0/IFC1 stay plain (RS-232 nets).
+
+3) Verify (expect EnhancedFxn_IFC2/3 = 0x0c):
+
+     sudo cp2108-get-portconfig --quiet-text | grep -E '^--- IFC|raw='
+
+4) Scope: RS485_TX1 + RS485_DE1 while:
+
+     sudo rs485_tx_bytes --tty /dev/ttyUSB2 --baud 115200 --loop --interval 0.05
+
+   Map tty with: ls -l /dev/serial/by-path/*1.3:1.2*  (IFC2) and *1.3:1.3* (IFC3).
+
+To revert DE invert only (back to 0x04 on IFC2/3): --clear-rs485-de-invert -y --bus-reset
+
   ** Mis-programming NVM can brick VID/PID or pin mux — READ + backup first. **
 """
 
@@ -39,6 +70,14 @@ EXPECTED_LEN = 0x49
 
 EF_IFC_GPIO_RS485 = 0x04
 EF_IFC_GPIO_RS485_LOGIC = 0x08
+
+DT510_EPILOG = """
+DT510 quick setup (IFC2/3 RS-485 + DE invert for GPIO.10 / GPIO.14):
+  sudo cp2108-get-portconfig > /tmp/cp2108-nvm-before.txt
+  sudo cp2108-set-portconfig --rs485-de-invert --dry-run
+  sudo cp2108-set-portconfig --rs485-de-invert -y --bus-reset
+  sudo cp2108-get-portconfig --quiet-text | grep -E '^--- IFC|raw='
+"""
 
 
 def _quad_control_in(dev, iface: int, w_length: int) -> bytes:
@@ -78,18 +117,68 @@ def enhancedfxn_unpack(blob: bytes) -> tuple[int, int, int, int]:
     return blob[base], blob[base + 1], blob[base + 2], blob[base + 3]
 
 
-def patch_enhanced_fxn(blob: bytes, ifc_masks: dict[int, int]) -> bytes:
+def _enhancedfxn_base() -> int:
+    return 30 + 30 + 4
+
+
+def _norm_rs485_mask(mask: int) -> int:
+    mask &= 0xFF
+    if mask & EF_IFC_GPIO_RS485_LOGIC:
+        mask |= EF_IFC_GPIO_RS485
+    return mask
+
+
+def patch_enhanced_fxn(
+    blob: bytes,
+    or_masks: dict[int, int],
+    clear_masks: dict[int, int] | None = None,
+) -> bytes:
+    """Patch EnhancedFxn_IFC0..3 bytes (clear bits first, then OR)."""
     b = bytearray(blob)
-    base = 30 + 30 + 4
-    for ifc_idx in sorted(ifc_masks):
-        mask = ifc_masks[ifc_idx] & 0xFF
+    base = _enhancedfxn_base()
+    for ifc_idx in sorted(set(or_masks) | set(clear_masks or {})):
         if not 0 <= ifc_idx <= 3:
             raise ValueError(f"invalid ifc idx {ifc_idx}")
-        if mask & EF_IFC_GPIO_RS485_LOGIC:
-            mask |= EF_IFC_GPIO_RS485
         off = base + ifc_idx
-        b[off] = (b[off] | mask) & 0xFF
+        if clear_masks and ifc_idx in clear_masks:
+            b[off] &= (~clear_masks[ifc_idx]) & 0xFF
+        if ifc_idx in or_masks:
+            b[off] = (b[off] | _norm_rs485_mask(or_masks[ifc_idx])) & 0xFF
     return bytes(b)
+
+
+def build_enhanced_fxn_masks(args: argparse.Namespace) -> tuple[dict[int, int], dict[int, int]]:
+    """Return (or_masks, clear_masks) from CLI flags."""
+    rs485_ifcs = list(args.rs485_ifc)
+    or_masks: dict[int, int] = {}
+    clear_masks: dict[int, int] = {}
+
+    for ifc in rs485_ifcs:
+        or_masks.setdefault(ifc, 0)
+        or_masks[ifc] |= EF_IFC_GPIO_RS485
+
+    invert_ifcs = set(args.rs485_de_invert_ifc)
+    if args.rs485_de_invert:
+        invert_ifcs.update(rs485_ifcs)
+
+    for ifc in invert_ifcs:
+        or_masks.setdefault(ifc, 0)
+        or_masks[ifc] |= EF_IFC_GPIO_RS485 | EF_IFC_GPIO_RS485_LOGIC
+
+    # Legacy name (same as --rs485-de-invert-ifc)
+    for ifc in args.logical_invert_ifc:
+        or_masks.setdefault(ifc, 0)
+        or_masks[ifc] |= EF_IFC_GPIO_RS485 | EF_IFC_GPIO_RS485_LOGIC
+
+    clear_ifcs = set(args.clear_rs485_de_invert_ifc)
+    if args.clear_rs485_de_invert:
+        clear_ifcs.update(rs485_ifcs)
+
+    for ifc in clear_ifcs:
+        clear_masks.setdefault(ifc, 0)
+        clear_masks[ifc] |= EF_IFC_GPIO_RS485_LOGIC
+
+    return or_masks, clear_masks
 
 
 def claim_usb(dev, iface: int):
@@ -151,7 +240,11 @@ def resolve_dev(busadr: str | None, vid: int, pid: int):
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap = argparse.ArgumentParser(
+        description=__doc__.split("\n\n")[0],
+        epilog=DT510_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     ap.add_argument("--vid", type=lambda x: int(x, 0), default=0x10C4)
     ap.add_argument("--pid", type=lambda x: int(x, 0), default=0xEA71)
     ap.add_argument("--bus-device", dest="busadr", metavar="BBB/DDD")
@@ -168,12 +261,41 @@ def main() -> int:
         ),
     )
     ap.add_argument(
+        "--rs485-de-invert",
+        action="store_true",
+        help=(
+            "Set EF_IFC_GPIO_RS485_LOGIC (0x08) on each --rs485-ifc (default IFC2 & IFC3). "
+            "With 0x04, EnhancedFxn becomes 0x0c: DE high during TX (DT510 transceiver)."
+        ),
+    )
+    ap.add_argument(
+        "--rs485-de-invert-ifc",
+        metavar="IFC",
+        type=int,
+        action="append",
+        default=[],
+        help="OR 0x08 (and 0x04) on this IFC only; repeatable.",
+    )
+    ap.add_argument(
+        "--clear-rs485-de-invert",
+        action="store_true",
+        help="Clear 0x08 on each --rs485-ifc (leave 0x04 RS-485 alternate if already set).",
+    )
+    ap.add_argument(
+        "--clear-rs485-de-invert-ifc",
+        metavar="IFC",
+        type=int,
+        action="append",
+        default=[],
+        help="Clear 0x08 on this IFC only; repeatable.",
+    )
+    ap.add_argument(
         "--logical-invert-ifc",
         metavar="IFC",
         type=int,
         action="append",
         default=[],
-        help="Also OR EF_IFC_GPIO_RS485_LOGIC (0x08) after RS485 bits for this IFC.",
+        help=argparse.SUPPRESS,
     )
     ap.add_argument(
         "--dry-run",
@@ -207,15 +329,13 @@ def main() -> int:
     if args.rs485_ifc is None:
         args.rs485_ifc = [2, 3]
 
-    masks: dict[int, int] = {}
-    for ifc in args.rs485_ifc:
-        if ifc not in masks:
-            masks[ifc] = 0
-        masks[ifc] |= EF_IFC_GPIO_RS485
-    for ifc in args.logical_invert_ifc:
-        if ifc not in masks:
-            masks[ifc] = 0
-        masks[ifc] |= EF_IFC_GPIO_RS485 | EF_IFC_GPIO_RS485_LOGIC
+    or_masks, clear_masks = build_enhanced_fxn_masks(args)
+    if not or_masks and not clear_masks:
+        sys.stderr.write(
+            "ERR: no patch requested (default only enables RS-485 0x04 on IFC2/3; "
+            "add --rs485-de-invert or --clear-rs485-de-invert to change DE polarity)\n"
+        )
+        return 2
 
     try:
         import usb.core  # pylint: disable=unused-import  # noqa: F401
@@ -233,11 +353,21 @@ def main() -> int:
 
         old = quad_read_pyusb(dev, args.iface)
         before = enhancedfxn_unpack(old)
-        new = patch_enhanced_fxn(old, masks)
+        new = patch_enhanced_fxn(old, or_masks, clear_masks or None)
         after = enhancedfxn_unpack(new)
 
         print(f"EnhancedFxn_IFC[0..3] before {' '.join(hex(b) for b in before)}")
         print(f"EnhancedFxn_IFC[0..3] after  {' '.join(hex(b) for b in after)}")
+        if or_masks:
+            print(
+                "patch OR: "
+                + " ".join(f"IFC{i}=0x{m:02x}" for i, m in sorted(or_masks.items()))
+            )
+        if clear_masks:
+            print(
+                "patch CLEAR: "
+                + " ".join(f"IFC{i}=0x{c:02x}" for i, c in sorted(clear_masks.items()))
+            )
         print(f"PAYLOAD_HEX_PATCH {new.hex()}")
 
         if new == old:
