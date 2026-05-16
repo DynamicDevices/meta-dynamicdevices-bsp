@@ -2,6 +2,8 @@
 
 Working document for aligning **Ollie Hull’s DT510 pinout / hardware specification** with **`meta-dynamicdevices-bsp`** (device tree, kernel fragments, and related recipes). Update this file as the spec evolves and as tasks complete.
 
+**Stakeholder summary (Vix):** [`DT510-BRINGUP-STATUS-REPORT.md`](DT510-BRINGUP-STATUS-REPORT.md) — timeline, validated vs remaining work, factory notes (updated from this plan + checklist).
+
 ---
 
 ## 1. Purpose
@@ -194,6 +196,7 @@ Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md)
 
 | Date | Change |
 |------|--------|
+| 2026-05-16 | **Stakeholder report:** [`DT510-BRINGUP-STATUS-REPORT.md`](DT510-BRINGUP-STATUS-REPORT.md) — Vix-facing timeline, validated vs remaining work; links from plan §1. |
 | 2026-05-06 | **Tier C2 — TAS6424 (“Tannoy” ALSA):** **`alsa-state`** **`/etc/asound.conf`** + **`tas6424-init`** (**`tannoys`**, **`tannoy_slot2`/`slot3`**, **`tannoy_both_*`**). Doc: **`docs/DT510-TAS6424-TANNOY-ALSA.md`**. Checklist / I²C status **validated** for class-D userspace path. **Future `TAS6422E-Q1`:** replumb IEC to **`slot0`/`slot1`** (vs today’s **`slot2`/`slot3`**). **Annotated tag:** **`dt510-tier-c2-tannoy-test-1`** (Tier C2 doc snapshot). |
 | 2026-05-08 | **Digital I/O:** **`pinctrl_gpio1_dio_in`/`_out`** — DI **`SW_PAD`** **`0x010`** (**PE** disabled, **`DSE_X1`**, no SoC bias); DO **`0x116`** (**`GPIO_STD`**). Scripts **`dt510-dio-toggle-outputs`**, **`dt510-dio-poll-inputs`**. RM bit decode: **`imx8mm-sw_pad_ctl-fields.h`**. **Lab:** **O.H.** confirmed **DO** + **DI** (GPIO inputs) on target. See **`DT510-HARDWARE-AUDIT-CHECKLIST.md`** / **`meta-subscriber-overrides/docs/DT510-HARDWARE-BRINGUP.md`**. |
 | 2026-05-07 | **Serial console:** Confirmed **working** on bench after **hardware** repair; BSP **`stdout-path` / `ttymxc1`** unchanged. |
