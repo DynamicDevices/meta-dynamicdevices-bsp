@@ -16,7 +16,8 @@ EnhancedFxn_IFC bits (AN978): 0x04 RS-485 alternate (DE timed with UART TX);
 DT510 (U13) — program GPIO alternate + DE invert for both RS-485 UARTs
 -----------------------------------------------------------------------
 **Production:** run this OTP/NVM program **once per board** during manufacturing (before
-RS-485 test). Not on every SoC flash. See docs/DT510-HARDWARE-AUDIT-CHECKLIST.md § CP2108.
+RS-485 test). Not on every SoC flash. **Lab 2026-05-16:** UART IFC2/3 RS-485 + DE polarity
+validated after --rs485-de-invert (readback 0x0c; scope DE high on TX). See checklist § CP2108.
 
 Run as root on the target (PyUSB detaches cp210x on interface 0; ttyUSB* drop briefly).
 

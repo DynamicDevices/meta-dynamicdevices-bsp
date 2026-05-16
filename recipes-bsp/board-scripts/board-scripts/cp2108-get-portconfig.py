@@ -10,7 +10,7 @@ Hardware (bridge UART index, not always ttyUSBn order — use udev by-path):
   IFC2         RS-485  GPIO.10 -> RS485_DE1   typical /dev/ttyUSB2  (USB 1-1.3:1.2)
   IFC3         RS-485  GPIO.14 -> RS485_DE2   typical /dev/ttyUSB3  (USB 1-1.3:1.3)
 
-Correct NVM for DT510 transceiver (DE high during TX, low when idle):
+Correct NVM for DT510 transceiver (DE high during TX, low when idle) — lab-validated 2026-05-16:
 
   EnhancedFxn_IFC2 = 0x0c  (0x04 RS-485 alternate + 0x08 logic invert)
   EnhancedFxn_IFC3 = 0x0c
