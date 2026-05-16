@@ -4,7 +4,9 @@
 **From:** Dynamic Devices  
 **Product:** DT510 (in-vehicle Linux platform)  
 **Status date:** May 2026  
-**Hardware reference:** Vix DT510 pinout specification (Ollie Hull)
+**Hardware reference:** Vix DT510 pinout specification (Ollie Hull) — use **together with the schematic** when reviewing this report.
+
+**How to review (Michael):** Match each row below to a **sheet block or ref-des** on the schematic. Status is **software bring-up on lab boards**, not a substitute for your own electrical review. Where the pinout doc and schematic disagree, **schematic + pinout win**; we update software to match.
 
 ---
 
@@ -43,6 +45,51 @@ Dynamic Devices is bringing the **DT510 board up against Vix’s hardware defini
 - **Cellular** — move from “modem seen” to reliable data connectivity.
 
 We are **not** blocked on a single unknown; remaining work is **scoped, ordered, and already partially implemented** in the factory pipeline.
+
+---
+
+## Schematic cross-reference
+
+Use this table when walking the **DT510 schematic** or **pinout document**. “Lab status” = Dynamic Devices has exercised this block on bench units with the current factory image (May 2026).
+
+| Schematic / product block | Typical ref / nets | Bus or interface | Lab status |
+|---------------------------|-------------------|------------------|------------|
+| **i.MX 8M Mini** (main SoC) | — | Boot, eMMC, debug | **Running** — boots, OTA, SSH |
+| **PMIC** | PCA9450 | I²C | **In use** — power rails up on bench |
+| **Wi‑Fi / BT module** | MAYA‑W276 (IW612) | SDIO + UART HCI | **Proven** — Wi‑Fi and BLE scan |
+| **802.15.4 / Zigbee** (same module) | IW612 → SPI | ECSPI1, **`ZB_INT`** | **Partial** — stack starts; over-air product test open |
+| **Cellular modem** | Quectel class (e.g. EM05) | USB OTG2; **`LTE_RST`**, **`LTE_OFF`**, **`SIM_SEL`** | **Partial** — modem + SIM seen; mobile data TBD |
+| **Ethernet switch** | KSZ9896 | RGMII + I²C (**`0x5f`** on I²C3) | **Partial** — forwarding reported; advanced management phased |
+| **GNSS receiver** | NEO‑M9V | UART; **`GNSS_RES#`** | **Proven** — fix with antenna |
+| **CAN controller** | MCP251863 | SPI (ECSPI2); **`CAN_INT#`**, **`CAN_STBY`** | **Software proven** — **`can0`** up; vehicle bus test TBD |
+| **Quad USB‑UART bridge** | **U13** CP2108 | USB HS | **Proven** — see port map below |
+| ↳ RS‑232 ports | Ch **0**, **1** | **`RS232TXD1/RXD1`**, **`RS232TXD2/RXD2`** | **Proven** |
+| ↳ RS‑485 ports | Ch **2**, **3** | **`RS485_TX1/RX1`**, **`RS485_DE1`**; **`RS485_TX2/RX2`**, **`RS485_DE2`** | **Proven** — **factory one-time program** on U13 before system test |
+| ↳ Bridge reset | | **`QUART_RES#`** → SoC GPIO | Documented |
+| **Digital inputs** | GPIO1_IO0, IO1, IO4, IO5 | GPIO | **Proven** |
+| **Digital outputs** | GPIO1_IO6–IO9 | GPIO | **Proven** |
+| **Cabin audio loop** | TAC5301 | I²C2 **`0x50`**, SAI6 | **Proven** |
+| **Driver speaker amp** | TAS2563 | I²C2 **`0x4C`**, SAI3 | **In software** — acoustic sign-off TBD |
+| **Driver microphone** | TAA5412 | I²C2 **`0x51`**, SAI5 | **In progress** — device on bus; record path on factory image next |
+| **Tannoy / class‑D PA** | TAS6424 | I²C2 **`0x6A`**, SAI1; **`AMP_FAULT#`**, **`AMP_WARN#`** | **Proven** |
+| **Battery charger** | BQ25792 | I²C3 **`0x6B`**; **`CHGR_INT#`** | **Partial** — in design; full charger driver with kernel release |
+| **HDMI bridge** | LT9611 | I²C3 **`0x39`** (7‑bit); DSI/HDMI nets | **Not started** — held in software until display path confirmed |
+| **Secure element** | SE050 | I²C4 **`0x48`** | **Documented** — security stack path; optional explicit enable later |
+| **Low‑power MCU** | MCXC144 | UART4 (Linux **`ttymxc3`**) | **In progress** — field update workflow |
+| **Debug console** (Linux) | SoC UART2 | **`ttymxc1`** header | **Proven** (after bench wiring fix) |
+
+**Not on DT510 schematic (do not expect on Vix BOM):** USB‑C PD (**STUSB4500**), radar (**XM125**), legacy TCPC at I²C **`0x50`** — those blocks were removed from the DT510 design and software.
+
+**U13 CP2108 — map to schematic nets (validated May 2026):**
+
+| Bridge channel | Schematic function | Driver-enable |
+|----------------|-------------------|---------------|
+| 0 | RS‑232 port 1 | — |
+| 1 | RS‑232 port 2 | — |
+| 2 | RS‑485 port 1 | **`RS485_DE1`** (bridge GPIO.10) |
+| 3 | RS‑485 port 2 | **`RS485_DE2`** (bridge GPIO.14) |
+
+**Production note for U13:** Each assembled board needs a **one-time** configuration of the CP2108 (not repeated on every SoC flash). Procedure is documented for the line; RS‑485 will not meet timing on the transceiver until this step is done.
 
 ---
 
@@ -117,4 +164,4 @@ Plain-language status on **current lab DT510 units** (interim boards; full re-te
 
 ---
 
-*Engineering detail (schematics, drivers, test commands): see `DT510-BSP-PROJECT-PLAN.md` and `DT510-HARDWARE-AUDIT-CHECKLIST.md` in the same repository — not required for programme review.*
+*For a full **schematic ↔ software** matrix (I²C addresses, probe notes, test commands): `DT510-HARDWARE-AUDIT-CHECKLIST.md`. Programme plan and tiers: `DT510-BSP-PROJECT-PLAN.md`.*
