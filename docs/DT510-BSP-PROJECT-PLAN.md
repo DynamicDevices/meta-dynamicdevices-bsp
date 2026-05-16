@@ -40,12 +40,13 @@ Working document for aligning **Ollie Hull’s DT510 pinout / hardware specifica
 
 | Step | What | Triggers factory CI? |
 |------|------|----------------------|
-| **Routine BSP work** | Commit + push **`meta-dynamicdevices-bsp`** to GitHub **`main`** only | **No** |
-| **Factory image** | After BSP (and distro, if any) is on GitHub at known SHAs: update **`lmp-manifest/vixdt.xml`** `revision=` pins (40-char SHAs for BSP/distro/subscriber), commit, push **`lmp-manifest`** branch **`main-imx8mm-jaguar-dt510`** | **Yes** (one run per coordinated push) |
+| **Routine BSP work (incl. docs)** | Commit + push **`meta-dynamicdevices-bsp`** to GitHub **`main`** only (`/push`) | **No** |
+| **Factory image** | When **recipes, DTS, machine conf, kernel fragments**, distro, subscriber, or containers changed — update **`lmp-manifest/vixdt.xml`** pins and push **`main-imx8mm-jaguar-dt510`** (`/build`) | **Yes** (one run per coordinated push) |
+| **Documentation only** (`docs/`, `*.md`) | **`/push` only** — **do not** bump manifest BSP pin (same LmP image, wasted CI) | **No** |
 | **Subscriber / local.conf** | Push **`meta-subscriber-overrides`** only when that repo actually changed | **Yes** — avoid a second push “to rerun” if manifest already moved in the same batch |
 | **Containers / AVM** | Push **`containers`** after bumping **`vix-apps`** submodule (see `containers/README.md`) | **Yes** (container pipeline) |
 
-**Pre-push checks** (from `vixdt` root): `./scripts/vixdt-pre-push-checks.sh` — DTS `**/` comment trap on BSP, `py_compile`, `bash -n`, `xmllint` on manifest XML. Cursor: **`/push`** (GitHub only) and **`/build`** (one batched factory run).
+**Pre-push checks** (from `vixdt` root): `./scripts/vixdt-pre-push-checks.sh` — DTS `**/` comment trap on BSP, `py_compile`, `bash -n`, `xmllint` on manifest XML. Before BSP manifest pin: `./scripts/vixdt-bsp-affects-factory-image.sh --since-manifest-pin` (exit 1 = docs-only → no factory build). Cursor: **`/push`** (GitHub only) and **`/build`** (factory run only when the image changes).
 
 **BSP pin (required for new BSP to reach the image):** `lmp-manifest/vixdt.xml` pins **`meta-dynamicdevices-bsp`** with a fixed **`revision="<40-char-sha>"`**. GitHub **`main`** alone is not enough — bump that SHA and push **manifest** after BSP is merged.
 
