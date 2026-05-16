@@ -2,7 +2,7 @@
 
 Working document for aligning **Ollie Hull’s DT510 pinout / hardware specification** with **`meta-dynamicdevices-bsp`** (device tree, kernel fragments, and related recipes). Update this file as the spec evolves and as tasks complete.
 
-**Stakeholder summary (Vix):** [`DT510-BRINGUP-STATUS-REPORT.md`](DT510-BRINGUP-STATUS-REPORT.md) — timeline, validated vs remaining work, factory notes (updated from this plan + checklist).
+**Vix programme summary (PM):** [`DT510-BRINGUP-STATUS-REPORT.md`](DT510-BRINGUP-STATUS-REPORT.md) — concise progress, de-risking, and timeline (engineering detail stays in this plan + checklist).
 
 ---
 
