@@ -8,10 +8,14 @@
 #
 # If the symlink never appears after flash:
 #   ls -l /dev/serial/by-path/
-#   udevadm info -a -n /dev/ttyUSB2 | head -80
-#   → confirm ATTRS{idVendor} idProduct} and ATTRS{bInterfaceNumber} for the RS485_TX1 port
+#   udevadm info -q property -n /dev/ttyUSB2 | grep -E ID_VENDOR_ID|ID_MODEL_ID|ID_USB_INTERFACE_NUM
+#   → expect 10c4 / ea71 / 02 on the first RS-485 port (lab: often ttyUSB2 on 1-1.3:1.2)
+#
+# Use ENV{ID_USB_INTERFACE_NUM} (set on the tty node). Do not combine ATTRS{idVendor},
+# ATTRS{idProduct}, and ATTRS{bInterfaceNumber} in one line — they sit on different sysfs
+# parents (device vs interface) and the rule will never match.
 #
 # Do not match u-blox GNSS (1546:*) or other CP210x adapters on the bus.
 
 # Silicon Labs CP2108 (U13) — interface 2 = bridge UART index 2 (RS-485 channel 1)
-SUBSYSTEM=="tty", KERNEL=="ttyUSB*", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea71", ATTRS{bInterfaceNumber}=="02", SYMLINK+="etm", TAG+="uaccess"
+SUBSYSTEM=="tty", KERNEL=="ttyUSB*", ENV{ID_VENDOR_ID}=="10c4", ENV{ID_MODEL_ID}=="ea71", ENV{ID_USB_INTERFACE_NUM}=="02", SYMLINK+="etm", TAG+="uaccess"

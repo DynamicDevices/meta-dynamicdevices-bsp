@@ -61,9 +61,9 @@ Lab status = Dynamic Devices on **interim DT510 boards** (May 2026). **Prototype
 | Schematic block | Ref / key nets | Status | What we know |
 |-----------------|----------------|--------|--------------|
 | CAN | MCP251863, ECSPI2; `CAN_INT#`, `CAN_STBY` | **Have** | Controller up as `can0`; **vehicle bus** test with partner ECU still to schedule |
-| USB quad-UART | **U13** CP2108 | **Have** | All four channels characterised |
-| ↳ RS‑232 | Ch 0–1; `RS232TXD1/RXD1`, `RS232TXD2/RXD2` | **Have** | Working |
-| ↳ RS‑485 | Ch 2–3; `RS485_TX/RX`, `RS485_DE1/DE2` | **Have** | Timing correct on scope; **one-time factory program on U13** per board (documented) |
+| USB quad-UART | **U13** CP2108 | **Have** | All four channels characterised; **RS‑232 + RS‑485 validated on bench (Michael, May 2026)** |
+| ↳ RS‑232 | Ch 0–1; `RS232TXD1/RXD1`, `RS232TXD2/RXD2` | **Have** | **Validated (Michael)** — working |
+| ↳ RS‑485 | Ch 2–3; `RS485_TX/RX`, `RS485_DE1/DE2` | **Have** | **Validated (Michael)** — timing correct on scope; **one-time factory program on U13** per board (documented) |
 | ↳ Bridge reset | `QUART_RES#` | **Have** | Documented in software |
 
 ### Vehicle I/O
@@ -137,7 +137,7 @@ Everything else in the table above is **have** or **partly have**. These are the
 | Apr 2026 | Platform baseline complete; board boots and updates on factory images |
 | Early May 2026 | PMIC, Wi‑Fi, Bluetooth, Ethernet path, GNSS |
 | 6–8 May 2026 | Tannoy audio, CAN, cabin loop, cellular SIM, digital I/O |
-| 16 May 2026 | RS‑485 on U13 signed off (incl. factory programming note) |
+| 16 May 2026 | CP2108 U13: **RS‑232 + RS‑485** validated (**Michael**); factory NVM programming note documented |
 
 ---
 
