@@ -1197,6 +1197,11 @@
 };
 
 &sai5 {
+	/*
+	 * imx8mm NXP EVK / soc glue sets fsl,sai-asynchronous on this SAI; it cannot
+	 * coexist with fsl,sai-synchronous-rx (fsl_sai_probe → EINVAL "invalid binding").
+	 */
+	/delete-property/ fsl,sai-asynchronous;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sai5_taa5412>;
 	/* Same AUDIO_PLL1 reparent pattern as &sai3 / &sai6 (CLK_SAI5, not *_ROOT). */
@@ -1208,9 +1213,8 @@
 	 * Product vs EVK: TAA5412 is capture on &sai5; LRCK is muxed as SAI5_TX_SYNC
 	 * (transmit-side pin function). Prefer explicit Rx-clock-sync-to-Tx: in fsl_sai.c
 	 * this is fsl,sai-synchronous-rx ("Sync Rx with Tx"), not the default
-	 * "Sync Tx with Rx". Do NOT add fsl,sai-asynchronous on this node — both flags
-	 * together make probe fail with EINVAL. If sai5 regressions appear, revert this
-	 * line and revisit regmap/TCSR during arecord & scope on FS/BCLK nets.
+	 * "Sync Tx with Rx". Requires deleting inherited fsl,sai-asynchronous (above).
+	 * If sai5 regressions appear, revert synchronous-rx and revisit regmap/scope.
 	 */
 	fsl,sai-synchronous-rx;
 	#sound-dai-cells = <0>;
