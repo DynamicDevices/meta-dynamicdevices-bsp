@@ -1,0 +1,17 @@
+# DT510 — stable device name for CP2108 (U13) **first RS-485** UART (bridge IFC2 / RS485_TX1 / RS485_DE1).
+# Wayfarer ETM (Translink NI) and similar ticket machines attach here.
+#
+# Creates:  /dev/etm  →  symlink to the ttyUSB* node for USB interface 2 on the quad CP2108.
+#
+# Lab mapping (USB path 1-1.3): IFC0/1 RS-232 → :1.0 / :1.1; IFC2/3 RS-485 → :1.2 / :1.3.
+# This rule targets **interface 2 only** (first RS-485). Second RS-485 is IFC3 (:1.3) — no symlink yet.
+#
+# If the symlink never appears after flash:
+#   ls -l /dev/serial/by-path/
+#   udevadm info -a -n /dev/ttyUSB2 | head -80
+#   → confirm ATTRS{idVendor} idProduct} and ATTRS{bInterfaceNumber} for the RS485_TX1 port
+#
+# Do not match u-blox GNSS (1546:*) or other CP210x adapters on the bus.
+
+# Silicon Labs CP2108 (U13) — interface 2 = bridge UART index 2 (RS-485 channel 1)
+SUBSYSTEM=="tty", KERNEL=="ttyUSB*", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea71", ATTRS{bInterfaceNumber}=="02", SYMLINK+="etm", TAG+="uaccess"
