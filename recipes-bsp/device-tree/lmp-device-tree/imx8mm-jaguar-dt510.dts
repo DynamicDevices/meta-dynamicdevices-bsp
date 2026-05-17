@@ -1205,13 +1205,14 @@
 	assigned-clock-rates = <12288000>;
 	fsl,sai-mclk-direction-output;
 	/*
-	 * No fsl,sai-synchronous-rx: enabling it breaks 30050000.sai probe with
-	 * invalid binding for synchronous mode (-EINVAL) on 6.6 fsl-sai; sound-taa5412
-	 * stays deferred (seen on factory lmp-350). imx8mm base sai5 inherits MICFIL-era
-	 * bits that contradict sync-RX. sai3 can use sync-RX; sai6 cannot (-EINVAL too).
-	 * sai5 matches sai1/sai6: fsl,sai-mclk-direction-output only. FSYNC/DOUT bench
-	 * issues need HW/TI ASI debug after sai probes cleanly.
+	 * Product vs EVK: TAA5412 is capture on &sai5; LRCK is muxed as SAI5_TX_SYNC
+	 * (transmit-side pin function). Prefer explicit Rx-clock-sync-to-Tx: in fsl_sai.c
+	 * this is fsl,sai-synchronous-rx ("Sync Rx with Tx"), not the default
+	 * "Sync Tx with Rx". Do NOT add fsl,sai-asynchronous on this node — both flags
+	 * together make probe fail with EINVAL. If sai5 regressions appear, revert this
+	 * line and revisit regmap/TCSR during arecord & scope on FS/BCLK nets.
 	 */
+	fsl,sai-synchronous-rx;
 	#sound-dai-cells = <0>;
 	status = "okay";
 };
