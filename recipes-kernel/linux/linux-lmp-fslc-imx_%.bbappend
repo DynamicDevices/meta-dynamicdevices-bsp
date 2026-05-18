@@ -9,7 +9,7 @@ SRC_URI:append:imx95-frdm-evk = " \
     file://imx95-15x15-lpddr4x-frdm.scc \
     file://imx95-15x15-lpddr4x-frdm-standard.scc \
     file://imx95-15x15-lpddr4x-frdm.cfg \
-    file://imx95-frdm-evk/imx95-15x15-frdm.dts \
+    file://imx95-15x15-frdm.dts \
 "
 
 do_kernel_metadata:prepend:imx95-frdm-evk() {
