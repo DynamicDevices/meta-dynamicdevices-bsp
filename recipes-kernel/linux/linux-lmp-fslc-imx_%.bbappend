@@ -212,6 +212,7 @@ SRC_URI:append:imx95-frdm-evk = " \
     file://imx95-15x15-lpddr4x-frdm.scc \
     file://imx95-15x15-lpddr4x-frdm-standard.scc \
     file://imx95-15x15-lpddr4x-frdm.cfg \
+    file://imx95-frdm-evk/imx95-15x15-frdm.dts \
 "
 
 do_kernel_metadata:prepend:imx95-frdm-evk() {
@@ -220,4 +221,17 @@ do_kernel_metadata:prepend:imx95-frdm-evk() {
         ${WORKDIR}/imx95-15x15-lpddr4x-frdm-standard.scc \
         ${WORKDIR}/imx95-15x15-lpddr4x-frdm.cfg \
         ${WORKDIR}/kernel-meta/bsp/imx/
+}
+
+# linux-lmp-fslc-imx 6.6.52 has imx95.dtsi but not imx95-15x15-frdm.dts (mainline Jan 2026).
+do_configure:append:imx95-frdm-evk() {
+    if [ -f ${WORKDIR}/imx95-15x15-frdm.dts ]; then
+        install -D -m 0644 ${WORKDIR}/imx95-15x15-frdm.dts ${S}/arch/arm64/boot/dts/freescale/
+        if ! grep -q 'imx95-15x15-frdm.dtb' ${S}/arch/arm64/boot/dts/freescale/Makefile; then
+            printf '\ndtb-$(CONFIG_ARCH_MXC) += imx95-15x15-frdm.dtb\n' \
+                >> ${S}/arch/arm64/boot/dts/freescale/Makefile
+        fi
+    else
+        bbwarn "imx95-15x15-frdm.dts missing in ${WORKDIR}"
+    fi
 }
