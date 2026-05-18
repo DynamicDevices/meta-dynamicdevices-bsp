@@ -11,9 +11,9 @@
 #
 # Do not widen rules to overlap Quectel / other modems.
 
-# u-blox GNSS USB (often 1546:01a8 / 01a9 — driver may expose ttyACM* or ttyUSB*)
-SUBSYSTEM=="tty", KERNEL=="ttyUSB*|ttyACM*", ATTRS{idVendor}=="1546", ATTRS{idProduct}=="01a9", SYMLINK+="gnss", TAG+="uaccess"
-SUBSYSTEM=="tty", KERNEL=="ttyUSB*|ttyACM*", ATTRS{idVendor}=="1546", ATTRS{idProduct}=="01a8", SYMLINK+="gnss", TAG+="uaccess"
+# u-blox GNSS USB (1546:01a8 / 01a9 — native USB; may expose ttyACM* or ttyUSB*)
+SUBSYSTEM=="tty", KERNEL=="ttyUSB*|ttyACM*", ENV{ID_VENDOR_ID}=="1546", ENV{ID_MODEL_ID}=="01a9", SYMLINK+="gnss", TAG+="uaccess"
+SUBSYSTEM=="tty", KERNEL=="ttyUSB*|ttyACM*", ENV{ID_VENDOR_ID}=="1546", ENV{ID_MODEL_ID}=="01a8", SYMLINK+="gnss", TAG+="uaccess"
 
-# Silicon Labs CP210x (10c4:ea60 typical) — enable if GNSS enumerate as CP210 not u-blox
-# SUBSYSTEM=="tty", KERNEL=="ttyUSB*", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", SYMLINK+="gnss", TAG+="uaccess"
+# NEO-M9V UART via CP2102N on DT510 (lab: often ttyUSB4 on USB path …1.4:1.0 — only one 10c4:ea60 on bus)
+SUBSYSTEM=="tty", KERNEL=="ttyUSB*", ENV{ID_VENDOR_ID}=="10c4", ENV{ID_MODEL_ID}=="ea60", SYMLINK+="gnss", TAG+="uaccess"
