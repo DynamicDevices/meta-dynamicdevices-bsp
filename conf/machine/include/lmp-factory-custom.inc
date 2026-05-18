@@ -10,10 +10,10 @@ UBOOT_SIGN_KEYDIR = "${TOPDIR}/conf/factory-keys"
 UBOOT_SIGN_KEYNAME = "ubootdev"
 
 # OP-TEE TA signing key (factory production). optee-os-fio adds TA_SIGN_KEY to OE make
-# when this is non-empty; meta-lmp does not honor OPTEE_TA_SIGN_ENABLE. Unset for
-# DEV_MODE / LOCAL_DEVELOPMENT_BUILD / OPTEE_TA_SIGN_ENABLE=0 so bring-up builds do
-# not require conf/factory-keys/opteedev.key (OP-TEE uses its default embedded key).
-OPTEE_TA_SIGN_KEY = "${@'' if (d.getVar('DEV_MODE') or '0') == '1' or (d.getVar('LOCAL_DEVELOPMENT_BUILD') or '0') == '1' or (d.getVar('OPTEE_TA_SIGN_ENABLE') or '1') == '0' else (d.getVar('TOPDIR') + '/conf/factory-keys/opteedev.key')}"
+# when this is non-empty; meta-lmp does not honor OPTEE_TA_SIGN_ENABLE. Unset only for
+# LOCAL_DEVELOPMENT_BUILD (KAS/local smoke) so builds without factory-keys/opteedev.key
+# succeed. Foundries may set DEV_MODE=1 without LOCAL_DEVELOPMENT_BUILD — keep factory key.
+OPTEE_TA_SIGN_KEY = "${@'' if (d.getVar('LOCAL_DEVELOPMENT_BUILD') or '0') == '1' else (d.getVar('TOPDIR') + '/conf/factory-keys/opteedev.key')}"
 
 # SPL / U-Boot proper signing key
 UBOOT_SPL_SIGN_KEYDIR = "${TOPDIR}/conf/factory-keys"
