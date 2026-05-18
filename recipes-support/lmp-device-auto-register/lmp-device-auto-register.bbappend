@@ -6,6 +6,7 @@ SRC_URI:append:imx8mm-jaguar-handheld = " file://imx8mm-jaguar-handheld/lmp-devi
 SRC_URI:append:imx8mm-jaguar-dt510 = " file://imx8mm-jaguar-dt510/lmp-device-auto-register"
 SRC_URI:append:imx93-jaguar-eink = " file://imx93-jaguar-eink/lmp-device-auto-register"
 SRC_URI:append:imx93-jaguar-eink-prod = " file://imx93-jaguar-eink-prod/lmp-device-auto-register"
+SRC_URI:append:imx95-frdm-evk = " file://imx95-frdm-evk/lmp-device-auto-register"
 
 do_install:append() {
     # Install machine-specific device registration script if available

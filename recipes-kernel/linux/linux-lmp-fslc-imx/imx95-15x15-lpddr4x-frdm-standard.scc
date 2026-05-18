@@ -1,0 +1,7 @@
+define KMACHINE imx95-15x15-lpddr4x-frdm
+define KARCH aarch64
+define KTYPE standard
+
+include ktypes/standard/standard.scc
+
+include imx95-15x15-lpddr4x-frdm.scc

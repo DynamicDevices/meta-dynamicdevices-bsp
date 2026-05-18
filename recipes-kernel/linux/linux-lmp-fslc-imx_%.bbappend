@@ -211,3 +211,18 @@ do_configure:append:imx93-jaguar-eink(){
 #      cat ../*.cfg >> ${B}/.config
 #   done
 #}
+
+# lmp-kernel-cache has imx93 BSP metadata only; imx95 FRDM is not upstream yet.
+SRC_URI:append:imx95-frdm-evk = " \
+    file://imx95-15x15-lpddr4x-frdm.scc \
+    file://imx95-15x15-lpddr4x-frdm-standard.scc \
+    file://imx95-15x15-lpddr4x-frdm.cfg \
+"
+
+do_kernel_metadata:prepend:imx95-frdm-evk() {
+    install -d ${WORKDIR}/kernel-meta/bsp/imx
+    install -m 0644 ${WORKDIR}/imx95-15x15-lpddr4x-frdm.scc \
+        ${WORKDIR}/imx95-15x15-lpddr4x-frdm-standard.scc \
+        ${WORKDIR}/imx95-15x15-lpddr4x-frdm.cfg \
+        ${WORKDIR}/kernel-meta/bsp/imx/
+}
