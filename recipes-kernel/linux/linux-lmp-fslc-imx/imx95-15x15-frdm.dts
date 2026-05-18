@@ -22,8 +22,9 @@
 	model = "NXP i.MX95 15X15 FRDM board";
 
 	aliases {
-		ethernet0 = &enetc_port0;
-		ethernet1 = &enetc_port1;
+		/* ethernet disabled until imx95.dtsi NETC nodes land in lmp-6.6.52 */
+		/* ethernet0 = &enetc_port0; */
+		/* ethernet1 = &enetc_port1; */
 		gpio0 = &gpio1;
 		gpio1 = &gpio2;
 		gpio2 = &gpio3;
@@ -265,6 +266,8 @@
 	status = "okay";
 };
 
+#if 0
+/* imx95.dtsi in linux-lmp-fslc-imx 6.6.52 lacks NETC; re-enable with imx95.dtsi backport */
 &enetc_port0 {
 	phy-handle = <&ethphy0>;
 	phy-mode = "rgmii-id";
@@ -280,6 +283,7 @@
 	pinctrl-names = "default";
 	status = "okay";
 };
+#endif
 
 &flexcan2 {
 	pinctrl-0 = <&pinctrl_flexcan2>;
@@ -494,20 +498,21 @@
 	};
 };
 
+#if 0
+/* NETC / ENETC: requires imx95.dtsi nodes not present in linux-lmp-fslc-imx 6.6.52 */
 &netc_blk_ctrl {
 	status = "okay";
 };
 
-/* Configure MSI and IOMMU mappings specific to the i.MX95 15x15 FRDM board. */
 &netc_bus0 {
-	msi-map = <0x0 &its 0x60 0x1>,	//ENETC0 PF
-		  <0x10 &its 0x61 0x1>, //ENETC0 VF0
-		  <0x20 &its 0x62 0x1>, //ENETC0 VF1
-		  <0x40 &its 0x63 0x1>, //ENETC1 PF
-		  <0x50 &its 0x65 0x1>, //ENETC1 VF0
-		  <0x60 &its 0x66 0x1>, //ENETC1 VF1
-		  <0x80 &its 0x64 0x1>, //ENETC2 PF
-		  <0xc0 &its 0x67 0x1>; //NETC Timer
+	msi-map = <0x0 &its 0x60 0x1>,
+		  <0x10 &its 0x61 0x1>,
+		  <0x20 &its 0x62 0x1>,
+		  <0x40 &its 0x63 0x1>,
+		  <0x50 &its 0x65 0x1>,
+		  <0x60 &its 0x66 0x1>,
+		  <0x80 &its 0x64 0x1>,
+		  <0xc0 &its 0x67 0x1>;
 	iommu-map = <0x0 &smmu 0x20 0x1>,
 		    <0x10 &smmu 0x21 0x1>,
 		    <0x20 &smmu 0x22 0x1>,
@@ -545,6 +550,7 @@
 &netcmix_blk_ctrl {
 	status = "okay";
 };
+#endif
 
 &pcie0 {
 	pinctrl-0 = <&pinctrl_pcie0>;
