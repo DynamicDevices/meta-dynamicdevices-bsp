@@ -5,11 +5,8 @@ MODSIGN_KEY_DIR = "${TOPDIR}/conf/factory-keys"
 MODSIGN_PRIVKEY = "${MODSIGN_KEY_DIR}/privkey_modsign.pem"
 MODSIGN_X509 = "${MODSIGN_KEY_DIR}/x509_modsign.crt"
 
-# meta-lmp enables CONFIG_MODULE_SIG via DISTRO_FEATURES modsign (lmp.inc +
-# lmp-kernel-cache features/ima/modsign.scc). MODSIGN_ENABLE/MODSIGN in local.conf
-# are not read by meta-lmp. Drop modsign for KAS/local smoke without factory keys;
-# Foundries sets MODSIGN_ENABLE=1 and provides privkey_modsign.pem / x509_modsign.crt.
-DISTRO_FEATURES:remove = "${@' modsign' if (d.getVar('LOCAL_DEVELOPMENT_BUILD') or '0') == '1' or (d.getVar('MODSIGN_ENABLE') or '1') == '0' or (d.getVar('MODSIGN') or '1') == '0' else ''}"
+# modsign DISTRO_FEATURE strip for local/KAS: conf/include/lmp-dev-modsign.inc
+# (included from conf/layer.conf when this BSP layer is in BBLAYERS).
 
 # U-Boot signing key
 UBOOT_SIGN_KEYDIR = "${TOPDIR}/conf/factory-keys"

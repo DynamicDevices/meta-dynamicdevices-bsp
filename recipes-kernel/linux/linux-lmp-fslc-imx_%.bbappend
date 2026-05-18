@@ -2,6 +2,10 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 # imx8mm-jaguar-dt510 DTS + imx8mm-sw_pad_ctl.h live under lmp-device-tree (SoC pad words, shared header).
 FILESEXTRAPATHS:prepend:imx8mm-jaguar-dt510 := "${THISDIR}/../../recipes-bsp/device-tree/lmp-device-tree:"
 
+# Belt-and-suspenders when DISTRO_FEATURES modsign is off but kernel metadata still
+# enables CONFIG_MODULE_SIG (factory-keys / modsign_key.pem not present locally).
+SRC_URI:append = "${@' file://disable-modsign.cfg' if (d.getVar('LOCAL_DEVELOPMENT_BUILD') or '0') == '1' or (d.getVar('MODSIGN_ENABLE') or '1') == '0' or (d.getVar('MODSIGN') or '1') == '0' else ''}"
+
 # Fix buildpaths QA warnings by ensuring debug prefix mapping is applied to kernel builds
 # This prevents TMPDIR references from being embedded in debug information
 DEBUG_PREFIX_MAP:append = " -fdebug-prefix-map=${TMPDIR}=/usr/src/debug/tmpdir"
