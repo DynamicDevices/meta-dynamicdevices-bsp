@@ -16,6 +16,7 @@ This layer provides hardware-specific support for Dynamic Devices edge computing
 
 - **i.MX8MM-based platforms**: Jaguar Sentai, Inst, Handheld, Phasora
 - **i.MX93-based platforms**: Jaguar eInk
+- **i.MX95-based platforms**: FRDM-IMX95 EVK (initial bring-up)
 
 ## Layer Type
 
@@ -36,6 +37,21 @@ This is a **BSP (Board Support Package) layer** that provides:
 | `imx8mm-jaguar-handheld` | Handheld device platform | i.MX8MM |
 | `imx8mm-jaguar-phasora` | Multi-sensor platform | i.MX8MM |
 | `imx93-jaguar-eink` | E-ink display platform | i.MX93 |
+| `imx95-frdm-evk` | NXP FRDM-IMX95 EVK bring-up | i.MX95 |
+
+NXP upstream `MACHINE` names in `meta-imx` (parent configs for this layer):
+
+| NXP MACHINE | Board |
+|-------------|--------|
+| `imx95-15x15-lpddr4x-frdm` | FRDM-IMX95 (15×15, LPDDR4x) — **default parent for `imx95-frdm-evk`** |
+| `imx95-15x15-lpddr4x-evk` | i.MX95 15×15 LPDDR4x EVK |
+| `imx95-19x19-lpddr5-evk` | i.MX95 19×19 LPDDR5 EVK |
+| `imx95-19x19-verdin` | Toradex Verdin i.MX95 SoM |
+| `imx95evk` | Consolidated image (19×19 boot + multiple DTBs) |
+| `imx95-a1-15x15-lpddr4x-evk` / `imx95-a1-19x19-lpddr5-evk` / `imx95-a1-19x19-verdin` | Early A1 silicon |
+| `imx95a1evk` | Consolidated A1 silicon |
+
+Android BSP product name (separate from Yocto): `evk_95` (`lunch evk_95-nxp_stable-*`).
 
 ## Usage
 
