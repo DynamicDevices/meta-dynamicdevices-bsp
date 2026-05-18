@@ -2,7 +2,7 @@
 #
 # Creates:  /dev/gnss  →  symlink to ttyUSB* or ttyACM* (underlying node must match rules below).
 #
-# Lab units often see GNSS on /dev/ttyUSB4 — that minor changes with enumeration; use /dev/gnss from apps.
+# Lab units: NEO-M9V via CP2102N (10c4:ea60), often ttyUSB4 / USB …1.4:1.0 — use /dev/gnss from apps.
 #
 # If the symlink never appears after flash:
 #   udevadm info -a -n /dev/ttyUSB4 | head -80
