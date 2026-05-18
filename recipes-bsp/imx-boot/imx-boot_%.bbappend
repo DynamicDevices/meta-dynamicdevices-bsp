@@ -14,3 +14,6 @@ DEPLOY_OPTEE:lmp-mfgtool:imx8mm-jaguar-dt510 = "false"
 # Use correct boot targets for different SoC families
 # imx93 uses flash_singleboot, imx8mm uses flash_evk
 IMXBOOT_TARGETS:lmp-mfgtool:imx93-jaguar-eink = "flash_singleboot"
+
+# imx95 (mx95): use A55 boot target for mfgtool (not imx93 flash_singleboot)
+IMXBOOT_TARGETS:lmp-mfgtool:imx95-frdm-evk = "flash_a55"

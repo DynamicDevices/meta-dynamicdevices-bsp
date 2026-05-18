@@ -44,6 +44,10 @@ SRC_URI:append:imx93-jaguar-eink = " \
     file://enable-rtc.cfg \
 "
 
+SRC_URI:append:imx95-frdm-evk = " \
+    file://custom-dtb.cfg \
+"
+
 # TODO: Add u-boot DTB customisation patch
 #SRC_URI:append:imx8ulp-lpddr4-evk = " \
 #    file://custom-dtb.cfg \

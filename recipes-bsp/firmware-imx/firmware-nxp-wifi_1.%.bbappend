@@ -1,5 +1,16 @@
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
+# meta-imx firmware-nxp-wifi_%.bbappend PACKAGES += nxpiw610-sdio but meta-freescale
+# base recipe already defines it — duplicate PACKAGES breaks do_package QA.
+python () {
+    packages = (d.getVar('PACKAGES') or '').split()
+    deduped = []
+    for pkg in packages:
+        if pkg not in deduped:
+            deduped.append(pkg)
+    d.setVar('PACKAGES', ' '.join(deduped))
+}
+
 #do_install:append() {
 #    sed -i 's/ps_mode=1/ps_mode=2/g' ${D}${nonarch_base_libdir}/firmware/nxp/wifi_mod_para.conf
 #    sed -i 's/auto_ds=1/auto_ds=2/g' ${D}${nonarch_base_libdir}/firmware/nxp/wifi_mod_para.conf
