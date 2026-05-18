@@ -43,9 +43,9 @@ NXP upstream `MACHINE` names in `meta-imx` (parent configs for this layer):
 
 | NXP MACHINE | Board |
 |-------------|--------|
-| `imx95-15x15-lpddr4x-frdm` | FRDM-IMX95 (15×15, LPDDR4x) — **default parent for `imx95-frdm-evk`** |
-| `imx95-15x15-lpddr4x-evk` | i.MX95 15×15 LPDDR4x EVK |
-| `imx95-19x19-lpddr5-evk` | i.MX95 19×19 LPDDR5 EVK |
+| `imx95-15x15-lpddr4x-frdm` | FRDM-IMX95 (15×15, **LPDDR4/LPDDR4x**) — **default parent for `imx95-frdm-evk`** |
+| `imx95-15x15-lpddr4x-evk` | i.MX95 15×15 LPDDR4x EVK (not FRDM) |
+| `imx95-19x19-lpddr5-evk` | Full **£1k** EVK (19×19, **LPDDR5**) — different DRAM; do not use for FRDM |
 | `imx95-19x19-verdin` | Toradex Verdin i.MX95 SoM |
 | `imx95evk` | Consolidated image (19×19 boot + multiple DTBs) |
 | `imx95-a1-15x15-lpddr4x-evk` / `imx95-a1-19x19-lpddr5-evk` / `imx95-a1-19x19-verdin` | Early A1 silicon |
