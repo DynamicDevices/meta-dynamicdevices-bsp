@@ -15,6 +15,7 @@ SRC_URI:append:imx8mm-jaguar-inst = " file://20-jaguar.rules"
 SRC_URI:append:imx8mm-jaguar-handheld = " file://20-jaguar.rules"
 SRC_URI:append:imx8mm-jaguar-phasora = " file://20-jaguar.rules"
 SRC_URI:append:imx93-jaguar-eink = " file://20-jaguar.rules"
+SRC_URI:append:imx95-frdm-evk = " file://20-jaguar.rules"
 
 S = "${WORKDIR}"
 
