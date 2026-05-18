@@ -60,9 +60,15 @@ SRC_URI:append:imx93-jaguar-eink = " \
   file://enable-firewall.sh \
 "
 
+SRC_URI:append:imx95-frdm-evk = " \
+  file://board-info.sh \
+  file://set-fio-passwd.sh \
+  file://enable-firewall.sh \
+"
+
 do_install() {
-    install -d ${D}${sbindir}
     if [ -n "$(ls -A ${WORKDIR}/*.sh 2>/dev/null)" ]; then
+        install -d ${D}${sbindir}
         install -m 0755 ${WORKDIR}/*.sh ${D}${sbindir}
     fi
 }
