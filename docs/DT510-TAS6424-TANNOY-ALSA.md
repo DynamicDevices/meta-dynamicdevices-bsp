@@ -29,7 +29,7 @@
 | **`tannoy_both_lr`** | Stereo: **L→slot2**, **R→slot3**. **Real 2ch** WAV (or **`aplay -c 2`**) exercises both paths independently. **`vix-apps` / AVM** dual passenger output currently sends **mono** duplicated to identical L+R (same summed loudness as **`tannoy_both_mono`**) via **`audio_player`** until independent L/R content is mixed. **Typical onboard default:** **`passengers_output_device`** targets **`audio_loop`** (TAC5301 cabin loop); use **`tannoy_both_*`** when this class‑D path must carry passenger announcements instead. |
 | **`tannoy_all`** | Mono duplicated to **IEC 0–3** (hits unused 0–1 — **lab / soak**, not routine product playback). |
 
-**TI mixer widgets** remain **`Speaker Driver CH1`–`CH4`** in **`amixer`**; mapping to schematic slots is documented in DTS header + this file.
+**TI mixer widgets (passenger tannoy only):** **`amixer -D tannoys`** exposes **`Speaker Driver CH1`–`CH4`**. These names are **TI/codec legacy** — they control the **TAS6424 passenger tannoy horns** (PA outputs), **not** the **cab driver speaker**. **Driver** volume is **TAS2563** on mixer **`drivers`** / PCM **`driver_speaker`** — see [`DT510-TAS2563-DRIVER-SPEAKER-ALSA.md`](DT510-TAS2563-DRIVER-SPEAKER-ALSA.md). Do **not** rename the ALSA control strings in scripts; map CH1–CH4 to schematic slots per DTS header + this file.
 
 Boot script **`tas6424-init`** uses **`amixer -D tannoys`** (falls back to **`hw:<card>`**). Default boot level: **Speaker Driver CH1–CH4** all **20**/255 unless **`TAS6424_BOOT_VOL`** is set (same value applied to each channel via **`sset`**). Overrides: **`TAS6424_MIXER`**, **`TAS6424_VOL_CH1`**–**`CH4`** (control **names**, not values) via environment / systemd **`Environment=`**.
 
