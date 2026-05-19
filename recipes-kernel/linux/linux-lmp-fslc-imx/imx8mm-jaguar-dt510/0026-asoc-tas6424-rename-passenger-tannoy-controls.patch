@@ -1,0 +1,33 @@
+From: Andrew Lennon <andrew.lennon@dynamicdevices.co.uk>
+Date: Tue, 19 May 2026 12:00:00 +0000
+Subject: [PATCH] ASoC: tas6424: rename mixer controls for passenger tannoys
+
+TI upstream labels the DAC volume kcontrols "Speaker Driver CHn", which is
+easily confused with the cab driver speaker (TAS2563) on DT510. Rename to
+"Tannoy CHn" so amixer/alsamixer match product terminology (tannoys mixer).
+
+Signed-off-by: Andrew Lennon <andrew.lennon@dynamicdevices.co.uk>
+---
+ sound/soc/codecs/tas6424.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/sound/soc/codecs/tas6424.c b/sound/soc/codecs/tas6424.c
+index 1111111..2222222 100644
+--- a/sound/soc/codecs/tas6424.c
++++ b/sound/soc/codecs/tas6424.c
+@@ -56,13 +56,13 @@ static DECLARE_TLV_DB_SCALE(dac_tlv, -10350, 50, 0);
+ static const struct snd_kcontrol_new tas6424_snd_controls[] = {
+-	SOC_SINGLE_TLV("Speaker Driver CH1 Playback Volume",
++	SOC_SINGLE_TLV("Tannoy CH1 Playback Volume",
+ 		       TAS6424_CH1_VOL_CTRL, 0, 0xff, 0, dac_tlv),
+-	SOC_SINGLE_TLV("Speaker Driver CH2 Playback Volume",
++	SOC_SINGLE_TLV("Tannoy CH2 Playback Volume",
+ 		       TAS6424_CH2_VOL_CTRL, 0, 0xff, 0, dac_tlv),
+-	SOC_SINGLE_TLV("Speaker Driver CH3 Playback Volume",
++	SOC_SINGLE_TLV("Tannoy CH3 Playback Volume",
+ 		       TAS6424_CH3_VOL_CTRL, 0, 0xff, 0, dac_tlv),
+-	SOC_SINGLE_TLV("Speaker Driver CH4 Playback Volume",
++	SOC_SINGLE_TLV("Tannoy CH4 Playback Volume",
+ 		       TAS6424_CH4_VOL_CTRL, 0, 0xff, 0, dac_tlv),
+ 	SOC_SINGLE_STROBE("Auto Diagnostics Switch", TAS6424_DC_DIAG_CTRL1,
+ 			  TAS6424_LDGBYPASS_SHIFT, 1),

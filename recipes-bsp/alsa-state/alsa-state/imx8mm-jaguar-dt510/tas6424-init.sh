@@ -1,14 +1,14 @@
 #!/bin/sh
 # DT510 TAS6424E-Q1: boot passenger tannoy horn mixer defaults (ctl "tannoys" from /etc/asound.conf).
-# "Speaker Driver CH1"–CH4 are TI legacy names for the PA tannoys — not the cab driver (TAS2563 / tas2563-init).
+# Passenger tannoy PA levels: kernel exposes "Tannoy CH1"–CH4 (0026 tas6424 rename); not cab driver (TAS2563).
 # Optional env overrides: TAS6424_MIXER, TAS6424_BOOT_VOL, TAS6424_VOL_CH1, TAS6424_VOL_CH2–CH4 strings.
 
 VOL=${TAS6424_BOOT_VOL:-20}
 MIX=${TAS6424_MIXER:-tannoys}
-VOL_CH1=${TAS6424_VOL_CH1:-"Speaker Driver CH1"}
-VOL_CH2=${TAS6424_VOL_CH2:-"Speaker Driver CH2"}
-VOL_CH3=${TAS6424_VOL_CH3:-"Speaker Driver CH3"}
-VOL_CH4=${TAS6424_VOL_CH4:-"Speaker Driver CH4"}
+VOL_CH1=${TAS6424_VOL_CH1:-"Tannoy CH1"}
+VOL_CH2=${TAS6424_VOL_CH2:-"Tannoy CH2"}
+VOL_CH3=${TAS6424_VOL_CH3:-"Tannoy CH3"}
+VOL_CH4=${TAS6424_VOL_CH4:-"Tannoy CH4"}
 
 NAME=tas6424-init
 log() {
