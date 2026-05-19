@@ -142,6 +142,17 @@ Cab **call-request**, **emergency**, and **driver PTT** use the **DI header** on
 
 Canonical map: **`vix-apps/NDTR/common/dt510_gpio.py`**, DTS **`gpio-line-names`** on **`&gpio1`** in **`imx8mm-jaguar-dt510.dts`**.
 
+### Lab verification (2026-05-19)
+
+**Status: validated (lab)** — cab buttons end-to-end in **NDTR** + **AVM** on bench.
+
+| Button | App | Evidence |
+|--------|-----|----------|
+| **DI1** call-request, **DI2** emergency | **NDTR** `switch_monitor` | **`Detected activity on GPIO pin`**, **`call request`**, short-press enqueue; physical press + engineering **`gpio set`** |
+| **DI3** PTT | **AVM** `button_monitor` | **`DT510 PTT pressed`** / **`released`**; **`DRIVER_PA`** passenger-queue enqueue |
+
+**Software fix (containers, not LmP):** libgpiod v2 needs **`get_value`** in **`dt510_gpio.py`** (v1-style reads failed silently). Landed **`meta-dynamicdevices-bsp` `8308949`**, **`vix-apps` `2c45f79`**; **Foundries containers target 393**. **Andy/Vix units:** container **OTA ≥393** (or equivalent hotpatch) — **no** platform/factory image required for buttons alone.
+
 ### GPIO ownership (one consumer per line)
 
 | Lines | Consumer | Container |
@@ -217,4 +228,4 @@ AVM PTT notes: **`vix-apps/AVM/VIX_HANDOFF_AVM_DEBUGGING.md`** (§ Cab buttons).
 
 ---
 
-*Last updated: **2026-05-19** — **§ Cab buttons:** libgpiod DI map, NDTR/AVM GPIO ownership, engineering SSH **9101**, bench **`dt510-dio-poll-inputs`** + container logs, short vs long press (**3 s**). Earlier **2026-05-16** — **CP2108:** UART **[0]/[1]** RS‑232 + **[2]/[3]** RS‑485 **validated (lab, Michael)**; RS‑485 DE polarity + NVM **`0x0c`** via **`cp2108-set-portconfig --rs485-de-invert`**; manufacturing once-per-unit. Earlier **2026-05-06** — **TAS6424:** [`DT510-TAS6424-TANNOY-ALSA.md`](DT510-TAS6424-TANNOY-ALSA.md); **TAC5301:** [`DT510-TAC5301-AUDIO-LOOP-ALSA.md`](DT510-TAC5301-AUDIO-LOOP-ALSA.md) (**`audio_loop`** / **`aux`**); **TAA5412:** [`DT510-TAA5412-DRIVER-MIC-ALSA.md`](DT510-TAA5412-DRIVER-MIC-ALSA.md) (**`driver_mic`**). SSOT **Class-D row** validated for **`tannoy_*`**. Earlier **2026-05-15** — **§ CP2108:** bridge UART **[0]/[1]** RS‑232; **[2]/[3]** RS‑485 with **`GPIO.10`→`RS485_DE1`**, **`GPIO.14`→`RS485_DE2`** ( **`t_ACTIVE`** 1 bit-time ); factory = **AN721** / NVM. Earlier **2026-05-08** — **Digital I/O:** **O.H.** confirmed **DI** / **DO**; **`pinctrl_gpio1_dio_in`/`_out`**. Earlier **2026-05-06** — codec vs hardware §; TAA5412 lab **307**; **`&micfil` disabled**. Earlier **2026-05-05** — TAC5301; **`fec1`** **`mdio`** delete.*
+*Last updated: **2026-05-19** — **§ Cab buttons:** **lab-verified (2026-05-19)** DI1–DI3 in NDTR+AVM; libgpiod v2 **`get_value`** / containers **393**; DI map, GPIO ownership, engineering SSH **9101**, bench logs, short vs long press (**3 s**). Earlier **2026-05-16** — **CP2108:** UART **[0]/[1]** RS‑232 + **[2]/[3]** RS‑485 **validated (lab, Michael)**; RS‑485 DE polarity + NVM **`0x0c`** via **`cp2108-set-portconfig --rs485-de-invert`**; manufacturing once-per-unit. Earlier **2026-05-06** — **TAS6424:** [`DT510-TAS6424-TANNOY-ALSA.md`](DT510-TAS6424-TANNOY-ALSA.md); **TAC5301:** [`DT510-TAC5301-AUDIO-LOOP-ALSA.md`](DT510-TAC5301-AUDIO-LOOP-ALSA.md) (**`audio_loop`** / **`aux`**); **TAA5412:** [`DT510-TAA5412-DRIVER-MIC-ALSA.md`](DT510-TAA5412-DRIVER-MIC-ALSA.md) (**`driver_mic`**). SSOT **Class-D row** validated for **`tannoy_*`**. Earlier **2026-05-15** — **§ CP2108:** bridge UART **[0]/[1]** RS‑232; **[2]/[3]** RS‑485 with **`GPIO.10`→`RS485_DE1`**, **`GPIO.14`→`RS485_DE2`** ( **`t_ACTIVE`** 1 bit-time ); factory = **AN721** / NVM. Earlier **2026-05-08** — **Digital I/O:** **O.H.** confirmed **DI** / **DO**; **`pinctrl_gpio1_dio_in`/`_out`**. Earlier **2026-05-06** — codec vs hardware §; TAA5412 lab **307**; **`&micfil` disabled**. Earlier **2026-05-05** — TAC5301; **`fec1`** **`mdio`** delete.*

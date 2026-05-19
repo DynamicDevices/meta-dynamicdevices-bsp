@@ -70,7 +70,7 @@ Lab status = Dynamic Devices on **interim DT510 boards** (May 2026). **Prototype
 
 | Schematic block | Ref / key nets | Status | What we know |
 |-----------------|----------------|--------|--------------|
-| Digital inputs | GPIO1_IO0, IO1, IO4, IO5 | **Have** | Confirmed with hardware team (May 2026) |
+| Digital inputs | GPIO1_IO0, IO1, IO4, IO5 | **Have** | Hardware confirmed (May 2026); **cab buttons DI1–DI3 app-verified 2026-05-19** — [`DT510-HARDWARE-AUDIT-CHECKLIST.md`](DT510-HARDWARE-AUDIT-CHECKLIST.md) § **Cab buttons** |
 | Digital outputs | GPIO1_IO6–IO9 | **Have** | Confirmed with hardware team (May 2026) |
 
 ### Audio
