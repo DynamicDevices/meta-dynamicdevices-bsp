@@ -218,6 +218,7 @@ Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md)
 | 2026-05-07 | **Serial console:** Confirmed **working** on bench after **hardware** repair; BSP **`stdout-path` / `ttymxc1`** unchanged. |
 | 2026-05-06 | **Serial console:** Documented UART2/`ttymxc1` vs UART4 MCU (`ttymxc3`), **`chosen.stdout-path`**, **`SERIAL_CONSOLES` ↔ FTDI symlink — lab SSH checks showed Linux printk + getty on **`ttymxc1`** unchanged; “no serial” triage is usually **wrong header / baud / wiring**. |
 | 2026-05-06 | **Cellular:** ModemManager **`mmcli`** on lab DT510 — LTE modem + **SIM recognised** (primary SIM active, IMSI/operator readable post-reboot); checklist row + DTS bring-up note updated. Bearer/data **TBD**. |
+| 2026-05-19 | **Cellular:** **External cellular modem connectivity verified** on lab DT510 (modem, SIM, **data**). Checklist + **`DT510-BRINGUP-STATUS-REPORT.md`** updated — not only SIM detect. |
 | 2026-05-18 | **Tier C5 / GNSS (apps):** **`vix-ndtr`** + **`/dev/gnss`** validated on bench — CP2102N udev (**`36f1b22`**), containers **377** / **`vix-apps` `6f1935a`**, engineering terminal **`status l`** navigation lock with antenna. |
 | 2026-05-05 | **Tier C5 / GNSS:** NEO-M9V validated on bench — NMEA indicates valid fix with antenna; checklist + DTS bring-up comment updated. |
 | 2026-04-13 | Tier A3 audit checklist; A4 I2C3 placeholders; plan §3/§7 synced. |

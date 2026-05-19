@@ -51,7 +51,7 @@ Lab status = Dynamic Devices on **interim DT510 boards** (May 2026). **Prototype
 |-----------------|----------------|--------|--------------|
 | Wi‑Fi | MAYA‑W276 (IW612), SDIO | **Have** | Associated and used on bench |
 | Bluetooth | Same module, UART HCI | **Have** | BLE devices discovered in lab |
-| Cellular LTE | Quectel-class, USB OTG2; `LTE_RST`, `LTE_OFF`, `SIM_SEL` | **Partly** | Modem and SIM recognised; **mobile data** still to prove |
+| Cellular LTE | Quectel-class, USB OTG2; `LTE_RST`, `LTE_OFF`, `SIM_SEL` | **Have** | **2026-05-19:** **External cellular modem connectivity verified** on lab (modem, SIM, **data**). Earlier: modem/SIM only via **`mmcli`** |
 | Ethernet switch | KSZ9896, RGMII + I²C `0x5f` | **Partly** | **Traffic/forwarding** reported on bench; advanced switch features only if product needs them |
 | GNSS | NEO‑M9V → CP2102N USB; `GNSS_RES#` | **Have** | **2026-05-18:** **`/dev/gnss`**, **`vix-ndtr`**, engineering SSH **`status l`** — navigation lock with antenna; containers **377** + BSP udev **378** (`36f1b22`) |
 | Zigbee / 802.15.4 | IW612 → ECSPI1, `ZB_INT` | **Partly** | Software stack starts; **over-air product test** still open |
@@ -109,7 +109,7 @@ Everything else in the table above is **have** or **partly have**. These are the
 |---|--------|------------------------------|
 | 1 | **Driver mic (TAA5412)** | Finish factory image + record test (`driver_mic`) |
 | 2 | **Zigbee** | RCP firmware on image + over-air validation |
-| 3 | **Cellular** | Prove reliable **data** session, not only SIM detected |
+| ~~3~~ | ~~**Cellular**~~ | ~~Prove reliable **data** session~~ — **done (2026-05-19)** lab verified external modem connectivity |
 | 4 | **Ethernet** | Confirm against your network needs (basic link vs extra switch features) |
 | 5 | **Battery charger** | Kernel driver completion on factory release |
 | 6 | **Driver speaker** | Acoustic / level sign-off |

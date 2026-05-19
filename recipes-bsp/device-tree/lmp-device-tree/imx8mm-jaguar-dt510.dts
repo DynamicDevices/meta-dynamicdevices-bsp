@@ -1384,3 +1384,18 @@
 &usdhc1 {
 	status = "okay";
 };
+
+/*
+ * DT510 digital I/O — friendly line names on gpiochip0 (GPIO1 bank).
+ * DI: call-request, emergency, ptt, dio-input-4 on IO0/1/4/5 (see pinctrl_gpio1_dio_in).
+ * DO: dio-output-1..4 on IO6–9. IO10–13 owned by TAS6424 sideband.
+ * Names appear in gpioinfo / libgpiod without gpio-hog (lines stay available to userspace).
+ */
+&gpio1 {
+	gpio-line-names =
+		"call-request", "emergency", "", "",
+		"ptt", "dio-input-4",
+		"dio-output-1", "dio-output-2", "dio-output-3", "dio-output-4",
+		"tas6424-standby", "tas6424-mute", "tas6424-fault#", "tas6424-warn#",
+		"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "";
+};
