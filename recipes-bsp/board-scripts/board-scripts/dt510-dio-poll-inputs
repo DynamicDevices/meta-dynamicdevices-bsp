@@ -3,11 +3,14 @@
 #
 # Poll DT510 digital inputs DI1–DI4 on gpiochip0 (GPIO1).
 #
-# Mapping (see imx8mm-jaguar-dt510.dts &gpio1 gpio-line-names):
+# Mapping (see imx8mm-jaguar-dt510.dts &gpio1 gpio-line-names + gpio-line-config):
 #   DI1 = GPIO1_IO0  (offset 0)  call-request
 #   DI2 = GPIO1_IO1  (offset 1)  emergency
 #   DI3 = GPIO1_IO4  (offset 4)  ptt
 #   DI4 = GPIO1_IO5  (offset 5)  dio-input-4
+#
+# Andy/Vix harness (2026-05): active-high — pressed = 1 (libgpiod ACTIVE).
+# gpioget --numeric and this script print 0=released, 1=pressed.
 #
 # Outputs DO1–DO4 use offsets 6–9 (dt510-dio-toggle-outputs); this script
 # only reads DI lines and does not claim them.
@@ -57,7 +60,7 @@ poll_once() {
 		"$ts" "$v0" "$v1" "$v4" "$v5"
 }
 
-printf '# DT510 GPIO inputs (%s offsets %s) — values 0/1 = inactive/active (libgpiod --numeric)\n' "$CHIP" "$DIO_OFFSETS"
+printf '# DT510 GPIO inputs (%s offsets %s) — 0=idle 1=pressed (active-high, libgpiod --numeric)\n' "$CHIP" "$DIO_OFFSETS"
 while true; do
 	poll_once
 	if [ "$ONCE" -eq 1 ]; then
