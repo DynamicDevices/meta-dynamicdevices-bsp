@@ -51,7 +51,7 @@
  *   CP2108 (**U13**) quad VCP: **[0]/[1]** RS‑232; **[2]/[3]** RS‑485 (**GPIO.10→`RS485_DE1`**, **GPIO.14→`RS485_DE2`** on bridge die — not SoC GPIO). **GPIO.2/GPIO.6** NC. **`quart-res-hog`** only line SoC drives to the bridge; stable **`/dev`** → **udev by-path**.
  *   HDMI (LT9611): TBD.
  *   Low-power MCU link: TBD.
- *   Digital I/O: DI pads 0x010 (PE=0, DSE_X1); DO pads 0x116. Andy/Vix harness: DI1–4 active-high (pressed = gpioget/libgpiod 1); &gpio1 gpio-line-config on offsets 0,1,4,5 — vix-apps dt510_gpio must match (see checklist § Cab buttons).
+ *   Digital I/O: DI pads 0x010 (PE=0, DSE_X1); DO pads 0x116. Andy/Vix fleet: cab DI polarity inverted in &gpio1 gpio-line-config (GPIO_ACTIVE_LOW on offsets 0,1,4,5); apps keep active-low libgpiod semantics (see checklist § Cab buttons).
  *   SE050: reachable; board security posture unsecured / provisioning TBD.
  *
  * I2C numbering: Linux adapter i2c-N corresponds to DTS &i2c(N+1) (e.g. i2c-1 = &i2c2; i2c-2 = &i2c3 — KSZ9896 @ 0x5f).
@@ -1391,10 +1391,11 @@
  * DO: dio-output-1..4 on IO6–9. IO10–13 owned by TAS6424 sideband.
  * Names appear in gpioinfo / libgpiod without gpio-hog (lines stay available to userspace).
  *
- * Andy/Vix cab DIs (2026-05): active-high — pressed = physical high (logical 1 / libgpiod
- * ACTIVE). gpio-line-config: lines 0,1,4,5 use GPIO_PULL_UP only (no GPIO_ACTIVE_LOW).
- * i.MX may not enable SoC pull from gpio-line-config (DI pinctrl stays NOPULL); PCB +
- * libgpiod LineSettings remain authoritative. Retest on Andy lab board after BSP + app OTA.
+ * Andy/Vix cab DIs (2026-05): kernel-side invert — gpio-line-config on lines 0,1,4,5
+ * uses GPIO_PULL_UP | GPIO_ACTIVE_LOW (16 | 1). Harness unchanged; vix-apps keep
+ * LineSettings(active_low=True) and is_pressed() on libgpiod ACTIVE.
+ * i.MX may not apply SoC pull from gpio-line-config (DI pinctrl stays NOPULL); PCB +
+ * external terminations remain authoritative for bias.
  */
 &gpio1 {
 	gpio-line-names =
@@ -1406,8 +1407,8 @@
 
 	/* 32 entries (GPIO1 bank); per-line flags from dt-bindings/gpio/gpio.h */
 	gpio-line-config = <
-		16 16 0 0
-		16 16 0 0 0 0
+		17 17 0 0
+		17 17 0 0 0 0
 		0 0 0 0 0 0 0 0
 		0 0 0 0 0 0 0 0 0 0 0 0 0 0
 	>;

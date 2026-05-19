@@ -52,7 +52,7 @@ Sentai comments refer to **BGT 60TR13C** radar **replaced by XM125** during brin
 | GNSS **NEO-M9V** | UART via **CP2102N** USB + GPIO reset (`gnss-res#`) | **validated (lab)** | **2026-05-05:** NMEA fix with antenna (raw UART). **2026-05-18:** end-to-end on Foundries stack — **`/dev/gnss`** → **`vix-ndtr`** **`onboard_gps`**, **38400**, engineering SSH **`status l`** shows **navigation lock** with antenna. **udev `99-dt510-gnss.rules`:** **`10c4:ea60`** (CP2102N) + **`1546:01a8`/`01a9`** (u-blox USB); BSP **`36f1b22`**, manifest target **378**. **Containers:** **`devices: /dev/gnss`**, **`vix-apps` `6f1935a`**, target **377**. | C5 |
 | HDMI misc **HDMI2C1-6C1** | GPIO | partial | Fault line per SSOT — align with LT9611 bring-up | C3 |
 | **CP2108** quad-UART (U13, USB HS) | **Internal UART [0–3]** (not `ttyUSBn` order) | **validated (lab)** | **2026-05-16 lab (Michael):** all four UARTs working — **[0]/[1]** **RS-232** (`ttyUSB0`/`ttyUSB1`, IFC **`0x00`**); **[2]/[3]** **RS-485** after NVM **`EnhancedFxn_IFC2`/`IFC3` = `0x0c`** (`cp2108-set-portconfig --rs485-de-invert`); **DE high on TX**, low idle (scope on **`RS485_DE1`/`DE2`**); **`ttyUSB2`/`ttyUSB3`** (**`rs485_tx_bytes`**). **`cp210x`** + **`cp2108-get/set-portconfig`** (**`board-scripts`** / **`cp2108-usb-serial`**). **Port map (O.H.):** **[2]** `RS485_TX1`/`RX1` + **GPIO.10→`RS485_DE1`**; **[3]** `RS485_TX2`/`RX2` + **GPIO.14→`RS485_DE2`**. **Production:** one-time NVM program per unit (§ **CP2108** below). **`QUART_RES#`** **GPIO4_IO5**. **`/dev/serial/by-path`**. | B3 |
-| Digital I/O | GPIO1_IO0–9 | **validated (lab)** | **`pinctrl_gpio1_dio_in`** (DI → GPIO1_IO0/1/4/5) + **`pinctrl_gpio1_dio_out`** (DO → IO6–9); EVK **`ir_recv` / `reg_pcie0` / `backlight`** disabled. **SW_PAD (`fsl,pins` 2nd cell, IMX8MMRM Ch.8 — see `imx8mm-sw_pad_ctl-fields.h`):** DI **`0x010`** (**`PE_DIS`**, FSEL fast, **`DSE_X1`**) — no SoC bias; DO **`0x116`** (**`GPIO_STD`**: PE + internal pull-down). Board adds external terminations where required. **Andy/Vix:** DI1–4 **active-high** — pressed = **`gpioget --numeric` 1** / libgpiod **ACTIVE**; **`&gpio1` `gpio-line-config`** on offsets **0, 1, 4, 5** (`GPIO_PULL_UP \| GPIO_ACTIVE_HIGH`). Scripts when **`dt510-digital-io`**: **`dt510-dio-toggle-outputs`** (DO), **`dt510-dio-poll-inputs`** (DI) + **`libgpiod-tools`**. Lab **2026-05-08**: **DO** toggle and **DI** paths (**O.H.**). **Cab buttons / polarity / NDTR+AVM:** § **Cab buttons** below. | B2 |
+| Digital I/O | GPIO1_IO0–9 | **validated (lab)** | **`pinctrl_gpio1_dio_in`** (DI → GPIO1_IO0/1/4/5) + **`pinctrl_gpio1_dio_out`** (DO → IO6–9); EVK **`ir_recv` / `reg_pcie0` / `backlight`** disabled. **SW_PAD (`fsl,pins` 2nd cell, IMX8MMRM Ch.8 — see `imx8mm-sw_pad_ctl-fields.h`):** DI **`0x010`** (**`PE_DIS`**, FSEL fast, **`DSE_X1`**) — no SoC bias; DO **`0x116`** (**`GPIO_STD`**: PE + internal pull-down). Board adds external terminations where required. **Andy/Vix:** cab DI polarity via **`&gpio1` `gpio-line-config`** offsets **0, 1, 4, 5** (`GPIO_PULL_UP \| GPIO_ACTIVE_LOW`); apps **`active_low=True`**. Scripts when **`dt510-digital-io`**: **`dt510-dio-toggle-outputs`** (DO), **`dt510-dio-poll-inputs`** (DI) + **`libgpiod-tools`**. Lab **2026-05-08**: **DO** toggle and **DI** paths (**O.H.**). **Cab buttons / polarity / NDTR+AVM:** § **Cab buttons** below. | B2 |
 | **MAYA‑W276 / IW612** (Wi‑Fi / BT / **802.15.4**) | SDIO + UART (HCI) + ECSPI (ZB MAC-split) | **Wi‑Fi / BT validated (lab)**; ZB DTS + **`zb_mux`** lab | **Wi‑Fi/BT:** **`&usdhc1`** (4‑bit SDIO; **`&usdhc2` disabled** — not EVK SD2); **`&uart1`** HCI **`nxp,88w8997-bt`** with UART3 pads as RTS/CTS; GPIO straps **`BT_WAKE_*`**, **`BT_RST#`**, **`WL_*`**, **`WIFI_PD#`** per `hoggrp` / `imx8mm-jaguar-dt510.dts`. **BT:** **2026‑05** — **`bluetoothctl scan`** finds BLE devices. **802.15.4 / Zigbee:** **ECSPI1** (**`&ecspi1`** **`spidev`**) + **`ZB_INT`** GPIO4_IO22 — **confirmed vs hardware (Ollie Hull)**; **`zb_app`** needs **Sentai private NXP Zigbee RCP FW** alignment (MAC-split ACK / on-air). See **`meta-subscriber-overrides/docs/DT510-HARDWARE-BRINGUP.md`**. | — |
 | **Cellular LTE** (Quectel **EM05** class) | **USB OTG2** host (`&usbotg2`); LTE_RST / LTE_OFF / SIM_SEL hogs | **validated (lab)** | **2026-05-19:** **External cellular modem connectivity verified** — modem + **primary SIM active**, **cellular data/connectivity** working on lab unit (not only SIM detect). **`cdc-wdm0`** MBIM + **option** ttys; ModemManager **`mmcli`**. Earlier **2026-05:** **`sim-missing`** until reboot/settle; enable RF with **`mmcli -m 1 --enable`** if **disabled**. Module **fixed-dialing** lock — confirm vs SIM/product if dialling fails. | — |
 | **STUSB4500** / USB‑C PD | — | **N/A (DT510)** | **Not populated** — no `stusb4500` machine feature; gadget uses **`&usbotg1`** peripheral only (see `DT510-USB-DUAL-AUDIO.md`). **Sentai** retains STUSB4500. | — |
@@ -142,29 +142,26 @@ Cab **call-request**, **emergency**, and **driver PTT** use the **DI header** on
 
 Canonical map: **`vix-apps/NDTR/common/dt510_gpio.py`**, **`AVM/dt510_gpio.py`** (PTT), DTS **`&gpio1`** in **`imx8mm-jaguar-dt510.dts`** (**`gpio-line-names`** + **`gpio-line-config`** on offsets **0, 1, 4, 5**).
 
-### DI polarity (Andy/Vix fleet)
+### DI polarity (Andy/Vix, 2026-05)
 
-| Layer | Active-high semantics (pressed) |
-|-------|----------------------------------|
-| **Harness / product** | All **four** DIs: pressed = **logical 1** on the SoC line |
-| **Host check** | `sudo dt510-dio-poll-inputs --once` → **`1`** on the DI being pressed; `gpioget --numeric -c gpiochip0 0 1 4 5` |
-| **BSP (DTS)** | **`gpio-line-config`** on **`&gpio1`**: tuples **0**, **1**, **4**, **5** with **`GPIO_PULL_UP \| GPIO_ACTIVE_HIGH`** (matches **`pinctrl_gpio1_dio_in`** — external termination on PCB as required) |
-| **Containers** | **`is_pressed()`** in **`dt510_gpio.py`** must treat **ACTIVE / 1** as pressed — **DTS alone is not enough** |
+| Layer | Semantics |
+|-------|-----------|
+| **Harness** | Unchanged on wire — fleet invert is **kernel-only** |
+| **BSP (DTS)** | **`gpio-line-config`** offsets **0, 1, 4, 5** = **`GPIO_PULL_UP \| GPIO_ACTIVE_LOW`** (**17** = **16 \| 1**). DI pinctrl **`IMX8MM_PAD_GPIO_DIO_INPUT_NOPULL`**; i.MX may not apply SoC pull from **`gpio-line-config`** alone. |
+| **Containers** | **`dt510_gpio.py`**: **`LineSettings(active_low=True)`**, **`is_pressed()`** on libgpiod **ACTIVE** (NDTR + AVM) — unchanged app contract |
 
-**Invert task (pending in `vix-apps`):** sources may still use **`val == 0`** (legacy active-low). Until invert + OTA land, **hotpatch** both **`NDTR/common/dt510_gpio.py`** and **`AVM/dt510_gpio.py`** into running containers when testing polarity on a board that already has BSP **`gpio-line-config`** but not yet a matching containers image.
-
-**Lab vs fleet:** **2026-05-19** cab-button validation on bench used **active-low software** on that unit’s wiring — behaviour can **differ** from Andy/Vix fleet harness once BSP + **`dt510_gpio`** invert ship. **Retest** DI1–DI3 (and raw levels on DI4) after **LmP OTA** and **containers OTA** on each vehicle.
+**Retest** DI1–DI3 after **LmP OTA** (DTS) **and** containers OTA or hotpatch of both **`dt510_gpio.py`** files.
 
 ### Lab verification (2026-05-19)
 
-**Status: validated (lab)** — cab buttons end-to-end in **NDTR** + **AVM** on bench (**active-low software path** at time of test; see **DI polarity** above for fleet retest).
+**Status: validated (lab)** — cab buttons end-to-end in **NDTR** + **AVM** on bench with **active-low app** path; **retest** after DTS **`GPIO_ACTIVE_LOW`** lands on fleet.
 
 | Button | App | Evidence |
 |--------|-----|----------|
 | **DI1** call-request, **DI2** emergency | **NDTR** `switch_monitor` | **`Detected activity on GPIO pin`**, **`call request`**, short-press enqueue; physical press + engineering **`gpio set`** |
 | **DI3** PTT | **AVM** `button_monitor` | **`DT510 PTT pressed`** / **`released`**; **`DRIVER_PA`** passenger-queue enqueue |
 
-**Software fix (containers, not LmP):** libgpiod v2 needs **`get_value`** in **`dt510_gpio.py`** (v1-style reads failed silently). Landed **`meta-dynamicdevices-bsp` `8308949`**, **`vix-apps` `2c45f79`**; **Foundries containers target 393**. **Andy/Vix units:** container **OTA ≥393** (or equivalent hotpatch) for **`get_value`** — **additional** container bump required when **`is_pressed`** invert lands; **BSP OTA** required for **`gpio-line-config`**.
+**Software:** libgpiod v2 **`get_value`** (containers **≥393**). Polarity split: **DTS** **`GPIO_ACTIVE_LOW`** (LmP OTA) + **`dt510_gpio.py`** **`active_low=True`** (containers OTA or hotpatch).
 
 ### GPIO ownership (one consumer per line)
 
@@ -215,7 +212,7 @@ Implementation: **`NDTR/diagnostics/cmd_messaging.py`** (`CmdGpio`, `CmdCallRequ
 
 1. **Raw DI levels (host, does not claim lines for NDTR):**  
    `sudo dt510-dio-poll-inputs` or `sudo dt510-dio-poll-inputs --once`  
-   ( **`board-scripts`**, feature **`dt510-digital-io`** ). Expect **1** on pressed DI (active-high); if pressed shows **0**, check BSP **`gpio-line-config`** vs container **`dt510_gpio`** invert.
+   ( **`board-scripts`**, feature **`dt510-digital-io`** ). Expect **1** on pressed DI when DTS **`GPIO_ACTIVE_LOW`** is live; if wrong, check LmP image vs **`dt510_gpio.py`** hotpatch.
 2. **NDTR while pressing:**  
    `docker logs -f vix-apps-ndtr-1 2>&1 | grep -E 'call request|Enqueuing|Call Request|Emergency|Detected activity'`
 3. **PTT:** hold DI3 — watch **`vix-apps-avm-1`** for **`DRIVER_PA`** / playback path.
@@ -241,4 +238,4 @@ AVM PTT notes: **`vix-apps/AVM/VIX_HANDOFF_AVM_DEBUGGING.md`** (§ Cab buttons).
 
 ---
 
-*Last updated: **2026-05-19** — **§ Cab buttons / DI polarity:** Andy/Vix **active-high** (pressed = **1**); DTS **`gpio-line-config`** offsets **0,1,4,5**; software must match; lab **2026-05-19** used active-low **`dt510_gpio`** — retest after OTA; hotpatch **`dt510_gpio`** when BSP ahead of containers. Earlier **2026-05-19** — libgpiod v2 **`get_value`** / containers **393**. Earlier **2026-05-16** — **CP2108:** UART **[0]/[1]** RS‑232 + **[2]/[3]** RS‑485 **validated (lab, Michael)**; RS‑485 DE polarity + NVM **`0x0c`** via **`cp2108-set-portconfig --rs485-de-invert`**; manufacturing once-per-unit. Earlier **2026-05-06** — **TAS6424:** [`DT510-TAS6424-TANNOY-ALSA.md`](DT510-TAS6424-TANNOY-ALSA.md); **TAC5301:** [`DT510-TAC5301-AUDIO-LOOP-ALSA.md`](DT510-TAC5301-AUDIO-LOOP-ALSA.md) (**`audio_loop`** / **`aux`**); **TAA5412:** [`DT510-TAA5412-DRIVER-MIC-ALSA.md`](DT510-TAA5412-DRIVER-MIC-ALSA.md) (**`driver_mic`**). SSOT **Class-D row** validated for **`tannoy_*`**. Earlier **2026-05-15** — **§ CP2108:** bridge UART **[0]/[1]** RS‑232; **[2]/[3]** RS‑485 with **`GPIO.10`→`RS485_DE1`**, **`GPIO.14`→`RS485_DE2`** ( **`t_ACTIVE`** 1 bit-time ); factory = **AN721** / NVM. Earlier **2026-05-08** — **Digital I/O:** **O.H.** confirmed **DI** / **DO**; **`pinctrl_gpio1_dio_in`/`_out`**. Earlier **2026-05-06** — codec vs hardware §; TAA5412 lab **307**; **`&micfil` disabled**. Earlier **2026-05-05** — TAC5301; **`fec1`** **`mdio`** delete.*
+*Last updated: **2026-05-19** — **§ Cab buttons / DI polarity:** Andy/Vix fleet invert in DTS **`GPIO_ACTIVE_LOW`** on offsets **0,1,4,5**; apps **`active_low=True`** unchanged; retest after LmP + containers OTA. Earlier **2026-05-19** — libgpiod v2 **`get_value`** / containers **393**. Earlier **2026-05-16** — **CP2108:** UART **[0]/[1]** RS‑232 + **[2]/[3]** RS‑485 **validated (lab, Michael)**; RS‑485 DE polarity + NVM **`0x0c`** via **`cp2108-set-portconfig --rs485-de-invert`**; manufacturing once-per-unit. Earlier **2026-05-06** — **TAS6424:** [`DT510-TAS6424-TANNOY-ALSA.md`](DT510-TAS6424-TANNOY-ALSA.md); **TAC5301:** [`DT510-TAC5301-AUDIO-LOOP-ALSA.md`](DT510-TAC5301-AUDIO-LOOP-ALSA.md) (**`audio_loop`** / **`aux`**); **TAA5412:** [`DT510-TAA5412-DRIVER-MIC-ALSA.md`](DT510-TAA5412-DRIVER-MIC-ALSA.md) (**`driver_mic`**). SSOT **Class-D row** validated for **`tannoy_*`**. Earlier **2026-05-15** — **§ CP2108:** bridge UART **[0]/[1]** RS‑232; **[2]/[3]** RS‑485 with **`GPIO.10`→`RS485_DE1`**, **`GPIO.14`→`RS485_DE2`** ( **`t_ACTIVE`** 1 bit-time ); factory = **AN721** / NVM. Earlier **2026-05-08** — **Digital I/O:** **O.H.** confirmed **DI** / **DO**; **`pinctrl_gpio1_dio_in`/`_out`**. Earlier **2026-05-06** — codec vs hardware §; TAA5412 lab **307**; **`&micfil` disabled**. Earlier **2026-05-05** — TAC5301; **`fec1`** **`mdio`** delete.*
