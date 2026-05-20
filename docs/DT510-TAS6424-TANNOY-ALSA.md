@@ -34,42 +34,42 @@
 
 ---
 
-## Volume scales (linear, patch 0027)
+## Volume (lab dB `sset` with `--`)
 
-| Use | Range | Example |
-|-----|--------|---------|
-| **`amixer` / `alsamixer` / `cset`** | **0–255** linear index | **`20`** → register **20** (same number everywhere) |
-| **`TAS6424_BOOT_VOL`**, **`passenger_tannoy_alsa_volume`** | **0–255** index | Lab default **`20`** (not “20%”) |
-| **Perceived loudness** | Not dB-uniform | Index **20** ≈ **8%** of max bar; old TLV lab used **`sset 20%`** → register **~51** |
+| Use | Form | Example |
+|-----|------|---------|
+| **Lab bench / AVM / boot** | dB via **`sset --`** | **`amixer -D tannoys sset "Speaker Driver CH1" -- -17.5dB`** |
+| **`TAS6424_BOOT_VOL`**, **`passenger_tannoy_alsa_db`** / **`passenger_tannoy_alsa_volume`** | dB number | Lab default **`-17.5`** (optional **`dB`** suffix) |
+| **Linear 0027 kernel** | Index **0–255** also exists | dB **`sset`** may not apply on **0027** — lab uses dB form for current testing |
+
+**MUST** use **`--`** before negative dB or amixer treats **`-17.5`** as an option and fails.
 
 **Kernel patches (apply in order):**
 
 - **`0026-asoc-tas6424-rename-passenger-tannoy-controls.patch`** — **Tannoy CHn** names.
-- **`0027-asoc-tas6424-linear-volume-controls.patch`** — **`SOC_SINGLE`** instead of **`SOC_SINGLE_TLV`**; removes **`dac_tlv`** dB curve.
+- **`0027-asoc-tas6424-linear-volume-controls.patch`** — **`SOC_SINGLE`** instead of **`SOC_SINGLE_TLV`**.
 
-**Legacy TLV images (pre-0027):** **`amixer sget`** shows **`[dB]`**; **`cset 20`** ≠ **`sset 20%`**. Use **`vix-apps/AVM/scripts/dt510-tannoy-level-linear.sh`** (percent → register) until the factory kernel includes **`0027`**.
+**Legacy TLV / index-only images:** **`dt510-tannoy-level-linear.sh`** (percent → register).
 
-Boot **`tas6424-init`** sets each channel to **`TAS6424_BOOT_VOL`** (default **20**) via **`sset`/`cset`** numeric index. Overrides: **`TAS6424_MIXER`**, **`TAS6424_VOL_CH1`**–**`CH4`** (control **names**).
-
-To match **previous TLV lab loudness** (~**`sset 20%`**), try index **51** on a linear kernel — not config **`20`**.
+Boot **`tas6424-init`** sets each channel via **`sset "${ch}" -- ${VOL_DB}dB`** (default **`-17.5`**). Overrides: **`TAS6424_MIXER`**, **`TAS6424_BOOT_VOL`**, **`TAS6424_VOL_CH1`**–**`CH4`** (control **names**).
 
 ---
 
 ## Bench hear test (host)
 
-On lab unit (e.g. **`fio@192.168.2.205`**): set **Tannoy CH1–CH4** to **20** in **`alsamixer -D tannoys`**, or:
+On lab unit (e.g. **`fio@192.168.2.205`**):
 
 ```sh
 amixer -D tannoys scontrols
 for n in 1 2 3 4; do
-  amixer -q -D tannoys sset "Tannoy CH${n}" 20
+  amixer -q -D tannoys sset "Speaker Driver CH${n}" -- -17.5dB
 done
 aplay -D tannoy_both_mono /var/lib/vix/recorded-voice-audio/ring.wav
 ```
 
-**Helper (linear kernel):** **`vix-apps/AVM/scripts/dt510-tannoy-level.sh set 20`**
+**Helper (dB):** **`vix-apps/AVM/scripts/dt510-tannoy-level.sh set -17.5`** or **`set -17.5dB`**
 
-**Helper (legacy TLV kernel only):** **`dt510-tannoy-level-linear.sh set 20`** (percent → register; pre-**`0027`**)
+**Helper (legacy TLV / index):** **`dt510-tannoy-level-linear.sh`**
 
 ---
 
@@ -79,8 +79,7 @@ aplay -D tannoy_both_mono /var/lib/vix/recorded-voice-audio/ring.wav
 aplay -D tannoy_slot2 /path/to.wav
 aplay -D tannoy_both_mono /path/to/mono.wav
 amixer -D tannoys scontrols
-amixer -D tannoys sset "Tannoy CH1" 20
-amixer -D tannoys cset name="Tannoy CH1 Playback Volume" 20
+amixer -D tannoys sset "Speaker Driver CH1" -- -17.5dB
 ```
 
 ---

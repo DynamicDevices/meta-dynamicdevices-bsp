@@ -5,7 +5,7 @@
 | Reference | Path |
 |-----------|------|
 | TAS6424 tannoy ALSA | [`DT510-TAS6424-TANNOY-ALSA.md`](DT510-TAS6424-TANNOY-ALSA.md) |
-| RustDesk acoustic capture | [`../../vix-apps/AVM/scripts/RUSTDESK_AUDIO_LAPTOP.md`](../../vix-apps/AVM/scripts/RUSTDESK_AUDIO_LAPTOP.md) |
+| RustDesk **mic bridge** (lab default) | [`../../vix-apps/AVM/scripts/RUSTDESK_AUDIO_LAPTOP.md`](../../vix-apps/AVM/scripts/RUSTDESK_AUDIO_LAPTOP.md) — **`use-rustdesk-built-in-mic.sh`**; gadget bridge secondary |
 | AVM container debugging | [`../../vix-apps/AVM/VIX_HANDOFF_AVM_DEBUGGING.md`](../../vix-apps/AVM/VIX_HANDOFF_AVM_DEBUGGING.md) |
 
 ---
@@ -23,17 +23,17 @@
 
 ## 2. What works (verified)
 
-**Lab default (target images with kernel patches `0026` + `0027`):** set **Tannoy CH1–CH4** to linear index **`20`** (`amixer` / `alsamixer` bar **`20`** = register **`20`**). See [`DT510-TAS6424-TANNOY-ALSA.md`](DT510-TAS6424-TANNOY-ALSA.md).
+**Lab default (target images with kernel patches `0026` + `0027`):** set **Tannoy CH1–CH4** (or legacy **Speaker Driver CHn**) to **`-17.5dB`** via **`amixer sset "${ch}" -- -17.5dB`** — **not** linear index **20**, **not** **`20%`**. See [`DT510-TAS6424-TANNOY-ALSA.md`](DT510-TAS6424-TANNOY-ALSA.md).
 
 | Item | Notes |
 |------|--------|
-| Host **`aplay -D tannoy_both_mono`** | Audible after **Tannoy CH1–CH4 = 20** (linear index **`0027`**). |
-| **`alsamixer -D tannoys` → CH1–CH4 = 20** | **`0027`**: bar shows **`20`**, not **−17.5 dB** (legacy TLV trap — pre-**`0027`** only). |
+| Host **`aplay -D tannoy_both_mono`** | Audible after **CH1–CH4 at `-17.5dB`** (**`sset --`**). |
+| **Bench confirmed (2026-05-20)** | **`amixer -D tannoys sset "Speaker Driver CH${n}" -- -17.5dB`** sets level correctly on **`.205`**. |
 | **`aplay -D tannoy_both_mono`** + **`ring.wav`** (22050 stereo) | **`/var/lib/vix/recorded-voice-audio/ring.wav`** audible on bench after **`asound.conf`** rate path (**`_tas6424_quad_48`** + **`plug` `slave.rate 48000`** on **`tannoy_both_mono`**). |
-| **`amixer -q -D tannoys sset "Tannoy CHn" 20`** | Canonical bench level (**`0027`**); **`dt510-tannoy-level.sh set 20`**. |
-| **Legacy TLV only (pre-`0027`)** | **`sset 20%`** → register **~51**; **`cset 172`** was a mistaken “quiet lab” trap — use **`dt510-tannoy-level-linear.sh`**, not **`20%`** as default. |
+| **`dt510-tannoy-level.sh set -17.5`** | Canonical helper; probes **Tannoy CHn** vs **Speaker Driver CHn**. |
+| **Legacy TLV only (pre-`0027`)** | **`sset 20%`** → register **~51**; bare **`cset 172`** trap — use **`dt510-tannoy-level-linear.sh`**, not index **20** or **`20%`** as lab default. |
 | **RecordedVoice library on board** | Persistent host path **`/var/lib/vix/recorded-voice-audio`** (container **`/audio`**); install via **`install-vix-nsa-audio-on-board.sh`**. |
-| Acoustic **RustDesk** on dev laptop | Room tannoy → XPS mic → RustDesk; see linked RustDesk doc. |
+| **Mic bridge** RustDesk on dev laptop (lab default) | Room tannoy → XPS mic → **`use-rustdesk-built-in-mic.sh`** → RustDesk; not gadget bridge. |
 | **`install-vix-nsa-audio-on-board.sh`** | Installs **`recorded_voice_audio`** WAVs + service stems (`ring`, `TR1`, …) to board; **`BOARD=fio@192.168.2.205`**. |
 | Container drop-folder (dual-codec config) | **`/tmp/vix-avm-audio/passenger`** + **`config.txt`** → **`tannoy_both_mono`** @ **48 kHz** — driver + passenger audible (**2026-05-18** milestone in handoff). |
 | AVM fixes **998f7fe** / **ba76b6b** | Passenger **long-lived `aplay` pipe**; avoids one-shot teardown zeroing TAS6424 levels. |
@@ -61,7 +61,7 @@
 |-------|----------|-----|--------|
 | Empty **RecordedVoice** library on board | RV lookup miss; AVM task completes, no file | **`install-vix-nsa-audio-on-board.sh`** + stems | Fixed when install run |
 | **22.05 kHz stereo** vs **48 kHz** IEC hw | Host inaudible without rate plugin; `aplay` OK exit | BSP **`asound.conf`**: **`_tas6424_quad_48`** + **`plug` `slave.rate 48000`**; AVM **`audio_sample_rate = 48000`** / pydub | Host **`ring.wav`** OK on bench **2026-05-20** |
-| **TLV dB curve vs linear index** | **`cset 20`** ≠ **`sset 20%`** on TLV kernels; **`alsamixer 20`** showed **−17.5 dB** trap | Kernel **0027** **`SOC_SINGLE`**; config/index **20** = register **20** | BSP patch **2026-05-20** — [`DT510-TAS6424-TANNOY-ALSA.md`](DT510-TAS6424-TANNOY-ALSA.md) |
+| **TLV dB curve vs linear index** | **`alsamixer` bar 20** showed **−17.5 dB**; **`sset 20%`** → cset **51**; index **20** ≠ audible lab level | Lab uses **`sset -- -17.5dB`**; AVM **`passenger_tannoy_alsa_db=-17.5`**; **`tas6424-init`** dB boot | Confirmed bench **2026-05-20** — [`DT510-TAS6424-TANNOY-ALSA.md`](DT510-TAS6424-TANNOY-ALSA.md) |
 | **SAI1 @ 44.1 kHz** | **`failed to derive required Tx rate: 2822400`** | Use **48 kHz** tannoy PCMs; avoid raw **`tannoys`** @ **44100** | Usually benign on bench if product path is **48 kHz** |
 | **Tannoy CH** vs **Speaker Driver CH** naming | `amixer -D tannoys scontrols` shows one set | Kernel **0026** + **`cset name='Tannoy CHn Playback Volume' 20`**; **`dt510-tannoy-level.sh`** | Fixed on new BSP + AVM **dd5bf92** |
 | **`cset` without `name=`** | alsamixer **0**, **silent**; **`cget`** may mislead | Use **`sset`** or **`cset name='… Playback Volume'`** | Docs + **tas6424-init** + AVM **sset** first |
@@ -84,9 +84,10 @@ ssh fio@192.168.2.205
 amixer -D tannoys scontrols   # expect Tannoy CH1-4 (or legacy Speaker Driver CHn on old kernel)
 # Probe: amixer -D tannoys scontrols
 for n in 1 2 3 4; do
-  amixer -q -D tannoys sset "Tannoy CH${n}" 20   # linear index 0-255 (0027); legacy TLV: dt510-tannoy-level-linear.sh
+  amixer -q -D tannoys sset "Speaker Driver CH${n}" -- -17.5dB
 done
-# or: vix-apps/AVM/scripts/dt510-tannoy-level.sh set 20
+# or: vix-apps/AVM/scripts/dt510-tannoy-level.sh set -17.5
+# legacy TLV only: dt510-tannoy-level-linear.sh
 # legacy names: Speaker Driver CHn until 0026+0027 image — probe in script/tas6424-init
 ```
 
@@ -95,10 +96,9 @@ done
 Set levels (**alsamixer** or **`cset`**), then play (RV stem or any WAV — **`asound.conf`** resamples to 48 kHz on **`tannoy_*`** PCMs):
 
 ```sh
-# UI: alsamixer -D tannoys → Tannoy CH1–CH4 = 20
-# Probe: amixer -D tannoys scontrols
+# Probe: amixer -D tannoys scontrols (Tannoy CHn or Speaker Driver CHn)
 for n in 1 2 3 4; do
-  amixer -q -D tannoys sset "Tannoy CH${n}" 20
+  amixer -q -D tannoys sset "Speaker Driver CH${n}" -- -17.5dB
 done
 aplay -D tannoy_both_mono /var/lib/vix/recorded-voice-audio/ring.wav
 # bench 2026-05-20: 22050 Hz stereo, audible
@@ -138,8 +138,8 @@ BOARD=fio@192.168.2.205 ./install-vix-nsa-audio-on-board.sh "/path/to/audio file
 [ ] Board SSH: fio@192.168.2.205 (not .83)
 [ ] aplay -l shows tas6424classd card
 [ ] test -f /etc/asound.conf && grep -q tannoys /etc/asound.conf
-[ ] systemctl is-active tas6424-init.service (or manual CH1-4 cset 20)
-[ ] amixer -D tannoys sget 'Tannoy CH1' → Mono Playback 20 (0027 linear); legacy TLV: [20%] ≈ reg ~51 — not lab default
+[ ] systemctl is-active tas6424-init.service (or manual CH1-4 sset -- -17.5dB)
+[ ] amixer -D tannoys sget 'Speaker Driver CH1' (or Tannoy CH1) → ~-17.5 dB after sset -- (not silent at 0)
 [ ] Host: aplay -D tannoy_both_mono /var/lib/vix/recorded-voice-audio/ring.wav → audible (22050 stereo OK with rate plugin)
 [ ] Host: aplay -D tannoy_both_mono -r 48000 -c 1 <mono.wav> → audible in room
 [ ] docker ps: avm + recordedvoice running
@@ -178,7 +178,7 @@ fsl-sai 30010000.sai: ASoC: error at snd_soc_dai_hw_params on 30010000.sai: -22
 - [ ] **Containers OTA** past **394** with **dd5bf92**, **998f7fe**, **ba76b6b** on bench — retest RV **`$ring`** end-to-end without hotpatch.
 - [ ] **PTT / DI polarity** retest after **LmP + containers** OTA (active-high DTS vs **`dt510_gpio.py`**).
 - [ ] **`audio_loop` vs `tannoy_both_mono`** product default for passenger PA in fleet config.
-- [ ] Soak: repeated **`$ring`** / stop clips — CH levels stay 20 after many plays (regression for **998f7fe**).
+- [ ] Soak: repeated **`$ring`** / stop clips — CH levels stay at **-17.5dB** after many plays (regression for **998f7fe**).
 - [ ] Document canonical **JSON** template for **9700** in a small bench script (avoid raw **`$ring`** confusion).
 
 ---
@@ -205,4 +205,4 @@ fsl-sai 30010000.sai: ASoC: error at snd_soc_dai_hw_params on 30010000.sai: -22
 | **2026-05-19** | Bench **.83**: host `aplay` OK after CH=20; container silent — traced mixer **cset**, legacy control names, pipe teardown (**998f7fe** / **ba76b6b**); PTT queue flood observed. |
 | **2026-05-20** | Bench moved to **fio@192.168.2.205**; living doc created; links to TAS6424 / RustDesk / AVM handoff. |
 | **2026-05-20** | **.205**: `/etc/asound.conf` was an empty **directory** (not BSP file) — Docker bind-mount created host dir when file missing before first `avm` start (`/etc/asound.conf:/etc/asound.conf:ro`). Fixed: stop `avm`, `rm -rf`, install BSP `asound.conf`, `docker compose up -d avm`. |
-| **2026-05-20** | Bench **`.205`**: TLV **`sset 20%`** → cset **51**; **`cset 172`** trap. BSP **0027** + linear **`passenger_tannoy_alsa_volume=20`** (index). **`ring.wav`** OK with **`_tas6424_quad_48`**. |
+| **2026-05-20** | Bench **`.205`**: TLV/index traps documented; lab standard **`sset -- -17.5dB`** confirmed audible. AVM/tas6424-init use dB; **`ring.wav`** OK with **`_tas6424_quad_48`**. RustDesk lab default = **mic bridge** (`use-rustdesk-built-in-mic.sh`). |

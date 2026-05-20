@@ -2,11 +2,11 @@
 # DT510 TAS6424E-Q1: boot passenger tannoy horn mixer defaults (ctl "tannoys" from /etc/asound.conf).
 # Passenger tannoy PA levels: kernel may expose "Tannoy CH1"–CH4 (patch 0026) or legacy "Speaker Driver CHn".
 # Optional env overrides: TAS6424_MIXER, TAS6424_BOOT_VOL, TAS6424_VOL_CH1, TAS6424_VOL_CH2–CH4 strings.
-# TAS6424_BOOT_VOL is linear index 0–255 (lab default 20). Kernel patch 0027: amixer number = register = cset.
-# On images without 0027 (TLV dB curve), use dt510-tannoy-level-linear.sh or set index via percent mapping.
+# TAS6424_BOOT_VOL is dB for amixer sset -- NNdB (lab default -17.5). Use -- before negative dB.
+# On linear 0027 kernels dB sset may not apply; use dt510-tannoy-level-linear.sh for index on those images.
 
-VOL=${TAS6424_BOOT_VOL:-20}
-VOL_ABS=$(awk -v n="$VOL" 'BEGIN { v=int(n+0.5); if (v<0) v=0; if (v>255) v=255; print v }')
+VOL=${TAS6424_BOOT_VOL:--17.5}
+VOL_DB=$(echo "$VOL" | sed 's/[dD][bB]$//')
 MIX=${TAS6424_MIXER:-tannoys}
 VOL_CH1=${TAS6424_VOL_CH1:-}
 VOL_CH2=${TAS6424_VOL_CH2:-}
@@ -62,15 +62,9 @@ fi
 
 CH_LIST=$(probe_ch_names "$CTL") || exit 0
 
-# Linear 0–255 (patch 0027): sset/cset numeric value = hardware register.
 set_ch_vol() {
 	_ch=$1
-	if amixer -q -D "$CTL" sset "$_ch" "$VOL_ABS" 2>/dev/null; then
-		return 0
-	fi
-	amixer -q -D "$CTL" cset name="${_ch} Playback Volume" "$VOL_ABS" 2>/dev/null \
-		|| amixer -q -D "$CTL" cset name="${_ch}" "$VOL_ABS" 2>/dev/null \
-		|| true
+	amixer -q -D "$CTL" sset "$_ch" -- "${VOL_DB}dB" 2>/dev/null || true
 }
 
 echo "$CH_LIST" | while read -r ch; do
@@ -79,6 +73,6 @@ echo "$CH_LIST" | while read -r ch; do
 done
 amixer -q -D "$CTL" sset 'Auto Diagnostics' off 2>/dev/null || true
 
-log "OK: amixer -D $CTL CH1–CH4=$VOL_ABS (linear index 0–255) AutoDiag off (mixer=$MIX)"
+log "OK: amixer -D $CTL CH1–CH4=${VOL_DB}dB (sset --) AutoDiag off (mixer=$MIX)"
 
 exit 0
