@@ -136,7 +136,7 @@ Work **in order** within each tier unless a dependency forces otherwise.
 
 **TAS6424 DAI format:** Use **I2S** for initial software and lab testing (`sound-tas6424` already sets `simple-audio-card,format = "i2s"`). **TDM / 4-channel** stays a follow-on with hardware SSOT and issue #2 — not required for the first bring-up pass.
 
-**TAS6424 userspace ALSA (“Tannoy” naming — 2026‑05):** **`alsa-state`** ships **`/etc/asound.conf`** with **`pcm`/`ctl` `tannoys`** (kernel card id **`tas6424classd`**) plus route PCMs (**`tannoy_slot2`/`slot3`**, **`tannoy_both_mono`/`tannoy_both_lr`**, **`tannoy_all`** for lab) and systemd **`tas6424-init`**. Reference: **`docs/DT510-TAS6424-TANNOY-ALSA.md`**.
+**TAS6424 userspace ALSA (“Tannoy” naming — 2026‑05):** **`alsa-state`** ships **`/etc/asound.conf`** with **`pcm`/`ctl` `tannoys`** (kernel card id **`tas6424classd`**) plus route PCMs (**`tannoy_slot2`/`slot3`**, **`tannoy_both_mono`/`tannoy_both_lr`**, **`tannoy_all`** for lab) and systemd **`tas6424-init`** (linear index **0–255**, lab **20**; kernel **`0026`** rename + **`0027`** **`SOC_SINGLE`**). Reference: **`docs/DT510-TAS6424-TANNOY-ALSA.md`**.
 
 **TAS2563 userspace ALSA (“driver speaker” — 2026‑05):** same **`asound.conf`** adds **`drivers`**, **`driver_speaker`**, **`driver_slot`** / **`driver_out`** IEC route helpers, systemd **`tas2563-init`** (card **`tas2563audio`**). **`docs/DT510-TAS2563-DRIVER-SPEAKER-ALSA.md`**.
 

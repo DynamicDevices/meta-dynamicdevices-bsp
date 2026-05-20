@@ -60,7 +60,7 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
 		file://gpio-keys.cfg \
 		file://imx8mm-jaguar-dt510/video-disable.cfg \
 		${@bb.utils.contains('MACHINE_FEATURES', 'tas2563', 'file://imx8mm-jaguar-dt510/tas2562-audio-codec.cfg', '', d)} \
-		${@bb.utils.contains('MACHINE_FEATURES', 'tas6424', 'file://imx8mm-jaguar-dt510/tas6424-audio-codec.cfg file://imx8mm-jaguar-dt510/0026-asoc-tas6424-rename-passenger-tannoy-controls.patch', '', d)} \
+		${@bb.utils.contains('MACHINE_FEATURES', 'tas6424', 'file://imx8mm-jaguar-dt510/tas6424-audio-codec.cfg file://imx8mm-jaguar-dt510/0026-asoc-tas6424-rename-passenger-tannoy-controls.patch file://imx8mm-jaguar-dt510/0027-asoc-tas6424-linear-volume-controls.patch', '', d)} \
 		${@bb.utils.contains('MACHINE_FEATURES', 'taa5412', 'file://imx8mm-jaguar-dt510/pcm6240-lmp/0001-asoc-pcm6240-import-from-mainline-v6.10.patch file://imx8mm-jaguar-dt510/pcm6240-lmp/0002-asoc-pcm6240-optional-interrupt-dt510.patch file://imx8mm-jaguar-dt510/pcm6240-audio-codec.cfg', '', d)} \
 		file://imx8mm-jaguar-dt510/wifi-power-management.cfg \
 		file://usb-gadgets.cfg \

@@ -13,8 +13,6 @@ SRC_URI = "file://board-init.sh \
            file://board-init.service \
 "
 
-SRC_URI:append:imx8mm-jaguar-dt510 = "file://leds-proof-of-life.sh"
-
 do_install() {
   install -d ${D}${sbindir}
   install -m 755 ${WORKDIR}/*.sh ${D}${sbindir}

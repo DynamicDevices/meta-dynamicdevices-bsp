@@ -1,14 +1,17 @@
 #!/bin/sh
 # DT510 TAS6424E-Q1: boot passenger tannoy horn mixer defaults (ctl "tannoys" from /etc/asound.conf).
-# Passenger tannoy PA levels: kernel exposes "Tannoy CH1"–CH4 (0026 tas6424 rename); not cab driver (TAS2563).
+# Passenger tannoy PA levels: kernel may expose "Tannoy CH1"–CH4 (patch 0026) or legacy "Speaker Driver CHn".
 # Optional env overrides: TAS6424_MIXER, TAS6424_BOOT_VOL, TAS6424_VOL_CH1, TAS6424_VOL_CH2–CH4 strings.
+# TAS6424_BOOT_VOL is linear index 0–255 (lab default 20). Kernel patch 0027: amixer number = register = cset.
+# On images without 0027 (TLV dB curve), use dt510-tannoy-level-linear.sh or set index via percent mapping.
 
 VOL=${TAS6424_BOOT_VOL:-20}
+VOL_ABS=$(awk -v n="$VOL" 'BEGIN { v=int(n+0.5); if (v<0) v=0; if (v>255) v=255; print v }')
 MIX=${TAS6424_MIXER:-tannoys}
-VOL_CH1=${TAS6424_VOL_CH1:-"Tannoy CH1"}
-VOL_CH2=${TAS6424_VOL_CH2:-"Tannoy CH2"}
-VOL_CH3=${TAS6424_VOL_CH3:-"Tannoy CH3"}
-VOL_CH4=${TAS6424_VOL_CH4:-"Tannoy CH4"}
+VOL_CH1=${TAS6424_VOL_CH1:-}
+VOL_CH2=${TAS6424_VOL_CH2:-}
+VOL_CH3=${TAS6424_VOL_CH3:-}
+VOL_CH4=${TAS6424_VOL_CH4:-}
 
 NAME=tas6424-init
 log() {
@@ -19,6 +22,22 @@ resolve_hwctl() {
 	c=$(aplay -l 2>/dev/null | sed -n 's/^card \([0-9]\{1,\}\):.*tas6424.*/\1/p' | head -n1)
 	if [ -n "$c" ]; then
 		printf 'hw:%s' "$c"
+	fi
+}
+
+# Probe simple control names (matches alsamixer and AVM _resolve_tannoy_ch_controls).
+probe_ch_names() {
+	if [ -n "$VOL_CH1" ] && [ -n "$VOL_CH2" ] && [ -n "$VOL_CH3" ] && [ -n "$VOL_CH4" ]; then
+		printf '%s\n%s\n%s\n%s' "$VOL_CH1" "$VOL_CH2" "$VOL_CH3" "$VOL_CH4"
+		return 0
+	fi
+	if amixer -D "$1" scontrols 2>/dev/null | grep -q 'Tannoy CH1'; then
+		printf '%s\n' 'Tannoy CH1' 'Tannoy CH2' 'Tannoy CH3' 'Tannoy CH4'
+	elif amixer -D "$1" scontrols 2>/dev/null | grep -q 'Speaker Driver CH1'; then
+		printf '%s\n' 'Speaker Driver CH1' 'Speaker Driver CH2' 'Speaker Driver CH3' 'Speaker Driver CH4'
+	else
+		log "WARN: could not probe CH1–CH4 on $1"
+		return 1
 	fi
 }
 
@@ -41,12 +60,25 @@ if ! amixer -D "$CTL" info >/dev/null 2>&1; then
 	log "NOTICE: using $CTL instead of named mixer $MIX"
 fi
 
-amixer -q -D "$CTL" sset "$VOL_CH1" "$VOL" 2>/dev/null || true
-amixer -q -D "$CTL" sset "$VOL_CH2" "$VOL" 2>/dev/null || true
-amixer -q -D "$CTL" sset "$VOL_CH3" "$VOL" 2>/dev/null || true
-amixer -q -D "$CTL" sset "$VOL_CH4" "$VOL" 2>/dev/null || true
+CH_LIST=$(probe_ch_names "$CTL") || exit 0
+
+# Linear 0–255 (patch 0027): sset/cset numeric value = hardware register.
+set_ch_vol() {
+	_ch=$1
+	if amixer -q -D "$CTL" sset "$_ch" "$VOL_ABS" 2>/dev/null; then
+		return 0
+	fi
+	amixer -q -D "$CTL" cset name="${_ch} Playback Volume" "$VOL_ABS" 2>/dev/null \
+		|| amixer -q -D "$CTL" cset name="${_ch}" "$VOL_ABS" 2>/dev/null \
+		|| true
+}
+
+echo "$CH_LIST" | while read -r ch; do
+	[ -n "$ch" ] || continue
+	set_ch_vol "$ch"
+done
 amixer -q -D "$CTL" sset 'Auto Diagnostics' off 2>/dev/null || true
 
-log "OK: amixer -D $CTL CH1–CH4=$VOL AutoDiag off (mixer=$MIX)"
+log "OK: amixer -D $CTL CH1–CH4=$VOL_ABS (linear index 0–255) AutoDiag off (mixer=$MIX)"
 
 exit 0
