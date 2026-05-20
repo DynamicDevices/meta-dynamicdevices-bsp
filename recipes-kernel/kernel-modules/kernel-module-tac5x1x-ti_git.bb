@@ -2,7 +2,7 @@ SUMMARY = "TI TAC5x1x family ASoC codec (out-of-tree)"
 DESCRIPTION = "Out-of-tree module from TI lpaa-android-drivers/tac5x1x-linux-driver. \
 Enabled with MACHINE_FEATURES tac5x1x-ti-audio (mutually exclusive with tac5x1x-audio Lore in-kernel stack)."
 LICENSE = "GPL-2.0-only"
-LIC_FILES_CHKSUM = "file://${S}/tac5x1x-i2c.c;beginline=1;endline=10;md5=470d432f2ae41d873b421da159632ecd"
+LIC_FILES_CHKSUM = "file://${S}/tac5x1x-i2c.c;beginline=1;endline=10;md5=f43a32783f11042d7777a153f3bc192e"
 
 inherit module
 
