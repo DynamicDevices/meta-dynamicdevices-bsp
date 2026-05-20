@@ -59,7 +59,8 @@ Inventory of **kernel `SRC_URI` fragments** wired for **`MACHINE = imx8mm-jaguar
 | **`taa5412`** | `pcm6240-lmp/0001-…`, `0002-…`, `pcm6240-audio-codec.cfg` | PCM6240/TAA5412 backport + optional IRQ on DT510 | Mainline + fslc absorb series |
 | **`tas2562`** or **`tas2563`** | `0008-asoc-tas2562-fix-format-definition.patch`, `tas2562-driver.cfg` | TAS2562 format / driver Kconfig | Fixed upstream |
 | **`ksz9896`** | `ksz9896-ethernet-switch.cfg`, `ksz9896-mii-phy.cfg` | KSZ9896 DSA + MII PHY helpers | Upstream defaults |
-| **`tac5x1x-audio`** | `tac5x1x-lmp/tac5x1x-lmp.cfg` + patches **`01`–`07b`, `08`, `09`, `10`** (see below) | TI TAC5301 path (MFD / pinctrl / ASoC / 6.6 compat / DT510 analog defaults) | Lore series merged + fslc aligned — see **`tac5x1x-lmp.cfg`** |
+| **`tac5x1x-audio`** | `tac5x1x-lmp/tac5x1x-lmp.cfg` + patches **`01`–`07b`, `08`, `09`, `10`** (see below) | TI TAC5301 @ 0x50 — Lore in-kernel (default DT510) | Lore series merged + fslc aligned — see **`tac5x1x-lmp.cfg`** |
+| **`tac5x1x-ti-audio`** | `tac5x1x-lmp-disable-ikernel.cfg`; **`kernel-module-tac5x1x-ti`** | Same silicon — TI OOT **`snd-soc-tac5x1x`**; **not** combinable with **`tac5x1x-audio`** | 6.6 build smoke + DT510 probe; see **`conf/machine/include/tac5x1x.inc`** |
 | **`bq25792-charger`** | **`bq25792-charger.cfg`**, **`bq257xx-mfd-kconfig.cfg`**, **`0010`–`0025`** (see below) | **`ti,bq25792`** MFD + charger + regulator on linux-fslc 6.6 | **`drivers/mfd/bq257xx.c`** + bindings + charger/regulator support in factory **`SRCREV`** — track **GitHub `meta-dynamicdevices-bsp` issue #3** |
 
 ---
@@ -108,6 +109,12 @@ Patches listed in **`linux-lmp-fslc-imx_%.bbappend`** (not **`04`** — bindings
 | `10-dt510-tac5301-analog-dt-defaults.patch` | DT510 analog register defaults |
 
 **Remove when:** Lore/mainline + linux-fslc **`SRCREV`** carry equivalent drivers/bindings; re-run **`tac5x1x-lmp.cfg`** fetch/am scripts if refreshing series.
+
+### Alternate: `tac5x1x-ti-audio` (out-of-tree)
+
+- **Recipe:** `recipes-kernel/kernel-modules/kernel-module-tac5x1x-ti_git.bb` — TI **`tac5x1x_driver_k5.15`** @ `git.ti.com/.../tac5x1x-linux-driver.git`.
+- **Kernel:** **`tac5x1x-lmp-disable-ikernel.cfg`** unsets in-kernel Lore symbols; Lore patch bundle **not** applied.
+- **Gaps:** no **`10-dt510-tac5301-analog-dt-defaults`** (Lore MFD only); **`ti,tac5301`** mapped to **TAC5311** table in OOT patch until TI adds ID; **do not** combine with **`taa5412`** (PCM6240 also binds **`ti,taa5412`** @ 0x51).
 
 ---
 

@@ -1,0 +1,75 @@
+From: Dynamic Devices <ajlennon@dynamicdevices.co.uk>
+Subject: [PATCH] linux 6.6: adapt tac5x1x I2C driver probe/remove API
+
+Linux 6.6+ i2c_driver uses probe(client) without i2c_device_id and
+remove() returns void. Drop legacy id_table; resolve codec type via
+i2c_of_match_device() from the OF table.
+---
+ tac5x1x-i2c.c | 31 ++++++++-----------------------
+ 1 file changed, 8 insertions(+), 23 deletions(-)
+
+diff --git a/tac5x1x-i2c.c b/tac5x1x-i2c.c
+index f6c809f..fe215a3 100644
+--- a/tac5x1x-i2c.c
++++ b/tac5x1x-i2c.c
+@@ -2418,33 +2418,20 @@ static const struct of_device_id tac5x1x_of_match[] = {
+ };
+ MODULE_DEVICE_TABLE(of, tac5x1x_of_match);
+ 
+-static const struct i2c_device_id tac5x1x_id[] = {
+-	{"taa5212", TAA5212},
+-	{"taa5412", TAA5412},
+-	{"tac5111", TAC5111},
+-	{"tac5112", TAC5112},
+-	{"tac5211", TAC5211},
+-	{"tac5212", TAC5212},
+-	{"tac5311", TAC5311},
+-	{"tac5312", TAC5312},
+-	{"tac5411", TAC5411},
+-	{"tac5412", TAC5412},
+-	{"tad5112", TAD5112},
+-	{"tad5212", TAD5212},
+-	{}
+-};
+-MODULE_DEVICE_TABLE(i2c, tac5x1x_id);
+-
+-static int tac5x1x_i2c_probe(struct i2c_client *i2c,
+-			     const struct i2c_device_id *id)
++static int tac5x1x_i2c_probe(struct i2c_client *i2c)
+ {
+ 	int ret;
+ 	enum tac5x1x_type type;
+ 	struct regmap *regmap;
++	const struct of_device_id *of_id;
+ 	const struct regmap_config *config = &tac5x1x_regmap;
+ 
++	of_id = i2c_of_match_device(tac5x1x_of_match, i2c);
++	if (!of_id)
++		return -ENODEV;
++
+ 	regmap = devm_regmap_init_i2c(i2c, config);
+-	type = (uintptr_t)id->driver_data;
++	type = (enum tac5x1x_type)(uintptr_t)of_id->data;
+ 
+ 	ret = tac5x1x_probe(&i2c->dev, regmap, type);
+ 	if (ret)
+@@ -2453,10 +2440,9 @@ static int tac5x1x_i2c_probe(struct i2c_client *i2c,
+ 	return ret;
+ }
+ 
+-static int tac5x1x_i2c_remove(struct i2c_client *client)
++static void tac5x1x_i2c_remove(struct i2c_client *client)
+ {
+ 	tac5x1x_remove(&client->dev);
+-	return 0;
+ }
+ 
+ static struct i2c_driver tac5x1x_i2c_driver = {
+@@ -2466,7 +2452,6 @@ static struct i2c_driver tac5x1x_i2c_driver = {
+ 	},
+ 	.probe = tac5x1x_i2c_probe,
+ 	.remove = tac5x1x_i2c_remove,
+-	.id_table = tac5x1x_id,
+ };
+ module_i2c_driver(tac5x1x_i2c_driver);
+ 

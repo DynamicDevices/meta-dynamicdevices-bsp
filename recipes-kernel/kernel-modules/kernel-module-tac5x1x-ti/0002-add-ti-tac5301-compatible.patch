@@ -1,0 +1,21 @@
+From: Dynamic Devices <ajlennon@dynamicdevices.co.uk>
+Subject: [PATCH] tac5x1x: add ti,tac5301 (DT510 cabin loop @ 0x50)
+
+TI tac5x1x_driver branch omits TAC5301-Q1; DT510 DTS uses compatible
+"ti,tac5301". Map to TAC5311 until TI publishes a distinct ID table.
+---
+ tac5x1x-i2c.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/tac5x1x-i2c.c b/tac5x1x-i2c.c
+index fe215a3..20ff3fb 100644
+--- a/tac5x1x-i2c.c
++++ b/tac5x1x-i2c.c
+@@ -2408,6 +2408,7 @@ static const struct of_device_id tac5x1x_of_match[] = {
+ 	{ .compatible = "ti,tac5112", .data = (void *)TAC5112 },
+ 	{ .compatible = "ti,tac5211", .data = (void *)TAC5211 },
+ 	{ .compatible = "ti,tac5212", .data = (void *)TAC5212 },
++	{ .compatible = "ti,tac5301", .data = (void *)TAC5311 },
+ 	{ .compatible = "ti,tac5311", .data = (void *)TAC5311 },
+ 	{ .compatible = "ti,tac5312", .data = (void *)TAC5312 },
+ 	{ .compatible = "ti,tac5411", .data = (void *)TAC5411 },

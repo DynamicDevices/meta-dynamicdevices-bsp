@@ -1,17 +1,43 @@
-# Optional: TI TAC5x1x family (e.g. TAC5301-Q1 on DT510 &sai6) via mainline patch series.
+# TI TAC5x1x family (e.g. TAC5301-Q1 cabin loop on DT510 &sai6 @ I2C 0x50).
 #
-# Enable on a machine with:
-#   MACHINE_FEATURES:append:<machine> = " tac5x1x-audio"
+# Two mutually exclusive driver stacks — pick ONE per machine image:
 #
-# linux-lmp-fslc-imx_%.bbappend then pulls in tac5x1x-lmp/tac5x1x-lmp.cfg and any
-# file://.../tac5x1x-lmp/patches/*.patch you add after running:
-#   ./scripts/kernel-fetch-tac5x1x-lore-series.sh
-# and rebasing onto the NXP 6.6 kernel tree.
+#   tac5x1x-audio (default on imx8mm-jaguar-dt510)
+#     Lore/linux-sound patch series baked into linux-lmp-fslc-imx (MFD + pinctrl + ASoC).
+#     See tac5x1x-lmp/tac5x1x-lmp.cfg and linux-lmp-fslc-imx_%.bbappend.
 #
-# Lore / Patchwork tracking:
+#   tac5x1x-ti-audio (experimental)
+#     TI out-of-tree snd-soc-tac5x1x from git.ti.com lpaa-android-drivers/tac5x1x-linux-driver
+#     (recipe kernel-module-tac5x1x-ti). In-kernel Lore symbols disabled via tac5x1x-lmp-disable-ikernel.cfg.
+#     Switch example:
+#       MACHINE_FEATURES:remove:imx8mm-jaguar-dt510 = " tac5x1x-audio"
+#       MACHINE_FEATURES:append:imx8mm-jaguar-dt510 = " tac5x1x-ti-audio"
+#
+# Driver mic TAA5412 @ 0x51 is separate: MACHINE_FEATURES taa5412 → pcm6240 in-kernel backport,
+# not this include. TI OOT also lists ti,taa5412 — do not enable tac5x1x-ti-audio together with
+# taa5412 until DT/recipe policy is defined (would double-bind I2C 0x51).
+#
+# Lore / Patchwork tracking (in-kernel path):
 #   - Thread: linux-sound, subject "[PATCH v1 0/8] ASoC: support TI's TAC5x1x audio codec family"
 #   - yhbt mirror: https://yhbt.net/lore/linux-sound/20260312184833.263-1-niranjan.hy@ti.com/
-#   - Patchwork (search Message-ID or title): https://patchwork.kernel.org/project/linux-sound/list/
 #
-# When the series merges upstream, drop local patches and pin a kernel that
+# When the Lore series merges upstream, drop local patches and pin a kernel that
 # ships CONFIG_MFD_TAC5X1X / CONFIG_PINCTRL_TI_TAC5X1X / CONFIG_SND_SOC_TAC5X1X.
+
+# bbappend helpers (linux-lmp-fslc-imx_%.bbappend)
+TAC5X1X_USE_LORE_IKERNEL = "${@'1' if bb.utils.contains('MACHINE_FEATURES', 'tac5x1x-audio', True, False, d) and not bb.utils.contains('MACHINE_FEATURES', 'tac5x1x-ti-audio', True, False, d) else '0'}"
+TAC5X1X_USE_TI_OOT = "${@'1' if bb.utils.contains('MACHINE_FEATURES', 'tac5x1x-ti-audio', True, False, d) else '0'}"
+
+MACHINE_EXTRA_RDEPENDS:append = " \
+    ${@'kernel-module-tac5x1x-ti' if d.getVar('TAC5X1X_USE_TI_OOT') == '1' else ''} \
+"
+
+KERNEL_MODULE_AUTOLOAD:append = " \
+    ${@' snd-soc-tac5x1x' if d.getVar('TAC5X1X_USE_TI_OOT') == '1' else ''} \
+"
+
+python tac5x1x_mutual_exclusive () {
+    mf = (d.getVar('MACHINE_FEATURES') or '').split()
+    if 'tac5x1x-audio' in mf and 'tac5x1x-ti-audio' in mf:
+        bb.fatal('MACHINE_FEATURES: use tac5x1x-audio (Lore in-kernel) OR tac5x1x-ti-audio (TI OOT), not both')
+}
