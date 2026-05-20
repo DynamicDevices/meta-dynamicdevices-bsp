@@ -970,10 +970,12 @@
 		reset-gpios = <&gpio4 14 GPIO_ACTIVE_LOW>;
 		avdd-supply = <&reg_vddext_3v3>;
 		iovdd-supply = <&reg_vddext_3v3>;
+		/* TI OOT snd-soc-tac5x1x (required; see ti,tac5x1x.yaml) */
+		ti,vref = <1>;
+		ti,micbias-vg = <3>;
 		/*
-		 * Board analog defaults (TAC5301-Q1): single-ended IN1 (P0 R0x50 [7:6]=0b01),
-		 * mono single-ended output on OUT1P (P0 R0x64 [4:2]=0b010). Implemented in
-		 * tac5x1x-core.c when patch 10-dt510-tac5301-analog-dt-defaults.patch is applied.
+		 * Lore in-kernel only (tac5x1x-audio): ti,adc1-single-ended / ti,out1-mono-se-out1p
+		 * via patch 10-dt510-tac5301-analog-dt-defaults.patch — ignored by TI OOT path.
 		 */
 		ti,adc1-single-ended;
 		ti,out1-mono-se-out1p;

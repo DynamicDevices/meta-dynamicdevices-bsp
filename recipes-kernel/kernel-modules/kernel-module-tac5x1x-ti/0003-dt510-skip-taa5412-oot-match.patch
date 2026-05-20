@@ -1,0 +1,21 @@
+From: Dynamic Devices <ajlennon@dynamicdevices.co.uk>
+Subject: [PATCH] tac5x1x: do not claim ti,taa5412 on DT510
+
+DT510 uses in-kernel PCM6240 (MACHINE_FEATURES taa5412) at I2C 0x51.
+TI OOT must not register a second driver on the same address.
+---
+ tac5x1x-i2c.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/tac5x1x-i2c.c b/tac5x1x-i2c.c
+index 20ff3fb..a1b2c3d 100644
+--- a/tac5x1x-i2c.c
++++ b/tac5x1x-i2c.c
+@@ -2403,7 +2403,6 @@ static s32 tac5x1x_remove(struct device *dev)
+ 
+ static const struct of_device_id tac5x1x_of_match[] = {
+ 	{ .compatible = "ti,taa5212", .data = (void *)TAA5212 },
+-	{ .compatible = "ti,taa5412", .data = (void *)TAA5412 },
+ 	{ .compatible = "ti,tac5111", .data = (void *)TAC5111 },
+ 	{ .compatible = "ti,tac5112", .data = (void *)TAC5112 },
+ 	{ .compatible = "ti,tac5211", .data = (void *)TAC5211 },
