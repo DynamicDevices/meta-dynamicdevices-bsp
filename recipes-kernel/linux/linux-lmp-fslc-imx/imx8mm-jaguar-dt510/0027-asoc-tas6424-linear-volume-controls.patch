@@ -18,7 +18,7 @@ diff --git a/sound/soc/codecs/tas6424.c b/sound/soc/codecs/tas6424.c
 index 2222222..3333333 100644
 --- a/sound/soc/codecs/tas6424.c
 +++ b/sound/soc/codecs/tas6424.c
-@@ -55,15 +55,14 @@
+@@ -55,16 +55,14 @@
  #define TAS6424_LDGBYPASS_SHIFT		7
  #define TAS6424_LDGBYPASS_MASK		BIT(7)
  

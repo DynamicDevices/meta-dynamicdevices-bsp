@@ -15,7 +15,7 @@ diff --git a/sound/soc/codecs/tas6424.c b/sound/soc/codecs/tas6424.c
 index 1111111..2222222 100644
 --- a/sound/soc/codecs/tas6424.c
 +++ b/sound/soc/codecs/tas6424.c
-@@ -56,13 +56,13 @@ static DECLARE_TLV_DB_SCALE(dac_tlv, -10350, 50, 0);
+@@ -58,11 +58,11 @@ static const struct snd_kcontrol_new tas6424_snd_controls[] = {
  static const struct snd_kcontrol_new tas6424_snd_controls[] = {
 -	SOC_SINGLE_TLV("Speaker Driver CH1 Playback Volume",
 +	SOC_SINGLE_TLV("Tannoy CH1 Playback Volume",
