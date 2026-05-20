@@ -55,7 +55,7 @@ Inventory of **kernel `SRC_URI` fragments** wired for **`MACHINE = imx8mm-jaguar
 | **`cp2108-usb-serial`** | `imx8mm-jaguar-dt510/cp2108-usb-serial.cfg` | CP2108 USB–UART | Hardware / policy |
 | **`mcp251xfd-can`** | `imx8mm-jaguar-dt510/mcp251xfd-can.cfg` | MCP251xFD CAN | Same |
 | **`tas2563`** | `imx8mm-jaguar-dt510/tas2562-audio-codec.cfg`, `0002-asoc-tas2781-add-tas2563-codec-support.patch` | TAS2563 codec path | Upstream fslc has equivalent |
-| **`tas6424`** | `imx8mm-jaguar-dt510/tas6424-audio-codec.cfg`, **`0026-asoc-tas6424-rename-passenger-tannoy-controls.patch`**, **`0027-asoc-tas6424-linear-volume-controls.patch`** | TAS6424 class-D; **Tannoy CH1–CH4** names + linear **0–255** volume (no TLV dB) | Upstream accepts renames + linear controls, or product keeps TLV |
+| **`tas6424`** | `imx8mm-jaguar-dt510/tas6424-audio-codec.cfg`, **`0026-asoc-tas6424-rename-passenger-tannoy-controls.patch`** | TAS6424 class-D; **Tannoy CH1–CH4** names; **TLV dB** retained for lab **`sset -- -17.5dB`** (dropped **`0027`** — bad hunk after **0026**, conflicts with dB workflow) | Upstream accepts renames, or product keeps TLV |
 | **`taa5412`** | `pcm6240-lmp/0001-…`, `0002-…`, `pcm6240-audio-codec.cfg` | PCM6240/TAA5412 backport + optional IRQ on DT510 | Mainline + fslc absorb series |
 | **`tas2562`** or **`tas2563`** | `0008-asoc-tas2562-fix-format-definition.patch`, `tas2562-driver.cfg` | TAS2562 format / driver Kconfig | Fixed upstream |
 | **`ksz9896`** | `ksz9896-ethernet-switch.cfg`, `ksz9896-mii-phy.cfg` | KSZ9896 DSA + MII PHY helpers | Upstream defaults |

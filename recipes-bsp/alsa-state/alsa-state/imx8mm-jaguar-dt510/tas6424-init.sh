@@ -3,7 +3,7 @@
 # Passenger tannoy PA levels: kernel may expose "Tannoy CH1"–CH4 (patch 0026) or legacy "Speaker Driver CHn".
 # Optional env overrides: TAS6424_MIXER, TAS6424_BOOT_VOL, TAS6424_VOL_CH1, TAS6424_VOL_CH2–CH4 strings.
 # TAS6424_BOOT_VOL is dB for amixer sset -- NNdB (lab default -17.5). Use -- before negative dB.
-# On linear 0027 kernels dB sset may not apply; use dt510-tannoy-level-linear.sh for index on those images.
+# Kernel 0026: Tannoy CHn TLV controls; lab/boot use dB sset -- (not linear index 20).
 
 VOL=${TAS6424_BOOT_VOL:--17.5}
 VOL_DB=$(echo "$VOL" | sed 's/[dD][bB]$//')
