@@ -1,0 +1,33 @@
+From: Dynamic Devices <ajlennon@dynamicdevices.co.uk>
+Subject: [PATCH] tac5x1x: DT510 TAA5412-only OOT — ti,taa5412 @ 0x51
+
+In-kernel Lore snd-soc-tac5x1x handles TAC5301 @ 0x50 (tac5x1x-audio).
+This OOT build claims only ti,taa5412 so pcm6240 can be disabled without
+double-binding I2C 0x51 or conflicting with the cabin-loop driver @ 0x50.
+---
+ tac5x1x-i2c.c | 11 -----------
+ 1 file changed, 11 deletions(-)
+
+diff --git a/tac5x1x-i2c.c b/tac5x1x-i2c.c
+index fe215a3..c4d5e6f 100644
+--- a/tac5x1x-i2c.c
++++ b/tac5x1x-i2c.c
+@@ -2402,18 +2402,7 @@ static s32 tac5x1x_remove(struct device *dev)
+ }
+ 
+ static const struct of_device_id tac5x1x_of_match[] = {
+-	{ .compatible = "ti,taa5212", .data = (void *)TAA5212 },
+ 	{ .compatible = "ti,taa5412", .data = (void *)TAA5412 },
+-	{ .compatible = "ti,tac5111", .data = (void *)TAC5111 },
+-	{ .compatible = "ti,tac5112", .data = (void *)TAC5112 },
+-	{ .compatible = "ti,tac5211", .data = (void *)TAC5211 },
+-	{ .compatible = "ti,tac5212", .data = (void *)TAC5212 },
+-	{ .compatible = "ti,tac5311", .data = (void *)TAC5311 },
+-	{ .compatible = "ti,tac5312", .data = (void *)TAC5312 },
+-	{ .compatible = "ti,tac5411", .data = (void *)TAC5411 },
+-	{ .compatible = "ti,tac5412", .data = (void *)TAC5412 },
+-	{ .compatible = "ti,tad5112", .data = (void *)TAD5112 },
+-	{ .compatible = "ti,tad5212", .data = (void *)TAD5212 },
+ 	{}
+ };
+ MODULE_DEVICE_TABLE(of, tac5x1x_of_match);

@@ -56,7 +56,8 @@ Inventory of **kernel `SRC_URI` fragments** wired for **`MACHINE = imx8mm-jaguar
 | **`mcp251xfd-can`** | `imx8mm-jaguar-dt510/mcp251xfd-can.cfg` | MCP251xFD CAN | Same |
 | **`tas2563`** | `imx8mm-jaguar-dt510/tas2562-audio-codec.cfg`, `0002-asoc-tas2781-add-tas2563-codec-support.patch` | TAS2563 codec path | Upstream fslc has equivalent |
 | **`tas6424`** | `imx8mm-jaguar-dt510/tas6424-audio-codec.cfg`, **`0026-asoc-tas6424-rename-passenger-tannoy-controls.patch`** | TAS6424 class-D; **Tannoy CH1–CH4** names; **TLV dB** retained for lab **`sset -- -17.5dB`** (dropped **`0027`** — bad hunk after **0026**, conflicts with dB workflow) | Upstream accepts renames, or product keeps TLV |
-| **`taa5412`** | `pcm6240-lmp/0001-…`, `0002-…`, `pcm6240-audio-codec.cfg` | PCM6240/TAA5412 backport + optional IRQ on DT510 | Mainline + fslc absorb series |
+| **`taa5412`** | `pcm6240-lmp/0001-…`, `0002-…`, `pcm6240-audio-codec.cfg` | PCM6240/TAA5412 backport + optional IRQ on DT510 (default) | Mainline + fslc absorb series |
+| **`taa5412-tac5x1x-ti`** | `taa5412-pcm6240-disable.cfg`; **`kernel-module-tac5x1x-ti-taa5412`** | TI OOT **`snd-soc-tac5x1x-taa5412`** @ 0x51 only; Lore **`tac5x1x-audio`** @ 0x50 unchanged | 6.6 module smoke + **`arecord -D driver_mic`**; see **`conf/machine/include/taa5412.inc`** |
 | **`tas2562`** or **`tas2563`** | `0008-asoc-tas2562-fix-format-definition.patch`, `tas2562-driver.cfg` | TAS2562 format / driver Kconfig | Fixed upstream |
 | **`ksz9896`** | `ksz9896-ethernet-switch.cfg`, `ksz9896-mii-phy.cfg` | KSZ9896 DSA + MII PHY helpers | Upstream defaults |
 | **`tac5x1x-audio`** | `tac5x1x-lmp/tac5x1x-lmp.cfg` + patches **`01`–`07b`, `08`, `09`, `10`** (see below) | TI TAC5301 @ 0x50 — Lore in-kernel (default DT510) | Lore series merged + fslc aligned — see **`tac5x1x-lmp.cfg`** |
@@ -115,6 +116,13 @@ Patches listed in **`linux-lmp-fslc-imx_%.bbappend`** (not **`04`** — bindings
 - **Recipe:** `recipes-kernel/kernel-modules/kernel-module-tac5x1x-ti_git.bb` — TI **`tac5x1x_driver_k5.15`** @ `git.ti.com/.../tac5x1x-linux-driver.git`.
 - **Kernel:** **`tac5x1x-lmp-disable-ikernel.cfg`** unsets in-kernel Lore symbols; Lore patch bundle **not** applied.
 - **Gaps:** no **`10-dt510-tac5301-analog-dt-defaults`** (Lore MFD only); **`ti,tac5301`** mapped to **TAC5311** table in OOT patch until TI adds ID; **do not** combine with **`taa5412`** (PCM6240 also binds **`ti,taa5412`** @ 0x51).
+
+### TAA5412 driver mic — TI OOT (`taa5412-tac5x1x-ti`)
+
+- **Recipe:** `recipes-kernel/kernel-modules/kernel-module-tac5x1x-ti-taa5412_git.bb` — same TI git as cabin OOT, module **`snd-soc-tac5x1x-taa5412`**, OF match **`ti,taa5412`** only (inverse of **`0003-dt510-skip-taa5412-oot-match.patch`** on the global OOT recipe).
+- **Kernel:** **`taa5412-pcm6240-disable.cfg`**; pcm6240-lmp patches **not** applied.
+- **Coexists with:** **`tac5x1x-audio`** (Lore in-kernel @ 0x50). **Mutually exclusive with:** **`taa5412`** (pcm6240).
+- **Gaps:** DTS still **`simple-audio-card` + pcm6240 DAI naming** — may need MFD/tac5x1x DT migration for full TI probe; no **`firmware-taa5412`** regbin in this mode; bench **`arecord -D driver_mic`** required before factory pin.
 
 ---
 

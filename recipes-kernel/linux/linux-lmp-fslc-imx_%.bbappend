@@ -61,7 +61,8 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
 		file://imx8mm-jaguar-dt510/video-disable.cfg \
 		${@bb.utils.contains('MACHINE_FEATURES', 'tas2563', 'file://imx8mm-jaguar-dt510/tas2562-audio-codec.cfg', '', d)} \
 		${@bb.utils.contains('MACHINE_FEATURES', 'tas6424', 'file://imx8mm-jaguar-dt510/tas6424-audio-codec.cfg file://imx8mm-jaguar-dt510/0026-asoc-tas6424-rename-passenger-tannoy-controls.patch', '', d)} \
-		${@bb.utils.contains('MACHINE_FEATURES', 'taa5412', 'file://imx8mm-jaguar-dt510/pcm6240-lmp/0001-asoc-pcm6240-import-from-mainline-v6.10.patch file://imx8mm-jaguar-dt510/pcm6240-lmp/0002-asoc-pcm6240-optional-interrupt-dt510.patch file://imx8mm-jaguar-dt510/pcm6240-audio-codec.cfg', '', d)} \
+		${@('file://imx8mm-jaguar-dt510/pcm6240-lmp/0001-asoc-pcm6240-import-from-mainline-v6.10.patch file://imx8mm-jaguar-dt510/pcm6240-lmp/0002-asoc-pcm6240-optional-interrupt-dt510.patch file://imx8mm-jaguar-dt510/pcm6240-audio-codec.cfg') if d.getVar('TAA5412_USE_PCM6240') == '1' else ''} \
+		${@('file://imx8mm-jaguar-dt510/taa5412-pcm6240-disable.cfg') if d.getVar('TAA5412_USE_TAC5X1X_TI') == '1' else ''} \
 		file://imx8mm-jaguar-dt510/wifi-power-management.cfg \
 		file://usb-gadgets.cfg \
 		${@bb.utils.contains('DISTRO', 'lmp-mfgtool', '', 'file://imx8mm-jaguar-dt510/usb-audio-gadget.cfg', d)} \

@@ -13,9 +13,10 @@
 #       MACHINE_FEATURES:remove:imx8mm-jaguar-dt510 = " tac5x1x-audio"
 #       MACHINE_FEATURES:append:imx8mm-jaguar-dt510 = " tac5x1x-ti-audio"
 #
-# Driver mic TAA5412 @ 0x51 is separate: MACHINE_FEATURES taa5412 → pcm6240 in-kernel backport,
-# not this include. TI OOT also lists ti,taa5412 — do not enable tac5x1x-ti-audio together with
-# taa5412 until DT/recipe policy is defined (would double-bind I2C 0x51).
+# Driver mic TAA5412 @ 0x51 is separate — see conf/machine/include/taa5412.inc:
+#   taa5412 (default) → pcm6240 in-kernel; taa5412-tac5x1x-ti → snd-soc-tac5x1x-taa5412 OOT @ 0x51 only.
+# Do not enable tac5x1x-ti-audio (global TI OOT for cabin loop) on DT510 — use tac5x1x-audio (Lore) +
+# taa5412-tac5x1x-ti for the split-stack layout.
 #
 # Lore / Patchwork tracking (in-kernel path):
 #   - Thread: linux-sound, subject "[PATCH v1 0/8] ASoC: support TI's TAC5x1x audio codec family"
