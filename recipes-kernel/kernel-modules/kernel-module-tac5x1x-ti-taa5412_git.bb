@@ -18,6 +18,8 @@ SRC_URI = "git://git.ti.com/git/lpaa-android-drivers/tac5x1x-linux-driver.git;br
            file://0004-adc-cm-tolerance-ac-coupled.patch \
           "
 SRCREV = "8348635b6f54f7111092bf0247f63a80bc31d8ec"
+# Force OOT rebuild after DAPM patches (421 reused stale sstate; ADCCH still 0x04 on bench).
+PR = "r1"
 
 S = "${WORKDIR}/git/src"
 
