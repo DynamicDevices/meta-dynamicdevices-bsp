@@ -1396,6 +1396,7 @@
  * Andy/Vix cab DIs (2026-05): kernel-side invert — gpio-line-config on lines 0,1,4,5
  * uses GPIO_PULL_UP | GPIO_ACTIVE_LOW (16 | 1). Harness unchanged; vix-apps use
  * LineSettings(active_low=False) and is_pressed() on libgpiod ACTIVE (no double invert).
+ * Fleet validated 2026-05-21 (Andy): DI1–DI3 on containers 415 / vix-apps f4e1f61.
  * i.MX may not apply SoC pull from gpio-line-config (DI pinctrl stays NOPULL); PCB +
  * external terminations remain authoritative for bias.
  */
