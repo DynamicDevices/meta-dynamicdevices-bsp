@@ -983,11 +983,10 @@
 	};
 
 	/*
-	 * TI TAA5412-Q1 — PCM6240-family ADC; control on I2C2, digital audio on &sai5.
-	 * Product spec (Mic Input): I2C 0x51; SAI5 — RXD1→TX_SYNC (frame), RXC→RX_BCLK,
-	 * RXD3→TX_DATA0, RXD0→RX_DATA0; GPIO4_IO18 (pad SAI1_TXD6 mux) = configurable GPIO
-	 * to codec — not described in this node yet (reset / IRQ / strap TBD vs schematic).
-	 * Kernel patch 0002-asoc-pcm6240-optional-interrupt-dt510.patch treats absent IRQ OK.
+	 * TI TAA5412-Q1 — driver mic ADC on I2C2 @ 0x51, digital audio on &sai5.
+	 * taa5412 (default): pcm6240 in-kernel + firmware-taa5412 regbin.
+	 * taa5412-tac5x1x-ti: TI OOT snd-soc-tac5x1x-taa5412 — needs ti,vref + supplies
+	 * (same as tac5301@50; see ti,tac5x1x.yaml). reset / IRQ on GPIO4_IO18 TBD.
 	 */
 	taa5412: taa5412@51 {
 		compatible = "ti,taa5412";
@@ -995,6 +994,10 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_taa5412_codec_gpio>;
 		#sound-dai-cells = <0>;
+		avdd-supply = <&reg_vddext_3v3>;
+		iovdd-supply = <&reg_vddext_3v3>;
+		ti,vref = <1>;
+		ti,micbias-vg = <3>;
 		status = "okay";
 	};
 };
