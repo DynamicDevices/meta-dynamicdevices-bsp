@@ -1,0 +1,105 @@
+From: Dynamic Devices <ajlennon@dynamicdevices.co.uk>
+Subject: [PATCH] tac5x1x: fix TAA5412 DAPM ADC capture routes (Lore 263-8)
+
+TI OOT tac5x1x @ 8348635 chains ADC routes through IN1/IN2 Source Mux in
+the wrong order, so ASI_TX capture switches never turn on (PASITXCH1 bit 5
+stays 0 during arecord). Port Lore patch 07-tac5x1x-lore-263-8 DAPM route
+fixes for TAA5412/TAA5212 ADC capture path.
+---
+ tac5x1x-i2c.c | 66 ++++++++++++++++++++++++++++++++++++++++------------------
+ 1 file changed, 45 insertions(+), 21 deletions(-)
+
+diff --git a/tac5x1x-i2c.c b/tac5x1x-i2c.c
+index c4d5e6f..a1b2c3d 100644
+--- a/tac5x1x-i2c.c
++++ b/tac5x1x-i2c.c
+@@ -1160,17 +1160,22 @@ static const struct snd_soc_dapm_widget tac5x1x_common_widgets[] = {
+ };
+ 
+ static const struct snd_soc_dapm_route taa5x1x_dapm_routes[] = {
+-	/* ADC channel1 */
+-	{"IN1 Source Mux", "Analog", "AIN1"},
+-	{"IN2 Source Mux", "Analog", "IN1 Source Mux"},
+-	{"CH1_ADC_EN", NULL, "IN2 Source Mux"},
+-	{"ASI_TX_CH1_EN", "Capture Switch", "CH1_ADC_EN"},
+-	{"ADC1 Config", "Differential", "ASI_TX_CH1_EN"},
+-	{"ADC1 Config", "Single-ended", "ASI_TX_CH1_EN"},
+-	{"ADC1 Config", "Single-ended mux INxP",
+-		"ASI_TX_CH1_EN"},
+-	{"ADC1 Config", "Single-ended mux INxM",
+-		"ASI_TX_CH1_EN"},
++	/*
++	 * ADC channel1
++	 * ADC path: AIN1 -> CH1_ADC_EN -> ADC1 Config ->
++	 *           ADC1 Full-Scale -> Mic Bias -> IN1 Source Mux (Analog) ->
++	 *           ASI_TX_CH1_EN -> AIF OUT
++	 * PDM path: DIN1 -> IN1 Source Mux (PDM) ->
++	 *           ASI_TX_CH1_EN -> CH1_PDM_EN -> AIF OUT
++	 *
++	 * Note: The route {"IN1 Source Mux", "Analog", "Mic Bias"} is in
++	 * tac_common_routes because IN1 Source Mux widget is created later.
++	 */
++	{"CH1_ADC_EN", NULL, "AIN1"},
++	{"ADC1 Config", "Differential", "CH1_ADC_EN"},
++	{"ADC1 Config", "Single-ended", "CH1_ADC_EN"},
++	{"ADC1 Config", "Single-ended mux INxP", "CH1_ADC_EN"},
++	{"ADC1 Config", "Single-ended mux INxM", "CH1_ADC_EN"},
+ 
+ 	{"ADC1 Full-Scale", "2/10-VRMS", "ADC1 Config"},
+ 	{"ADC1 Full-Scale", "4/5-VRMS", "ADC1 Config"},
+@@ -1205,15 +1210,17 @@ static const struct snd_soc_dapm_route tad5x1x_dapm_routes[] = {
+ };
+ 
+ static const struct snd_soc_dapm_route taa5x12_dapm_routes[] = {
+-	/* ADC channel2 */
++	/*
++	 * ADC channel2
++	 * Same design as ADC channel1.
++	 * Note: The route {"IN2 Source Mux", "Analog", "Mic Bias"} is in
++	 * tac_common_routes because IN2 Source Mux widget is created later.
++	 */
+ 	{"CH2_ADC_EN", NULL, "AIN2"},
+-	{"ASI_TX_CH2_EN", "Capture Switch", "CH2_ADC_EN"},
+-	{"ADC2 Config", "Differential", "ASI_TX_CH2_EN"},
+-	{"ADC2 Config", "Single-ended", "ASI_TX_CH2_EN"},
+-	{"ADC2 Full-Scale", "2/10-VRMS",
+-		"ADC2 Config"},
+-	{"ADC2 Full-Scale", "4/5-VRMS",
+-		"ADC2 Config"},
++	{"ADC2 Config", "Differential", "CH2_ADC_EN"},
++	{"ADC2 Config", "Single-ended", "CH2_ADC_EN"},
++	{"ADC2 Full-Scale", "2/10-VRMS", "ADC2 Config"},
++	{"ADC2 Full-Scale", "4/5-VRMS", "ADC2 Config"},
+ 
+ 	{"Mic Bias", NULL, "ADC2 Full-Scale"},
+ };
+@@ -1265,7 +1272,28 @@ static const struct snd_soc_dapm_route tac5x1x_pdm_routes[] = {
+ };
+ 
+ static const struct snd_soc_dapm_route tac_common_routes[] = {
+-	{"AIF OUT", NULL, "Mic Bias"},
++	/*
++	 * Analog ADC path - routed through Source Mux
++	 * These routes must be here because IN1/IN2 Source Mux widgets
++	 * are created in tac5x1x_common_widgets which is added after
++	 * device-specific routes. The Analog path is already gated by
++	 * CH1_Enable/CH2_Enable through the ADC routes in device-specific files.
++	 */
++	{"IN1 Source Mux", "Analog", "Mic Bias"},
++	{"IN2 Source Mux", "Analog", "Mic Bias"},
++
++	/* Connect Source Mux to ASI_TX_EN for ADC capture */
++	{"ASI_TX_CH1_EN", "Capture Switch", "IN1 Source Mux"},
++	{"ASI_TX_CH2_EN", "Capture Switch", "IN2 Source Mux"},
++
++	/*
++	 * Direct routes from ASI_TX_CHx_EN to AIF OUT for ADC path.
++	 * PDM path goes through CHx_PDM_EN widgets which have their own
++	 * routes to AIF OUT. This allows ADC and PDM to share ASI_TX_CHx_EN
++	 * while maintaining separate event handlers.
++	 */
++	{"AIF OUT", NULL, "ASI_TX_CH1_EN"},
++	{"AIF OUT", NULL, "ASI_TX_CH2_EN"},
+ };
+ 
+ static s32 tac5x1x_pwr_ctrl(struct snd_soc_component *component,

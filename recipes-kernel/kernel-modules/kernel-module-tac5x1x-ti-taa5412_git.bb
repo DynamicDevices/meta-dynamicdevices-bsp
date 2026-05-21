@@ -14,6 +14,8 @@ SRC_URI = "git://git.ti.com/git/lpaa-android-drivers/tac5x1x-linux-driver.git;br
            file://Makefile \
            file://0001-linux-6.6-i2c-driver-api.patch \
            file://0002-taa5412-only-of-match.patch \
+           file://0003-lore-dapm-routes-taa5412.patch \
+           file://0004-adc-cm-tolerance-ac-coupled.patch \
           "
 SRCREV = "8348635b6f54f7111092bf0247f63a80bc31d8ec"
 

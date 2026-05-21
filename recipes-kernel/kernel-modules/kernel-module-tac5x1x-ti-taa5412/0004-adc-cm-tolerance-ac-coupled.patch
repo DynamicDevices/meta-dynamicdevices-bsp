@@ -1,0 +1,25 @@
+From: Dynamic Devices <ajlennon@dynamicdevices.co.uk>
+Subject: [PATCH] tac5x1x: DT510 AC-coupled mic ADC init (ADCCH C0 = 0x00)
+
+Match taa5412-1dev-reg.json PRE_POWER_UP: register 0x50/0x55 data 0x00 for
+AC-coupled driver mic inputs. TI default 0x04 sets CM tolerance bits for
+DC-coupled paths and is wrong for DT510 TAA5412 differential mic.
+---
+ tac5x1x-i2c.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/tac5x1x-i2c.c b/tac5x1x-i2c.c
+index a1b2c3d..d4e5f6a 100644
+--- a/tac5x1x-i2c.c
++++ b/tac5x1x-i2c.c
+@@ -1625,8 +1625,8 @@ static void tac5x1x_set_pdm_input(struct snd_soc_component *component,
+ 
+ static const struct reg_sequence tac5x1x_init_reg_seq[] = {
+ 	/* ADC Channels input coupling configuration */
+-	REG_SEQ0(TAC5X1X_ADCCH1C0, 0x04),
+-	REG_SEQ0(TAC5X1X_ADCCH2C0, 0x04),
++	REG_SEQ0(TAC5X1X_ADCCH1C0, 0x00),
++	REG_SEQ0(TAC5X1X_ADCCH2C0, 0x00),
+ 	/* Disable inputs and outputs */
+ 	REG_SEQ0(TAC5X1X_CH_EN, 0x00),
+ 	REG_SEQ0(TAC5X1X_PASITXCH1, 0x00),
