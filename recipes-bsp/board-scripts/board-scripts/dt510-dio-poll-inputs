@@ -9,8 +9,8 @@
 #   DI3 = GPIO1_IO4  (offset 4)  ptt
 #   DI4 = GPIO1_IO5  (offset 5)  dio-input-4
 #
-# Andy/Vix harness (2026-05): active-high — pressed = 1 (libgpiod ACTIVE).
-# gpioget --numeric and this script print 0=released, 1=pressed.
+# gpioget --numeric: raw pad level (pull-up cab wiring: pressed often 0, released 1).
+# Container dt510_gpio: is_pressed when libgpiod ACTIVE (1) — DTS GPIO_ACTIVE_LOW only.
 #
 # Outputs DO1–DO4 use offsets 6–9 (dt510-dio-toggle-outputs); this script
 # only reads DI lines and does not claim them.
@@ -60,7 +60,7 @@ poll_once() {
 		"$ts" "$v0" "$v1" "$v4" "$v5"
 }
 
-printf '# DT510 GPIO inputs (%s offsets %s) — 0=idle 1=pressed (active-high, libgpiod --numeric)\n' "$CHIP" "$DIO_OFFSETS"
+printf '# DT510 GPIO inputs (%s offsets %s) — gpioget --numeric raw (0=low 1=high); see BSP § Cab buttons\n' "$CHIP" "$DIO_OFFSETS"
 while true; do
 	poll_once
 	if [ "$ONCE" -eq 1 ]; then
