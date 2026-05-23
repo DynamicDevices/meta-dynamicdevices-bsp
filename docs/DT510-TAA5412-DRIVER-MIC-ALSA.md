@@ -1,8 +1,23 @@
 # DT510 — TAA5412‑Q1 “Driver Mic” ALSA capture
 
-**Scope:** **`imx8mm-jaguar-dt510`**, **`MACHINE_FEATURES`** **`taa5412`**, **`sound-taa5412`** with **`simple-audio-card,name = "taa5412-codec"`** → ALSA short id **`taa5412codec`** (hyphens stripped — confirm with **`grep taa5412 /proc/asound/cards`**).
+**Scope:** **`imx8mm-jaguar-dt510`**, **`sound-taa5412`** (`simple-audio-card,name = "taa5412-codec"`) → ALSA short id **`taa5412codec`**. Confirm with **`grep taa5412 /proc/asound/cards`**.
 
-**Hardware / stack:** TI **TAA5412‑Q1** (PCM6240 family) on **`&i2c2` `0x51`**, **`&sai5`**, **`snd_soc_pcm6240`**. **Required:** TI firmware **`taa5412-i2c-<n>-1dev.bin`** (typical DT510: **`i2c-1`** → **`/lib/firmware/taa5412-i2c-1-1dev.bin`**). **`&micfil` disabled** so **SAI5_RXC** is available. See checklist + **`meta-subscriber-overrides/docs/DT510-HARDWARE-BRINGUP.md`** § TAA5412.
+**Hardware:** TI **TAA5412‑Q1** on **`&i2c2` `0x51`**, digital audio on **`&sai5`**. **`&micfil` disabled** so **SAI5_RXC** is not grabbed by EVK PDM.
+
+---
+
+## Driver stack — Path A vs Path B (pick one per image)
+
+Mutually exclusive **`MACHINE_FEATURES`** (see **`conf/machine/include/taa5412.inc`**, factory override in **`meta-subscriber-overrides/conf/layer.conf`**):
+
+| | **Path A — `taa5412` (BSP default)** | **Path B — `taa5412-tac5x1x-ti` (factory today)** |
+|---|--------------------------------------|-----------------------------------------------------|
+| **Module** | **`snd_soc_pcm6240`** (in-kernel backport) | **`snd_soc_tac5x1x_taa5412`** (TI OOT) |
+| **Firmware** | **`/lib/firmware/taa5412-i2c-1-1dev.bin`** required | Register init in driver (no pcm6240 blob) |
+| **I²C driver name** | **`pcm6240`** | **`tac5x1x-codec`** |
+| **Check** | **`lsmod \| grep pcm6240`** | **`lsmod \| grep tac5x1x_taa5412`** |
+
+**Cabin loop (TAC5301 @ 0x50, SAI6)** is always a **separate** chip, driver, and ALSA device — never conflate with **`driver_mic`**.
 
 ---
 
@@ -42,7 +57,7 @@ SSOT (**`docs/reference/dt510-ollie-tool-generated/pin_mux.dts`**): **`SAI5_RXC`
 
 Raw device: **`pcm._taa5412_hw`** → **`hw:taa5412codec`**, **device 0** (internal).
 
-If **`snd_pcm_hw_params`** shows **four** logical capture channels on this board, remap mono **`route`** **`slave.channels`** / **`ttable`** columns (keep **`driver_mic`** as full-stream **`plug`** until then).
+**Not driver mic:** **`driver_speaker`** / **`aplay`** → **TAS2563 on `&sai3`** — see **`docs/DT510-TAS2563-DRIVER-SPEAKER-ALSA.md`**. That path does **not** clock **SAI5**.
 
 ---
 
@@ -56,54 +71,86 @@ arecord -D driver_mic_in2 -f S16_LE -c 1 -r 48000 -d 3 /tmp/driver-mic-in2.wav
 amixer -D driver_mic scontrols
 ```
 
-**Channel count:** On **DT510**, hardware SSOT is **two differential microphone inputs — IN1 and IN2** (two analog mic channels into the codec). The **TAA5412 / PCM6240** silicon can still expose **more logical ADC slots** over **I²S** than those two nets use — treat **`-c`** / routing as **hardware + firmware + driver**, not DTS alone (checklist § TAA5412 notes **IN1/IN2**). Prefer validating capture channels against schematic + **`arecord`** HW params after firmware is correct.
+**Channel count:** On **DT510**, hardware SSOT is **two differential microphone inputs — IN1 and IN2**. Treat **`-c`** / routing as **hardware + driver + firmware**, not DTS alone.
+
+**Smoke script (when installed):** **`sudo dt510-taa5412-capture-check.sh`** — detects Path A or Path B; see **`board-scripts`**.
+
+---
+
+## Michael bench — scoping SAI5 (read this first)
+
+### What clocks SAI5
+
+| Action | SAI | Expected on scope |
+|--------|-----|-------------------|
+| **`arecord -D driver_mic …`** (leave running) | **`&sai5`** → TAA5412 | **BCLK** on **`SAI5_RXC`**, **LRCK/FS** on **`SAI5_RXD1`/`TX_SYNC`**, ADC data on **`SAI5_RXD0`** |
+| **`aplay -D driver_speaker …`** | **`&sai3`** → TAS2563 | **SAI3** pins only — **does not drive SAI5** |
+| Idle (no **`arecord`** on **`driver_mic`**) | **`&sai5`** | **No BCLK/LRCLK** — normal **`fsl-sai`** gating |
+
+Scoping **during active `arecord -D driver_mic`** is the correct procedure. **`aplay`** on the driver speaker is **not** a substitute.
+
+### Confirm the stream is really open
+
+In a second shell **while `arecord` runs**:
+
+```sh
+grep taa5412 /proc/asound/cards
+cat /proc/asound/card*/pcm0c/sub0/hw_params   # must NOT say "closed"
+sudo grep sai5 /sys/kernel/debug/clk/clk_summary | head -5
+```
+
+### Ranked causes when **no SAI5 clocks even during `arecord`**
+
+1. **No ALSA card / deferred probe** — **`grep taa5412 /proc/asound/cards`** empty; **`dmesg`:** **`sound-taa5412` deferred**, **`&micfil`** pin conflict, or **`30050000.sai` probe `-EINVAL`** (historically **`fsl,sai-asynchronous`** + **`fsl,sai-synchronous-rx`** together — fixed in current DTS by **`/delete-property/ fsl,sai-asynchronous`**).
+2. **`arecord` failed or wrong device** — used **`driver_speaker`**, **`tannoy_*`**, or **`aplay`** instead of **`arecord -D driver_mic`**; or capture exited before scope trigger.
+3. **Wrong probe balls** — must match § Mic input connectivity (**`SAI5_RXC`**, **`SAI5_RXD1`**, **`SAI5_RXD0`**), not SAI3/TAS2563 or SAI1/TAS6424 nets.
+4. **SAI5 up in kernel but codec ASI off (software)** — stream opens, **`sai5` clk enabled** in **`clk_summary`**, scope still quiet or **`arecord`** all zeros. Check **`PASITXCH1` (page 0 reg `0x1e`) bit 5** during capture — want **1** (e.g. value **`0x20`**+). **0** = TI ASI TX path not armed (Path B DAPM — see **`0003-lore-dapm-routes-taa5412.patch`**; factory **421** had stale OOT sstate).
+
+```sh
+# During running arecord (needs debugfs + sudo):
+sudo grep -E '^(001e|0076):' /sys/kernel/debug/regmap/1-0051/registers
+```
 
 ---
 
 ## I²S / **SAI5** — expected signals (hardware debug)
 
-If analog coupling / firmware look sane but **`arecord`** is still flat zeros, validate the **digital audio link** between **i.MX8MM `&sai5`** and **TAA5412**. Missing **BCLK**, **LRCK/FS**, or codec **SDOUT** on the PCB explains silence regardless of **`ADC_CHx_CFG0`**.
+**Stack reference:** **`sound-taa5412`** sets **`frame-master`** and **`bitclock-master`** on **`&sai5`**. CPU drives **BCLK** and **frame sync**; codec returns ADC data on **RX data**.
 
-**Clock gating (normal on this stack):** **BCLK** is observed **only while a capture stream is open** (e.g. **`arecord -D driver_mic …`** running). With **no active PCM**, **`fsl,sai`** typically **idles/gates** the interface — **absence of BCLK when idle is not, by itself, a PCB fault.** Scope **FSYNC** and data **during** **`arecord`** the same way.
+**Clock gating:** BCLK/LRCLK appear **only while a capture PCM on this card is open**. Idle **SAI5** is expected dead on a scope.
 
-**Stack reference:** **`imx8mm-jaguar-dt510.dts`** — **`sound-taa5412`** (**`simple-audio-card`**) sets **`frame-master`** and **`bitclock-master`** on **`&taa5412_cpu_dai`** → **`&sai5`**. The **CPU drives bit clock and frame sync** toward the codec; the codec feeds **ADC serial data** back on the **RX data** pad.
+### **`&sai5` device tree (current BSP)**
+
+In **`imx8mm-jaguar-dt510.dts`**:
+
+- **`/delete-property/ fsl,sai-asynchronous`** — NXP EVK leaves this on **`&sai5`**; it **must** be removed before adding sync-Rx (otherwise **`fsl_sai_probe` → `-EINVAL`**, card deferred — seen on early **`lmp-350`** images).
+- **`fsl,sai-synchronous-rx`** — **enabled** so Rx-side clocks follow Tx-internal framing; LRCK is muxed as **`SAI5_TX_SYNC`** on **`SAI5_RXD1`**. **`&sai1`** / **`&sai6`** stay async; **`&sai3`** (TAS2563) uses sync-Rx for a different wiring model.
+- **`assigned-clock-rates = <12288000>`**, **`AUDIO_PLL1_OUT`**, **`fsl,sai-mclk-direction-output`**.
 
 **Pinmux (`pinctrl_sai5_taa5412`):**
 
-| Pad / ball naming | SAI role | Notes |
-|-------------------|---------|--------|
-| **`SAI5_RXC`** | **`SAI5_RX_BCLK`** | Bit clock (**BCLK**) — **`IMX8MM_PAD_GPIO_STD`** (**SSOT `0x116`**) |
-| **`SAI5_RXD1`** | **`SAI5_TX_SYNC`** | Frame sync / LRCK — **`IMX8MM_PAD_I2S_FRAME_SYNC_EXT`** (**SSOT `0x1916`**) — same framing recipe pattern as **`SAI1_TXFS`** (**`pinctrl_sai1_tas6424`**). Wrong pad electrical mode can produce **present-but-useless clocks**. |
-| **`SAI5_RXD0`** | **`SAI5_RX_DATA0`** | Serial **ADC data into SoC** — **`IMX8MM_PAD_GPIO_STD`** |
-| **`SAI5_RXD3`** | **`SAI5_TX_DATA0`** | CPU-side **TX data** (**`IMX8MM_PAD_GPIO_STD`**) — confirm against **schematic / TI slave-mode wiring** whether this net must toggle, tie, or N/C for your revision. |
+| Pad | SAI role | Notes |
+|-----|----------|--------|
+| **`SAI5_RXC`** | **`SAI5_RX_BCLK`** | BCLK — **`IMX8MM_PAD_GPIO_STD`** (**SSOT `0x116`**) |
+| **`SAI5_RXD1`** | **`SAI5_TX_SYNC`** | LRCK/FS — **`IMX8MM_PAD_I2S_FRAME_SYNC_EXT`** (**SSOT `0x1916`**) |
+| **`SAI5_RXD0`** | **`SAI5_RX_DATA0`** | Codec → SoC ADC data |
+| **`SAI5_RXD3`** | **`SAI5_TX_DATA0`** | SoC → codec (confirm vs schematic) |
 
-**`&sai5` clocks:** **`assigned-clock-rates = <12288000>`**, parent **`AUDIO_PLL1_OUT`** — software intends **12.288 MHz** MCLK/internal reference consistent with **`fsl,sai-mclk-direction-output`** (same pattern as **`&sai3`** / **`&sai6`**).
+**No dedicated SAI5 MCLK pad** on this mux — link is **BCLK + LRCK + data** (cf. TAC5301 **BCLK-only** narrative on **`&sai6`**).
 
-**No dedicated package MCLK pad:** DTS banner documents **no separate `SAI5_MCLK` pin** on this mux — intended link is **BCLK + LRCK + data** (cf. **TAC5301** on **`&sai6`** **BCLK-only** narrative). If **TI or the schematic expects a free-running master clock** at a crystal frequency **independent** of **`SAI5`**, that net **does not exist** in this DT narrative. **Do not** mistake **idle** (PCM closed, **BCLK off**) for **broken wiring** — compare **during `arecord`** only.
+### Lab timeline (Michael Hull)
 
-**Bench procedure:**
-
-1. Start **`arecord -D driver_mic …`** (leave running); probe **with stream open** — **BCLK / FSYNC / data are authoritative under capture**, not at idle.
-2. Confirm **BCLK** frequency matches **`LRCK × slot × bits`** for your mode (**e.g.** **48 kHz × 64 × …** for classic **I²S** staging — verify against **`pcm6240`** DAI format actually negotiated).
-3. Compare measured nets to **`docs/reference/dt510-ollie-tool-generated/pin_mux.dts`** (SSOT).
-
-### Bench observation (**Michael Hull**, **2026‑05‑16**) — FSYNC + data idle despite **BCLK**
-
-| Net | Observation |
-|-----|----------------|
-| **BCLK** | **Present while `arecord` is running** — **expected** (clocks gated when PCM closed; see **Clock gating** above). |
-| **FSYNC** (LRCK / frame on **`SAI5_TX_SYNC`**) | **Not active** — **blocking**: codec framing never advances; explains flat **`arecord`** / zeros even when analogue path is sane. |
-| **DOUT / DIN** (codec vs host naming; ↔ **`RX_DATA0`** / **`TX_DATA0`**) | **Not active** — **expected consequence** of missing FSYNC (no slot boundaries → no meaningful serial toggling). |
-
-**BSP note (DT):** **`&sai5`** does **not** use **`fsl,sai-synchronous-rx`**. An attempt to mirror **`&sai3`** failed: **`fsl-sai`** returned **`invalid binding for synchronous mode`** (**-EINVAL**), **`30050000.sai` did not probe**, and **`sound-taa5412` stayed deferred** (observed on **`lmp-350`**). **`&sai5`** matches **`&sai1`** / **`&sai6`**: **`fsl,sai-mclk-direction-output`** only. Residual **FSYNC / DOUT** issues need **hardware / TI ASI** analysis with SAI probing clean.
-
-**Still validate HW:** continuity / probe **correct ball** per product § Mic input connectivity; pad **`IMX8MM_PAD_I2S_FRAME_SYNC_EXT`** vs stuck-low solder bridge.
+| When | Observation |
+|------|-------------|
+| **2026‑05‑16** (pre sync-Rx DT fix) | **`arecord` running:** **BCLK present**, **FSYNC dead**, data idle — partial SAI master, LRCK pad/mode mismatch |
+| **2026‑05 / target 422** (Path B OOT) | Card **`taa5412codec`** up, **`arecord`** opens **48 kHz** stream, kernel **`sai5`** clk on — scope during **`arecord`** still required; **`PASITXCH1` bit 5** was **0** → silent WAV until DAPM/ASI fixed |
 
 ---
 
 ## Related
 
 - **`docs/DT510-HARDWARE-AUDIT-CHECKLIST.md`** (TAA5412 rows + § Codec notes)
-- **`docs/DT510-TAS2563-DRIVER-SPEAKER-ALSA.md`** (**Driver** **playback**: smart amp **`driver_speaker`**)
+- **`docs/DT510-TAS2563-DRIVER-SPEAKER-ALSA.md`** (**`driver_speaker`** — **SAI3**, not SAI5)
+- **`meta-subscriber-overrides/docs/DT510-HARDWARE-BRINGUP.md`** § TAA5412
 
-*Last updated: **2026‑05‑16** — **`pinctrl_sai5_taa5412`**: BCLK/data pads **`IMX8MM_PAD_GPIO_STD`** (**SSOT `0x116`**) vs EVK **`IMX8MM_PAD_SAI_DEFAULT`** (**`0xd6`**); **`pinctrl_taa5412_codec_gpio`** for **`GPIO4_IO18`**. **`&sai5`**: no **`fsl,sai-synchronous-rx`** (**`lmp-350`** **`EINVAL`** / deferred **`sound-taa5412`**); **BCLK** gating §; Michael bench **FSYNC**/data **2026‑05‑16** §; **`driver_mic_in*` / `driver_mic_slot*`** PCMs.*
+*Last updated: **2026‑05‑23** — Path A/B; **`fsl,sai-synchronous-rx`** matches current DTS; Michael bench ( **`arecord` only** for SAI5, not **`driver_speaker`** ); no-clocks-during-capture ranked causes; **`PASITXCH1`** ASI bit.*
