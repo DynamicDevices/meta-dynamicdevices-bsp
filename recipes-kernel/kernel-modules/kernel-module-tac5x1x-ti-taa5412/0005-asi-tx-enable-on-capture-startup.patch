@@ -1,0 +1,58 @@
+From: Dynamic Devices <ajlennon@dynamicdevices.co.uk>
+Subject: [PATCH] tac5x1x: enable ASI TX on capture stream startup (DT510)
+
+Even with Lore DAPM route fixes (0003), PASITXCH1 bit 5 can stay 0 during
+arecord so SAI5 sees no BCLK/LRCLK from the codec. Set ASI_TX enable on
+PASITXCH1/CH2 when the capture PCM stream starts; clear on shutdown.
+---
+ tac5x1x-i2c.c | 28 ++++++++++++++++++++++++++++
+ 1 file changed, 28 insertions(+)
+
+diff --git a/tac5x1x-i2c.c b/tac5x1x-i2c.c
+index d4e5f6a..e7f8a9b 100644
+--- a/tac5x1x-i2c.c
++++ b/tac5x1x-i2c.c
+@@ -1469,6 +1469,34 @@ static s32 tac5x1x_hw_params(struct snd_pcm_substream *substream,
+ 	return 0;
+ }
+ 
++#define TAC5X1X_ASI_TX_EN BIT(5)
++
++static void tac5x1x_asi_tx_enable(struct snd_soc_component *component, bool enable)
++{
++	u8 mask = TAC5X1X_ASI_TX_EN;
++
++	snd_soc_component_update_bits(component, TAC5X1X_PASITXCH1, mask,
++				      enable ? mask : 0);
++	snd_soc_component_update_bits(component, TAC5X1X_PASITXCH2, mask,
++				      enable ? mask : 0);
++}
++
++static int tac5x1x_startup(struct snd_pcm_substream *substream,
++			   struct snd_soc_dai *dai)
++{
++	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
++		tac5x1x_asi_tx_enable(dai->component, true);
++
++	return 0;
++}
++
++static void tac5x1x_shutdown(struct snd_pcm_substream *substream,
++			     struct snd_soc_dai *dai)
++{
++	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
++		tac5x1x_asi_tx_enable(dai->component, false);
++}
++
+ static s32 tac5x1x_set_bias_level(struct snd_soc_component *component,
+ 				  enum snd_soc_bias_level level)
+ {
+@@ -1499,6 +1527,8 @@ static s32 tac5x1x_set_bias_level(struct snd_soc_component *component,
+ }
+ 
+ static const struct snd_soc_dai_ops tac5x1x_ops = {
++	.startup = tac5x1x_startup,
++	.shutdown = tac5x1x_shutdown,
+ 	.hw_params = tac5x1x_hw_params,
+ 	.set_fmt = tac5x1x_set_dai_fmt,
+ 	.no_capture_mute = 1,

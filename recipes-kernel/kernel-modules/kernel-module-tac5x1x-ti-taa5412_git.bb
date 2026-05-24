@@ -16,10 +16,11 @@ SRC_URI = "git://git.ti.com/git/lpaa-android-drivers/tac5x1x-linux-driver.git;br
            file://0002-taa5412-only-of-match.patch \
            file://0003-lore-dapm-routes-taa5412.patch \
            file://0004-adc-cm-tolerance-ac-coupled.patch \
+           file://0005-asi-tx-enable-on-capture-startup.patch \
           "
 SRCREV = "8348635b6f54f7111092bf0247f63a80bc31d8ec"
-# Force OOT rebuild after DAPM patches (421 reused stale sstate; ADCCH still 0x04 on bench).
-PR = "r1"
+# Force OOT rebuild after ASI TX startup patch (0005).
+PR = "r2"
 
 S = "${WORKDIR}/git/src"
 
