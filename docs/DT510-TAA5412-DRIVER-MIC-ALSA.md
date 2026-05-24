@@ -84,10 +84,12 @@ amixer -D driver_mic scontrols
 | Action | SAI | Expected on scope |
 |--------|-----|-------------------|
 | **`arecord -D driver_mic …`** (leave running) | **`&sai5`** → TAA5412 | **BCLK** on **`SAI5_RXC`**, **LRCK/FS** on **`SAI5_RXD1`/`TX_SYNC`**, ADC data on **`SAI5_RXD0`** |
-| **`aplay -D driver_speaker …`** | **`&sai3`** → TAS2563 | **SAI3** pins only — **does not drive SAI5** |
+| **`aplay -D driver_speaker …`** | **`&sai3`** → TAS2563 | **SAI3** pins only — **does not drive SAI5** by itself |
 | Idle (no **`arecord`** on **`driver_mic`**) | **`&sai5`** | **No BCLK/LRCLK** — normal **`fsl-sai`** gating |
 
-Scoping **during active `arecord -D driver_mic`** is the correct procedure. **`aplay`** on the driver speaker is **not** a substitute.
+Scoping **during active `arecord -D driver_mic`** is the correct procedure. **`aplay`** on the driver speaker alone is **not** a substitute for **`arecord`**.
+
+**pcm6240 (Path A) bench exception (target 425+, 2026‑05):** On factory **`snd_soc_pcm6240`** images, **`arecord -D driver_mic`** alone may still show **zero SAI5 BCLK/LRCLK** on MSO while the stream appears open. Bench found that **parallel `aplay -D driver_speaker`** during capture can restore SAI5 clocks — even though **`driver_speaker`** is **SAI3/TAS2563**, not SAI5. Lab scripts default **`PARALLEL_APLAY=1`** in **`dt510-taa5412-pcm6240-i2c-test.sh`** and optional **`PARALLEL_APLAY=1`** in **`dt510-sai5-mso-remote-capture.sh`**. This quirk is **pcm6240-specific**; generic guidance above still applies for tac5x1x OOT and normal bring-up.
 
 ### Confirm the stream is really open
 
@@ -105,6 +107,7 @@ sudo grep sai5 /sys/kernel/debug/clk/clk_summary | head -5
 2. **`arecord` failed or wrong device** — used **`driver_speaker`**, **`tannoy_*`**, or **`aplay`** instead of **`arecord -D driver_mic`**; or capture exited before scope trigger.
 3. **Wrong probe balls** — must match § Mic input connectivity (**`SAI5_RXC`**, **`SAI5_RXD1`**, **`SAI5_RXD0`**), not SAI3/TAS2563 or SAI1/TAS6424 nets.
 4. **SAI5 up in kernel but codec ASI off (software)** — stream opens, **`sai5` clk enabled** in **`clk_summary`**, scope still quiet or **`arecord`** all zeros. Check **`PASITXCH1` (page 0 reg `0x1e`) bit 5** during capture — want **1** (e.g. value **`0x20`**+). **0** = TI ASI TX path not armed (Path B DAPM — see **`0003-lore-dapm-routes-taa5412.patch`**; factory **421** had stale OOT sstate).
+5. **pcm6240 Path A — arecord-only MSO dead** — on **425+** with **`pcm6240`**, try **parallel `aplay -D driver_speaker`** during **`arecord -D driver_mic`** (see § What clocks SAI5 pcm6240 exception). Lab: **`PARALLEL_APLAY=1`** in **`scripts/lab/dt510-taa5412-pcm6240-i2c-test.sh`**.
 
 ```sh
 # During running arecord (needs debugfs + sudo):
@@ -123,8 +126,8 @@ sudo grep -E '^(001e|0076):' /sys/kernel/debug/regmap/1-0051/registers
 
 In **`imx8mm-jaguar-dt510.dts`**:
 
-- **`/delete-property/ fsl,sai-asynchronous`** — NXP EVK leaves this on **`&sai5`**; it **must** be removed before adding sync-Rx (otherwise **`fsl_sai_probe` → `-EINVAL`**, card deferred — seen on early **`lmp-350`** images).
-- **`fsl,sai-synchronous-rx`** — **enabled** so Rx-side clocks follow Tx-internal framing; LRCK is muxed as **`SAI5_TX_SYNC`** on **`SAI5_RXD1`**. **`&sai1`** / **`&sai6`** stay async; **`&sai3`** (TAS2563) uses sync-Rx for a different wiring model.
+- **`/delete-property/ fsl,sai-asynchronous`** — NXP EVK leaves this on **`&sai5`**; remove inherited async so **`fsl_sai`** uses default **"Sync Tx with Rx"** (otherwise **`fsl,sai-asynchronous`** + **`fsl,sai-synchronous-rx`** together → **`fsl_sai_probe` → `-EINVAL`**, card deferred — early **`lmp-350`**).
+- **No `fsl,sai-synchronous-rx`** on **`&sai5`** — capture-only TAA5412; LRCK is **`SAI5_TX_SYNC`** on **`SAI5_RXD1`**. **`fsl,sai-synchronous-rx`** ("Sync Rx with Tx") caused **~40-slot TX vs 64-slot RX** BCLK/LRCLK mismatch on target **425** (LRCLK **~77 kHz** vs **~48 kHz**). Default Tx-sync-to-Rx after deleting async mirrors RX frame size on TX_SYNC during **`arecord`-only**. **`&sai3`** (TAS2563) still uses sync-Rx for a different wiring model; **`&sai1`** / **`&sai6`** stay async.
 - **`assigned-clock-rates = <12288000>`**, **`AUDIO_PLL1_OUT`**, **`fsl,sai-mclk-direction-output`**.
 
 **Pinmux (`pinctrl_sai5_taa5412`):**
@@ -143,7 +146,7 @@ In **`imx8mm-jaguar-dt510.dts`**:
 | When | Observation |
 |------|-------------|
 | **2026‑05‑16** (pre sync-Rx DT fix) | **`arecord` running:** **BCLK present**, **FSYNC dead**, data idle — partial SAI master, LRCK pad/mode mismatch |
-| **2026‑05 / target 422** (Path B OOT) | Card **`taa5412codec`** up, **`arecord`** opens **48 kHz** stream, kernel **`sai5`** clk on — scope during **`arecord`** still required; **`PASITXCH1` bit 5** was **0** → silent WAV until DAPM/ASI fixed |
+| **2026‑05 / target 425** (Path A pcm6240 + sync-Rx) | **`arecord` + parallel `aplay`:** clocks present but **LRCLK ~77 kHz**, BCLK/LRCLK **~40** — **`fsl,sai-synchronous-rx`** removed in next BSP |
 
 ---
 
@@ -153,4 +156,4 @@ In **`imx8mm-jaguar-dt510.dts`**:
 - **`docs/DT510-TAS2563-DRIVER-SPEAKER-ALSA.md`** (**`driver_speaker`** — **SAI3**, not SAI5)
 - **`meta-subscriber-overrides/docs/DT510-HARDWARE-BRINGUP.md`** § TAA5412
 
-*Last updated: **2026‑05‑23** — Path A/B; **`fsl,sai-synchronous-rx`** matches current DTS; Michael bench ( **`arecord` only** for SAI5, not **`driver_speaker`** ); no-clocks-during-capture ranked causes; **`PASITXCH1`** ASI bit.*
+*Last updated: **2026‑05‑24** — Path A/B; **`&sai5`** without **`fsl,sai-synchronous-rx`** (425 LRCLK mismatch); Michael bench (**`arecord`** for SAI5; **pcm6240 parallel `aplay` exception** on 425+); no-clocks-during-capture ranked causes; **`PASITXCH1`** ASI bit.*

@@ -1215,13 +1215,13 @@
 	assigned-clock-rates = <12288000>;
 	fsl,sai-mclk-direction-output;
 	/*
-	 * Product vs EVK: TAA5412 is capture on &sai5; LRCK is muxed as SAI5_TX_SYNC
-	 * (transmit-side pin function). Prefer explicit Rx-clock-sync-to-Tx: in fsl_sai.c
-	 * this is fsl,sai-synchronous-rx ("Sync Rx with Tx"), not the default
-	 * "Sync Tx with Rx". Requires deleting inherited fsl,sai-asynchronous (above).
-	 * If sai5 regressions appear, revert synchronous-rx and revisit regmap/scope.
+	 * Capture-only TAA5412 on &sai5; LRCK is muxed as SAI5_TX_SYNC (SAI5_RXD1).
+	 * Do not set fsl,sai-synchronous-rx here: with arecord-only (no SAI5 TX data),
+	 * fsl_sai "Sync Rx with Tx" left TX framing at ~40 slots while RX ran 64 slots
+	 * (MSO target 425: BCLK/LRCLK ratio ~40, LRCLK ~77 kHz vs expected ~48 kHz).
+	 * Default "Sync Tx with Rx" after deleting inherited fsl,sai-asynchronous (above)
+	 * mirrors RX frame size on TX_SYNC during capture-only driver_mic / arecord.
 	 */
-	fsl,sai-synchronous-rx;
 	#sound-dai-cells = <0>;
 	status = "okay";
 };
