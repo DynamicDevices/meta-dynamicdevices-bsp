@@ -11,13 +11,13 @@ when the active stream is Rx.
 
 Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 ---
- sound/soc/fsl/fsl_sai.c | 18 ++++++++++++++++++
- 1 file changed, 18 insertions(+)
+ sound/soc/fsl/fsl_sai.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
 diff --git a/sound/soc/fsl/fsl_sai.c b/sound/soc/fsl/fsl_sai.c
 --- a/sound/soc/fsl/fsl_sai.c
 +++ b/sound/soc/fsl/fsl_sai.c
-@@ -683,6 +683,24 @@ static int fsl_sai_hw_params(struct snd_pcm_substream *substream,
+@@ -718,6 +718,22 @@ static int fsl_sai_hw_params(struct snd_pcm_substream *substream,
  	regmap_write(sai->regmap, FSL_SAI_xMR(tx),
  		     ~0UL - ((1 << min(channels, slots)) - 1));
  
@@ -26,7 +26,7 @@ diff --git a/sound/soc/fsl/fsl_sai.c b/sound/soc/fsl/fsl_sai.c
 +	 * Tx frame size and word width to match Rx so LRCLK = BCLK / (slots *
 +	 * slot_width). The sync helper above does not always run for this wiring.
 +	 */
-+	if (!sai->is_consumer_mode && !tx) {
++	if (!sai->is_consumer_mode[tx] && !tx) {
 +		regmap_update_bits(sai->regmap, FSL_SAI_TCR4(ofs),
 +				   FSL_SAI_CR4_SYWD_MASK | FSL_SAI_CR4_FRSZ_MASK |
 +				   FSL_SAI_CR4_CHMOD_MASK,
@@ -37,7 +37,6 @@ diff --git a/sound/soc/fsl/fsl_sai.c b/sound/soc/fsl/fsl_sai.c
 +		regmap_write(sai->regmap, FSL_SAI_TMR,
 +			      ~0UL - ((1 << min(channels, slots)) - 1));
 +	}
-+
  	return 0;
  }
  

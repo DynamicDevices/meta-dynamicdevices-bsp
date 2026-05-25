@@ -9,13 +9,13 @@ parallel playback on another SAI.
 
 Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 ---
- sound/soc/codecs/pcm6240.c | 22 ++++++++++++++++++++++
- 1 file changed, 22 insertions(+)
+ sound/soc/codecs/pcm6240.c | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
 
 diff --git a/sound/soc/codecs/pcm6240.c b/sound/soc/codecs/pcm6240.c
 --- a/sound/soc/codecs/pcm6240.c
 +++ b/sound/soc/codecs/pcm6240.c
-@@ -2014,6 +2014,27 @@ out:
+@@ -1974,7 +1974,25 @@ out:
  	return ret;
  }
  
