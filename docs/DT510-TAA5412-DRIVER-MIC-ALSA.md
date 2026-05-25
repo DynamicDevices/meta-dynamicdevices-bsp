@@ -147,7 +147,8 @@ In **`imx8mm-jaguar-dt510.dts`**:
 | When | Observation |
 |------|-------------|
 | **2026‑05‑16** (pre sync-Rx DT fix) | **`arecord` running:** **BCLK present**, **FSYNC dead**, data idle — partial SAI master, LRCK pad/mode mismatch |
-| **2026‑05 / target 425–428** | **`arecord -D driver_mic`:** BCLK **~3.072 MHz** OK; LRCLK **~72–218 kHz** (ratio **~29–42** vs **64**) until **0028 + sync-rx** factory image |
+| **2026‑05 / target 425–429** | **`arecord -D driver_mic`:** BCLK **~12.29 MHz**, LRCLK **~22 kHz** (ratio **~273** vs **64**) when kernel **0028** used **`!sai->is_consumer_mode`** (array pointer — mirror never ran). Fixed: **`is_consumer_mode[tx]`** + enable **Tx TERE** on capture trigger |
+| **2026‑05 / target 425–428** | Earlier: LRCLK **~72–218 kHz** (stale **TCR4/TCR5** without mirror) — **0028 + sync-rx** after fix above |
 
 ---
 
