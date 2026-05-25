@@ -10,7 +10,7 @@ TCR4 missing FSD_MSTR, and stale bclk_ratio overriding TDM slot math.
 
 Mirror RCR2/RCR4/RCR5 to TCR2/TCR4/TCR5 on sync-rx capture, prefer TDM
 slots*width for BCLK, clear bclk_ratio when TDM is set, enable Tx TERE on
-capture trigger, fix scalar is_consumer_mode.
+capture trigger; keep is_consumer_mode[tx] (array pointer bug if scalar).
 
 Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 ---
@@ -34,7 +34,7 @@ diff --git a/sound/soc/fsl/fsl_sai.c b/sound/soc/fsl/fsl_sai.c
  				   savediv / 2 - 1);
  	}
  
-+	if (!tx && sai->synchronous[TX] && !sai->is_consumer_mode) {
++	if (!tx && sai->synchronous[TX] && !sai->is_consumer_mode[tx]) {
 +		u32 rc2;
 +		regmap_read(sai->regmap, FSL_SAI_RCR2(ofs), &rc2);
 +		regmap_update_bits(sai->regmap, FSL_SAI_TCR2(ofs),
@@ -61,8 +61,7 @@ diff --git a/sound/soc/fsl/fsl_sai.c b/sound/soc/fsl/fsl_sai.c
  	 * FSD_MSTR bit for this specific case.
  	 */
  	if (sai->soc_data->mclk_with_tere && sai->mclk_direction_output &&
--	    !sai->is_consumer_mode[tx])
-+	    !sai->is_consumer_mode)
+ 	    !sai->is_consumer_mode[tx])
  		regmap_update_bits(sai->regmap, FSL_SAI_xCR4(tx, ofs),
  				   FSL_SAI_CR4_FSD_MSTR, 0);
  
@@ -70,15 +69,14 @@ diff --git a/sound/soc/fsl/fsl_sai.c b/sound/soc/fsl/fsl_sai.c
  
  	/* Enable FSD_MSTR after configuring word width */
  	if (sai->soc_data->mclk_with_tere && sai->mclk_direction_output &&
--	    !sai->is_consumer_mode[tx])
-+	    !sai->is_consumer_mode)
+ 	    !sai->is_consumer_mode[tx])
  		regmap_update_bits(sai->regmap, FSL_SAI_xCR4(tx, ofs),
  				   FSL_SAI_CR4_FSD_MSTR, FSL_SAI_CR4_FSD_MSTR);
  
  	regmap_write(sai->regmap, FSL_SAI_xMR(tx),
  		     ~0UL - ((1 << min(channels, slots)) - 1));
  
-+	if (!sai->is_consumer_mode && !tx && sai->synchronous[TX]) {
++	if (!sai->is_consumer_mode[tx] && !tx && sai->synchronous[TX]) {
 +		u32 rc2, tx_cr4;
 +		tx_cr4 = (val_cr4 & ~FSL_SAI_CR4_CHMOD_MASK) | FSL_SAI_CR4_FSD_MSTR;
 +		regmap_update_bits(sai->regmap, FSL_SAI_TCR4(ofs),
@@ -100,7 +98,7 @@ diff --git a/sound/soc/fsl/fsl_sai.c b/sound/soc/fsl/fsl_sai.c
  		if (fsl_sai_dir_is_synced(sai, adir))
  			regmap_update_bits(sai->regmap, FSL_SAI_xCSR((!tx), ofs),
  					   FSL_SAI_CSR_TERE, FSL_SAI_CSR_TERE);
-+		else if (!tx && sai->synchronous[TX] && !sai->is_consumer_mode)
++		else if (!tx && sai->synchronous[TX] && !sai->is_consumer_mode[tx])
 +			regmap_update_bits(sai->regmap, FSL_SAI_TCSR(ofs),
 +					   FSL_SAI_CSR_TERE, FSL_SAI_CSR_TERE);
  
