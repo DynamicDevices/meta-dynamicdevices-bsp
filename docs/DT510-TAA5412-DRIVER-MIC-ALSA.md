@@ -127,7 +127,7 @@ sudo grep -E '^(001e|0076):' /sys/kernel/debug/regmap/1-0051/registers
 In **`imx8mm-jaguar-dt510.dts`**:
 
 - **`/delete-property/ fsl,sai-asynchronous`** — NXP EVK leaves this on **`&sai5`**; remove inherited async so **`fsl,sai-synchronous-rx`** is valid ( **`fsl,sai-asynchronous`** + **`fsl,sai-synchronous-rx`** together → **`fsl_sai_probe` → `-EINVAL`**, card deferred — early **`lmp-350`**).
-- **`fsl,sai-synchronous-rx`** — BCLK on **`SAI5_RXC`**, LRCK on **`SAI5_TX_SYNC`**: Rx is bit-clock master during **`arecord`**, Tx follows for frame sync. Requires kernel **0028** (mirror **RCR4/RCR5 → TCR4/TCR5** on capture); without it MSO saw **~40–42 BCLK/LRCLK** (LRCLK **~72–77 kHz**, target **425/426**). Broken **0027** on **428** made this worse (**~218 kHz**, ratio **~29**).
+- **`fsl,sai-synchronous-rx`** — BCLK on **`SAI5_RXC`**, LRCK on **`SAI5_TX_SYNC`**: Rx is bit-clock master during **`arecord`**, Tx follows for frame sync. Kernel **0028** mirrors **RCR2→TCR2** (BCLK divider), **RCR4/RCR5→TCR4/TCR5** + **FSD_MSTR** (LRCLK on TX_SYNC), clears stale **bclk_ratio** when TDM slots are set. MSO target: BCLK **~3.072 MHz**, LRCLK **~48 kHz**, ratio **~64**.
 - **`sound-taa5412` CPU DAI:** **`dai-tdm-slot-num = <2>`**, **`dai-tdm-slot-width = <32>`** — 48 kHz stereo **64 BCLK/LRCLK** (S16 in 32-bit I2S slots).
 - **`assigned-clock-rates = <12288000>`**, **`AUDIO_PLL1_OUT`**, **`fsl,sai-mclk-direction-output`**.
 
@@ -147,6 +147,7 @@ In **`imx8mm-jaguar-dt510.dts`**:
 | When | Observation |
 |------|-------------|
 | **2026‑05‑16** (pre sync-Rx DT fix) | **`arecord` running:** **BCLK present**, **FSYNC dead**, data idle — partial SAI master, LRCK pad/mode mismatch |
+| **2026‑05 / target 430** | **0028 v2 (register proof):** RCR2=/4 but TCR2=/2 → BCLK **~6.15 MHz**; TCR5=0, TCR4 no **FSD_MSTR** → LRCLK **~64 kHz**, ratio **~96**. Fix: mirror **RCR2→TCR2**, **RCR4/5→TCR4/5** + **FSD_MSTR**, prefer TDM **slots×width** for BCLK, clear stale **bclk_ratio** |
 | **2026‑05 / target 425–429** | **`arecord -D driver_mic`:** BCLK **~12.29 MHz**, LRCLK **~22 kHz** (ratio **~273** vs **64**) when kernel **0028** used **`!sai->is_consumer_mode`** (array pointer — mirror never ran). Fixed: **`is_consumer_mode[tx]`** + enable **Tx TERE** on capture trigger |
 | **2026‑05 / target 425–428** | Earlier: LRCLK **~72–218 kHz** (stale **TCR4/TCR5** without mirror) — **0028 + sync-rx** after fix above |
 
@@ -158,4 +159,4 @@ In **`imx8mm-jaguar-dt510.dts`**:
 - **`docs/DT510-TAS2563-DRIVER-SPEAKER-ALSA.md`** (**`driver_speaker`** — **SAI3**, not SAI5)
 - **`meta-subscriber-overrides/docs/DT510-HARDWARE-BRINGUP.md`** § TAA5412
 
-*Last updated: **2026‑05‑25** — SAI5 **sync-rx + kernel 0028** LRCLK fix; Michael bench; pcm6240 parallel **`aplay`** exception on early 425+.*
+*Last updated: **2026‑05‑25** — SAI5 **0028 v2** sync-rx clock fix (RCR2→TCR2, FSD_MSTR, TDM BCLK); factory **430** register evidence.*
