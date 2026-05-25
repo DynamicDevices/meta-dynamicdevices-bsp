@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Dynamic Devices <support@dynamicdevices.co.uk>
+Date: Sun, 25 May 2026 00:00:00 +0000
+Subject: [PATCH] ASoC: pcm6240: PRE_POWER_UP on capture stream startup (DT510)
+
+Run firmware PRE_POWER_UP (ASI / codec bring-up) when a capture PCM stream
+starts so arecord -D driver_mic alone enables the serial path without needing
+parallel playback on another SAI.
+
+Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
+---
+ sound/soc/codecs/pcm6240.c | 22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
+
+diff --git a/sound/soc/codecs/pcm6240.c b/sound/soc/codecs/pcm6240.c
+--- a/sound/soc/codecs/pcm6240.c
++++ b/sound/soc/codecs/pcm6240.c
+@@ -2014,6 +2014,27 @@ out:
+ 	return ret;
+ }
+ 
++static int pcmdevice_startup(struct snd_pcm_substream *substream,
++			     struct snd_soc_dai *dai)
++{
++	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
++		return pcmdevice_mute(dai, 0, SNDRV_PCM_STREAM_CAPTURE);
++
++	return 0;
++}
++
++static void pcmdevice_shutdown(struct snd_pcm_substream *substream,
++			       struct snd_soc_dai *dai)
++{
++	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
++		pcmdevice_mute(dai, 1, SNDRV_PCM_STREAM_CAPTURE);
++}
++
+ static const struct snd_soc_dai_ops pcmdevice_dai_ops = {
++	.startup = pcmdevice_startup,
++	.shutdown = pcmdevice_shutdown,
+ 	.mute_stream = pcmdevice_mute,
+ 	.hw_params = pcmdevice_hw_params,
+ };

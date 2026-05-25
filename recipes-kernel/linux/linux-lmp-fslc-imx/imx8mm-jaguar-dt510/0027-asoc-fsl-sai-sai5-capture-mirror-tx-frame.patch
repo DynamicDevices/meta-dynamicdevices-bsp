@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Dynamic Devices <support@dynamicdevices.co.uk>
+Date: Sun, 25 May 2026 00:00:00 +0000
+Subject: [PATCH] ASoC: fsl_sai: mirror Rx frame to Tx on capture-only (DT510)
+
+On DT510 driver mic (TAA5412 on &sai5) LRCLK is muxed to SAI5_TX_SYNC while
+only the Rx path carries ADC data. During arecord-only the Tx frame size/word
+config must match Rx or LRCLK toggle rate diverges from sample rate (MSO ~72 kHz
+vs 48 kHz with correct 3.072 MHz BCLK). Mirror TCR4/TCR5 from capture hw_params
+when the active stream is Rx.
+
+Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
+---
+ sound/soc/fsl/fsl_sai.c | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/sound/soc/fsl/fsl_sai.c b/sound/soc/fsl/fsl_sai.c
+--- a/sound/soc/fsl/fsl_sai.c
++++ b/sound/soc/fsl/fsl_sai.c
+@@ -683,6 +683,24 @@ static int fsl_sai_hw_params(struct snd_pcm_substream *substream,
+ 	regmap_write(sai->regmap, FSL_SAI_xMR(tx),
+ 		     ~0UL - ((1 << min(channels, slots)) - 1));
+ 
++	/*
++	 * Capture-only with FS/LRCK on TX_SYNC (DT510 SAI5 / TAA5412): program
++	 * Tx frame size and word width to match Rx so LRCLK = BCLK / (slots *
++	 * slot_width). The sync helper above does not always run for this wiring.
++	 */
++	if (!sai->is_consumer_mode && !tx) {
++		regmap_update_bits(sai->regmap, FSL_SAI_TCR4(ofs),
++				   FSL_SAI_CR4_SYWD_MASK | FSL_SAI_CR4_FRSZ_MASK |
++				   FSL_SAI_CR4_CHMOD_MASK,
++				   val_cr4 | FSL_SAI_CR4_CHMOD);
++		regmap_update_bits(sai->regmap, FSL_SAI_TCR5(ofs),
++				   FSL_SAI_CR5_WNW_MASK | FSL_SAI_CR5_W0W_MASK |
++				   FSL_SAI_CR5_FBT_MASK, val_cr5);
++		regmap_write(sai->regmap, FSL_SAI_TMR,
++			      ~0UL - ((1 << min(channels, slots)) - 1));
++	}
++
+ 	return 0;
+ }
+ 

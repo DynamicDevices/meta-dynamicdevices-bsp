@@ -222,6 +222,9 @@
 
 		taa5412_cpu_dai: simple-audio-card,cpu {
 			sound-dai = <&sai5>;
+			/* 48 kHz stereo I2S: 2 slots x 32-bit → 64 BCLK/LRCLK (not 16-bit SYWD). */
+			dai-tdm-slot-num = <2>;
+			dai-tdm-slot-width = <32>;
 		};
 
 		simple-audio-card,codec {

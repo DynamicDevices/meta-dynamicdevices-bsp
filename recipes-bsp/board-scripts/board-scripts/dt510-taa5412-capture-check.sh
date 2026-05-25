@@ -79,7 +79,7 @@ _check_pasitx_during_capture() {
 		warn "PASITXCH1: could not read reg 0x1e from regmap during capture"
 		return 0
 	fi
-	hex=$((pas))
+	hex=$((16#$pas))
 	bit5=$(( (hex >> 5) & 1 ))
 	echo "PASITXCH1 (0x1e)=0x$(printf '%02x' "$hex") during capture — ASI_TX bit5=${bit5}"
 	if [ "$bit5" -eq 0 ]; then
