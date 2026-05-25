@@ -1,0 +1,53 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Dynamic Devices <support@dynamicdevices.co.uk>
+Date: Sun, 25 May 2026 12:00:00 +0000
+Subject: [PATCH] ASoC: fsl_sai: mirror Rx frame to Tx on sync-rx capture (DT510)
+
+On DT510 driver mic (TAA5412 on &sai5) BCLK is output on SAI5_RXC while LRCLK
+is muxed to SAI5_TX_SYNC (SAI5_RXD1). Use fsl,sai-synchronous-rx so Rx
+generates bit clock during capture-only arecord and Tx follows Rx for frame
+sync.
+
+The upstream hw_params sync helper updates the opposite-direction CR4/CR5 only
+when fsl_sai_dir_is_synced() is true. With Tx-sync-to-Rx that is false on
+capture, so TCR4/TCR5 keep a stale frame size and LRCLK toggles too fast (MSO
+~77 kHz on target 425, ~72 kHz on 426, worse after a broken mirror on 428).
+
+Mirror RCR4/RCR5 values to TCR4/TCR5 on capture when synchronous[TX] is set.
+Do not set CHMOD on TCR4 — that is for data-line output, not TX_SYNC/FS.
+
+Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
+---
+ sound/soc/fsl/fsl_sai.c | 20 +++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+diff --git a/sound/soc/fsl/fsl_sai.c b/sound/soc/fsl/fsl_sai.c
+--- a/sound/soc/fsl/fsl_sai.c
++++ b/sound/soc/fsl/fsl_sai.c
+@@ -705,6 +705,26 @@ static int fsl_sai_hw_params(struct snd_pcm_substream *substream,
+ 	regmap_write(sai->regmap, FSL_SAI_xMR(tx),
+ 		     ~0UL - ((1 << min(channels, slots)) - 1));
+ 
++	/*
++	 * DT510 SAI5 / TAA5412: BCLK on RXC, LRCLK on TX_SYNC during capture.
++	 * With fsl,sai-synchronous-rx the generic sync block above does not
++	 * program TCR4/TCR5 on capture (fsl_sai_dir_is_synced(TX) is false).
++	 * Copy Rx frame size / word width to Tx so LRCLK = BCLK / (slots *
++	 * slot_width). Do not set CHMOD on TCR4 — FS pin, not a data line.
++	 */
++	if (!sai->is_consumer_mode && !tx && sai->synchronous[TX]) {
++		u32 tx_cr4 = val_cr4 & ~FSL_SAI_CR4_CHMOD_MASK;
++
++		regmap_update_bits(sai->regmap, FSL_SAI_TCR4(ofs),
++				   FSL_SAI_CR4_SYWD_MASK | FSL_SAI_CR4_FRSZ_MASK,
++				   tx_cr4);
++		regmap_update_bits(sai->regmap, FSL_SAI_TCR5(ofs),
++				   FSL_SAI_CR5_WNW_MASK | FSL_SAI_CR5_W0W_MASK |
++				   FSL_SAI_CR5_FBT_MASK, val_cr5);
++		regmap_write(sai->regmap, FSL_SAI_TMR,
++			      ~0UL - ((1 << min(channels, slots)) - 1));
++	}
++
+ 	return 0;
+ }
+ 

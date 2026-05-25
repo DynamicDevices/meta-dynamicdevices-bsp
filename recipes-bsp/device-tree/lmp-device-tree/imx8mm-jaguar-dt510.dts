@@ -1218,13 +1218,12 @@
 	assigned-clock-rates = <12288000>;
 	fsl,sai-mclk-direction-output;
 	/*
-	 * Capture-only TAA5412 on &sai5; LRCK is muxed as SAI5_TX_SYNC (SAI5_RXD1).
-	 * Do not set fsl,sai-synchronous-rx here: with arecord-only (no SAI5 TX data),
-	 * fsl_sai "Sync Rx with Tx" left TX framing at ~40 slots while RX ran 64 slots
-	 * (MSO target 425: BCLK/LRCLK ratio ~40, LRCLK ~77 kHz vs expected ~48 kHz).
-	 * Default "Sync Tx with Rx" after deleting inherited fsl,sai-asynchronous (above)
-	 * mirrors RX frame size on TX_SYNC during capture-only driver_mic / arecord.
+	 * Capture-only TAA5412: BCLK on SAI5_RXC, LRCLK on SAI5_TX_SYNC (SAI5_RXD1).
+	 * Rx must be bit-clock master (fsl,sai-synchronous-rx); kernel patch 0028
+	 * mirrors RCR4/RCR5 to TCR4/TCR5 on arecord so TX frame = 64 BCLK @ 48 kHz
+	 * stereo (MSO target 425/426/428 had ~40–42 slot LRCLK without that mirror).
 	 */
+	fsl,sai-synchronous-rx;
 	#sound-dai-cells = <0>;
 	status = "okay";
 };

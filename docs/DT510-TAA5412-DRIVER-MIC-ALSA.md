@@ -126,8 +126,9 @@ sudo grep -E '^(001e|0076):' /sys/kernel/debug/regmap/1-0051/registers
 
 In **`imx8mm-jaguar-dt510.dts`**:
 
-- **`/delete-property/ fsl,sai-asynchronous`** — NXP EVK leaves this on **`&sai5`**; remove inherited async so **`fsl_sai`** uses default **"Sync Tx with Rx"** (otherwise **`fsl,sai-asynchronous`** + **`fsl,sai-synchronous-rx`** together → **`fsl_sai_probe` → `-EINVAL`**, card deferred — early **`lmp-350`**).
-- **No `fsl,sai-synchronous-rx`** on **`&sai5`** — capture-only TAA5412; LRCK is **`SAI5_TX_SYNC`** on **`SAI5_RXD1`**. **`fsl,sai-synchronous-rx`** ("Sync Rx with Tx") caused **~40-slot TX vs 64-slot RX** BCLK/LRCLK mismatch on target **425** (LRCLK **~77 kHz** vs **~48 kHz**). Default Tx-sync-to-Rx after deleting async mirrors RX frame size on TX_SYNC during **`arecord`-only**. **`&sai3`** (TAS2563) still uses sync-Rx for a different wiring model; **`&sai1`** / **`&sai6`** stay async.
+- **`/delete-property/ fsl,sai-asynchronous`** — NXP EVK leaves this on **`&sai5`**; remove inherited async so **`fsl,sai-synchronous-rx`** is valid ( **`fsl,sai-asynchronous`** + **`fsl,sai-synchronous-rx`** together → **`fsl_sai_probe` → `-EINVAL`**, card deferred — early **`lmp-350`**).
+- **`fsl,sai-synchronous-rx`** — BCLK on **`SAI5_RXC`**, LRCK on **`SAI5_TX_SYNC`**: Rx is bit-clock master during **`arecord`**, Tx follows for frame sync. Requires kernel **0028** (mirror **RCR4/RCR5 → TCR4/TCR5** on capture); without it MSO saw **~40–42 BCLK/LRCLK** (LRCLK **~72–77 kHz**, target **425/426**). Broken **0027** on **428** made this worse (**~218 kHz**, ratio **~29**).
+- **`sound-taa5412` CPU DAI:** **`dai-tdm-slot-num = <2>`**, **`dai-tdm-slot-width = <32>`** — 48 kHz stereo **64 BCLK/LRCLK** (S16 in 32-bit I2S slots).
 - **`assigned-clock-rates = <12288000>`**, **`AUDIO_PLL1_OUT`**, **`fsl,sai-mclk-direction-output`**.
 
 **Pinmux (`pinctrl_sai5_taa5412`):**
@@ -146,7 +147,7 @@ In **`imx8mm-jaguar-dt510.dts`**:
 | When | Observation |
 |------|-------------|
 | **2026‑05‑16** (pre sync-Rx DT fix) | **`arecord` running:** **BCLK present**, **FSYNC dead**, data idle — partial SAI master, LRCK pad/mode mismatch |
-| **2026‑05 / target 425** (Path A pcm6240 + sync-Rx) | **`arecord` + parallel `aplay`:** clocks present but **LRCLK ~77 kHz**, BCLK/LRCLK **~40** — **`fsl,sai-synchronous-rx`** removed in next BSP |
+| **2026‑05 / target 425–428** | **`arecord -D driver_mic`:** BCLK **~3.072 MHz** OK; LRCLK **~72–218 kHz** (ratio **~29–42** vs **64**) until **0028 + sync-rx** factory image |
 
 ---
 
@@ -156,4 +157,4 @@ In **`imx8mm-jaguar-dt510.dts`**:
 - **`docs/DT510-TAS2563-DRIVER-SPEAKER-ALSA.md`** (**`driver_speaker`** — **SAI3**, not SAI5)
 - **`meta-subscriber-overrides/docs/DT510-HARDWARE-BRINGUP.md`** § TAA5412
 
-*Last updated: **2026‑05‑24** — Path A/B; **`&sai5`** without **`fsl,sai-synchronous-rx`** (425 LRCLK mismatch); Michael bench (**`arecord`** for SAI5; **pcm6240 parallel `aplay` exception** on 425+); no-clocks-during-capture ranked causes; **`PASITXCH1`** ASI bit.*
+*Last updated: **2026‑05‑25** — SAI5 **sync-rx + kernel 0028** LRCLK fix; Michael bench; pcm6240 parallel **`aplay`** exception on early 425+.*
