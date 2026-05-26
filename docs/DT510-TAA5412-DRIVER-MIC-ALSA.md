@@ -127,8 +127,8 @@ sudo grep -E '^(001e|0076):' /sys/kernel/debug/regmap/1-0051/registers
 In **`imx8mm-jaguar-dt510.dts`**:
 
 - **`/delete-property/ fsl,sai-asynchronous`** — NXP EVK leaves this on **`&sai5`**; remove inherited async so **`fsl,sai-synchronous-rx`** is valid ( **`fsl,sai-asynchronous`** + **`fsl,sai-synchronous-rx`** together → **`fsl_sai_probe` → `-EINVAL`**, card deferred — early **`lmp-350`**).
-- **`fsl,sai-synchronous-rx`** — BCLK on **`SAI5_RXC`**, LRCK on **`SAI5_TX_SYNC`**: Rx is bit-clock master during **`arecord`**, Tx follows for frame sync. Kernel **0028** mirrors **RCR2→TCR2** (BCLK divider), **RCR4/RCR5→TCR4/TCR5** + **FSD_MSTR** (LRCLK on TX_SYNC), clears stale **bclk_ratio** when TDM slots are set. MSO target: BCLK **~3.072 MHz**, LRCLK **~48 kHz**, ratio **~64**.
-- **`sound-taa5412` CPU DAI:** **`dai-tdm-slot-num = <2>`**, **`dai-tdm-slot-width = <32>`** — 48 kHz stereo **64 BCLK/LRCLK** (S16 in 32-bit I2S slots).
+- **`fsl,sai-synchronous-rx`** — BCLK on **`SAI5_RXC`**, LRCK on **`SAI5_TX_SYNC`**: Rx is bit-clock master during **`arecord`**, Tx follows for frame sync. Kernel **0028** mirrors **RCR2/RCR4/RCR5 → TCR2/TCR4/TCR5** from regmap reads on capture, prefers TDM **slots×width** for BCLK, clears stale **bclk_ratio**, enables **Tx TERE** on capture trigger. MSO pass: LRCLK **~48 kHz**, BCLK **~3.072 MHz**, ratio **~64**.
+- **`sound-taa5412` CPU DAI:** **`dai-tdm-slot-num = <2>`**, **`dai-tdm-slot-width = <32>`** — 48 kHz stereo **64 BCLK/LRCLK** (S16 payload in 32-bit I2S slots; not Michael’s bare 16-bit sample formula).
 - **`assigned-clock-rates = <12288000>`**, **`AUDIO_PLL1_OUT`**, **`fsl,sai-mclk-direction-output`**.
 
 **Pinmux (`pinctrl_sai5_taa5412`):**
@@ -140,13 +140,26 @@ In **`imx8mm-jaguar-dt510.dts`**:
 | **`SAI5_RXD0`** | **`SAI5_RX_DATA0`** | Codec → SoC ADC data |
 | **`SAI5_RXD3`** | **`SAI5_TX_DATA0`** | SoC → codec (confirm vs schematic) |
 
-**No dedicated SAI5 MCLK pad** on this mux — link is **BCLK + LRCK + data** (cf. TAC5301 **BCLK-only** narrative on **`&sai6`**).
+**No dedicated SAI5 MCLK pad** on this mux — link is **BCLK + LRCLK + data** (cf. TAC5301 **BCLK-only** narrative on **`&sai6`**).
+
+### Michael BCLK formula vs BSP target (48 kHz **`arecord -D driver_mic`**)
+
+| Basis | Formula | BCLK @ 48 kHz | Notes |
+|-------|---------|---------------|--------|
+| **Michael (sample bits)** | **`LRCLK × bits_per_sample × channels`** = 48 kHz × 16 × 2 | **1.536 MHz** | Correct for **16-bit sample words** on the wire if the link used no slot padding. |
+| **BSP / TI I2S (this DT)** | **`LRCLK × dai-tdm-slot-num × dai-tdm-slot-width`** = 48 kHz × 2 × 32 | **3.072 MHz** | **`S16_LE`** PCM still uses **32-bit I2S slots** per **`sound-taa5412`** — **64 BCLK per LRCLK** frame. MSO pass criteria use this row. |
+| **Wrong (stale `bclk_ratio`)** | e.g. 48 kHz × **128** | **6.144 MHz** | Factory **433** symptom: MSO BCLK **~6.16 MHz**, LRCLK **~76.8 kHz**, ratio **~80** — **RCR2** programmed for 2× target BCLK; **TCR4≠RCR4** when **0028** hw_params hunk failed to apply. |
+
+**LRCLK target:** **48 kHz** toggle on **`SAI5_RXD1` / TX_SYNC** (one frame edge pair per stereo frame).
+
+**Register check during capture:** **`TCR2` = `RCR2`**, **`TCR4`/`TCR5` = `RCR4`/`RCR5`** (after **0028 v3**), **`TCR4` bit FSD_MSTR** set; **`PASITXCH1` (0x1e) bit 5 = 1** for TI ASI TX.
 
 ### Lab timeline (Michael Hull)
 
 | When | Observation |
 |------|-------------|
 | **2026‑05‑16** (pre sync-Rx DT fix) | **`arecord` running:** **BCLK present**, **FSYNC dead**, data idle — partial SAI master, LRCK pad/mode mismatch |
+| **2026‑05 / target 433** | **0028 v2 hunk 4 rejected** at build (anchored on NXP-only **`FSD_MSTR`** context not in dt510 kernel). **RCR2≠TCR2** divider, **TCR4≠RCR4**, BCLK **~6.16 MHz**, LRCLK **~76.8 kHz**, **PASITX=0**, silent WAV. **0028 v3:** regmap mirror helper + vanilla **`hw_params`** anchor. |
 | **2026‑05 / target 430** | **0028 v2 (register proof):** RCR2=/4 but TCR2=/2 → BCLK **~6.15 MHz**; TCR5=0, TCR4 no **FSD_MSTR** → LRCLK **~64 kHz**, ratio **~96**. Fix: mirror **RCR2→TCR2**, **RCR4/5→TCR4/5** + **FSD_MSTR**, prefer TDM **slots×width** for BCLK, clear stale **bclk_ratio** |
 | **2026‑05 / target 425–429** | **`arecord -D driver_mic`:** BCLK **~12.29 MHz**, LRCLK **~22 kHz** (ratio **~273** vs **64**) when kernel **0028** used **`!sai->is_consumer_mode`** (array pointer — mirror never ran). Fixed: **`is_consumer_mode[tx]`** + enable **Tx TERE** on capture trigger |
 | **2026‑05 / target 425–428** | Earlier: LRCLK **~72–218 kHz** (stale **TCR4/TCR5** without mirror) — **0028 + sync-rx** after fix above |
@@ -159,4 +172,4 @@ In **`imx8mm-jaguar-dt510.dts`**:
 - **`docs/DT510-TAS2563-DRIVER-SPEAKER-ALSA.md`** (**`driver_speaker`** — **SAI3**, not SAI5)
 - **`meta-subscriber-overrides/docs/DT510-HARDWARE-BRINGUP.md`** § TAA5412
 
-*Last updated: **2026‑05‑25** — SAI5 **0028 v2** sync-rx clock fix (RCR2→TCR2, FSD_MSTR, TDM BCLK); factory **430** register evidence.*
+*Last updated: **2026‑05‑26** — Michael BCLK table; **0028 v3** mirror fix (433 rejected hunk root cause).*
