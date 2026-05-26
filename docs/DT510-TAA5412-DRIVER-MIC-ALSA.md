@@ -160,7 +160,7 @@ In **`imx8mm-jaguar-dt510.dts`**:
 
 **Michael `taa5412-registers-michael.conf`** programs **power / micbias only** (`0x02`, `0x78`, page‑1 `0x73`) — **not** ASI format, word length, or **`PASITX*`** slot map.
 
-**BSP `taa5412-1dev-reg.json` / `taa5412-i2c-1-1dev.bin` (Path A):** **`PRE_POWER_UP`** enables ADC channels and coupling (`0x50`/`0x55`/`0x76`/`0x78`, …) but **does not write** page‑0 **`0x1a` (`PASI0`)**, **`0x1e`/`0x1f` (`PASITXCH1/2`)**. **`snd_soc_pcm6240`** **`hw_params`** only **validates** 48 kHz and slot width 16/20/24/32 — it does **not** program **`PASI0`** at runtime (unlike **`tac5x1x`** **`set_dai_fmt`** / **`hw_params`**).
+**BSP `taa5412-1dev-reg.json` / `taa5412-i2c-1-1dev.bin` (Path A):** **`PRE_POWER_UP`** enables ADC channels and coupling (`0x50`/`0x55`/`0x76`/`0x78`, …), **Michael-aligned power** (`0x02` **VREF = `0x03`**, page‑1 **`0x73` MICBIAS = `0xd0`**, **`0x78` PWR = `0xa0`**) so cold boards match bench apply without **`taa5412-registers-michael.conf`**. Still **does not write** page‑0 **`0x1a` (`PASI0`)**, **`0x1e`/`0x1f` (`PASITXCH1/2`)** — those stay on driver **`0004`**. **`snd_soc_pcm6240`** **`hw_params`** only **validates** 48 kHz and slot width 16/20/24/32 — it does **not** program **`PASI0`** at runtime (unlike **`tac5x1x`** **`set_dai_fmt`** / **`hw_params`**).
 
 | Reg (page 0) | Role | TI / driver encoding (tac5x1x family) |
 |--------------|------|----------------------------------------|

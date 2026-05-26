@@ -21,7 +21,7 @@
                                 "page": "0",
                                 "register": "2",
                                 "mask": "ff",
-                                "data": "01",
+                                "data": "03",
                                 "delay": "",
                                 "$$hashKey": "02T"
                             },
@@ -96,6 +96,15 @@
                                 "data": "a0",
                                 "delay": "",
                                 "$$hashKey": "03H"
+                            },
+                            {
+                                "book": "0",
+                                "page": "1",
+                                "register": "73",
+                                "mask": "ff",
+                                "data": "d0",
+                                "delay": "",
+                                "$$hashKey": "03K"
                             }
                         ],
                         "blockType": "PRE_POWER_UP",
