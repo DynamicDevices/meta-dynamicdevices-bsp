@@ -172,7 +172,17 @@ In **`imx8mm-jaguar-dt510.dts`**:
 
 **Live bench (target 438, Path A `pcm6240`, 2026‑05‑26, during `arecord -D driver_mic`):** **`PASITXCH1=0x20`** (ASI_TX bit5 **on** — pcm6240 **`0004`**); **`PASI0=0x70`** (I2S + 32-bit). **Non-silent WAV** (peak **~387**), **SD edges** on MSO. **SAI5 clocks still wrong:** BCLK **~6.15 MHz**, LRCLK **~84 kHz**, ratio **~73** — **`TCR2≠RCR2`**, **`TCR4≠RCR4`** (kernel **0028** mirror / **`hw_params`** hunk still incomplete on dt510 tree).
 
-**Codec-side (Path A):** **`pcm6240-lmp/0004`** sets **`PASITXCH1/2` bit 5** and **`PASI0=0x70`** on capture — firmware **`PRE_POWER_UP`** alone was insufficient. Path B equivalent: **`kernel-module-tac5x1x-ti-taa5412/0005`**.
+**Target 438 investigation (2026‑05‑26) — quiet level + ch1 silent:**
+
+| Symptom | Root cause | Evidence |
+|---------|------------|----------|
+| Peak **~387** (~**−38 dBFS**) regardless of speaker DVC | **Default `Ch1 Digi Volume` = 161/255** on TAA5412 — not speaker path | `amixer -D driver_mic`: Ch1 Digi=161; Ch1 Digi **255** → peak **32767**; Ch1 Digi **0** → silent. Speaker **`Digital Volume Control`** does not change mic level (expected). |
+| **ch1 always silent**, ch0 only | **`pcm6240` `0004` enables PASITXCH1 only** — **`PASITXCH2=0x01`** (slot 1, **ASI_TX off**) | I2C during capture: **CH1=0x20**, **CH2=0x01**; manual **PASITXCH2=0x30** → ch1 peak **~12500**; reset **0x01** → ch1 **0** again. **0x21** (ASI_TX on slot 1) still silent — need **slot 16** (**0x30**), same as tac5x1x **426**. |
+| Regmap vs I2C | Regmap cache **stale** for **0x1f** on pcm6240 | Regmap **001f: 01** while **i2cget 0x1f** reads **0x30** — use **`i2cget`** or dump script I2C path for PASITXCH2. |
+
+**Fix:** extend **`pcm6240-lmp/0004`** to write **`PASITXCH2=0x30`** on capture startup (paired with **`0005`** tac5x1x behaviour). Lab gain: tune **`TAA5412 i2c1 Dev0 Ch1 Digi Volume`** (and Ch2 when stereo matters) — e.g. **200** for ~−19 dBFS without clipping.
+
+**Codec-side (Path A):** **`pcm6240-lmp/0004`** sets **`PASITXCH1` ASI_TX** and **`PASI0=0x70`** on capture — firmware **`PRE_POWER_UP`** alone was insufficient; **must also set `PASITXCH2=0x30`** for stereo ch1. Path B equivalent: **`kernel-module-tac5x1x-ti-taa5412/0005`** (both PASITXCH1/CH2 ASI_TX).
 
 ---
 

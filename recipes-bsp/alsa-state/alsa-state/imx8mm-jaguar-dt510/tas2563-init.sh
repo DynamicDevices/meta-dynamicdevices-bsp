@@ -43,8 +43,13 @@ fi
 if amixer -D "$CTL" cget name="$DVC" >/dev/null 2>&1; then
 	amixer -q -D "$CTL" cset name="$DVC" "$VOL" 2>/dev/null || true
 	log "OK: amixer -D $CTL $DVC=$VOL (index; mixer=$MIX)"
+elif amixer -D "$CTL" cget name="Digital Volume Control" >/dev/null 2>&1; then
+	# snd_soc_tas2562 in-kernel driver (IMAGE 438+): 0–110 dB scale, not TAS2781 comlib index.
+	DVC2=${TAS2562_BOOT_DVC:-80}
+	amixer -q -D "$CTL" cset name="Digital Volume Control" "$DVC2" 2>/dev/null || true
+	log "OK: amixer -D $CTL Digital Volume Control=$DVC2 (tas2562 fallback; mixer=$MIX)"
 else
-	log "NOTICE: control '$DVC' not found on $CTL — driver may use different kcontrol names; check amixer -D $CTL scontrols"
+	log "NOTICE: neither '$DVC' nor 'Digital Volume Control' on $CTL — check amixer -D $CTL scontrols"
 fi
 
 exit 0

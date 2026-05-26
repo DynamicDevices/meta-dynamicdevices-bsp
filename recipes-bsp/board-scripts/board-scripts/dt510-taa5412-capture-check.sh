@@ -56,11 +56,8 @@ shopt -u nullglob
 
 _check_pasitx_during_capture() {
 	local regmap="/sys/kernel/debug/regmap/1-0051/registers"
-	if [ ! -r "$regmap" ]; then
-		warn "PASITXCH1: regmap debugfs unavailable (sudo + debugfs) — skip ASI bit check"
-		return 0
-	fi
-	local out errf ar pas hex bit5
+	local i2c_bus=1 i2c_addr=0x51
+	local out errf ar pas hex bit5 pas2 hex2 bit5_2
 	out=/tmp/taa5412-smoke-bg.wav
 	errf=/tmp/taa5412-smoke-bg.err
 	rm -f "$out"
@@ -68,22 +65,38 @@ _check_pasitx_during_capture() {
 	ar=$!
 	sleep 1
 	if ! kill -0 "$ar" 2>/dev/null; then
-		warn "PASITXCH1: background arecord exited early — see $errf"
+		warn "PASITX: background arecord exited early — see $errf"
 		wait "$ar" 2>/dev/null || true
 		return 0
 	fi
-	pas=$(grep -E '^001e:' "$regmap" 2>/dev/null | awk '{print $2}')
+	if [ -r "$regmap" ]; then
+		pas=$(grep -E '^001e:' "$regmap" 2>/dev/null | awk '{print $2}')
+		pas2=$(grep -E '^001f:' "$regmap" 2>/dev/null | awk '{print $2}')
+	fi
+	if command -v i2cget >/dev/null 2>&1; then
+		i2cset -f -y "$i2c_bus" "$i2c_addr" 0x00 0x00 b 2>/dev/null || true
+		pas=$(i2cget -f -y "$i2c_bus" "$i2c_addr" 0x1e b 2>/dev/null | sed 's/0x//')
+		pas2=$(i2cget -f -y "$i2c_bus" "$i2c_addr" 0x1f b 2>/dev/null | sed 's/0x//')
+	fi
 	kill "$ar" 2>/dev/null
 	wait "$ar" 2>/dev/null || true
 	if [ -z "$pas" ]; then
-		warn "PASITXCH1: could not read reg 0x1e from regmap during capture"
+		warn "PASITXCH1: could not read reg 0x1e during capture"
 		return 0
 	fi
 	hex=$((16#$pas))
 	bit5=$(( (hex >> 5) & 1 ))
 	echo "PASITXCH1 (0x1e)=0x$(printf '%02x' "$hex") during capture — ASI_TX bit5=${bit5}"
 	if [ "$bit5" -eq 0 ]; then
-		warn "PASITXCH1 ASI_TX bit5=0 — codec serial TX path off (DAPM/ASI; see DT510-TAA5412-DRIVER-MIC-ALSA.md)"
+		warn "PASITXCH1 ASI_TX bit5=0 — codec serial TX path off (see DT510-TAA5412-DRIVER-MIC-ALSA.md)"
+	fi
+	if [ -n "$pas2" ]; then
+		hex2=$((16#$pas2))
+		bit5_2=$(( (hex2 >> 5) & 1 ))
+		echo "PASITXCH2 (0x1f)=0x$(printf '%02x' "$hex2") during capture — ASI_TX bit5=${bit5_2} slot=$((hex2 & 0x1f))"
+		if [ "$bit5_2" -eq 0 ]; then
+			warn "PASITXCH2 ASI_TX bit5=0 — ALSA ch1 / IN2 will be silent (pcm6240 needs PASITXCH2=0x30)"
+		fi
 	fi
 }
 

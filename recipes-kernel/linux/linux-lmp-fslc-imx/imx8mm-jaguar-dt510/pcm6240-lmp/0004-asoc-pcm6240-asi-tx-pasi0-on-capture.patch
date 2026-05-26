@@ -4,8 +4,9 @@ Date: Tue, 26 May 2026 12:00:00 +0000
 Subject: [PATCH] ASoC: pcm6240: enable ASI TX + I2S32 PASI0 on capture (DT510)
 
 PRE_POWER_UP alone leaves PASITXCH1 bit5 clear and PASI0 at TDM defaults on
-bench pcm6240 images. Set PASI0=0x70 (I2S, 32-bit) and ASI_TX bit5 on capture
-stream startup; clear on shutdown.
+bench pcm6240 images. Set PASI0=0x70 (I2S, 32-bit) and ASI_TX on PASITXCH1
+(slot 0) and PASITXCH2 (slot 16 for I2S stereo) on capture startup; clear
+ASI_TX on shutdown. Without PASITXCH2 ASI_TX, ALSA ch1 / IN2 is always silent.
 
 Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 ---
@@ -21,7 +22,10 @@ diff --git a/sound/soc/codecs/pcm6240.c b/sound/soc/codecs/pcm6240.c
  
 +#define PCMDEVICE_REG_PASI0		PCMDEVICE_REG(0x0, 0x1a)
 +#define PCMDEVICE_REG_PASITXCH1		PCMDEVICE_REG(0x0, 0x1e)
++#define PCMDEVICE_REG_PASITXCH2		PCMDEVICE_REG(0x0, 0x1f)
 +#define PCMDEVICE_PASITX_ASI_TX_EN	BIT(5)
++/* I2S stereo 32-bit: ch1 slot 0, ch2 slot 16 (see tac5x1x bench target 426). */
++#define PCMDEVICE_PASITXCH2_I2S_STEREO	0x30
 +
 +static int pcmdevice_asi_capture_enable(struct snd_soc_dai *dai, bool enable)
 +{
@@ -37,9 +41,17 @@ diff --git a/sound/soc/codecs/pcm6240.c b/sound/soc/codecs/pcm6240.c
 +				PCMDEVICE_REG_PASITXCH1,
 +				PCMDEVICE_PASITX_ASI_TX_EN,
 +				PCMDEVICE_PASITX_ASI_TX_EN);
++		if (!ret)
++			ret = pcmdev_dev_write(pcm_dev, 0,
++				PCMDEVICE_REG_PASITXCH2,
++				PCMDEVICE_PASITXCH2_I2S_STEREO);
 +	} else {
 +		ret = pcmdev_dev_update_bits(pcm_dev, 0,
 +				PCMDEVICE_REG_PASITXCH1,
++				PCMDEVICE_PASITX_ASI_TX_EN, 0);
++		if (!ret)
++			ret = pcmdev_dev_update_bits(pcm_dev, 0,
++				PCMDEVICE_REG_PASITXCH2,
 +				PCMDEVICE_PASITX_ASI_TX_EN, 0);
 +	}
 +	mutex_unlock(&pcm_dev->codec_lock);
