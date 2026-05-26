@@ -60,7 +60,8 @@ diff --git a/sound/soc/codecs/pcm6240.c b/sound/soc/codecs/pcm6240.c
  
  	return 0;
  }
-@@ -1986,8 +2017,10 @@ static void pcmdevice_shutdown(struct snd_pcm_substream *substream,
+@@ -1986,8 +2017,10 @@ static int pcmdevice_startup(struct snd_pcm_substream *substream,
+ static void pcmdevice_shutdown(struct snd_pcm_substream *substream,
  			       struct snd_soc_dai *dai)
  {
 -	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
