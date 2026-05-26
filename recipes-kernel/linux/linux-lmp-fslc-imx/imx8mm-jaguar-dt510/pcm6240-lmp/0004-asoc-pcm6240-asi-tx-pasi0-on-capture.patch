@@ -9,13 +9,11 @@ stream startup; clear on shutdown.
 
 Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 ---
- sound/soc/codecs/pcm6240.c | 38 ++++++++++++++++++++++++++++++++++++++
- 1 file changed, 38 insertions(+), 2 deletions(-)
+ sound/soc/codecs/pcm6240.c | 39 ++++++++++++++++++++++++
+ 1 file changed, 36 insertions(+), 3 deletions(-)
 
 diff --git a/sound/soc/codecs/pcm6240.c b/sound/soc/codecs/pcm6240.c
---- a/sound/soc/codecs/pcm6240.c
-+++ b/sound/soc/codecs/pcm6240.c
-@@ -1974,6 +1974,34 @@ out:
+@@ -1974,11 +1974,42 @@
  	return ret;
  }
  
@@ -50,10 +48,9 @@ diff --git a/sound/soc/codecs/pcm6240.c b/sound/soc/codecs/pcm6240.c
  static int pcmdevice_startup(struct snd_pcm_substream *substream,
  			     struct snd_soc_dai *dai)
  {
-@@ -1981,7 +2009,10 @@ static int pcmdevice_startup(struct snd_pcm_substream *substream,
- 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
+-	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
 -		return pcmdevice_mute(dai, 0, SNDRV_PCM_STREAM_CAPTURE);
-+	{
++	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 +		int ret = pcmdevice_mute(dai, 0, SNDRV_PCM_STREAM_CAPTURE);
 +
 +		return ret ? ret : pcmdevice_asi_capture_enable(dai, true);
@@ -61,11 +58,12 @@ diff --git a/sound/soc/codecs/pcm6240.c b/sound/soc/codecs/pcm6240.c
  
  	return 0;
  }
-@@ -1990,7 +2021,10 @@ static void pcmdevice_shutdown(struct snd_pcm_substream *substream,
+@@ -1986,8 +2017,10 @@
+ static void pcmdevice_shutdown(struct snd_pcm_substream *substream,
  			       struct snd_soc_dai *dai)
  {
- 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
-+	{
+-	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
++	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
  		pcmdevice_mute(dai, 1, SNDRV_PCM_STREAM_CAPTURE);
 +		pcmdevice_asi_capture_enable(dai, false);
 +	}
