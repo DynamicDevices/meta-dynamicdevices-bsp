@@ -89,7 +89,7 @@ amixer -D driver_mic scontrols
 
 Scoping **during active `arecord -D driver_mic`** is the correct procedure. **`aplay`** on the driver speaker alone is **not** a substitute for **`arecord`**.
 
-**pcm6240 (Path A) bench exception (target 425+, 2026‑05):** On factory **`snd_soc_pcm6240`** images, **`arecord -D driver_mic`** alone may still show **zero SAI5 BCLK/LRCLK** on MSO while the stream appears open. Bench found that **parallel `aplay -D driver_speaker`** during capture can restore SAI5 clocks — even though **`driver_speaker`** is **SAI3/TAS2563**, not SAI5. Lab scripts default **`PARALLEL_APLAY=1`** in **`dt510-taa5412-pcm6240-i2c-test.sh`** and optional **`PARALLEL_APLAY=1`** in **`dt510-sai5-mso-remote-capture.sh`**. This quirk is **pcm6240-specific**; generic guidance above still applies for tac5x1x OOT and normal bring-up.
+**pcm6240 (Path A) bench note (targets 425–437):** On some **`snd_soc_pcm6240`** images, **`arecord -D driver_mic`** alone showed **zero SAI5 BCLK/LRCLK** on MSO while the stream appeared open; **parallel `aplay -D driver_speaker`** could restore clocks. **Target 438** (after pcm6240 **`0004`**) captures **record-only** with **non-silent WAV** and **SD edges on MSO** without parallel playback — but **clock frequencies still fail** MSO pass criteria (see § Bring-up progress). Lab scripts still default **`PARALLEL_APLAY=1`** where noted for older images and regression comparison.
 
 ### Confirm the stream is really open
 
@@ -148,21 +148,96 @@ In **`imx8mm-jaguar-dt510.dts`**:
 |-------|---------|---------------|--------|
 | **Michael (sample bits)** | **`LRCLK × bits_per_sample × channels`** = 48 kHz × 16 × 2 | **1.536 MHz** | Correct for **16-bit sample words** on the wire if the link used no slot padding. |
 | **BSP / TI I2S (this DT)** | **`LRCLK × dai-tdm-slot-num × dai-tdm-slot-width`** = 48 kHz × 2 × 32 | **3.072 MHz** | **`S16_LE`** PCM still uses **32-bit I2S slots** per **`sound-taa5412`** — **64 BCLK per LRCLK** frame. MSO pass criteria use this row. |
-| **Wrong (stale `bclk_ratio`)** | e.g. 48 kHz × **128** | **6.144 MHz** | Factory **433** symptom: MSO BCLK **~6.16 MHz**, LRCLK **~76.8 kHz**, ratio **~80** — **RCR2** programmed for 2× target BCLK; **TCR4≠RCR4** when **0028** hw_params hunk failed to apply. |
+| **Wrong (TCR≠RCR mirror)** | e.g. 48 kHz × **128** | **6.144 MHz** | Targets **430–438**: BCLK **~6.15 MHz**, LRCLK **~64–84 kHz**, ratio **~73–96** — **TCR2≠RCR2**, **TCR4≠RCR4** when **0028** mirror / **`hw_params`** hunks incomplete on dt510 kernel. |
 
 **LRCLK target:** **48 kHz** toggle on **`SAI5_RXD1` / TX_SYNC** (one frame edge pair per stereo frame).
 
-**Register check during capture:** **`TCR2` = `RCR2`**, **`TCR4`/`TCR5` = `RCR4`/`RCR5`** (after **0028 v3**), **`TCR4` bit FSD_MSTR** set; **`PASITXCH1` (0x1e) bit 5 = 1** for TI ASI TX.
+**Register check during capture:** **`TCR2` = `RCR2`**, **`TCR4`/`TCR5` = `RCR4`/`RCR5`** (requires **0028 v4** on dt510 tree), **`TCR4` bit FSD_MSTR** set; **`PASITXCH1` (0x1e) bit 5 = 1** for TI ASI TX.
 
-### Lab timeline (Michael Hull)
+### Codec ASI — **32-bit slots @ 48 kHz** (SSOT)
+
+**Default link (BSP):** **`sound-taa5412`** + **`&sai5`** program **2 × 32-bit slots** @ **48 kHz** → **BCLK = 3.072 MHz**, **LRCLK = 48 kHz**, **64 BCLK/LRCLK**. **`arecord -D driver_mic -f S16_LE`** is valid: PCM is 16-bit samples inside **32-bit I2S slots**.
+
+**Michael `taa5412-registers-michael.conf`** programs **power / micbias only** (`0x02`, `0x78`, page‑1 `0x73`) — **not** ASI format, word length, or **`PASITX*`** slot map.
+
+**BSP `taa5412-1dev-reg.json` / `taa5412-i2c-1-1dev.bin` (Path A):** **`PRE_POWER_UP`** enables ADC channels and coupling (`0x50`/`0x55`/`0x76`/`0x78`, …) but **does not write** page‑0 **`0x1a` (`PASI0`)**, **`0x1e`/`0x1f` (`PASITXCH1/2`)**. **`snd_soc_pcm6240`** **`hw_params`** only **validates** 48 kHz and slot width 16/20/24/32 — it does **not** program **`PASI0`** at runtime (unlike **`tac5x1x`** **`set_dai_fmt`** / **`hw_params`**).
+
+| Reg (page 0) | Role | TI / driver encoding (tac5x1x family) |
+|--------------|------|----------------------------------------|
+| **`0x1a` `PASI0`** | ASI format + **word length** | Bits **7:6** format: **I2S = `0x40`**, TDM = `0x00`. Bits **5:4** length: **16 = `0x00`**, 20 = `0x10`, 24 = `0x20`, **32 = `0x30`**. **I2S + 32-bit → `0x70`**. |
+| **`0x1e` `PASITXCH1`** | Ch1 TX slot + **ASI_TX** | Bits **4:0** slot index; **bit 5** = **ASI_TX enable** (must be **1** during **`arecord`**). |
+| **`0x1f` `PASITXCH2`** | Ch2 TX slot + **ASI_TX** | Same; I2S stereo often **slot 0 / slot 16** when driver sets slot positions. |
+
+**Bench decode:** **`dt510-taa5412-i2c-registers-dump.sh`** prints **`word_len_idx`** = **`(PASI0 >> 4) & 3`** (0→16b … 3→32b per table above).
+
+**Live bench (target 438, Path A `pcm6240`, 2026‑05‑26, during `arecord -D driver_mic`):** **`PASITXCH1=0x20`** (ASI_TX bit5 **on** — pcm6240 **`0004`**); **`PASI0=0x70`** (I2S + 32-bit). **Non-silent WAV** (peak **~387**), **SD edges** on MSO. **SAI5 clocks still wrong:** BCLK **~6.15 MHz**, LRCLK **~84 kHz**, ratio **~73** — **`TCR2≠RCR2`**, **`TCR4≠RCR4`** (kernel **0028** mirror / **`hw_params`** hunk still incomplete on dt510 tree).
+
+**Codec-side (Path A):** **`pcm6240-lmp/0004`** sets **`PASITXCH1/2` bit 5** and **`PASI0=0x70`** on capture — firmware **`PRE_POWER_UP`** alone was insufficient. Path B equivalent: **`kernel-module-tac5x1x-ti-taa5412/0005`**.
+
+---
+
+## Bring-up progress (factory targets 430–438)
+
+**Bench:** `fio@192.168.2.205` · MSO on `ajlennon@192.168.2.10` · Path A **`snd_soc_pcm6240`**. Consolidated log (older per-iteration notes in **`lab-artifacts/sai5-clock-iteration-*.md`** point here).
+
+### Factory / BSP timeline
+
+| Target | BSP SHA | Outcome |
+|--------|---------|---------|
+| **430** | `f59f93e` | **0028 v2** partial: RCR2=/4 but TCR2=/2 → BCLK **~6.15 MHz**, LRCLK **~64 kHz**, ratio **~96**. SD edges on MSO; clocks fail pass. |
+| **431** | `175afb3` | **Regression:** **`!sai->is_consumer_mode`** reintroduced (array used as scalar) → mirror/Tx TERE never run → **no BCLK/LRCLK**, **PASITX=0**, silent WAV, MSO fail. |
+| **432** | `7fefb4a` | Restore **`is_consumer_mode[tx]`** — **CI fail:** corrupt **0028** patch (`corrupt patch at line N`). |
+| **433** | `bf6bf2c` | **0028 applies** at build; clocks still wrong — **TCR≠RCR**, BCLK **~6.16 MHz**, LRCLK **~76.8 kHz**, **PASITX=0**, silent capture. |
+| **434** | `af31200` | **0028 v3** regmap mirror helper landed; **`hw_params`** hunk **never applied** (wrong anchor — NXP-only context). Same clock symptom. |
+| **435–437** | — | **pcm6240 `0004`** patch corrupt → repeated **CI fail** (`do_patch` hunk/orphan context). |
+| **438** | `7fdb47a` | **`0004` fixed** — **ASI TX works**, **record-only audio YES** (WAV peak **~387**), **SD edges** on MSO. **Clocks still fail MSO:** BCLK **~6.15 MHz**, LRCLK **~84 kHz**, ratio **~73**; **TCR2≠RCR2**, **TCR4≠RCR4**. |
+| **439** | *(planned)* | **0028 v4** — complete mirror + **`hw_params`** on **dt510** kernel tree; target **48 kHz / 3.072 MHz / ratio 64**. |
+
+### What works on target 438 (current bench)
+
+- **`arecord -D driver_mic`** without parallel **`aplay -D driver_speaker`**
+- **`PASITXCH1=0x20`**, **`PASI0=0x70`** (I2S 32-bit slots)
+- **Non-silent WAV** and **SD activity** on MSO during capture
+- **Path A `pcm6240`** stack (factory subscriber override — not tac5x1x OOT on this line)
+
+### Still open
+
+1. **SAI5 clocks** — LRCLK **48 kHz**, BCLK **3.072 MHz**, ratio **64** (Michael / BSP SSOT). Requires **0028 v4** on top of **438**.
+2. **Phase B** — Michael I2C register compare after clocks pass (baseline from target **426** tac5x1x: **`taa5412-reg-compare-20260525.md`**).
+3. **MSO automation pass criteria** — **`scripts/lab/dt510-sai5-clock-eval.py`**: LRCLK **48 kHz ±2%**, BCLK **3.072 MHz ±5%**, ratio **64 ±5%**; also checks **`pasitx_bit5`**, WAV peak **≥200**, SD edges.
+
+### Michael clock guidance (pass criteria)
+
+| Signal | Target | Formula |
+|--------|--------|---------|
+| **LRCLK** (word clock / FS on **`SAI5_RXD1`**) | **48 kHz** | Stereo frame rate for **`arecord -D driver_mic -r 48000`** |
+| **BCLK** (on **`SAI5_RXC`**) | **3.072 MHz** | **LRCLK × 32 bits × 2 channels** (32-bit I2S slots — matches **`dai-tdm-slot-num=2`**, **`dai-tdm-slot-width=32`**) |
+| **BCLK/LRCLK ratio** | **64** | Not **96** (TCR2 half of RCR2) or **~73** (438 symptom) |
+
+During capture, **`TCR2=RCR2`**, **`TCR4/TCR5=RCR4/RCR5`**, **`TCR4` FSD_MSTR** set, **`PASITXCH1` bit 5 = 1**.
+
+### Key root causes learned
+
+| Issue | Lesson |
+|-------|--------|
+| **`is_consumer_mode`** | **`is_consumer_mode[tx]`** — not a scalar pointer; **`!sai->is_consumer_mode`** silently skips mirror (431, 425–429). |
+| **Patch anchors** | Hunks must apply on the **dt510** unpacked kernel after prior **`SRC_URI`** patches — not NXP-only symbols absent from LmP tree (434 **`hw_params`** hunk). |
+| **PASITX / ASI** | Firmware **`PRE_POWER_UP`** does not arm **`PASITX` bit 5**; pcm6240 needs explicit **`0004`** (438). |
+| **Sync-Rx capture** | With **`fsl,sai-synchronous-rx`**, **TCR2/TCR4** must mirror **RCR2/RCR4** or BCLK doubles and LRCLK drifts (430, 433, 438). |
+| **Patch hygiene** | Run **`kernel-patch-lint.sh`** before BSP commit — corrupt **0028** / **0004** burned CI on **432**, **435–437**. |
+
+### Tooling
+
+- **`meta-dynamicdevices-bsp/scripts/kernel-patch-lint.sh`** (BSP **`8c94d0a`**) — structure lint; **`--dry-run-apply`** against **`VIXDT_KERNEL_SRC`** before factory push.
+- Workspace rule **`memory-vixdt-kernel-patch-lint-before-commit.mdc`** — mandatory before BSP patch commits.
+- Lab: **`scripts/lab/dt510-sai5-mso-remote-capture.sh`**, **`dt510-sai5-clock-eval.py`**, **`dt510-taa5412-pcm6240-i2c-test.sh`**.
+
+### Earlier bench (pre-430)
 
 | When | Observation |
 |------|-------------|
-| **2026‑05‑16** (pre sync-Rx DT fix) | **`arecord` running:** **BCLK present**, **FSYNC dead**, data idle — partial SAI master, LRCK pad/mode mismatch |
-| **2026‑05 / target 433** | **0028 v2 hunk 4 rejected** at build (anchored on NXP-only **`FSD_MSTR`** context not in dt510 kernel). **RCR2≠TCR2** divider, **TCR4≠RCR4**, BCLK **~6.16 MHz**, LRCLK **~76.8 kHz**, **PASITX=0**, silent WAV. **0028 v3:** regmap mirror helper + vanilla **`hw_params`** anchor. |
-| **2026‑05 / target 430** | **0028 v2 (register proof):** RCR2=/4 but TCR2=/2 → BCLK **~6.15 MHz**; TCR5=0, TCR4 no **FSD_MSTR** → LRCLK **~64 kHz**, ratio **~96**. Fix: mirror **RCR2→TCR2**, **RCR4/5→TCR4/5** + **FSD_MSTR**, prefer TDM **slots×width** for BCLK, clear stale **bclk_ratio** |
-| **2026‑05 / target 425–429** | **`arecord -D driver_mic`:** BCLK **~12.29 MHz**, LRCLK **~22 kHz** (ratio **~273** vs **64**) when kernel **0028** used **`!sai->is_consumer_mode`** (array pointer — mirror never ran). Fixed: **`is_consumer_mode[tx]`** + enable **Tx TERE** on capture trigger |
-| **2026‑05 / target 425–428** | Earlier: LRCLK **~72–218 kHz** (stale **TCR4/TCR5** without mirror) — **0028 + sync-rx** after fix above |
+| **2026‑05‑16** (pre sync-Rx DT) | **`arecord` running:** BCLK present, **FSYNC dead**, data idle — partial SAI master |
+| **425–429** | **`is_consumer_mode`** bug → BCLK **~12.29 MHz**, LRCLK **~22 kHz** (ratio **~273**); stale **TCR4/TCR5** without mirror |
 
 ---
 
@@ -172,4 +247,4 @@ In **`imx8mm-jaguar-dt510.dts`**:
 - **`docs/DT510-TAS2563-DRIVER-SPEAKER-ALSA.md`** (**`driver_speaker`** — **SAI3**, not SAI5)
 - **`meta-subscriber-overrides/docs/DT510-HARDWARE-BRINGUP.md`** § TAA5412
 
-*Last updated: **2026‑05‑26** — Michael BCLK table; **0028 v3** mirror fix (433 rejected hunk root cause).*
+*Last updated: **2026‑05‑26** — bring-up progress through factory **target 438**; **0028 v4** (439) pending for SAI5 clock pass.*
