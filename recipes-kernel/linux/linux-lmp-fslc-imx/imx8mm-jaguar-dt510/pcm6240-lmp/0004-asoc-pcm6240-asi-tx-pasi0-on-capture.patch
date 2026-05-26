@@ -1,0 +1,74 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Dynamic Devices <support@dynamicdevices.co.uk>
+Date: Tue, 26 May 2026 12:00:00 +0000
+Subject: [PATCH] ASoC: pcm6240: enable ASI TX + I2S32 PASI0 on capture (DT510)
+
+PRE_POWER_UP alone leaves PASITXCH1 bit5 clear and PASI0 at TDM defaults on
+bench pcm6240 images. Set PASI0=0x70 (I2S, 32-bit) and ASI_TX bit5 on capture
+stream startup; clear on shutdown.
+
+Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
+---
+ sound/soc/codecs/pcm6240.c | 38 ++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 38 insertions(+), 2 deletions(-)
+
+diff --git a/sound/soc/codecs/pcm6240.c b/sound/soc/codecs/pcm6240.c
+--- a/sound/soc/codecs/pcm6240.c
++++ b/sound/soc/codecs/pcm6240.c
+@@ -1974,6 +1974,34 @@ out:
+ 	return ret;
+ }
+ 
++#define PCMDEVICE_REG_PASI0		PCMDEVICE_REG(0x0, 0x1a)
++#define PCMDEVICE_REG_PASITXCH1		PCMDEVICE_REG(0x0, 0x1e)
++#define PCMDEVICE_PASITX_ASI_TX_EN	BIT(5)
++
++static int pcmdevice_asi_capture_enable(struct snd_soc_dai *dai, bool enable)
++{
++	struct snd_soc_component *codec = dai->component;
++	struct pcmdevice_priv *pcm_dev = snd_soc_component_get_drvdata(codec);
++	int ret = 0;
++
++	mutex_lock(&pcm_dev->codec_lock);
++	if (enable) {
++		ret = pcmdev_dev_write(pcm_dev, 0, PCMDEVICE_REG_PASI0, 0x70);
++		if (!ret)
++			ret = pcmdev_dev_update_bits(pcm_dev, 0,
++				PCMDEVICE_REG_PASITXCH1,
++				PCMDEVICE_PASITX_ASI_TX_EN,
++				PCMDEVICE_PASITX_ASI_TX_EN);
++	} else {
++		ret = pcmdev_dev_update_bits(pcm_dev, 0,
++				PCMDEVICE_REG_PASITXCH1,
++				PCMDEVICE_PASITX_ASI_TX_EN, 0);
++	}
++	mutex_unlock(&pcm_dev->codec_lock);
++
++	return ret;
++}
++
+ static int pcmdevice_startup(struct snd_pcm_substream *substream,
+ 			     struct snd_soc_dai *dai)
+ {
+@@ -1981,7 +2009,10 @@ static int pcmdevice_startup(struct snd_pcm_substream *substream,
+ 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
+-		return pcmdevice_mute(dai, 0, SNDRV_PCM_STREAM_CAPTURE);
++	{
++		int ret = pcmdevice_mute(dai, 0, SNDRV_PCM_STREAM_CAPTURE);
++
++		return ret ? ret : pcmdevice_asi_capture_enable(dai, true);
++	}
+ 
+ 	return 0;
+ }
+@@ -1990,7 +2021,10 @@ static void pcmdevice_shutdown(struct snd_pcm_substream *substream,
+ 			       struct snd_soc_dai *dai)
+ {
+ 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
++	{
+ 		pcmdevice_mute(dai, 1, SNDRV_PCM_STREAM_CAPTURE);
++		pcmdevice_asi_capture_enable(dai, false);
++	}
+ }
+ 
+ static const struct snd_soc_dai_ops pcmdevice_dai_ops = {
