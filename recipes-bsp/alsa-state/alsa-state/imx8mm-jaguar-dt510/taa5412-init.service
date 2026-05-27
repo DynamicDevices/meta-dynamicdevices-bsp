@@ -1,0 +1,20 @@
+[Unit]
+Description=DT510 TAA5412 driver-mic ALSA mixer defaults
+After=sound.target
+After=alsa-state.service
+Wants=sound.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/taa5412-init
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=90
+Restart=on-failure
+RestartSec=3
+StartLimitBurst=5
+StartLimitInterval=120
+
+[Install]
+WantedBy=multi-user.target

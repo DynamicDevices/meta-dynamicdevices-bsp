@@ -160,7 +160,9 @@ In **`imx8mm-jaguar-dt510.dts`**:
 
 **Michael `taa5412-registers-michael.conf`** programs **power / micbias only** (`0x02`, `0x78`, page‑1 `0x73`) — **not** ASI format, word length, or **`PASITX*`** slot map.
 
-**BSP `taa5412-1dev-reg.json` / `taa5412-i2c-1-1dev.bin` (Path A):** **`PRE_POWER_UP`** enables ADC channels and coupling (`0x50`/`0x55`/`0x76`/`0x78`, …), **Michael-aligned power** (`0x02` **VREF = `0x03`**, page‑1 **`0x73` MICBIAS = `0xd0`**, **`0x78` PWR = `0xa0`**) so cold boards match bench apply without **`taa5412-registers-michael.conf`**. Still **does not write** page‑0 **`0x1a` (`PASI0`)**, **`0x1e`/`0x1f` (`PASITXCH1/2`)** — those stay on driver **`0004`**. **`snd_soc_pcm6240`** **`hw_params`** only **validates** 48 kHz and slot width 16/20/24/32 — it does **not** program **`PASI0`** at runtime (unlike **`tac5x1x`** **`set_dai_fmt`** / **`hw_params`**).
+**BSP `taa5412-1dev-reg.json` / `taa5412-i2c-1-1dev.bin` (Path A):** **`PRE_POWER_UP`** programs **Michael-aligned power** (`0x02` **VREF = `0x03`**, **`0x78` PWR = `0xa0`**, page‑1 **`0x73` MICBIAS = `0xd0`**), **IN1+IN2 channel enable** (`0x76` **CH_EN = `0xc0`** — ADC1+2 only), AC coupling (`0x50`/`0x55`/`0x5a`/`0x5e`), and **digital gain defaults** (**`0x52` Ch1 Digi = `0xdc` (220)**, **`0x53` Ch1 Fine = `0x80`**, Ch2–4 Digi **0**, Fine **`0x80`**). The spurious **`0x42=0x10`** write was removed (wrong CH2 analog map on TAA5412). Still **does not write** **`0x1a` (`PASI0`)**, **`0x1e`/`0x1f` (`PASITXCH1/2`)** — driver **`0004`**. Boot backup: **`taa5412-init`** systemd oneshot (**`alsa-state`**, DT510) re-applies **`amixer -D driver_mic`** Ch1 Digi **220** after probe.
+
+**Bench I2C apply:** **`taa5412-registers-michael.conf`** is optional when regbin + **`taa5412-init`** are on the image; keep for A/B compare or pre-regbin factory targets.
 
 | Reg (page 0) | Role | TI / driver encoding (tac5x1x family) |
 |--------------|------|----------------------------------------|
