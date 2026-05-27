@@ -14,9 +14,9 @@
 
 | Name | Role |
 |------|------|
-| **`drivers`** | Raw **`pcm`/`ctl`** on **`tas2563audio`** (**`hw`**) |
-| **`driver_speaker`** | **`plug`** → **`drivers`** — **default-style** playback helper (formats/rates normalized) |
-| **`driver_slot`** | **`route`** + **`plug`**: mono stream → **IEC slot 0** (slave **`pcm._tas2563_tdm`**, **`channels 4`**) |
+| **`drivers`** | Raw **`pcm`/`ctl`** on **`tas2563audio`** (**`hw`**) — **lab only** at non‑48 kHz rates |
+| **`driver_speaker`** | **`plug`** @ **48 kHz** → **`_tas2563_48`** (**`rate`** → **`drivers`**) — **product playback** |
+| **`driver_slot`** | **`plug`** @ **48 kHz** → **`route`** → **`_tas2563_tdm_48`** — mono → **IEC slot 0** |
 | **`driver_out`** | Same **`route`** as **`driver_slot`** — schematic **OUT** naming only |
 | **`ctl.driver_slot`** / **`ctl.driver_out`** | Same **`hw`** mixer card as **`ctl.drivers`** (**optional** **`amixer`** convenience names). |
 
@@ -39,6 +39,7 @@ amixer -D drivers scontrols
 
 ## Operational notes
 
+- **`&sai3`** uses **12.288 MHz** / **48 kHz family** (same PLL story as **SAI1** tannoy). **`aplay -D drivers -r 44100`** may fail with **`failed to derive required Tx rate: 2822400`** in **`dmesg`**. Use **`driver_speaker`**, **`driver_slot`**, or **`driver_out`** — they mirror **`tannoy_*`**: **`_tas2563_*_48`** + **`plug` `slave.rate 48000`**. **AVM** already uses **`driver_speaker`** at **48000**.
 - If **`pcm._tas2563_tdm`** (**`channels 4`**) fails to open (**`Invalid argument`** / **`Channels count not available`**), drop or edit **`driver_slot`** / **`driver_out`** slaves for this board’s real **`hw_params`** — see **`aplay -D hw:tas2563audio … -vvv`** or **`/proc/asound/card*/pcm*/`**. Prefer **`driver_speaker`** until confirmed.
 - **Sentai:** uses a different **`/etc/asound.conf`** (**`pcm.spk`**, gadget paths). **DT510** keeps **TAS6424 (“Tannoy”)** plus **driver** overlays in **one** file — see header comments in **`asound.conf`**.
 

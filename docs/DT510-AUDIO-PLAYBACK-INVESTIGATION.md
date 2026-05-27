@@ -63,6 +63,7 @@
 | **22.05 kHz stereo** vs **48 kHz** IEC hw | Host inaudible without rate plugin; `aplay` OK exit | BSP **`asound.conf`**: **`_tas6424_quad_48`** + **`plug` `slave.rate 48000`**; AVM **`audio_sample_rate = 48000`** / pydub | Host **`ring.wav`** OK on bench **2026-05-20** |
 | **TLV dB curve vs linear index** | **`alsamixer` bar 20** showed **−17.5 dB**; **`sset 20%`** → cset **51**; index **20** ≠ audible lab level | Lab uses **`sset -- -17.5dB`**; AVM **`passenger_tannoy_alsa_db=-17.5`**; **`tas6424-init`** dB boot | Confirmed bench **2026-05-20** — [`DT510-TAS6424-TANNOY-ALSA.md`](DT510-TAS6424-TANNOY-ALSA.md) |
 | **SAI1 @ 44.1 kHz** | **`failed to derive required Tx rate: 2822400`** | Use **48 kHz** tannoy PCMs; avoid raw **`tannoys`** @ **44100** | Usually benign on bench if product path is **48 kHz** |
+| **SAI3 / driver @ 44.1 kHz** | Same **2822400** / **EINVAL** on **`&sai3`** (TAS2563) | **`driver_speaker`** / **`driver_slot`** / **`driver_out`** with **`_tas2563_*_48`** + **48 kHz** plug (BSP **`asound.conf`**) | Same fix as tannoy — **2026-05-27** |
 | **Tannoy CH** vs **Speaker Driver CH** naming | `amixer -D tannoys scontrols` shows one set | Kernel **0026** + **`cset name='Tannoy CHn Playback Volume' 20`**; **`dt510-tannoy-level.sh`** | Fixed on new BSP + AVM **dd5bf92** |
 | **`cset` without `name=`** | alsamixer **0**, **silent**; **`cget`** may mislead | Use **`sset`** or **`cset name='… Playback Volume'`** | Docs + **tas6424-init** + AVM **sset** first |
 | Passenger **one-shot `aplay` pipe teardown** zeroing TAS6424 | Silent after first clip; CH readback 0 | **998f7fe** — avoid teardown side effect | Fixed (vix-apps) |
@@ -169,6 +170,8 @@ fsl-sai 30010000.sai: ASoC: error at snd_soc_dai_hw_params on 30010000.sai: -22
 | **Harmless?** | **Usually yes** if playback uses **`tannoy_both_mono`** / **`tannoy_both_lr`**, not raw **`pcm.tannoys`** at **44100**. Bench **`.205`**: **`aplay -D tannoy_both_mono`** + **`ring.wav`** OK; **`aplay -D tannoys -r 44100`** fails userspace (hw params), may or may not log kernel line on current boot |
 | **Breaks tannoy?** | **No** when rate plugin path is used; **yes** if something opens **`tannoys`** hw at **44100** (codec advertises **44100–96000**) without resampling |
 | **BSP fix (if chasing log noise)** | Ensure all init/play uses **48 kHz** PCMs; optional driver/DT work to drop **44.1** from hw constraint list — only if a product path truly needs **44.1** on **SAI1** |
+
+**SAI3 (driver speaker):** **`30030000.sai`** = **`&sai3`** → **TAS2563**. Same **12.288 MHz** / **2822400** failure if **`drivers`** opens at **44100**. Product path **`driver_speaker`** (and **`driver_slot`** / **`driver_out`**) now use **`_tas2563_48`** / **`_tas2563_tdm_48`** like **`_tas6424_quad_48`** — see **`docs/DT510-TAS2563-DRIVER-SPEAKER-ALSA.md`**.
 
 ---
 
