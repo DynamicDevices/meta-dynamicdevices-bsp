@@ -217,7 +217,7 @@ In **`imx8mm-jaguar-dt510.dts`**:
 ### Still open
 
 1. **SAI5 clocks** — LRCLK **48 kHz**, BCLK **3.072 MHz**, ratio **64** (Michael / BSP SSOT). Requires **0028 v4** on top of **438**.
-2. **Phase B** — Michael I2C register compare after clocks pass (baseline from target **426** tac5x1x: **`taa5412-reg-compare-20260525.md`**).
+2. **Phase B** — Michael I2C register compare after clocks pass (baseline from target **426** tac5x1x; see **`lab-artifacts/taa5412-michael-compare-20260526.md`** appendix).
 3. **MSO automation pass criteria** — **`scripts/lab/dt510-sai5-clock-eval.py`**: LRCLK **48 kHz ±2%**, BCLK **3.072 MHz ±5%**, ratio **64 ±5%**; also checks **`pasitx_bit5`**, WAV peak **≥200**, SD edges.
 
 ### Michael clock guidance (pass criteria)
