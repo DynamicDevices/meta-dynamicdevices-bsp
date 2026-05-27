@@ -3,7 +3,8 @@
 # Uses TAS2781-comlib volume enum index (see kernel tas2563_dvc_table): 0=mute-ish, 255≈+6 dB.
 #
 # Optional env: TAS2563_MIXER (default drivers), TAS2563_BOOT_DVC (default 204 ≈ −20 dB),
-# TAS2563_DVC_CTRL (default "Speaker Digital Volume").
+# TAS2563_DVC_CTRL (default "Speaker Digital Volume"),
+# TAS2562_BOOT_DVC (default 110 — tas2562 "Digital Volume Control" 0–110 dB scale).
 
 MIX=${TAS2563_MIXER:-drivers}
 VOL=${TAS2563_BOOT_DVC:-204}
@@ -50,7 +51,7 @@ if amixer -D "$CTL" cget name="$DVC" >/dev/null 2>&1; then
 	log "OK: amixer -D $CTL $DVC=$VOL (index; mixer=$MIX)"
 elif amixer -D "$CTL" cget name="Digital Volume Control" >/dev/null 2>&1; then
 	# snd_soc_tas2562 in-kernel driver (IMAGE 438+): 0–110 dB scale, not TAS2781 comlib index.
-	DVC2=${TAS2562_BOOT_DVC:-80}
+	DVC2=${TAS2562_BOOT_DVC:-110}
 	amixer -q -D "$CTL" cset name="Digital Volume Control" "$DVC2" 2>/dev/null || true
 	log "OK: amixer -D $CTL Digital Volume Control=$DVC2 (tas2562 fallback; mixer=$MIX)"
 else

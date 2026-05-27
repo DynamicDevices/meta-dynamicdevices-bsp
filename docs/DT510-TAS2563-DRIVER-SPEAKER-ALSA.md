@@ -22,7 +22,9 @@
 
 **Mixer:** **`amixer -D drivers`** (or **`hw:<card#>`** if the named ctl is missing).
 
-The **TAS2781‑comlib** stack exposes **`Speaker Digital Volume`** (kernel index enum over **`tas2563_dvc_table`**). **`tas2563-init`** sets this from **`TAS2563_BOOT_DVC`** (**`204`** default in the script unless overridden — confirm level on bench).
+The **TAS2781‑comlib** stack exposes **`Speaker Digital Volume`** (kernel index enum over **`tas2563_dvc_table`**, **0–255**). **`tas2563-init`** sets this from **`TAS2563_BOOT_DVC`** (**`204`** default ≈ −20 dB).
+
+**IMAGE 438+ (in-kernel `snd_soc_tas2562`):** control is **`Digital Volume Control`** (**0–110** dB steps). Boot default **`TAS2562_BOOT_DVC=110`** (lab PTT max). AVM **`driver_speaker_alsa_control`** should match; values **≤110** are applied directly, **>110** mapped from legacy 0–255 intent.
 
 ---
 
