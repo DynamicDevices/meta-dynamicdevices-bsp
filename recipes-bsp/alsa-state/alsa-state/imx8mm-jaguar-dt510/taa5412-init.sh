@@ -3,11 +3,11 @@
 # Regbin PRE_POWER_UP also programs MICBIAS and digital gains; this script is an
 # amixer-only backup after the card probes (no Michael I2C apply).
 #
-# Optional env: TAA5412_MIXER (default driver_mic), TAA5412_CH1_DIGI (default 220),
-# TAA5412_CH1_FINE (default 8 — upper nibble 0x80 in reg 0x53).
+# Optional env: TAA5412_MIXER (default driver_mic), TAA5412_CH1_DIGI (default 240),
+# TAA5412_CH1_FINE (default 8 — reg 0x53 lower nibble / Ch1 Fine ALSA control).
 
 MIX=${TAA5412_MIXER:-driver_mic}
-CH1_DIGI=${TAA5412_CH1_DIGI:-220}
+CH1_DIGI=${TAA5412_CH1_DIGI:-240}
 CH1_FINE=${TAA5412_CH1_FINE:-8}
 CH_MUTE_DIGI=0
 CH_FINE=${TAA5412_CH_FINE:-8}
@@ -24,13 +24,13 @@ resolve_hwctl() {
 	fi
 }
 
-# Return first mixer control name matching "ChN Kind Volume" (pcm6240 naming).
+# Return first mixer control name matching "ChN Kind" (pcm6240 ALSA naming).
 find_ch_ctrl() {
 	_ctl=$1
 	_ch=$2
 	_kind=$3
 	amixer -D "$_ctl" scontrols 2>/dev/null \
-		| sed -n "s/.*name='\\([^']*Ch${_ch} ${_kind} Volume\\)'.*/\\1/p" \
+		| sed -n "s/.*name='\\([^']*Ch${_ch} ${_kind}\\)'.*/\\1/p" \
 		| head -n1
 }
 
