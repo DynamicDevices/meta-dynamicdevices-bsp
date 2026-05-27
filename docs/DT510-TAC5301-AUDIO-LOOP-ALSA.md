@@ -34,7 +34,7 @@ arecord -D aux -f S16_LE -c 1 -r 48000 -d 5 /tmp/aux.wav
 speaker-test -D audio_loop -c 2 -t wav
 ```
 
-**Boot / rate:** Codec link is **`&sai6`** **I²S**, **no MCLK** on this board — negotiate sample rate with **`plughw:`**‑style openness (the **`plug`** slaves here help).
+**Boot / rate:** Codec link is **`&sai6`** **I²S**, **no MCLK** on this board — **48 kHz family** clocks like tannoy **SAI1**. Product PCMs **`audio_loop`** (playback) and **`aux`** (capture) use **`_tac5301_48`** (`type rate` → **48000** on **`_tac5301_hw`**) with outer **`plug` `slave.rate 48000`** — mirror **`tannoy_*`** / **`driver_speaker`**. Apps may pass **44100** WAVs to **`aplay -D audio_loop`**; the chain resamples before **SAI6** opens. Raw **`hw:tac5301codec`** at non‑48 kHz may **EINVAL** or log **`failed to derive required … rate`**.
 
 ---
 

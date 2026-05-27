@@ -57,6 +57,8 @@ SSOT (**`docs/reference/dt510-ollie-tool-generated/pin_mux.dts`**): **`SAI5_RXC`
 
 Raw device: **`pcm._taa5412_hw`** → **`hw:taa5412codec`**, **device 0** (internal).
 
+**Sample rate:** **`&sai5`** uses **48 kHz family** clocks (same PLL story as tannoy **SAI1** and driver speaker **SAI3**). Product capture PCMs (**`driver_mic`**, **`driver_mic_in1`**, **`driver_mic_in2`**, slot aliases) use **`_taa5412_48`** (`type rate` → **48000** on **`_taa5412_hw`**) with outer **`plug` `slave.rate 48000`** — mirror **`tannoy_*`** / **`driver_speaker`**. Apps may request **44100** or **22050**; the chain resamples before **SAI5** opens. Raw **`hw:taa5412codec`** at non‑48 kHz rates may fail with **`failed to derive required … rate`** in **`dmesg`**.
+
 **AVM (DT510 production):** **`driver_input_device = driver_mic_in1`** in **`vix-apps/AVM/config/config.txt`** (single wired IN1). Use **`driver_mic`** for stereo IN1+IN2 lab capture.
 
 **Not driver mic:** **`driver_speaker`** / **`aplay`** → **TAS2563 on `&sai3`** — see **`docs/DT510-TAS2563-DRIVER-SPEAKER-ALSA.md`**. That path does **not** clock **SAI5**.
