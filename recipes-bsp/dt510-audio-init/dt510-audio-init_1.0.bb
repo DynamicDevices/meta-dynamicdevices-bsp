@@ -1,7 +1,7 @@
 SUMMARY = "DT510 codec boot ALSA mixer init scripts"
 DESCRIPTION = "Systemd oneshot units for TAS6424 tannoy, TAS2563 driver speaker, and TAA5412 driver mic mixer defaults on imx8mm-jaguar-dt510"
 LICENSE = "MIT"
-LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade697e0b6d426b7846e68fb0728"
+LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
 # Reuse init scripts from alsa-state (asound.conf stays in alsa-state.bbappend).
 FILESEXTRAPATHS:prepend := "${THISDIR}/../alsa-state/alsa-state/imx8mm-jaguar-dt510:"
