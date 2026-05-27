@@ -9,19 +9,11 @@ SRC_URI:append:imx8mm-jaguar-sentai = " \
 
 SRC_URI:append:imx8mm-jaguar-dt510 = " \
     file://imx8mm-jaguar-dt510/asound.conf \
-    file://imx8mm-jaguar-dt510/tas6424-init.sh \
-    file://imx8mm-jaguar-dt510/tas6424-init.service \
-    file://imx8mm-jaguar-dt510/tas2563-init.sh \
-    file://imx8mm-jaguar-dt510/tas2563-init.service \
-    file://imx8mm-jaguar-dt510/taa5412-init.sh \
-    file://imx8mm-jaguar-dt510/taa5412-init.service \
 "
 
 inherit systemd
 
 SYSTEMD_SERVICE:${PN}:imx8mm-jaguar-sentai = "tas2563-init.service"
-
-SYSTEMD_SERVICE:${PN}:imx8mm-jaguar-dt510 = "tas6424-init.service tas2563-init.service taa5412-init.service"
 
 RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = " alsa-utils"
 
@@ -51,26 +43,8 @@ FILES:${PN}:append:imx8mm-jaguar-sentai = " \
 do_install:append:imx8mm-jaguar-dt510() {
     install -d ${D}${sysconfdir}
     install -m 0644 ${WORKDIR}/imx8mm-jaguar-dt510/asound.conf ${D}${sysconfdir}/asound.conf
-
-    install -d ${D}${bindir}
-    install -m 0755 ${WORKDIR}/imx8mm-jaguar-dt510/tas6424-init.sh ${D}${bindir}/tas6424-init
-
-    install -m 0755 ${WORKDIR}/imx8mm-jaguar-dt510/tas2563-init.sh ${D}${bindir}/tas2563-init
-
-    install -m 0755 ${WORKDIR}/imx8mm-jaguar-dt510/taa5412-init.sh ${D}${bindir}/taa5412-init
-
-    install -d ${D}${systemd_unitdir}/system
-    install -m 0644 ${WORKDIR}/imx8mm-jaguar-dt510/tas6424-init.service ${D}${systemd_unitdir}/system/
-    install -m 0644 ${WORKDIR}/imx8mm-jaguar-dt510/tas2563-init.service ${D}${systemd_unitdir}/system/
-    install -m 0644 ${WORKDIR}/imx8mm-jaguar-dt510/taa5412-init.service ${D}${systemd_unitdir}/system/
 }
 
 FILES:${PN}:append:imx8mm-jaguar-dt510 = " \
     ${sysconfdir}/asound.conf \
-    ${bindir}/tas6424-init \
-    ${bindir}/tas2563-init \
-    ${bindir}/taa5412-init \
-    ${systemd_unitdir}/system/tas6424-init.service \
-    ${systemd_unitdir}/system/tas2563-init.service \
-    ${systemd_unitdir}/system/taa5412-init.service \
 "
