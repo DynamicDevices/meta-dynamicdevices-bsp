@@ -40,6 +40,11 @@ if ! amixer -D "$CTL" info >/dev/null 2>&1; then
 	log "NOTICE: using $CTL instead of named mixer $MIX"
 fi
 
+if amixer -D "$CTL" cget name='ASI1 Sel' >/dev/null 2>&1; then
+	amixer -q -D "$CTL" cset name='ASI1 Sel' 1 2>/dev/null || true
+	log "OK: amixer -D $CTL ASI1 Sel=1 (Left)"
+fi
+
 if amixer -D "$CTL" cget name="$DVC" >/dev/null 2>&1; then
 	amixer -q -D "$CTL" cset name="$DVC" "$VOL" 2>/dev/null || true
 	log "OK: amixer -D $CTL $DVC=$VOL (index; mixer=$MIX)"

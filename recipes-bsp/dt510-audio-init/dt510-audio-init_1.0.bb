@@ -48,10 +48,10 @@ FILES:${PN} = " \
 
 pkg_postinst:${PN}() {
     if [ -z "$D" ]; then
-        legacy=/etc/systemd/system/tas6424-init.service
-        if [ -e "$legacy" ] && [ ! -L "$legacy" ]; then
-            rm -f "$legacy"
-        fi
+        # Remove stale /etc drop-ins superseded by dt510-audio-init package units.
+        rm -f /etc/systemd/system/tas6424-init.service
+        rm -f /etc/systemd/system/tas2563-init.service
+        rm -f /etc/systemd/system/taa5412-init.service
         systemctl daemon-reload >/dev/null 2>&1 || true
     fi
 }
