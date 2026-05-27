@@ -57,6 +57,8 @@ SSOT (**`docs/reference/dt510-ollie-tool-generated/pin_mux.dts`**): **`SAI5_RXC`
 
 Raw device: **`pcm._taa5412_hw`** → **`hw:taa5412codec`**, **device 0** (internal).
 
+**AVM (DT510 production):** **`driver_input_device = driver_mic_in1`** in **`vix-apps/AVM/config/config.txt`** (single wired IN1). Use **`driver_mic`** for stereo IN1+IN2 lab capture.
+
 **Not driver mic:** **`driver_speaker`** / **`aplay`** → **TAS2563 on `&sai3`** — see **`docs/DT510-TAS2563-DRIVER-SPEAKER-ALSA.md`**. That path does **not** clock **SAI5**.
 
 ---
@@ -258,5 +260,6 @@ During capture, **`TCR2=RCR2`**, **`TCR4/TCR5=RCR4/RCR5`**, **`TCR4` FSD_MSTR** 
 - **`docs/DT510-HARDWARE-AUDIT-CHECKLIST.md`** (TAA5412 rows + § Codec notes)
 - **`docs/DT510-TAS2563-DRIVER-SPEAKER-ALSA.md`** (**`driver_speaker`** — **SAI3**, not SAI5)
 - **`meta-subscriber-overrides/docs/DT510-HARDWARE-BRINGUP.md`** § TAA5412
+- Workspace bench log **`lab-artifacts/taa5412-michael-compare-20260526.md`** (Michael regbin / I2C vs factory, **`taa5412-init`**)
 
-*Last updated: **2026‑05‑26** — bring-up progress through factory **target 438**; **0028 v4** (439) pending for SAI5 clock pass.*
+*Last updated: **2026‑05‑27** — bring-up progress through factory **target 438**; **0028 v4** (439) pending for SAI5 clock pass.*
