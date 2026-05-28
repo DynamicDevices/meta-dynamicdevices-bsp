@@ -1,18 +1,22 @@
 #!/bin/sh
 # DT510 TAS2563: boot mixer defaults via ctl name "drivers" (/etc/asound.conf).
-# TAS2781 comlib: "Speaker Digital Volume" index 0–255. IMAGE 438+ tas2562: DVC 0–110 dB + Amp Gain 0–28.
+# TAS2781 comlib: "Speaker Digital Volume" index 0–255. IMAGE 438+ tas2562: DVC 0–110 + Amp Gain 0–28.
+#
+# Hardware spec: 30 W per channel. Michael bench (2026-05): driver cab at DVC 92 + amp 23 drew ~90 W.
+# Amp Gain sets analog drive (dominant power term); keep amp ≤20 for production. DVC 110 + amp 28 is
+# lab-debug only — forbidden for sustained play (clips + ~3× over power spec).
 #
 # Optional env:
 #   TAS2563_MIXER (default drivers), TAS2563_BOOT_DVC (default 204, comlib only),
 #   TAS2563_DVC_CTRL (default "Speaker Digital Volume"),
-#   TAS2562_BOOT_DVC (default 92 — Digital Volume Control, avoid 110+max amp clipping),
-#   TAS2562_BOOT_AMP_GAIN (default 23 — Amp Gain Volume; Sentai uses 20, lab max 28 distorts).
+#   TAS2562_BOOT_DVC (default 85 — Digital Volume Control; Sentai 82, avoid 110 sustained),
+#   TAS2562_BOOT_AMP_GAIN (default 20 — Amp Gain Volume ~18 dB; Sentai reference, ≤30 W target).
 
 MIX=${TAS2563_MIXER:-drivers}
 VOL=${TAS2563_BOOT_DVC:-204}
 DVC=${TAS2563_DVC_CTRL:-"Speaker Digital Volume"}
-DVC2=${TAS2562_BOOT_DVC:-92}
-AMP=${TAS2562_BOOT_AMP_GAIN:-23}
+DVC2=${TAS2562_BOOT_DVC:-85}
+AMP=${TAS2562_BOOT_AMP_GAIN:-20}
 
 NAME=tas2563-init
 log() {
