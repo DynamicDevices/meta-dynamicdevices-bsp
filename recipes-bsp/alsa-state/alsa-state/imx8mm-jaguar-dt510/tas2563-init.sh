@@ -1,14 +1,18 @@
 #!/bin/sh
 # DT510 TAS2563: boot mixer defaults via ctl name "drivers" (/etc/asound.conf).
-# Uses TAS2781-comlib volume enum index (see kernel tas2563_dvc_table): 0=mute-ish, 255≈+6 dB.
+# TAS2781 comlib: "Speaker Digital Volume" index 0–255. IMAGE 438+ tas2562: DVC 0–110 dB + Amp Gain 0–28.
 #
-# Optional env: TAS2563_MIXER (default drivers), TAS2563_BOOT_DVC (default 204 ≈ −20 dB),
-# TAS2563_DVC_CTRL (default "Speaker Digital Volume"),
-# TAS2562_BOOT_DVC (default 110 — tas2562 "Digital Volume Control" 0–110 dB scale).
+# Optional env:
+#   TAS2563_MIXER (default drivers), TAS2563_BOOT_DVC (default 204, comlib only),
+#   TAS2563_DVC_CTRL (default "Speaker Digital Volume"),
+#   TAS2562_BOOT_DVC (default 92 — Digital Volume Control, avoid 110+max amp clipping),
+#   TAS2562_BOOT_AMP_GAIN (default 23 — Amp Gain Volume; Sentai uses 20, lab max 28 distorts).
 
 MIX=${TAS2563_MIXER:-drivers}
 VOL=${TAS2563_BOOT_DVC:-204}
 DVC=${TAS2563_DVC_CTRL:-"Speaker Digital Volume"}
+DVC2=${TAS2562_BOOT_DVC:-92}
+AMP=${TAS2562_BOOT_AMP_GAIN:-23}
 
 NAME=tas2563-init
 log() {
@@ -20,6 +24,18 @@ resolve_hwctl() {
 	if [ -n "$c" ]; then
 		printf 'hw:%s' "$c"
 	fi
+}
+
+set_amp_gain() {
+	ctl_dev=$1
+	for ag_name in "Amp Gain Volume" "Amp Gain"; do
+		if amixer -D "$ctl_dev" cget name="$ag_name" >/dev/null 2>&1; then
+			amixer -q -D "$ctl_dev" cset name="$ag_name" "$AMP" 2>/dev/null || true
+			log "OK: amixer -D $ctl_dev $ag_name=$AMP"
+			return 0
+		fi
+	done
+	return 1
 }
 
 n=0
@@ -50,12 +66,14 @@ if amixer -D "$CTL" cget name="$DVC" >/dev/null 2>&1; then
 	amixer -q -D "$CTL" cset name="$DVC" "$VOL" 2>/dev/null || true
 	log "OK: amixer -D $CTL $DVC=$VOL (index; mixer=$MIX)"
 elif amixer -D "$CTL" cget name="Digital Volume Control" >/dev/null 2>&1; then
-	# snd_soc_tas2562 in-kernel driver (IMAGE 438+): 0–110 dB scale, not TAS2781 comlib index.
-	DVC2=${TAS2562_BOOT_DVC:-110}
 	amixer -q -D "$CTL" cset name="Digital Volume Control" "$DVC2" 2>/dev/null || true
-	log "OK: amixer -D $CTL Digital Volume Control=$DVC2 (tas2562 fallback; mixer=$MIX)"
+	log "OK: amixer -D $CTL Digital Volume Control=$DVC2 (tas2562; mixer=$MIX)"
 else
 	log "NOTICE: neither '$DVC' nor 'Digital Volume Control' on $CTL — check amixer -D $CTL scontrols"
+fi
+
+if ! set_amp_gain "$CTL"; then
+	log "NOTICE: no Amp Gain Volume on $CTL (tas2562 driver may not expose it yet)"
 fi
 
 exit 0

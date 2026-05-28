@@ -24,7 +24,7 @@
 
 The **TAS2781‑comlib** stack exposes **`Speaker Digital Volume`** (kernel index enum over **`tas2563_dvc_table`**, **0–255**). **`tas2563-init`** sets this from **`TAS2563_BOOT_DVC`** (**`204`** default ≈ −20 dB).
 
-**IMAGE 438+ (in-kernel `snd_soc_tas2562`):** control is **`Digital Volume Control`** (**0–110** dB steps). Boot default **`TAS2562_BOOT_DVC=110`** (lab PTT max). AVM **`driver_speaker_alsa_control`** should match; values **≤110** are applied directly, **>110** mapped from legacy 0–255 intent.
+**IMAGE 438+ (in-kernel `snd_soc_tas2562`):** **`Digital Volume Control`** (**0–110**) and **`Amp Gain Volume`** (**0–28**, ~0.5 dB/step from 8.5 dB). Boot defaults **`TAS2562_BOOT_DVC=92`**, **`TAS2562_BOOT_AMP_GAIN=23`** (balanced — not max+max; **110+28** clips on the lab cab). Sentai reference: DVC **82**, amp **20**. AVM: **`driver_speaker_alsa_volume`**, **`driver_speaker_alsa_amp_gain`** (re-applied at AVM start / before driver play).
 
 ---
 
