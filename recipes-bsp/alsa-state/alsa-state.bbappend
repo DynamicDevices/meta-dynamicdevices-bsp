@@ -54,7 +54,7 @@ FILES:${PN}:append:imx8mm-jaguar-dt510 = " \
     ${datadir}/dynamicdevices/dt510-asound.conf \
 "
 
-pkg_postinst:append:imx8mm-jaguar-dt510() {
+pkg_postinst:${PN}:append:imx8mm-jaguar-dt510() {
     if [ -z "$D" ]; then
         if [ -x /usr/bin/dt510-ensure-asound-conf ]; then
             /usr/bin/dt510-ensure-asound-conf || true

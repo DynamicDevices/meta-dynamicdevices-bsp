@@ -80,4 +80,15 @@ if ! set_amp_gain "$CTL"; then
 	log "NOTICE: no Amp Gain Volume on $CTL (tas2562 driver may not expose it yet)"
 fi
 
+# Mixer cset alone does not run TAS2562 DAPM/PCM startup; first user aplay after reboot
+# can exit 0 yet be inaudible until the playback path has opened once. Silent priming
+# at boot avoids that (skip with TAS2563_SKIP_PCM_WARMUP=1).
+if [ -z "${TAS2563_SKIP_PCM_WARMUP:-}" ] && command -v timeout >/dev/null 2>&1; then
+	if timeout 1 aplay -q -D driver_speaker -f S16_LE -r 48000 -c 2 -t raw /dev/zero >/dev/null 2>&1; then
+		log "OK: driver_speaker PCM warmup (silent /dev/zero)"
+	else
+		log "WARN: driver_speaker PCM warmup failed (first aplay may be silent until retry)"
+	fi
+fi
+
 exit 0

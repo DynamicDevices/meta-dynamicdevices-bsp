@@ -45,6 +45,21 @@ Test clip: **`700000001213.wav`** via **`aplay -D driver_speaker`**. Ring sanity
 
 **Remote listen:** RustDesk hear tests require **mic bridge** on the USB host XPS (**`use-rustdesk-built-in-mic.sh`**, **`DISABLE_AEC=1`**) — not gadget bridge for routine cab checks.
 
+### Post-reboot first-play (DAPM warmup)
+
+After cold boot, the **first** host **`aplay -D driver_speaker`** can exit **0** yet be **inaudible** until the TAS2562 **DAPM/amp** path has seen one PCM open. **`amixer` cset alone does not prime it.**
+
+**Fix (inaudible, no tone):** one second of silent PCM — **`timeout 1 aplay -q -D driver_speaker -f S16_LE -r 48000 -c 2 -t raw /dev/zero`**. Do **not** use **`speaker-test`** (audible sine on the cab).
+
+| Where | When |
+|-------|------|
+| **`tas2563-init.sh`** (BSP) | At boot after mixer levels — lands in factory image after **`/build`** |
+| **`vix-apps/AVM/scripts/dt510-driver-speaker-test.sh`** | Manual / bench deploy to **`~/dt510-driver-speaker-test.sh`** — runs warmup before **`700000001213.wav`** |
+
+Lab validated **2026-05-28** (`.205`): silent warmup → first clip audible after reboot.
+
+**Andy VPN unit (2026-05-28):** Same bench script (**`~/dt510-driver-speaker-test.sh`**) and NSA clip **`700000001213.wav`** (deploy to **`/var/lib/vix/recorded-voice-audio/`** — not in the factory image by default) verified on **`fio@10.43.43.2`** (`imx8mm-jaguar-dt510-1d1b7209dabc234a`): DVC 100, amp 20, silent **`/dev/zero`** warmup → clip audible.
+
 ---
 
 ## Commands
@@ -66,4 +81,4 @@ amixer -D drivers scontrols
 
 **Companion:** analogue loop codec — **`docs/DT510-TAC5301-AUDIO-LOOP-ALSA.md`** (**`audio_loop`**, **`aux`**).
 
-*Last updated: 2026-05-16 — single **`driver_slot`** / **`driver_out`** pair (mono OUT); removed **`driver_slot0`/`1`/`slots_lr`** helpers.*
+*Last updated: 2026-05-28 — post-reboot DAPM warmup (`/dev/zero`); lab DVC 100 + amp 20.*

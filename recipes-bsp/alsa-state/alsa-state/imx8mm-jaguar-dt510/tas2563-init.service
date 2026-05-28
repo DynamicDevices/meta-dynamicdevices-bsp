@@ -2,6 +2,8 @@
 Description=DT510 TAS2563 driver-speaker ALSA mixer defaults
 After=sound.target
 After=alsa-state.service
+After=dt510-ensure-asound-conf.service
+Before=docker.service
 Wants=sound.target
 
 [Service]
