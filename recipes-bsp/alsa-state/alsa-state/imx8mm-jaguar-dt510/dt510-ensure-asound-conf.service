@@ -1,0 +1,21 @@
+[Unit]
+Description=DT510 ensure /etc/asound.conf is a file (Docker bind-mount trap guard)
+# Must run before Docker / Foundries compose bind-mount host paths into AVM.
+# systemd-tmpfiles "f" creates a missing file but cannot replace an existing directory.
+ConditionPathExists=/usr/share/dynamicdevices/dt510-asound.conf
+After=alsa-state.service
+Before=docker.service
+Before=containerd.service
+Before=tas6424-init.service
+Before=tas2563-init.service
+Before=taa5412-init.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/dt510-ensure-asound-conf
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

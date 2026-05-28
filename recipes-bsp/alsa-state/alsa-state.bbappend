@@ -43,8 +43,13 @@ FILES:${PN}:append:imx8mm-jaguar-sentai = " \
 do_install:append:imx8mm-jaguar-dt510() {
     install -d ${D}${sysconfdir}
     install -m 0644 ${WORKDIR}/imx8mm-jaguar-dt510/asound.conf ${D}${sysconfdir}/asound.conf
+
+    # Canonical copy for AVM docker-compose bind-mount (never touched by Docker auto-mkdir).
+    install -d ${D}${datadir}/dynamicdevices
+    install -m 0644 ${WORKDIR}/imx8mm-jaguar-dt510/asound.conf ${D}${datadir}/dynamicdevices/dt510-asound.conf
 }
 
 FILES:${PN}:append:imx8mm-jaguar-dt510 = " \
     ${sysconfdir}/asound.conf \
+    ${datadir}/dynamicdevices/dt510-asound.conf \
 "
