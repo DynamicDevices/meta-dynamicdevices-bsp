@@ -26,9 +26,24 @@ The **TAS2781‑comlib** stack exposes **`Speaker Digital Volume`** (kernel inde
 
 **IMAGE 438+ (in-kernel `snd_soc_tas2562`):** **`Digital Volume Control`** (**0–110**) and **`Amp Gain Volume`** (**0–28**, ~0.5 dB/step from 8.5 dB).
 
-**Power / production defaults (30 W per channel spec):** Boot and AVM use **`TAS2562_BOOT_DVC=85`**, **`TAS2562_BOOT_AMP_GAIN=20`**. Michael bench (2026-05): **DVC 92 + amp 23** drew **~90 W** — amp gain dominates analog power; keep **amp ≤20** for sustained play. **DVC 110 + amp 28** is **lab-debug only** (clips + far over spec). Sentai reference: DVC **82**, amp **20**. Prefer raising **DVC** (85–90) before **amp** if cab audibility is low; acoustic/hardware fixes may still be needed under the 30 W cap.
+**Power / production defaults (30 W per channel spec):** Boot and AVM use **`TAS2562_BOOT_DVC=100`**, **`TAS2562_BOOT_AMP_GAIN=20`**. Amp gain dominates analog power; keep **amp ≤20** for sustained play. **DVC 110 + amp 28** is **lab-debug only** (clips + ~90 W, far over spec). Sentai reference: DVC **82**, amp **20**.
 
 AVM: **`driver_speaker_alsa_volume`**, **`driver_speaker_alsa_amp_gain`** (re-applied at AVM start / before driver play).
+
+### Lab calibration (2026-05-28, Michael)
+
+Michael swept driver cab audibility on bench with **Amp Gain fixed at 20** (30 W/channel target):
+
+| Phase | DVC range | Outcome |
+|-------|-----------|---------|
+| Coarse | 75–95 | Audible; needed more headroom |
+| Fine (step 5) | 95–110 | **100 selected** — clear cab level within power spec |
+
+Test clip: **`700000001213.wav`** via **`aplay -D driver_speaker`**. Ring sanity: **`/var/lib/vix/recorded-voice-audio/ring.wav`**.
+
+**Forbidden:** **DVC 110 + amp 28** — distortion and ~90 W (Michael bench reference at **92+23**).
+
+**Remote listen:** RustDesk hear tests require **mic bridge** on the USB host XPS (**`use-rustdesk-built-in-mic.sh`**, **`DISABLE_AEC=1`**) — not gadget bridge for routine cab checks.
 
 ---
 

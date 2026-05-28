@@ -9,13 +9,13 @@
 # Optional env:
 #   TAS2563_MIXER (default drivers), TAS2563_BOOT_DVC (default 204, comlib only),
 #   TAS2563_DVC_CTRL (default "Speaker Digital Volume"),
-#   TAS2562_BOOT_DVC (default 85 — Digital Volume Control; Sentai 82, avoid 110 sustained),
+#   TAS2562_BOOT_DVC (default 100 — Digital Volume Control; Michael lab 2026-05-28, avoid 110 sustained),
 #   TAS2562_BOOT_AMP_GAIN (default 20 — Amp Gain Volume ~18 dB; Sentai reference, ≤30 W target).
 
 MIX=${TAS2563_MIXER:-drivers}
 VOL=${TAS2563_BOOT_DVC:-204}
 DVC=${TAS2563_DVC_CTRL:-"Speaker Digital Volume"}
-DVC2=${TAS2562_BOOT_DVC:-85}
+DVC2=${TAS2562_BOOT_DVC:-100}
 AMP=${TAS2562_BOOT_AMP_GAIN:-20}
 
 NAME=tas2563-init
