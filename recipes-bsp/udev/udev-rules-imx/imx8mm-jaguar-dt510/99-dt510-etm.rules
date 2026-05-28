@@ -4,7 +4,7 @@
 # Creates:  /dev/etm  →  symlink to the ttyUSB* node for USB interface 2 on the quad CP2108.
 #
 # Lab mapping (USB path 1-1.3): IFC0/1 RS-232 → :1.0 / :1.1; IFC2/3 RS-485 → :1.2 / :1.3.
-# This rule targets **interface 2 only** (first RS-485). Second RS-485 is IFC3 (:1.3) — no symlink yet.
+# This rule targets **interface 2 only** (first RS-485). Second RS-485 is IFC3 (:1.3) → /dev/ovd485 (99-dt510-ovd485.rules).
 #
 # If the symlink never appears after flash:
 #   ls -l /dev/serial/by-path/

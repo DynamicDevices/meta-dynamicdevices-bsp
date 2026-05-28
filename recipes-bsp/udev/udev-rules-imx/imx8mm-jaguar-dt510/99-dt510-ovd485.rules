@@ -1,0 +1,21 @@
+# DT510 — stable device name for CP2108 (U13) **second RS-485** UART (bridge IFC3 / RS485_TX2 / RS485_DE2).
+# On Vehicle Display (OVD) and similar RS-485 peripherals attach here.
+#
+# Creates:  /dev/ovd485  →  symlink to the ttyUSB* node for USB interface 3 on the quad CP2108.
+#
+# Lab mapping (USB path 1-1.3): IFC0/1 RS-232 → :1.0 / :1.1; IFC2/3 RS-485 → :1.2 / :1.3.
+# First RS-485 (IFC2 / :1.2) → /dev/etm (99-dt510-etm.rules).
+#
+# If the symlink never appears after flash:
+#   ls -l /dev/serial/by-path/
+#   udevadm info -q property -n /dev/ttyUSB3 | grep -E ID_VENDOR_ID|ID_MODEL_ID|ID_USB_INTERFACE_NUM
+#   → expect 10c4 / ea71 / 03 on the second RS-485 port (lab: often ttyUSB3 on 1-1.3:1.3)
+#
+# Use ENV{ID_USB_INTERFACE_NUM} (set on the tty node). Do not combine ATTRS{idVendor},
+# ATTRS{idProduct}, and ATTRS{bInterfaceNumber} in one line — they sit on different sysfs
+# parents (device vs interface) and the rule will never match.
+#
+# Do not match u-blox GNSS (1546:*) or other CP210x adapters on the bus.
+
+# Silicon Labs CP2108 (U13) — interface 3 = bridge UART index 3 (RS-485 channel 2)
+SUBSYSTEM=="tty", KERNEL=="ttyUSB*", ENV{ID_VENDOR_ID}=="10c4", ENV{ID_MODEL_ID}=="ea71", ENV{ID_USB_INTERFACE_NUM}=="03", SYMLINK+="ovd485", TAG+="uaccess"

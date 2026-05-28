@@ -8,7 +8,7 @@ Hardware (bridge UART index, not always ttyUSBn order — use udev by-path):
 
   IFC0 / IFC1  RS-232  (no RS-485 DE on this SKU)
   IFC2         RS-485  GPIO.10 -> RS485_DE1   /dev/etm (udev) or ttyUSB2  (USB 1-1.3:1.2)
-  IFC3         RS-485  GPIO.14 -> RS485_DE2   typical /dev/ttyUSB3  (USB 1-1.3:1.3)
+  IFC3         RS-485  GPIO.14 -> RS485_DE2   /dev/ovd485 (udev) or ttyUSB3  (USB 1-1.3:1.3)
 
 Correct NVM for DT510 transceiver (DE high during TX, low when idle) — lab-validated 2026-05-16:
 

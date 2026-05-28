@@ -10,6 +10,7 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
     file://imx8mm-jaguar-dt510/20-jaguar.rules \
     file://imx8mm-jaguar-dt510/99-dt510-gnss.rules \
     file://imx8mm-jaguar-dt510/99-dt510-etm.rules \
+    file://imx8mm-jaguar-dt510/99-dt510-ovd485.rules \
 "
 SRC_URI:append:imx8mm-jaguar-inst = " file://20-jaguar.rules"
 SRC_URI:append:imx8mm-jaguar-handheld = " file://20-jaguar.rules"
@@ -31,4 +32,5 @@ do_install () {
 do_install:append:imx8mm-jaguar-dt510() {
 	install -m 0644 ${WORKDIR}/imx8mm-jaguar-dt510/99-dt510-gnss.rules ${D}${sysconfdir}/udev/rules.d/
 	install -m 0644 ${WORKDIR}/imx8mm-jaguar-dt510/99-dt510-etm.rules ${D}${sysconfdir}/udev/rules.d/
+	install -m 0644 ${WORKDIR}/imx8mm-jaguar-dt510/99-dt510-ovd485.rules ${D}${sysconfdir}/udev/rules.d/
 }
