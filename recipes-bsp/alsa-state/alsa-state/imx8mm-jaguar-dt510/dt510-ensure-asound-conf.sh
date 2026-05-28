@@ -6,6 +6,7 @@
 # alsa-state package at /usr/share/dynamicdevices/dt510-asound.conf (package-owned file).
 #
 # systemd-tmpfiles "f" can create a missing file but cannot remove an existing directory.
+# Re-sync when alsa-state updates the canonical copy (OTA may leave stale /etc/asound.conf).
 
 set -euo pipefail
 
@@ -25,6 +26,9 @@ fi
 if [ ! -e "$DEST" ]; then
     install -m 0644 "$CANON" "$DEST"
     echo "dt510-ensure-asound-conf: installed $DEST from $CANON"
+elif ! cmp -s "$CANON" "$DEST"; then
+    install -m 0644 "$CANON" "$DEST"
+    echo "dt510-ensure-asound-conf: updated $DEST from $CANON (canonical changed)"
 fi
 
 exit 0
