@@ -8,6 +8,25 @@
 
 **Companion (class‑D passenger / cabin path):** [`DT510-TAS6424-TANNOY-ALSA.md`](DT510-TAS6424-TANNOY-ALSA.md).
 
+**Progress tag (BSP repo):** **`dt510-tas2563-driver-speaker-test-1`** — annotated snapshot for factory target **459** (**BSP `be1a634`**, manifest **`2a24833`**). Pair with **`vix-apps` `v2026.05.28-test`** (bench **`dt510-driver-speaker-test.sh`**).
+
+---
+
+## Status (2026-05-28)
+
+**Lab calibration (Michael):** Production defaults **DVC 100**, **Amp Gain 20**, **ASI1 Sel Left** — ~30 W/channel target. **Not** **DVC 110 + amp 28** (~90 W, distorted).
+
+| Layer | State |
+|-------|-------|
+| **BSP `be1a634`** (`meta-dynamicdevices-bsp` **`main`**) | **`tas2563-init`:** DVC 100 / amp 20 / ASI1 Left; silent **`/dev/zero`** PCM warmup (same as bench script); **`Before=docker.service`**; **`dt510-ensure-asound-conf`**; **`alsa-state`** **`pkg_postinst`** **`${PN}`** fix for **`asound.conf`** OTA sync |
+| **Manifest `2a24833`** | Pins BSP **`be1a634`** |
+| **Foundries CI** | Build **458** failed (**`pkg_postinst`** pkgvarcheck) — fixed in **`be1a634`**. Factory target **459** **published** — https://app.foundries.io/factories/vixdt/targets/459/ |
+| **Bench script** | **`vix-apps/AVM/scripts/dt510-driver-speaker-test.sh`** — driver cab only; deploy to **`~/dt510-driver-speaker-test.sh`**. Plays **`700000001213.wav`** after warmup (**no** **`speaker-test`**). NSA clip must be on board under **`/var/lib/vix/recorded-voice-audio/`** (not in factory image by default) |
+| **AVM `c674cb5`** (containers target **457**) | **`driver_speaker_alsa_volume=100`**, **`driver_speaker_alsa_amp_gain=20`** — levels match boot; AVM **does not** set **ASI1 Sel** or run DAPM warmup |
+| **Factory boot** | After target **459** OTA, boot path matches bench script warmup (gap closed vs pre-**`be1a634`** images) |
+
+**Verified:** lab **`.205`**; Andy VPN **`fio@10.43.43.2`** (`imx8mm-jaguar-dt510-1d1b7209dabc234a`) with bench script + deployed NSA WAV.
+
 ---
 
 ## Friendly PCMs / controls
@@ -26,9 +45,9 @@ The **TAS2781‑comlib** stack exposes **`Speaker Digital Volume`** (kernel inde
 
 **IMAGE 438+ (in-kernel `snd_soc_tas2562`):** **`Digital Volume Control`** (**0–110**) and **`Amp Gain Volume`** (**0–28**, ~0.5 dB/step from 8.5 dB).
 
-**Power / production defaults (30 W per channel spec):** Boot and AVM use **`TAS2562_BOOT_DVC=100`**, **`TAS2562_BOOT_AMP_GAIN=20`**. Amp gain dominates analog power; keep **amp ≤20** for sustained play. **DVC 110 + amp 28** is **lab-debug only** (clips + ~90 W, far over spec). Sentai reference: DVC **82**, amp **20**.
+**Power / production defaults (30 W per channel spec):** Boot and AVM use **`TAS2562_BOOT_DVC=100`**, **`TAS2562_BOOT_AMP_GAIN=20`**, and **`tas2563-init`** sets **`ASI1 Sel`** to **Left** when the control exists. Amp gain dominates analog power; keep **amp ≤20** for sustained play. **DVC 110 + amp 28** is **lab-debug only** (clips + ~90 W, far over spec). Sentai reference: DVC **82**, amp **20**.
 
-AVM: **`driver_speaker_alsa_volume`**, **`driver_speaker_alsa_amp_gain`** (re-applied at AVM start / before driver play).
+AVM: **`driver_speaker_alsa_volume`**, **`driver_speaker_alsa_amp_gain`** (re-applied at AVM start / before driver play) — **no** ASI1 or silent warmup in AVM today; factory **`tas2563-init`** covers boot after image **459**.
 
 ### Lab calibration (2026-05-28, Michael)
 
@@ -53,12 +72,10 @@ After cold boot, the **first** host **`aplay -D driver_speaker`** can exit **0**
 
 | Where | When |
 |-------|------|
-| **`tas2563-init.sh`** (BSP) | At boot after mixer levels — lands in factory image after **`/build`** |
-| **`vix-apps/AVM/scripts/dt510-driver-speaker-test.sh`** | Manual / bench deploy to **`~/dt510-driver-speaker-test.sh`** — runs warmup before **`700000001213.wav`** |
+| **`tas2563-init.sh`** (BSP **`be1a634`**, factory target **459**) | At boot after mixer levels + **ASI1 Left** |
+| **`dt510-driver-speaker-test.sh`** | Bench: copy from **`vix-apps/AVM/scripts/`** to **`~/dt510-driver-speaker-test.sh`**; optional **`BOARD=fio@…`** remote invoke. Warmup + **`700000001213.wav`** (deploy WAV to **`/var/lib/vix/recorded-voice-audio/`** first) |
 
-Lab validated **2026-05-28** (`.205`): silent warmup → first clip audible after reboot.
-
-**Andy VPN unit (2026-05-28):** Same bench script (**`~/dt510-driver-speaker-test.sh`**) and NSA clip **`700000001213.wav`** (deploy to **`/var/lib/vix/recorded-voice-audio/`** — not in the factory image by default) verified on **`fio@10.43.43.2`** (`imx8mm-jaguar-dt510-1d1b7209dabc234a`): DVC 100, amp 20, silent **`/dev/zero`** warmup → clip audible.
+Lab **`.205`** and Andy VPN **`10.43.43.2`**: silent **`/dev/zero`** warmup → first clip audible after reboot (see **Status** above).
 
 ---
 
@@ -81,4 +98,4 @@ amixer -D drivers scontrols
 
 **Companion:** analogue loop codec — **`docs/DT510-TAC5301-AUDIO-LOOP-ALSA.md`** (**`audio_loop`**, **`aux`**).
 
-*Last updated: 2026-05-28 — post-reboot DAPM warmup (`/dev/zero`); lab DVC 100 + amp 20.*
+*Last updated: 2026-05-28 — BSP `be1a634` / manifest `2a24833` / CI 458→459; DVC 100 + amp 20 + ASI1 Left; bench script + factory boot warmup.*

@@ -58,6 +58,8 @@ Working document for aligning **Ollie Hull’s DT510 pinout / hardware specifica
 
 **Dashboard:** `https://app.foundries.io/factories/vixdt/` — factory line **imx8mm-jaguar-dt510** / machine **`imx8mm-jaguar-dt510`**.
 
+**Driver cab speaker (2026-05-28):** BSP **`be1a634`** — **`tas2563-init`** DVC 100 / amp 20 / ASI1 Left + silent PCM warmup, **`Before=docker.service`**, **`dt510-ensure-asound-conf`**. Manifest **`2a24833`** pins that SHA; CI **458** failed on **`alsa-state` `pkg_postinst`** (fixed in **`be1a634`**); factory target **459** published. **Test-release tags:** **`dt510-tas2563-driver-speaker-test-1`** (BSP @ **`be1a634`**) + **`v2026.05.28-test`** (vix-apps bench script). Bench: **`vix-apps/AVM/scripts/dt510-driver-speaker-test.sh`**. Detail: [`DT510-TAS2563-DRIVER-SPEAKER-ALSA.md`](DT510-TAS2563-DRIVER-SPEAKER-ALSA.md).
+
 **Key paths inside this BSP layer (relative to repo root):**
 
 - Canonical DT for Factory/LmP flows: `recipes-bsp/device-tree/lmp-device-tree/imx8mm-jaguar-dt510.dts`
