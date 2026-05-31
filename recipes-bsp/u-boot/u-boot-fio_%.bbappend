@@ -2,6 +2,8 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
 inherit lmp-signing-override
 
+require ${THISDIR}/u-boot-fio/imx95-frdm-evk.inc
+
 SRC_URI:append:imx8mm-jaguar-sentai = " \
     file://custom-dtb.cfg \
     file://01-customise-dtb.patch \
@@ -52,37 +54,7 @@ SRC_URI:append:imx95-frdm-evk = " \
     file://imx95-15x15-frdm-u-boot.dtsi \
 "
 
-# Out-of-tree build (O=${B}): configure/syncconfig can leave include/config in ${S}.
-# u-boot prepare then aborts with "is not clean, please run 'make mrproper'".
-imx95_frdm_uboot_scrub_source() {
-    bbnote "imx95-frdm-evk: mrproper u-boot source ${S} (keep O=${B})"
-    ${MAKE} -C ${S} mrproper
-    rm -rf ${S}/include/config ${S}/.config
-}
-
-do_configure:prepend:imx95-frdm-evk() {
-    imx95_frdm_uboot_scrub_source
-}
-
-do_configure:append:imx95-frdm-evk() {
-    if [ -f ${WORKDIR}/imx95-15x15-frdm.dts ]; then
-        install -D -m 0644 ${WORKDIR}/imx95-15x15-frdm.dts ${S}/arch/arm/dts/
-        install -D -m 0644 ${WORKDIR}/imx95-15x15-frdm-u-boot.dtsi ${S}/arch/arm/dts/
-        if ! grep -q 'imx95-15x15-frdm.dtb' ${S}/arch/arm/dts/Makefile; then
-            sed -i '/imx95-15x15-evk.dtb/a imx95-15x15-frdm.dtb \\' ${S}/arch/arm/dts/Makefile
-        fi
-    else
-        bbwarn "imx95-15x15-frdm.dts missing in ${WORKDIR}"
-    fi
-    imx95_frdm_uboot_scrub_source
-}
-
-do_compile:prepend:imx95-frdm-evk() {
-    imx95_frdm_uboot_scrub_source
-}
-
 # TODO: Add u-boot DTB customisation patch
 #SRC_URI:append:imx8ulp-lpddr4-evk = " \
 #    file://custom-dtb.cfg \
 #"
-

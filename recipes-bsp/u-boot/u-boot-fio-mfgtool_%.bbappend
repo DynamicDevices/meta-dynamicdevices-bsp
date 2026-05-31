@@ -1,5 +1,7 @@
 FILESEXTRAPATHS:prepend := "${THISDIR}/u-boot-fio:"
 
+require ${THISDIR}/u-boot-fio/imx95-frdm-evk.inc
+
 SRC_URI:append:imx95-frdm-evk = " \
     file://0001-kconfig-imx95-secondary-boot-sector-offset.patch \
     file://0002-skip-srctree-clean-check-out-of-tree.patch \
@@ -9,31 +11,3 @@ SRC_URI:append:imx95-frdm-evk = " \
     file://imx95-15x15-frdm.dts \
     file://imx95-15x15-frdm-u-boot.dtsi \
 "
-
-# u-boot-fio imx-2024.04 has imx95_15x15_evk_defconfig only; FRDM DTB is not upstream yet.
-imx95_frdm_uboot_scrub_source() {
-    bbnote "imx95-frdm-evk: mrproper u-boot source ${S} (keep O=${B})"
-    ${MAKE} -C ${S} mrproper
-    rm -rf ${S}/include/config ${S}/.config
-}
-
-do_configure:prepend:imx95-frdm-evk() {
-    imx95_frdm_uboot_scrub_source
-}
-
-do_configure:append:imx95-frdm-evk() {
-    if [ -f ${WORKDIR}/imx95-15x15-frdm.dts ]; then
-        install -D -m 0644 ${WORKDIR}/imx95-15x15-frdm.dts ${S}/arch/arm/dts/
-        install -D -m 0644 ${WORKDIR}/imx95-15x15-frdm-u-boot.dtsi ${S}/arch/arm/dts/
-        if ! grep -q 'imx95-15x15-frdm.dtb' ${S}/arch/arm/dts/Makefile; then
-            sed -i '/imx95-15x15-evk.dtb/a imx95-15x15-frdm.dtb \\' ${S}/arch/arm/dts/Makefile
-        fi
-    else
-        bbwarn "imx95-15x15-frdm.dts missing in ${WORKDIR}"
-    fi
-    imx95_frdm_uboot_scrub_source
-}
-
-do_compile:prepend:imx95-frdm-evk() {
-    imx95_frdm_uboot_scrub_source
-}
