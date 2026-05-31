@@ -1,10 +1,11 @@
-# FRDM-IMX95 (imx95-frdm-evk) — NXP imx95-15x15-frdm.dtb
+# FRDM-IMX95 (imx95-frdm-evk) — NXP imx95-15x15-frdm.dtb (not 15x15 EVK adv7535 tree)
 setenv bootlimit 3
 setenv devtype mmc
 setenv devnum 0
 setenv bootpart 1
 setenv rootpart 2
 
+setenv fdtfile imx95-15x15-frdm.dtb
 setenv fdt_file imx95-15x15-frdm.dtb
 setenv fdt_file_final imx95-15x15-frdm.dtb
 setenv fit_addr ${initrd_addr}
