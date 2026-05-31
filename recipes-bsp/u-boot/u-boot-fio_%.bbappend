@@ -47,7 +47,7 @@ SRC_URI:append:imx93-jaguar-eink = " \
 SRC_URI:append:imx95-frdm-evk = " \
     file://custom-dtb.cfg \
     file://fix-environment-config.cfg \
-    file://0002-auto-mrproper-out-of-tree.patch \
+    file://0002-skip-srctree-clean-check-out-of-tree.patch \
     file://imx95-15x15-frdm.dts \
     file://imx95-15x15-frdm-u-boot.dtsi \
 "
