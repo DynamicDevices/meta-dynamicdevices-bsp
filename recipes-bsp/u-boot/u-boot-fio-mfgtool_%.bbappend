@@ -2,6 +2,7 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/u-boot-fio:"
 
 SRC_URI:append:imx95-frdm-evk = " \
     file://0001-kconfig-imx95-secondary-boot-sector-offset.patch \
+    file://0002-auto-mrproper-out-of-tree.patch \
     file://custom-dtb.cfg \
     file://mfgtool-fastboot.cfg \
     file://fix-environment-config.cfg \
@@ -10,12 +11,14 @@ SRC_URI:append:imx95-frdm-evk = " \
 "
 
 # u-boot-fio imx-2024.04 has imx95_15x15_evk_defconfig only; FRDM DTB is not upstream yet.
-do_configure:prepend:imx95-frdm-evk() {
+imx95_frdm_uboot_scrub_source() {
+    bbnote "imx95-frdm-evk: mrproper u-boot source ${S} (keep O=${B})"
+    ${MAKE} -C ${S} mrproper
     rm -rf ${S}/include/config ${S}/.config
 }
 
-do_compile:prepend:imx95-frdm-evk() {
-    rm -rf ${S}/include/config ${S}/.config
+do_configure:prepend:imx95-frdm-evk() {
+    imx95_frdm_uboot_scrub_source
 }
 
 do_configure:append:imx95-frdm-evk() {
@@ -28,4 +31,9 @@ do_configure:append:imx95-frdm-evk() {
     else
         bbwarn "imx95-15x15-frdm.dts missing in ${WORKDIR}"
     fi
+    imx95_frdm_uboot_scrub_source
+}
+
+do_compile:prepend:imx95-frdm-evk() {
+    imx95_frdm_uboot_scrub_source
 }

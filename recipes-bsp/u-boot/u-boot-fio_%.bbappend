@@ -47,18 +47,21 @@ SRC_URI:append:imx93-jaguar-eink = " \
 SRC_URI:append:imx95-frdm-evk = " \
     file://custom-dtb.cfg \
     file://fix-environment-config.cfg \
+    file://0002-auto-mrproper-out-of-tree.patch \
     file://imx95-15x15-frdm.dts \
     file://imx95-15x15-frdm-u-boot.dtsi \
 "
 
-# Out-of-tree build (O=${B}) must not leave include/config in ${S}; u-boot Makefile
-# aborts with "is not clean, please run 'make mrproper'" if configure/syncconfig touched ${S}.
-do_configure:prepend:imx95-frdm-evk() {
+# Out-of-tree build (O=${B}): configure/syncconfig can leave include/config in ${S}.
+# u-boot prepare then aborts with "is not clean, please run 'make mrproper'".
+imx95_frdm_uboot_scrub_source() {
+    bbnote "imx95-frdm-evk: mrproper u-boot source ${S} (keep O=${B})"
+    ${MAKE} -C ${S} mrproper
     rm -rf ${S}/include/config ${S}/.config
 }
 
-do_compile:prepend:imx95-frdm-evk() {
-    rm -rf ${S}/include/config ${S}/.config
+do_configure:prepend:imx95-frdm-evk() {
+    imx95_frdm_uboot_scrub_source
 }
 
 do_configure:append:imx95-frdm-evk() {
@@ -71,6 +74,11 @@ do_configure:append:imx95-frdm-evk() {
     else
         bbwarn "imx95-15x15-frdm.dts missing in ${WORKDIR}"
     fi
+    imx95_frdm_uboot_scrub_source
+}
+
+do_compile:prepend:imx95-frdm-evk() {
+    imx95_frdm_uboot_scrub_source
 }
 
 # TODO: Add u-boot DTB customisation patch
