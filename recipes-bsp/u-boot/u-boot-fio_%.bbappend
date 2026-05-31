@@ -54,6 +54,7 @@ SRC_URI:append:imx95-frdm-evk = " \
     file://fix-environment-config.cfg \
     file://0002-skip-srctree-clean-check-out-of-tree.patch \
     file://0003-arm-dts-add-imx95-15x15-frdm-dtb.patch \
+    file://0004-imx9-spl-stub-check-secondary-cnt-set.patch \
     file://imx95-15x15-frdm.dts;subdir=git/arch/arm/dts \
     file://imx95-15x15-frdm-u-boot.dtsi;subdir=git/arch/arm/dts \
 "
