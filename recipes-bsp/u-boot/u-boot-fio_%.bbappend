@@ -51,6 +51,12 @@ SRC_URI:append:imx95-frdm-evk = " \
     file://imx95-15x15-frdm-u-boot.dtsi \
 "
 
+# Out-of-tree build (O=${B}) must not leave include/config in ${S}; u-boot Makefile
+# aborts with "is not clean, please run 'make mrproper'" if configure/syncconfig touched ${S}.
+do_configure:prepend:imx95-frdm-evk() {
+    rm -rf ${S}/include/config ${S}/.config
+}
+
 do_configure:append:imx95-frdm-evk() {
     if [ -f ${WORKDIR}/imx95-15x15-frdm.dts ]; then
         install -D -m 0644 ${WORKDIR}/imx95-15x15-frdm.dts ${S}/arch/arm/dts/
