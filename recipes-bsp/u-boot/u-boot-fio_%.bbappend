@@ -50,6 +50,7 @@ FILESEXTRAPATHS:prepend:imx95-frdm-evk := "${THISDIR}/u-boot-fio/imx95-frdm-evk:
 
 SRC_URI:append:imx95-frdm-evk = " \
     file://custom-dtb.cfg \
+    file://imx95-spl-scmi.cfg \
     file://fix-environment-config.cfg \
     file://0002-skip-srctree-clean-check-out-of-tree.patch \
     file://0003-arm-dts-add-imx95-15x15-frdm-dtb.patch \
