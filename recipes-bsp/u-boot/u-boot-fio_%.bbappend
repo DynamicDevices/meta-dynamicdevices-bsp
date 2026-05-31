@@ -47,7 +47,19 @@ SRC_URI:append:imx93-jaguar-eink = " \
 SRC_URI:append:imx95-frdm-evk = " \
     file://custom-dtb.cfg \
     file://fix-environment-config.cfg \
+    file://imx95-15x15-frdm.dts \
 "
+
+do_configure:append:imx95-frdm-evk() {
+    if [ -f ${WORKDIR}/imx95-15x15-frdm.dts ]; then
+        install -D -m 0644 ${WORKDIR}/imx95-15x15-frdm.dts ${S}/arch/arm/dts/
+        if ! grep -q 'imx95-15x15-frdm.dtb' ${S}/arch/arm/dts/Makefile; then
+            sed -i '/imx95-15x15-evk.dtb/a imx95-15x15-frdm.dtb \\' ${S}/arch/arm/dts/Makefile
+        fi
+    else
+        bbwarn "imx95-15x15-frdm.dts missing in ${WORKDIR}"
+    fi
+}
 
 # TODO: Add u-boot DTB customisation patch
 #SRC_URI:append:imx8ulp-lpddr4-evk = " \
