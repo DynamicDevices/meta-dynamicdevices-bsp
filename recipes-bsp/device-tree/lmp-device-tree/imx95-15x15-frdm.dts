@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2025 Dynamic Devices Ltd
+ * Minimal board DTS for lmp-device-tree / mfgtool fitImage.
+ * Full hardware description lives in linux-lmp-fslc-imx/imx95-15x15-frdm.dts.
+ */
+
+/dts-v1/;
+
+#include "imx95.dtsi"
+
+/ {
+	model = "NXP i.MX95 15X15 FRDM board";
+	compatible = "fsl,imx95-15x15-frdm", "fsl,imx95";
+
+	chosen {
+		stdout-path = &lpuart1;
+	};
+};

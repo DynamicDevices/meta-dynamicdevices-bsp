@@ -17,3 +17,14 @@ IMXBOOT_TARGETS:lmp-mfgtool:imx93-jaguar-eink = "flash_singleboot"
 
 # imx95 (mx95): use A55 boot target for mfgtool (not imx93 flash_singleboot)
 IMXBOOT_TARGETS:lmp-mfgtool:imx95-frdm-evk = "flash_a55"
+
+# imx95-frdm-evk uses flash_a55 (A55-only); meta-imx imx-boot_1.0.bbappend always
+# copies imx-m7-demos into m7_image.bin for mx95, but FRDM has no mcore-demos yet.
+IMX_M4_DEMOS:imx95-frdm-evk = ""
+M4_DEFAULT_IMAGE_MX95:imx95-frdm-evk = "m7_image_placeholder.bin"
+
+do_compile:prepend:imx95-frdm-evk() {
+    # Satisfy meta-imx mx95 prepend cp; flash_a55 does not consume m7_image.bin.
+    install -d ${DEPLOY_DIR_IMAGE}/mcore-demos
+    install -m 0644 /dev/null ${DEPLOY_DIR_IMAGE}/mcore-demos/${M4_DEFAULT_IMAGE_MX95}
+}

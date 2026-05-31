@@ -49,3 +49,10 @@ SRC_URI:append:imx93-11x11-lpddr4x-evk = " \
 "
 
 COMPATIBLE_MACHINE:imx93-11x11-lpddr4x-evk = ".*"
+
+# imx95 FRDM: lmp-mfgtool fitImage requires virtual/dtb from lmp-device-tree
+SRC_URI:append:imx95-frdm-evk = " \
+        file://imx95-15x15-frdm.dts \
+"
+
+COMPATIBLE_MACHINE:imx95-frdm-evk = ".*"

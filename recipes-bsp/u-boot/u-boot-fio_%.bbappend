@@ -46,6 +46,7 @@ SRC_URI:append:imx93-jaguar-eink = " \
 
 SRC_URI:append:imx95-frdm-evk = " \
     file://custom-dtb.cfg \
+    file://fix-environment-config.cfg \
 "
 
 # TODO: Add u-boot DTB customisation patch
