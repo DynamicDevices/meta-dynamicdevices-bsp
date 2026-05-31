@@ -4,8 +4,8 @@ Date: Sun, 31 May 2026 00:00:00 +0000
 Subject: [PATCH] arm: dts: imx95: add imx95-15x15-frdm.dtb to build list
 
 u-boot-fio imx-2024.04 ships imx95-15x15-evk.dts but not the FRDM board
-tree. meta-dynamicdevices-bsp installs imx95-15x15-frdm.dts at build time;
-list the DTB in arch/arm/dts/Makefile so do_compile can build it.
+tree. meta-dynamicdevices-bsp ships imx95-15x15-frdm.dts via SRC_URI subdir=
+and lists the DTB here so do_compile can build it.
 ---
  arch/arm/dts/Makefile | 1 +
  1 file changed, 1 insertion(+)

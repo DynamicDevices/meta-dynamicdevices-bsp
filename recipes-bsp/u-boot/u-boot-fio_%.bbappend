@@ -46,16 +46,18 @@ SRC_URI:append:imx93-jaguar-eink = " \
     file://enable-rtc.cfg \
 "
 
+FILESEXTRAPATHS:prepend:imx95-frdm-evk := "${THISDIR}/u-boot-fio/imx95-frdm-evk:"
+
 SRC_URI:append:imx95-frdm-evk = " \
     file://custom-dtb.cfg \
     file://fix-environment-config.cfg \
     file://0002-skip-srctree-clean-check-out-of-tree.patch \
     file://0003-arm-dts-add-imx95-15x15-frdm-dtb.patch \
-    file://imx95-15x15-frdm.dts \
-    file://imx95-15x15-frdm-u-boot.dtsi \
+    file://imx95-15x15-frdm.dts;subdir=git/arch/arm/dts \
+    file://imx95-15x15-frdm-u-boot.dtsi;subdir=git/arch/arm/dts \
 "
 
-# Factory -j16 races u-boot test -e on imx95-15x15-frdm.dtb vs parallel DTB builds.
+# Factory -j16 can race u-boot's test -e on CONFIG_DEFAULT_DEVICE_TREE vs DTB builds.
 PARALLEL_MAKE:imx95-frdm-evk = "-j 1"
 
 # TODO: Add u-boot DTB customisation patch
