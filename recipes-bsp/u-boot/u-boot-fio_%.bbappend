@@ -50,6 +50,7 @@ SRC_URI:append:imx95-frdm-evk = " \
     file://custom-dtb.cfg \
     file://fix-environment-config.cfg \
     file://0002-skip-srctree-clean-check-out-of-tree.patch \
+    file://0003-arm-dts-add-imx95-15x15-frdm-dtb.patch \
     file://imx95-15x15-frdm.dts \
     file://imx95-15x15-frdm-u-boot.dtsi \
 "
