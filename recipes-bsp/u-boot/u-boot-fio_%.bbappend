@@ -54,6 +54,9 @@ SRC_URI:append:imx95-frdm-evk = " \
     file://imx95-15x15-frdm-u-boot.dtsi \
 "
 
+# Factory -j16 races u-boot test -e on imx95-15x15-frdm.dtb vs parallel DTB builds.
+PARALLEL_MAKE:imx95-frdm-evk = "-j 1"
+
 # TODO: Add u-boot DTB customisation patch
 #SRC_URI:append:imx8ulp-lpddr4-evk = " \
 #    file://custom-dtb.cfg \

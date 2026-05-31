@@ -29,8 +29,4 @@ do_configure:append:imx95-frdm-evk() {
 
 do_compile:prepend:imx95-frdm-evk() {
     imx95_frdm_uboot_scrub_source
-    # Factory builds use -j16; u-boot's test -e on CONFIG_DEFAULT_DEVICE_TREE can
-    # run before imx95-15x15-frdm.dtb finishes when many DTBs build in parallel.
-    bbnote "imx95-frdm-evk: prebuild imx95-15x15-frdm.dtb before parallel compile"
-    oe_runmake arch/arm/dts/imx95-15x15-frdm.dtb
 }
