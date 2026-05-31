@@ -57,6 +57,10 @@ do_configure:prepend:imx95-frdm-evk() {
     rm -rf ${S}/include/config ${S}/.config
 }
 
+do_compile:prepend:imx95-frdm-evk() {
+    rm -rf ${S}/include/config ${S}/.config
+}
+
 do_configure:append:imx95-frdm-evk() {
     if [ -f ${WORKDIR}/imx95-15x15-frdm.dts ]; then
         install -D -m 0644 ${WORKDIR}/imx95-15x15-frdm.dts ${S}/arch/arm/dts/
