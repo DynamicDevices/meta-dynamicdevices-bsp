@@ -56,16 +56,46 @@ SRC_URI:append:imx95-frdm-evk = " \
     file://0003-arm-dts-add-imx95-15x15-frdm-dtb.patch \
     file://imx95-15x15-frdm.dts;subdir=git/arch/arm/dts \
     file://imx95-15x15-frdm-u-boot.dtsi;subdir=git/arch/arm/dts \
-    file://imx95-export-check-secondary.awk \
-    file://imx95-fix-check-secondary.sh \
 "
 
 # Factory -j16 can race u-boot's test -e on CONFIG_DEFAULT_DEVICE_TREE vs DTB builds.
 PARALLEL_MAKE:imx95-frdm-evk = "-j 1"
 
-# u-boot-fio do_patch is finalized as Python — shell append bodies raise SyntaxError.
+# u-boot-fio do_patch is finalized as Python — patch soc.c here (shell/awk failed in CI).
 python do_patch:append:imx95-frdm-evk() {
-    bb.build.exec_func('imx95_frdm_fix_check_secondary_export', d)
+    import os
+
+    soc = os.path.join(d.getVar('S'), 'arch/arm/mach-imx/imx9/scmi/soc.c')
+    if not os.path.isfile(soc):
+        bb.fatal('imx95-frdm-evk: missing %s' % soc)
+
+    marker = 'imx95-frdm-evk: check_secondary export fix applied'
+    with open(soc, 'r', encoding='utf-8', errors='replace') as f:
+        lines = f.readlines()
+    if any(marker in line for line in lines):
+        return
+
+    out = []
+    imx95 = False
+    done = False
+    for line in lines:
+        if line.strip() == '#ifdef CONFIG_IMX95':
+            imx95 = True
+        if imx95 and not done and 'check_secondary_cnt_set' in line:
+            out.append('#endif\n')
+            out.append('\n')
+            done = True
+        if imx95 and done and line.strip() == '#endif':
+            imx95 = False
+            continue
+        out.append(line)
+
+    if not done:
+        bb.fatal('imx95-frdm-evk: check_secondary_cnt_set not found in %s' % soc)
+
+    out.append('/* %s */\n' % marker)
+    with open(soc, 'w', encoding='utf-8') as f:
+        f.writelines(out)
 }
 
 # Factory only: prebuild FRDM DTB before -j16 races CONFIG_DEFAULT_DEVICE_TREE (mfgtool uses evk O=).
