@@ -61,7 +61,7 @@ SRC_URI:append:imx95-frdm-evk = " \
 # Factory -j16 can race u-boot's test -e on CONFIG_DEFAULT_DEVICE_TREE vs DTB builds.
 PARALLEL_MAKE:imx95-frdm-evk = "-j 1"
 
-# u-boot-fio do_patch is finalized as Python — patch soc.c here (shell/awk failed in CI).
+# u-boot-fio do_patch is finalized as Python — imx9 lacks check_secondary_cnt_set (imx8 only).
 python do_patch:append:imx95-frdm-evk() {
     import os
 
@@ -69,33 +69,26 @@ python do_patch:append:imx95-frdm-evk() {
     if not os.path.isfile(soc):
         bb.fatal('imx95-frdm-evk: missing %s' % soc)
 
-    marker = 'imx95-frdm-evk: check_secondary export fix applied'
+    marker = 'imx95-frdm-evk: check_secondary_cnt_set for image-container.c'
     with open(soc, 'r', encoding='utf-8', errors='replace') as f:
-        lines = f.readlines()
-    if any(marker in line for line in lines):
+        text = f.read()
+    if marker in text:
         return
 
-    out = []
-    imx95 = False
-    done = False
-    for line in lines:
-        if line.strip() == '#ifdef CONFIG_IMX95':
-            imx95 = True
-        if imx95 and not done and 'check_secondary_cnt_set' in line:
-            out.append('#endif\n')
-            out.append('\n')
-            done = True
-        if imx95 and done and line.strip() == '#endif':
-            imx95 = False
-            continue
-        out.append(line)
+    snippet = '''
+#include <imx_container.h>
 
-    if not done:
-        bb.fatal('imx95-frdm-evk: check_secondary_cnt_set not found in %s' % soc)
+/* %s */
+bool check_secondary_cnt_set(unsigned long *set_off)
+{
+	if (set_off)
+		*set_off = 0;
+	return boot_mode_getprisec() != 0;
+}
+''' % marker
 
-    out.append('/* %s */\n' % marker)
-    with open(soc, 'w', encoding='utf-8') as f:
-        f.writelines(out)
+    with open(soc, 'a', encoding='utf-8') as f:
+        f.write(snippet)
 }
 
 # Factory only: prebuild FRDM DTB before -j16 races CONFIG_DEFAULT_DEVICE_TREE (mfgtool uses evk O=).
