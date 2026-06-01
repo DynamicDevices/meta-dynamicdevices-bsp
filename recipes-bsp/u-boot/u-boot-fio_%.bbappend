@@ -52,6 +52,7 @@ SRC_URI:append:imx95-frdm-evk = " \
     file://custom-dtb.cfg \
     file://imx95-spl-scmi.cfg \
     file://fix-environment-config.cfg \
+    file://ostree-boot.cfg \
     file://0002-skip-srctree-clean-check-out-of-tree.patch \
     file://0003-arm-dts-add-imx95-15x15-frdm-dtb.patch \
     file://0004-imx9-scmi-export-check-secondary-cnt-set.patch \
