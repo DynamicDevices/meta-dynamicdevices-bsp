@@ -63,8 +63,10 @@ SRC_URI:append:imx95-frdm-evk = " \
 # Factory -j16 can race u-boot's test -e on CONFIG_DEFAULT_DEVICE_TREE vs DTB builds.
 PARALLEL_MAKE:imx95-frdm-evk = "-j 1"
 
-do_patch:append:imx95-frdm-evk() {
-    imx95_frdm_fix_check_secondary_export
+# u-boot-fio do_patch is finalized as Python — shell append bodies raise SyntaxError.
+python do_patch:append:imx95-frdm-evk() {
+    import bb
+    bb.build.exec_func('imx95_frdm_fix_check_secondary_export', d)
 }
 
 # TODO: Add u-boot DTB customisation patch
