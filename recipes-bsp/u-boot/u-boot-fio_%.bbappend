@@ -64,7 +64,7 @@ SRC_URI:append:imx95-frdm-evk = " \
 PARALLEL_MAKE:imx95-frdm-evk = "-j 1"
 
 do_patch:append:imx95-frdm-evk() {
-    sh ${WORKDIR}/imx95-fix-check-secondary.sh ${S} ${WORKDIR}/imx95-export-check-secondary.awk
+    imx95_frdm_fix_check_secondary_export
 }
 
 # TODO: Add u-boot DTB customisation patch
