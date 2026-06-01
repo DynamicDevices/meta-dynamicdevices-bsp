@@ -69,6 +69,15 @@ python do_patch:append:imx95-frdm-evk() {
     bb.build.exec_func('imx95_frdm_fix_check_secondary_export', d)
 }
 
+# Factory only: prebuild FRDM DTB before -j16 races CONFIG_DEFAULT_DEVICE_TREE (mfgtool uses evk O=).
+do_compile:prepend:imx95-frdm-evk() {
+    imx95_frdm_uboot_scrub_srctree
+    for config in ${UBOOT_MACHINE}; do
+        bbnote "imx95-frdm-evk: prebuild imx95-15x15-frdm.dtb (O=${B}/${config})"
+        oe_runmake -C ${S} O=${B}/${config} arch/arm/dts/imx95-15x15-frdm.dtb
+    done
+}
+
 # TODO: Add u-boot DTB customisation patch
 #SRC_URI:append:imx8ulp-lpddr4-evk = " \
 #    file://custom-dtb.cfg \

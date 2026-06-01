@@ -16,11 +16,3 @@ imx95_frdm_fix_check_secondary_export() {
 do_configure:prepend:imx95-frdm-evk() {
     imx95_frdm_uboot_scrub_srctree
 }
-
-do_compile:prepend:imx95-frdm-evk() {
-    imx95_frdm_uboot_scrub_srctree
-    for config in ${UBOOT_MACHINE}; do
-        bbnote "imx95-frdm-evk: prebuild imx95-15x15-frdm.dtb (O=${B}/${config})"
-        oe_runmake -C ${S} O=${B}/${config} arch/arm/dts/imx95-15x15-frdm.dtb
-    done
-}
