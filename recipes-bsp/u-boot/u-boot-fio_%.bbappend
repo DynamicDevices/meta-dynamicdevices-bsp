@@ -54,53 +54,10 @@ SRC_URI:append:imx95-frdm-evk = " \
     file://fix-environment-config.cfg \
     file://0002-skip-srctree-clean-check-out-of-tree.patch \
     file://0003-arm-dts-add-imx95-15x15-frdm-dtb.patch \
+    file://0004-imx9-scmi-export-check-secondary-cnt-set.patch \
     file://imx95-15x15-frdm.dts;subdir=git/arch/arm/dts \
     file://imx95-15x15-frdm-u-boot.dtsi;subdir=git/arch/arm/dts \
 "
 
-# Factory -j16 can race u-boot's test -e on CONFIG_DEFAULT_DEVICE_TREE vs DTB builds.
+# Factory -j16 races u-boot's test -e on CONFIG_DEFAULT_DEVICE_TREE vs DTB builds.
 PARALLEL_MAKE:imx95-frdm-evk = "-j 1"
-
-# u-boot-fio do_patch is finalized as Python — imx9 lacks check_secondary_cnt_set (imx8 only).
-python do_patch:append:imx95-frdm-evk() {
-    import os
-
-    soc = os.path.join(d.getVar('S'), 'arch/arm/mach-imx/imx9/scmi/soc.c')
-    if not os.path.isfile(soc):
-        bb.fatal('imx95-frdm-evk: missing %s' % soc)
-
-    marker = 'imx95-frdm-evk: check_secondary_cnt_set for image-container.c'
-    with open(soc, 'r', encoding='utf-8', errors='replace') as f:
-        text = f.read()
-    if marker in text:
-        return
-
-    snippet = '''
-#include <imx_container.h>
-
-/* %s */
-bool check_secondary_cnt_set(unsigned long *set_off)
-{
-	if (set_off)
-		*set_off = 0;
-	return boot_mode_getprisec() != 0;
-}
-''' % marker
-
-    with open(soc, 'a', encoding='utf-8') as f:
-        f.write(snippet)
-}
-
-# Factory only: prebuild FRDM DTB before -j16 races CONFIG_DEFAULT_DEVICE_TREE (mfgtool uses evk O=).
-do_compile:prepend:imx95-frdm-evk() {
-    imx95_frdm_uboot_scrub_srctree
-    for config in ${UBOOT_MACHINE}; do
-        bbnote "imx95-frdm-evk: prebuild imx95-15x15-frdm.dtb (O=${B}/${config})"
-        oe_runmake -C ${S} O=${B}/${config} arch/arm/dts/imx95-15x15-frdm.dtb
-    done
-}
-
-# TODO: Add u-boot DTB customisation patch
-#SRC_URI:append:imx8ulp-lpddr4-evk = " \
-#    file://custom-dtb.cfg \
-#"
