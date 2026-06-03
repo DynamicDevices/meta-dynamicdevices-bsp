@@ -1,0 +1,48 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Dynamic Devices <support@dynamicdevices.co.uk>
+Date: Wed, 3 Jun 2026 00:00:00 +0000
+Subject: [PATCH] fdt: fix fdt_pack_reg() unaligned access on ARM64
+
+When CONFIG_ARCH_FIXUP_FDT_MEMORY runs during bootm, fdt_pack_reg() packs
+the memory node reg property. With #address-cells=2 and #size-cells=1 the
+write pointer shifts 12 bytes per bank, so the second 64-bit store is
+misaligned and triggers a synchronous abort (esr 0x96000046) at the FIT
+FDT load address (0x83000000 on mx95).
+
+Backport upstream fix: use put_unaligned_be64() instead of direct
+*(fdt64_t *) stores.
+
+Fixes: 739a01ed8e02 ("fdt_support: fix an endian bug of fdt_fixup_memory_banks")
+Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
+---
+ boot/fdt_support.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/boot/fdt_support.c b/boot/fdt_support.c
+index 1111111111..2222222222 100644
+--- a/boot/fdt_support.c
++++ b/boot/fdt_support.c
+@@ -16,6 +16,7 @@
+ #include <linux/ctype.h>
+ #include <linux/types.h>
+ #include <asm/global_data.h>
++#include <asm/unaligned.h>
+ #include <linux/libfdt.h>
+ #include <fdt_support.h>
+ #include <exports.h>
+@@ -420,13 +421,13 @@ static int fdt_pack_reg(const void *fdt, void *buf, u64 *address, u64 *size,
+ 
+ 	for (i = 0; i < n; i++) {
+ 		if (address_cells == 2)
+-			*(fdt64_t *)p = cpu_to_fdt64(address[i]);
++			put_unaligned_be64(address[i], p);
+ 		else
+ 			*(fdt32_t *)p = cpu_to_fdt32(address[i]);
+ 		p += 4 * address_cells;
+ 
+ 		if (size_cells == 2)
+-			*(fdt64_t *)p = cpu_to_fdt64(size[i]);
++			put_unaligned_be64(size[i], p);
+ 		else
+ 			*(fdt32_t *)p = cpu_to_fdt32(size[i]);
+ 		p += 4 * size_cells;
