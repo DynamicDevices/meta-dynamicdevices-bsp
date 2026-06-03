@@ -9,6 +9,7 @@ imx_secondary_boot, but boot_mode_getprisec(), boot_mode_enable_secondary(),
 and boot_mode_is_closed() only live in native/soc.c, causing link failures.
 
 Provide the same helpers in scmi/soc.c when CMD_SECONDARY_BOOT is enabled.
+Apply after 0004-imx9-scmi-export-check-secondary-cnt-set.
 
 Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 ---
@@ -17,10 +18,10 @@ Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 
 diff --git a/arch/arm/mach-imx/imx9/scmi/soc.c b/arch/arm/mach-imx/imx9/scmi/soc.c
 index 1111111111..2222222222 100644
-@@ -1604,3 +1604,44 @@
+@@ -1605,3 +1605,44 @@
+ 
  	return false;
  }
- #endif
 +
 +#ifdef CONFIG_CMD_SECONDARY_BOOT
 +void boot_mode_enable_secondary(bool enable)
