@@ -54,8 +54,7 @@ index 1111111111..2222222222 100644
 +	set_gd(pgd);
 +
 +	if (ret != ROM_API_OKAY)
-+		printf("ROMAPI: failure at query_boot_info for BT_STAGE
-+");
++		printf("ROMAPI: failure at query_boot_info for BT_STAGE\n");
 +
 +	if (bstage == BT_STAGE_SECONDARY)
 +		return 1;
