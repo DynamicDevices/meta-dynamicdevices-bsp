@@ -1,0 +1,64 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Dynamic Devices <support@dynamicdevices.co.uk>
+Date: Wed, 3 Jun 2026 00:00:00 +0000
+Subject: [PATCH] imx9/scmi: provide boot_mode helpers for CMD_SECONDARY_BOOT
+
+imx9/Makefile selects scmi/ instead of native/ when CONFIG_SCMI_FIRMWARE is
+enabled (imx95). Foundries enables CONFIG_CMD_SECONDARY_BOOT for fiovb /
+imx_secondary_boot, but boot_mode_getprisec(), boot_mode_enable_secondary(),
+and boot_mode_is_closed() only live in native/soc.c, causing link failures.
+
+Provide the same helpers in scmi/soc.c when CMD_SECONDARY_BOOT is enabled.
+
+Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
+---
+ arch/arm/mach-imx/imx9/scmi/soc.c | 40 +++++++++++++++++++++++++++++++
+ 1 file changed, 40 insertions(+)
+
+diff --git a/arch/arm/mach-imx/imx9/scmi/soc.c b/arch/arm/mach-imx/imx9/scmi/soc.c
+index 1111111111..2222222222 100644
+@@ -1604,3 +1604,44 @@
+ 	return false;
+ }
+ #endif
++
++#ifdef CONFIG_CMD_SECONDARY_BOOT
++void boot_mode_enable_secondary(bool enable)
++{
++	/* TODO: SMC SRC GPR20 (missing docs) */
++}
++
++int boot_mode_is_closed(void)
++{
++	u32 lc;
++
++	lc = readl(FSB_BASE_ADDR + 0x41c);
++	lc &= 0x3ff;
++
++	if (lc == 0x20)
++		return 1;
++
++	return 0;
++}
++
++int boot_mode_getprisec(void)
++{
++	struct rom_api *rom = (struct rom_api *)0x1980;
++	volatile gd_t *pgd = gd;
++	u32 bstage = 0;
++	int ret;
++
++	ret = rom->query_boot_infor(QUERY_BT_STAGE, &bstage,
++				    ((uintptr_t)&bstage) ^ QUERY_BT_STAGE);
++	set_gd(pgd);
++
++	if (ret != ROM_API_OKAY)
++		printf("ROMAPI: failure at query_boot_info for BT_STAGE
++");
++
++	if (bstage == BT_STAGE_SECONDARY)
++		return 1;
++
++	return 0;
++}
++#endif
