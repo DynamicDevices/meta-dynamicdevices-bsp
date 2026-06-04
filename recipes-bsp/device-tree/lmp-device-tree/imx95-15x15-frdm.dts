@@ -16,4 +16,8 @@
 	chosen {
 		stdout-path = &lpuart1;
 	};
+
+	bootloader {
+		compatible = "lmp,bootloader";
+	};
 };

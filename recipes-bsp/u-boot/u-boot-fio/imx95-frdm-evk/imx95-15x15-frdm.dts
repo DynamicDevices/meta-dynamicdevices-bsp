@@ -23,6 +23,11 @@
 		stdout-path = &lpuart1;
 	};
 
+	/* Foundries LMP SPL FIT — required by SPL (see imx93-jaguar-eink.dts) */
+	bootloader {
+		compatible = "lmp,bootloader";
+	};
+
 	memory@80000000 {
 		device_type = "memory";
 		reg = <0x0 0x80000000 0 0x80000000>;
