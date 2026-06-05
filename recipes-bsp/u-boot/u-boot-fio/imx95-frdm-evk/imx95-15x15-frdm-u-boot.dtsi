@@ -7,3 +7,10 @@
  */
 
 #include "imx95-15x15-evk-u-boot.dtsi"
+
+/ {
+	/* SPL FIT boot — SPL DTB is built from *-u-boot.dtsi, not imx95-15x15-frdm.dts */
+	bootloader {
+		compatible = "lmp,bootloader";
+	};
+};
