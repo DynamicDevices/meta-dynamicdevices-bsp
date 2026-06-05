@@ -9,8 +9,9 @@
 #include "imx95-15x15-evk-u-boot.dtsi"
 
 / {
-	/* SPL FIT boot — SPL DTB is built from *-u-boot.dtsi, not imx95-15x15-frdm.dts */
+	/* SPL FIT boot — node must carry bootph-pre-ram or fdtgrep drops it from SPL DTB */
 	bootloader {
 		compatible = "lmp,bootloader";
+		bootph-pre-ram;
 	};
 };
