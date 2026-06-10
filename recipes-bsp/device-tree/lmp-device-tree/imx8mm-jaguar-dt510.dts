@@ -343,7 +343,7 @@
 
 	/*
 	 * NEO-M9V GNSS — GNSS_RES# → GPIO4_IO29 (mux SAI3_RXC pad as GPIO).
-	 * Hog uses GPIO_ACTIVE_LOW + output-low (same as bt-reset-hog) → reset deasserted at boot; pulse active in userspace if needed.
+	 * IMX8MM_PAD_GPIO_STRAP_PULLUP → reset deasserted at boot (no gpio-hog); userspace gpioset on gnss-res# allowed.
 	 */
 	pinctrl_gnss_reset: gnssresetgrp {
 		fsl,pins = <
@@ -713,7 +713,7 @@
  *   gpio2 — WLAN/BT/LTE: BT_WAKE_DEV (IO7), LTE_RST (IO8), WL_WAKE (IO9), WL_RST# (IO10).
  *   gpio2 — LT9611: HDMI_INT (IO6), HDMI_RES# (IO11).
  *   gpio3 — LTE_OFF / full-card power off (IO1), WIFI_PD#, BT_WAKE_HOST (IO8), BT_RST# (IO9, NAND_DATA03 mux).
- *   gpio4 — ENET_INTRP_N# (IO0), ENET_RST_N# via &ksz9896_sw (IO1), KSZ9896 PME (IO4); GNSS_RES#, QUART_RES# (CP2108 U13 only SoC-facing reset), CAN_STBY; TAC5301 strap IO14; HDMI fault elsewhere.
+ *   gpio4 — ENET_INTRP_N# (IO0), ENET_RST_N# via &ksz9896_sw (IO1), KSZ9896 PME (IO4); GNSS_RES# (IO29, gpio-line-names, not hog), QUART_RES# (CP2108 U13 only SoC-facing reset), CAN_STBY; TAC5301 strap IO14; HDMI fault elsewhere.
  *   gpio5 — SIM_SEL (IO3): output-low at boot selects nano SIM per RF shield/BOM (drive high for eSIM).
  */
 &gpio2 {
@@ -811,18 +811,10 @@
 	};
 
 	/*
-	 * NEO-M9V GNSS_RES# — active-low reset from SoC (same hog pattern as bt-reset-hog).
-	 * GPIO_ACTIVE_LOW + output-low → logical inactive → physical high → reset deasserted at boot.
-	 * sysfs line name: gnss-res# (GPIO4_IO29). Toggle via libgpiod if hog removed later.
-	 *
-	 * GNSS USB serial (NMEA) for apps: BSP udev symlink **`/dev/gnss`** — see **`udev-rules-imx`** **`99-dt510-gnss.rules`**.
+	 * NEO-M9V GNSS_RES# — GPIO4_IO29, active-low reset (not gpio-hog).
+	 * pinctrl_gnss_reset pull-up → reset deasserted at boot; pulse via libgpiod gnss-res# (gpiochip3).
+	 * GNSS USB serial (NMEA) for apps: BSP udev symlink /dev/gnss — udev-rules-imx 99-dt510-gnss.rules.
 	 */
-	gnss-res-hog {
-		gpio-hog;
-		gpios = <29 GPIO_ACTIVE_LOW>;
-		output-low;
-		line-name = "gnss-res#";
-	};
 
 	/*
 	 * CP2108 (**U13**) — **QUART_RES#** (SAI1_RXD3 → GPIO4_IO5), active-low reset from SoC.
@@ -847,6 +839,13 @@
 		output-low;
 		line-name = "can-stby";
 	};
+
+	/* 32 entries (GPIO4 bank); index 29 = GNSS_RES# — userspace libgpiod (not gpio-hog). */
+	gpio-line-names =
+		"", "", "", "", "", "", "", "",
+		"", "", "", "", "", "", "", "",
+		"", "", "", "", "", "", "", "",
+		"", "", "", "", "", "gnss-res#", "", "";
 };
 
 &gpio5 {
