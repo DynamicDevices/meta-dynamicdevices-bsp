@@ -799,6 +799,13 @@
 	/* Sideband pads muxed with &fec1 / pinctrl_ksz9896_sideband — do not add gpio4 pinctrl-0 here. */
 	status = "okay";
 
+	/* 32 entries (GPIO4 bank); index 29 = GNSS_RES# — userspace libgpiod (not gpio-hog). */
+	gpio-line-names =
+		"", "", "", "", "", "", "", "",
+		"", "", "", "", "", "", "", "",
+		"", "", "", "", "", "", "", "",
+		"", "", "", "", "", "gnss-res#", "", "";
+
 	/*
 	 * KSZ9896 PME / energy-detect (SAI1_RXD2 → GPIO4_IO4) — switch wake / link-energy sideband. Hogged as
 	 * input so the line stays associated with the hog until DSA/MAC path owns wake semantics.
@@ -840,12 +847,6 @@
 		line-name = "can-stby";
 	};
 
-	/* 32 entries (GPIO4 bank); index 29 = GNSS_RES# — userspace libgpiod (not gpio-hog). */
-	gpio-line-names =
-		"", "", "", "", "", "", "", "",
-		"", "", "", "", "", "", "", "",
-		"", "", "", "", "", "", "", "",
-		"", "", "", "", "", "gnss-res#", "", "";
 };
 
 &gpio5 {
