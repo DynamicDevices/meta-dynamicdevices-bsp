@@ -1,0 +1,17 @@
+LicenseRef-markusj-upd72020x-load
+
+Upstream: https://github.com/markusj/upd72020x-load (markusj/upd72020x-load)
+
+The upstream Git repository does not ship a LICENSE file. As of 2026-06,
+https://github.com/markusj/upd72020x-load/issues/2 remains open asking for
+license clarification; the maintainer notes the original loader source came
+from a comment on a blog post (Michael Billauer's blog, uPD720202 Linux
+firmware discussion) without any copyright notice.
+
+No redistribution grant from upstream is assumed for this Dynamic Devices
+packaging. This Yocto recipe documents provenance only; confirm compliance
+before redistributing built images containing the loader binaries.
+
+Renesas K2026.mem firmware (proprietary, not redistributable in public BSP) is
+shipped separately for imx8mm-jaguar-phasora via meta-subscriber-overrides
+(upd72020x-firmware recipe).
