@@ -1,0 +1,31 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Dynamic Devices <support@dynamicdevices.co.uk>
+Date: Wed, 11 Jun 2026 16:00:00 +0000
+Subject: [PATCH] ASoC: pcm6240: restore PRE_POWER_UP on capture unmute (DT510)
+
+0006 skipped PRE_POWER on capture mute_stream unmute to preserve Ch1 Digi,
+but with 0005 that left VREF/PWR off after PRE_SHUTDOWN — target 541 capture
+was silent (peak=0) while PASITXCH1 ASI_TX alone was set by 0004.
+
+Regbin PRE_POWER_UP no longer writes Ch1-4 Digi/Fine (0x52…0x60); restore
+mute_stream unmute → PRE_POWER for analog power while ALSA kcontrols own gain.
+
+Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
+---
+ sound/soc/codecs/pcm6240.c | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/sound/soc/codecs/pcm6240.c b/sound/soc/codecs/pcm6240.c
+--- a/sound/soc/codecs/pcm6240.c
++++ b/sound/soc/codecs/pcm6240.c
+@@ -1953,10 +1953,6 @@ static int pcmdevice_mute(struct snd_soc_dai *dai, int mute, int stream)
+ 		return -EINVAL;
+ 	}
+ 
+-	/* Capture unmute: PRE_POWER replays Ch1 Digi; ASI is in startup (0004/0005). */
+-	if (!mute && stream == SNDRV_PCM_STREAM_CAPTURE)
+-		return 0;
+-
+ 	if (mute)
+ 		block_type = PCMDEVICE_BIN_BLK_PRE_SHUTDOWN;
+ 	else

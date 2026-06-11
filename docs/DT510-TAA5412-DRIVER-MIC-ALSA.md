@@ -166,7 +166,7 @@ In **`imx8mm-jaguar-dt510.dts`**:
 
 **Michael `taa5412-registers-michael.conf`** programs **power / micbias only** (`0x02`, `0x78`, page‑1 `0x73`) — **not** ASI format, word length, or **`PASITX*`** slot map.
 
-**BSP `taa5412-1dev-reg.json` / `taa5412-i2c-1-1dev.bin` (Path A):** **`PRE_POWER_UP`** programs **Michael-aligned power** (`0x02` **VREF = `0x03`**, **`0x78` PWR = `0xa0`**, page‑1 **`0x73` MICBIAS = `0xd0`**), **IN1+IN2 channel enable** (`0x76` **CH_EN = `0xc0`** — ADC1+2 only), AC coupling (`0x50`/`0x55`/`0x5a`/`0x5e`), and **digital gain defaults** (**`0x52` Ch1 Digi = `0xf0` (240, +39.5 dB)**, **`0x53` Ch1 Fine = `0x80` (8)**, Ch2–4 Digi **0**, Fine **`0x80`**). Production uses **240**, not **255** — full scale clips on the DT510 mic path; **220** was an earlier bench step. The spurious **`0x42=0x10`** write was removed (wrong CH2 analog map on TAA5412). Still **does not write** **`0x1a` (`PASI0`)**, **`0x1e`/`0x1f` (`PASITXCH1/2`)** — driver **`0004`**. Boot backup: **`taa5412-init`** systemd oneshot (**`alsa-state`**, DT510) re-applies **`amixer -D driver_mic`** **`Ch1 Digi` / `Ch1 Fine`** (**240** / **8**) after probe.
+**BSP `taa5412-1dev-reg.json` / `taa5412-i2c-1-1dev.bin` (Path A):** **`PRE_POWER_UP`** programs **Michael-aligned power** (`0x02` **VREF = `0x03`**, **`0x78` PWR = `0xa0`**, page‑1 **`0x73` MICBIAS = `0xd0`**), **IN1+IN2 channel enable** (`0x76` **CH_EN = `0xc0`** — ADC1+2 only), and AC coupling (`0x50`/`0x55`/`0x5a`/`0x5e`). **Does not write Ch1–4 Digi/Fine** (`0x52`/`0x53`/`0x57`/`0x58`/`0x5b`/`0x5c`/`0x5f`/`0x60`) — those are **ALSA kcontrols** only (default **240** / **8** via **`taa5412-init`**). Still **does not write** **`0x1a` (`PASI0`)**, **`0x1e`/`0x1f` (`PASITXCH1/2`)** — driver **`0004`**. Boot backup: **`taa5412-init`** systemd oneshot (**`alsa-state`**, DT510) re-applies **`amixer -D driver_mic`** **`Ch1 Digi` / `Ch1 Fine`** (**240** / **8**) after probe.
 
 **Bench I2C apply:** **`taa5412-registers-michael.conf`** is optional when regbin + **`taa5412-init`** are on the image; keep for A/B compare or pre-regbin factory targets.
 
@@ -194,22 +194,24 @@ In **`imx8mm-jaguar-dt510.dts`**:
 
 **536 bench (`f841dfc`, `0005` present):** pre-stream Digi **50/100/200** correct; within ~50 ms of **`arecord`** readback jumps to **240**; captures identical; mid-stream **`sset`** to **50** works (~83 dB drop).
 
-**Fix (BSP):** **`0005`** — capture **`startup`**: **`pcmdevice_asi_capture_enable`** only. **`0006-asoc-pcm6240-skip-capture-unmute-pre-power-up.patch`** — capture **unmute** in **`pcmdevice_mute`**: no-op (skip **`PRE_POWER_UP`**); **`shutdown`** mute still runs **`PRE_SHUTDOWN`**.
+**Fix (BSP):** **`0005`** — capture **`startup`**: **`pcmdevice_asi_capture_enable`** only. **`0006`** skipped **`PRE_POWER_UP`** on capture **`mute_stream` unmute** (regbin still wrote **`0x52=0xf0`**) — **reverted by `0007`** after target **541** silence (see below). **`0007`** restores **`mute_stream` unmute → PRE_POWER** once regbin **drops Ch1–4 Digi/Fine** from **`PRE_POWER_UP`**.
 
 | Patch | Role |
 |-------|------|
-| **`0003-asoc-pcm6240-capture-startup-pre-power-up.patch`** | Original startup/shutdown hooks (gain path superseded by **0005** / **0006**) |
+| **`0003-asoc-pcm6240-capture-startup-pre-power-up.patch`** | Original startup/shutdown hooks (gain path superseded by **0005** / **0007**) |
 | **`0004-asoc-pcm6240-asi-tx-pasi0-on-capture.patch`** | **`PASI0=0x70`**, **`PASITXCH1/2` ASI_TX** on capture |
 | **`0005-asoc-pcm6240-skip-pre-power-up-on-capture-startup.patch`** | Skip mute/**`PRE_POWER_UP`** in **`startup`** |
-| **`0006-asoc-pcm6240-skip-capture-unmute-pre-power-up.patch`** | Skip **`PRE_POWER_UP`** on capture **`mute_stream` unmute** |
+| **`0006-asoc-pcm6240-skip-capture-unmute-pre-power-up.patch`** | *(superseded)* Skip **`PRE_POWER_UP`** on capture unmute — caused **541** silence |
+| **`0007-asoc-pcm6240-restore-capture-unmute-pre-power-up.patch`** | Restore **`PRE_POWER_UP`** on capture unmute (net undoes **0006**) |
 
-**Lab workaround (images without `0006`):** Apply **`Ch1 Digi`** **~0.5 s after** **`arecord`** — **`MIC_GAIN_AFTER_STREAM_SECS`**; mid-stream **`amixer`** works on **536**.
+**Target 541 regression (`276b7e4`, 2026‑06‑11):** With **`0005`+`0006`**, **`PRE_SHUTDOWN`** on stream close leaves **`VREF=0`**, **`PWR=0`**, **`CH_EN=0`**. Capture open runs **`0004` ASI only** — **`PASITXCH1` bit5=1**, **`PASI0=0x70`**, but analog path off → **peak=0**. Target **536** (`0005` only) still ran **`PRE_POWER`** via **`mute_stream`** → saturated but non-silent.
+
+**Lab workaround (images with `0006` only, no `0007`):** None reliable — ASI alone insufficient; need **`0007`+regbin** or factory image without **`0006`**.
 
 **Verification:**
 
-1. **Without `0006` (536 with `0005` only):** Pre-set Digi **50/100** → within ~50 ms of **`arecord`**, readback **240**; captures identical.
-2. **With `0006`:** Pre-stream **`amixer`** / **`0x52`** value survives stream open; peaks differ by Digi setting.
-3. Regression: **`PASITXCH1` bit5**, **`PASI0=0x70`** during capture (**0004** unchanged).
+1. **With `0007` + regbin without Digi/Fine in PRE_POWER:** Pre-set Digi **50/100** → survives **`arecord`** open; **`VREF=0x03`**, **`PWR=0xa0`**, **`CH_EN=0xc0`** during capture; non-zero WAV peak.
+2. Regression: **`PASITXCH1` bit5**, **`PASI0=0x70`** during capture (**0004** unchanged).
 
 **Live bench (target 438, Path A `pcm6240`, 2026‑05‑26, during `arecord -D driver_mic`):** **`PASITXCH1=0x20`** (ASI_TX bit5 **on** — pcm6240 **`0004`**); **`PASI0=0x70`** (I2S + 32-bit). **Non-silent WAV** (peak **~387**), **SD edges** on MSO. **SAI5 clocks still wrong:** BCLK **~6.15 MHz**, LRCLK **~84 kHz**, ratio **~73** — **`TCR2≠RCR2`**, **`TCR4≠RCR4`** (kernel **0028** mirror / **`hw_params`** hunk still incomplete on dt510 tree).
 
@@ -245,8 +247,9 @@ In **`imx8mm-jaguar-dt510.dts`**:
 | **438** | `7fdb47a` | **`0004` fixed** — **ASI TX works**, **record-only audio YES** (WAV peak **~387**), **SD edges** on MSO. **Clocks still fail MSO:** BCLK **~6.15 MHz**, LRCLK **~84 kHz**, ratio **~73**; **TCR2≠RCR2**, **TCR4≠RCR4**. |
 | **439** | *(planned)* | **0028 v4** — complete mirror + **`hw_params`** on **dt510** kernel tree; target **48 kHz / 3.072 MHz / ratio 64**. |
 | **526+** | — | **Ch1 Digi pre-stream gain ignored** — **`pcm6240` `0003`** replays regbin **`PRE_POWER_UP`** on capture open (see § Ch1 Digi / PRE_POWER_UP). |
-| **536** | `f841dfc` | **`0005` only** — pre-stream Digi **50/100/200** OK before **`arecord`**; within ~50 ms of open readback **240**; mid-stream **`sset`** works (~83 dB drop). **`mute_stream`** still replays regbin (see § Ch1 Digi). |
-| **Next factory target** | `276b7e4` *(BSP pin pending)* | **`pcm6240-lmp/0006`** — skip **`PRE_POWER_UP`** on capture **`mute_stream` unmute**; pre-stream **`amixer`** / **`0x52`** should stick. |
+| **536** | `f841dfc` | **`0005` only** — pre-stream Digi **50/100/200** OK before **`arecord`**; within ~50 ms of open readback **240** (saturated); mid-stream **`sset`** works (~83 dB drop). **`mute_stream`** replays regbin (see § Ch1 Digi). |
+| **541** | `276b7e4` | **`0005`+`0006`** — **silent capture** (peak=0): **`PRE_SHUTDOWN`** powers down; **`0006`** skips **`PRE_POWER`** on unmute; ASI only (**`PASITXCH1` bit5** set, **`VREF`/`PWR`=0**). |
+| **Next factory target** | *(BSP pending)* | **`0007`** + regbin without Digi/Fine in **`PRE_POWER_UP`** — restore power on unmute without resetting **`0x52`**. |
 
 ### What works on target 438 (current bench)
 
@@ -278,7 +281,7 @@ During capture, **`TCR2=RCR2`**, **`TCR4/TCR5=RCR4/RCR5`**, **`TCR4` FSD_MSTR** 
 | **`is_consumer_mode`** | **`is_consumer_mode[tx]`** — not a scalar pointer; **`!sai->is_consumer_mode`** silently skips mirror (431, 425–429). |
 | **Patch anchors** | Hunks must apply on the **dt510** unpacked kernel after prior **`SRC_URI`** patches — not NXP-only symbols absent from LmP tree (434 **`hw_params`** hunk). |
 | **PASITX / ASI** | Firmware **`PRE_POWER_UP`** does not arm **`PASITX` bit 5**; pcm6240 needs explicit **`0004`** (438). |
-| **Ch1 Digi on open** | **`mute_stream`** → **`pcmdevice_mute(unmute)`** replays regbin (**`0x52`**) — **`0005`** fixed **`startup`** only; **`0006`** skips **`PRE_POWER_UP`** on capture unmute; ASI from **`0004`**. |
+| **Ch1 Digi on open** | **`mute_stream`** → **`PRE_POWER_UP`** (**0007**) powers analog path; regbin no longer writes **`0x52`** — ALSA kcontrols own gain. **`0005`** keeps **`startup`** ASI-only. |
 | **Sync-Rx capture** | With **`fsl,sai-synchronous-rx`**, **TCR2/TCR4** must mirror **RCR2/RCR4** or BCLK doubles and LRCLK drifts (430, 433, 438). |
 | **Patch hygiene** | Run **`kernel-patch-lint.sh`** before BSP commit — corrupt **0028** / **0004** burned CI on **432**, **435–437**. |
 
@@ -304,4 +307,4 @@ During capture, **`TCR2=RCR2`**, **`TCR4/TCR5=RCR4/RCR5`**, **`TCR4` FSD_MSTR** 
 - **`meta-subscriber-overrides/docs/DT510-HARDWARE-BRINGUP.md`** § TAA5412
 - Workspace bench log **`lab-artifacts/taa5412-michael-compare-20260526.md`** (Michael regbin / I2C vs factory, **`taa5412-init`**)
 
-*Last updated: **2026‑06‑11** — § Ch1 Digi / PRE_POWER_UP: target **536** (`0005` only) + **`0006`** fix on BSP **`276b7e4`**; bring-up through **438**; **0028 v4** (439) pending for SAI5 clock pass.*
+*Last updated: **2026‑06‑11** — § Ch1 Digi: target **541** silence from **`0006`**; fix **`0007`** + regbin trim; **536** saturated baseline; bring-up through **438**; **0028 v4** (439) pending for SAI5 clock pass.*
