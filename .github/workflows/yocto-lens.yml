@@ -1,0 +1,71 @@
+name: yocto-lens static scan
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**/*.bb'
+      - '**/*.bbappend'
+      - '**/*.inc'
+      - 'conf/**'
+      - 'scripts/yocto-lens-ci.sh'
+      - '.github/workflows/yocto-lens.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '**/*.bb'
+      - '**/*.bbappend'
+      - '**/*.inc'
+      - 'conf/**'
+      - 'scripts/yocto-lens-ci.sh'
+      - '.github/workflows/yocto-lens.yml'
+  workflow_dispatch:
+    inputs:
+      fail_on_high:
+        description: 'Fail the job if any HIGH severity finding is reported'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  yocto-lens:
+    name: yocto-lens (BSP + distro)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout BSP layer
+        uses: actions/checkout@v4
+
+      - name: Checkout distro layer
+        uses: actions/checkout@v4
+        with:
+          repository: DynamicDevices/meta-dynamicdevices-distro
+          path: meta-dynamicdevices-distro
+          ref: main
+
+      - name: Run yocto-lens static scan
+        env:
+          DISTRO_ROOT: ${{ github.workspace }}/meta-dynamicdevices-distro
+          OUTPUT_DIR: ${{ runner.temp }}/yocto-lens
+          FAIL_ON_HIGH: ${{ github.event_name == 'workflow_dispatch' && inputs.fail_on_high && '1' || '0' }}
+        run: ./scripts/yocto-lens-ci.sh
+
+      - name: Upload JSON report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yocto-lens-json
+          path: ${{ runner.temp }}/yocto-lens/yocto-lens-dd-layers.json
+          if-no-files-found: error
+
+      - name: Upload SARIF report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yocto-lens-sarif
+          path: ${{ runner.temp }}/yocto-lens/yocto-lens-dd-layers.sarif
+          if-no-files-found: error

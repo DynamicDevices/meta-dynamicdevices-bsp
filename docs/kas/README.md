@@ -92,16 +92,26 @@ Check **`require` / `include` `.inc` files** (e.g. `nxp-wlan-sdk_git.inc` holds 
 
 Usually disappears on a **full-stack** scan. On DD-only scans, treat as inconclusive until `--from-bblayers` is used.
 
-## CI / gate behaviour
+## CI (GitHub Actions)
 
-- **Default:** report-only (`exit 0`). yocto-lens itself does not fail on HIGH findings.
-- **Strict gate:** `VIXDT_YOCTO_LENS_FAIL_ON_HIGH=1 ./scripts/vixdt-yocto-lens-kas.sh --from-bblayers …`
-- Recommended: stay report-only until the actionable HIGH baseline is understood on a full-stack scan; then enable `--fail-on-high` in CI.
+yocto-lens runs in **GitHub Actions** on the public layer repos — not in `./scripts/vixdt-pre-push-checks.sh` (too slow for every local `/push`).
 
-## Binary
+| Repo | Workflow | Triggers |
+| --- | --- | --- |
+| `DynamicDevices/meta-dynamicdevices-bsp` | `.github/workflows/yocto-lens.yml` | Push/PR to `main` when `*.bb`, `*.bbappend`, `*.inc`, or `conf/**` change |
+| `DynamicDevices/meta-dynamicdevices-distro` | `.github/workflows/yocto-lens.yml` | Same path filters on distro recipes |
+
+Each job checks out **BSP + distro**, downloads [yocto-lens v0.1.0](https://github.com/prashantdivate/yocto-lens/releases/tag/v0.1.0) (`linux-amd64`), runs `--no-tui --mode static --json --sarif`, and uploads JSON + SARIF as workflow artifacts.
+
+- **Default:** report-only — the workflow succeeds even when HIGH findings exist.
+- **Strict gate (manual):** re-run via **Actions → yocto-lens static scan → Run workflow** with **Fail on HIGH** enabled, or set `FAIL_ON_HIGH=1` when running `scripts/yocto-lens-ci.sh` locally.
+
+**Not in public CI:** `meta-subscriber-overrides` (Foundries private). DD-only scans still show orphan-bbappend noise until a full LmP `bblayers.conf` scan is run locally or on a scheduled self-hosted job.
+
+## Local manual scan
 
 Install `yocto-lens` locally (not vendored in this repo). Default path: `/tmp/yocto-lens`. Override with `YOCTO_LENS=/path/to/yocto-lens`.
 
-## Pre-push (default)
+For vixdt workspace scans (including subscriber when present), use `scripts/vixdt-yocto-lens-kas.sh` from the vixdt workspace root (see vixdt `kas/README.md`).
 
-`./scripts/vixdt-pre-push-checks.sh` runs yocto-lens **report-only** when BSP, distro, or subscriber recipe/layer metadata changed (`*.bb`, `*.bbappend`, `*.inc`, `conf/layer.conf`). Disable with `VIXDT_YOCTO_LENS=0`. Still DD-layers-only unless you point at a full `bblayers.conf`.
+Strict gate locally: `VIXDT_YOCTO_LENS_FAIL_ON_HIGH=1 ./scripts/vixdt-yocto-lens-kas.sh --from-bblayers …`
