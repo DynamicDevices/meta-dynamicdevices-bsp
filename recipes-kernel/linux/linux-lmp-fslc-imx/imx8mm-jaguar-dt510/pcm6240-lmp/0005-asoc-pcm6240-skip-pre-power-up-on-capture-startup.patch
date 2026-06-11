@@ -12,13 +12,13 @@ PRE_POWER_UP on stream startup; keep PRE_SHUTDOWN on shutdown for power-down.
 
 Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 ---
- sound/soc/codecs/pcm6240.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ sound/soc/codecs/pcm6240.c | 4 +++---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
 diff --git a/sound/soc/codecs/pcm6240.c b/sound/soc/codecs/pcm6240.c
 --- a/sound/soc/codecs/pcm6240.c
 +++ b/sound/soc/codecs/pcm6240.c
-@@ -2015,10 +2015,10 @@ static int pcmdevice_startup(struct snd_pcm_substream *substream,
+@@ -2015,10 +2015,8 @@ static int pcmdevice_startup(struct snd_pcm_substream *substream,
  			     struct snd_soc_dai *dai)
  {
  	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
