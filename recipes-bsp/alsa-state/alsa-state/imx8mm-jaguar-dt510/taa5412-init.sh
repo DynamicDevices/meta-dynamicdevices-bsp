@@ -24,13 +24,13 @@ resolve_hwctl() {
 	fi
 }
 
-# Return first mixer control name matching "ChN Kind" (pcm6240 ALSA naming).
+# Return first mixer control name matching "ChN Kind" (pcm6240: Simple mixer control '…Ch1 Digi').
 find_ch_ctrl() {
 	_ctl=$1
 	_ch=$2
 	_kind=$3
 	amixer -D "$_ctl" scontrols 2>/dev/null \
-		| sed -n "s/.*name='\\([^']*Ch${_ch} ${_kind}\\)'.*/\\1/p" \
+		| sed -n "s/.*'\\([^']*Ch${_ch} ${_kind}[^']*\\)'.*/\\1/p" \
 		| head -n1
 }
 
@@ -40,8 +40,9 @@ set_cset() {
 	_val=$3
 	[ -n "$_name" ] || return 0
 	if amixer -D "$_ctl" cget name="$_name" >/dev/null 2>&1; then
-		amixer -q -D "$_ctl" cset name="$_name" "$_val" 2>/dev/null || true
+		amixer -q -D "$_ctl" cset name="$_name" "$_val" 2>/dev/null && return 0
 	fi
+	amixer -q -D "$_ctl" sset "$_name" "$_val" 2>/dev/null || true
 }
 
 n=0

@@ -7,6 +7,10 @@ Run firmware PRE_POWER_UP (ASI / codec bring-up) when a capture PCM stream
 starts so arecord -D driver_mic alone enables the serial path without needing
 parallel playback on another SAI.
 
+Capture-startup PRE_POWER_UP via mute is superseded on DT510 by 0004+0005
+(ASI enable without replaying regbin); this patch remains for shutdown mute
+and bring-up history.
+
 Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 ---
  sound/soc/codecs/pcm6240.c | 18 ++++++++++++++++++

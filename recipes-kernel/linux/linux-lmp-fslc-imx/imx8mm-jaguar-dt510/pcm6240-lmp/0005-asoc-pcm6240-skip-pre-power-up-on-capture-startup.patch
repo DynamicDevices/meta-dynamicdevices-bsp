@@ -1,0 +1,32 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Dynamic Devices <support@dynamicdevices.co.uk>
+Date: Wed, 11 Jun 2026 00:00:00 +0000
+Subject: [PATCH] ASoC: pcm6240: do not replay PRE_POWER_UP on capture startup (DT510)
+
+0003 runs pcmdevice_mute(unmute) on every capture open, which replays the full
+regbin PRE_POWER_UP block including Ch1 Digi (0x52=0xf0). That resets amixer
+and i2cset gain changes made before arecord and makes Ch1 Digi appear broken.
+
+ASI bring-up is already handled by pcmdevice_asi_capture_enable (0004). Skip
+PRE_POWER_UP on stream startup; keep PRE_SHUTDOWN on shutdown for power-down.
+
+Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
+---
+ sound/soc/codecs/pcm6240.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/sound/soc/codecs/pcm6240.c b/sound/soc/codecs/pcm6240.c
+--- a/sound/soc/codecs/pcm6240.c
++++ b/sound/soc/codecs/pcm6240.c
+@@ -2015,10 +2015,10 @@ static int pcmdevice_startup(struct snd_pcm_substream *substream,
+ 			     struct snd_soc_dai *dai)
+ {
+ 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+-		int ret = pcmdevice_mute(dai, 0, SNDRV_PCM_STREAM_CAPTURE);
+-
+-		return ret ? ret : pcmdevice_asi_capture_enable(dai, true);
++		return pcmdevice_asi_capture_enable(dai, true);
+ 	}
+ 
+ 	return 0;
+ }
