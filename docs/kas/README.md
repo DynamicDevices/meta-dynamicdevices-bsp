@@ -26,6 +26,16 @@ Expect **orphan-bbappend** and **layer-missing-dependency** HIGH findings on a D
 
 Use this before treating HIGH findings as real. Matches what Foundries CI sees for layer resolution.
 
+### Duplicate layer paths (local kas / dd checkout)
+
+When kas or repo-sync trees sit beside the vixdt workspace, yocto-lens can index the same recipes twice (nested dd BSP/distro submodules, `yocto-layer-validation/build/layers`, parent `meta-dynamicdevices` plus `build/layers/*`). `scripts/vixdt-yocto-lens-kas.sh` filters these by default:
+
+- Prefer vixdt `meta-dynamicdevices-bsp`, `meta-dynamicdevices-distro`, `meta-subscriber-overrides`
+- Drop `*/yocto-layer-validation/build/layers/*`
+- Drop parent `meta-dynamicdevices` when `build/layers/*` layers are listed separately
+
+Use `--no-filter` to debug; `--list-layers` to print the filtered set without scanning.
+
 ### 1. Check out the factory manifest
 
 Use a directory **outside** the vixdt sibling repos (repo sync is large):
@@ -70,6 +80,21 @@ Or, if you use kas and already have `build/conf/bblayers.conf`:
 export KAS_WORK_DIR=~/path/to/kas-build-dir
 kas checkout your-imx8mm-jaguar-dt510.yml
 ./scripts/vixdt-yocto-lens-kas.sh --from-kas --markdown
+```
+
+**Local kas checkout (dd `meta-dynamicdevices/build/layers` + vixdt layers):**
+
+```bash
+export VIXDT_YOCTO_LENS_LMP_ROOT=/path/to/meta-dynamicdevices
+./scripts/vixdt-yocto-lens-kas.sh --from-lmp-layers --markdown \
+  --json /tmp/yocto-lens-lmp-full.json
+```
+
+Preview filtered layer list:
+
+```bash
+VIXDT_YOCTO_LENS_LAYER_PATHS_FILE=/tmp/yocto-lens-lmp-layer-paths.txt \
+  ./scripts/vixdt-yocto-lens-kas.sh --from-lmp-layers --list-layers
 ```
 
 Output defaults: `/tmp/yocto-lens-vixdt.json`, `.sarif`, `-report.md`, `-report.txt`. Override with `VIXDT_YOCTO_LENS_JSON`, `--json`, etc. (see script `--help`).

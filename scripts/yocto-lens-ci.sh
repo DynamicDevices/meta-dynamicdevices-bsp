@@ -3,6 +3,7 @@
 #
 # Defaults: meta-dynamicdevices-bsp (this repo) + sibling meta-dynamicdevices-distro.
 # Does not include meta-subscriber-overrides (private Foundries repo).
+# No duplicate-path filtering needed here (single checkout per layer in CI).
 #
 # Examples:
 #   ./scripts/yocto-lens-ci.sh
