@@ -1,3 +1,4 @@
+# LICENSE and LIC_FILES_CHKSUM are in nxp-wlan-sdk_git.inc (yocto-lens triage)
 require nxp-wlan-sdk_git.inc
 
 SUMMARY = "NXP Wi-Fi SDK"
