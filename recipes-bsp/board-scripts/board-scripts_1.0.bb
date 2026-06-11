@@ -16,6 +16,7 @@ SRC_URI:append:imx8mm-jaguar-sentai = " \
   file://test-audio-hw.sh \
   file://test-audio-play-and-record.sh \
   file://production-test.sh \
+  file://imx8mm-jaguar-sentai/production-test.sh \
   file://pipeline_monitor.sh \
   file://extract_channel.py \
   file://mono_to_stereo.py \
@@ -48,6 +49,10 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
   file://board-info.sh \
   file://set-fio-passwd.sh \
   file://enable-firewall.sh \
+  file://production-test.sh \
+  file://imx8mm-jaguar-dt510/production-test.sh \
+  file://board-testing-now-starting-up-stereo-48k.wav \
+  file://tests-all-completed-stereo-48k.wav \
   file://emmc-wipe-boot-partitions.sh \
   file://dt510-gnss-reset-pulse \
 "
@@ -73,12 +78,19 @@ do_install() {
 
 do_install:append:imx8mm-jaguar-sentai() {
     install -d ${D}${datadir}/${PN}
+    install -d ${D}${datadir}/${PN}/imx8mm-jaguar-sentai
+    install -m 0755 ${WORKDIR}/imx8mm-jaguar-sentai/production-test.sh ${D}${datadir}/${PN}/imx8mm-jaguar-sentai/
     install -m 0755 ${WORKDIR}/*.wav ${D}${datadir}/${PN}
     install -m 0755 ${WORKDIR}/extract_channel.py ${D}${datadir}/${PN}
     install -m 0755 ${WORKDIR}/mono_to_stereo.py ${D}${datadir}/${PN}
 }
 
 do_install:append:imx8mm-jaguar-dt510() {
+    install -d ${D}${datadir}/${PN}
+    install -d ${D}${datadir}/${PN}/imx8mm-jaguar-dt510
+    install -m 0755 ${WORKDIR}/imx8mm-jaguar-dt510/production-test.sh ${D}${datadir}/${PN}/imx8mm-jaguar-dt510/
+    install -m 0644 ${WORKDIR}/board-testing-now-starting-up-stereo-48k.wav ${D}${datadir}/${PN}/
+    install -m 0644 ${WORKDIR}/tests-all-completed-stereo-48k.wav ${D}${datadir}/${PN}/
     install -m 0755 ${WORKDIR}/dt510-gnss-reset-pulse ${D}${sbindir}/dt510-gnss-reset-pulse
     if ${@'true' if bb.utils.contains('MACHINE_FEATURES', 'taa5412', True, False, d) or bb.utils.contains('MACHINE_FEATURES', 'taa5412-tac5x1x-ti', True, False, d) else 'false'}; then
         install -d ${D}${datadir}/${PN}
@@ -107,4 +119,4 @@ RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = "${@' i2c-tools' if bb.utils.contain
 RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = "${@bb.utils.contains('MACHINE_FEATURES', 'auracast', ' bluez5', '', d)}"
 RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = "${@' python3' if bb.utils.contains('MACHINE_FEATURES', 'auracast', True, False, d) or bb.utils.contains('MACHINE_FEATURES', 'cp2108-usb-serial', True, False, d) else ''}"
 RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = "${@bb.utils.contains('MACHINE_FEATURES', 'cp2108-usb-serial', ' python3-pyusb', '', d)}"
-RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = " libgpiod-tools"
+RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = " libgpiod-tools alsa-utils bluez5 can-utils"
