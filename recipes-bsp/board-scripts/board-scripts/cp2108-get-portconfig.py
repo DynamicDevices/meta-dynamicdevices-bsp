@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-only
+# SPDX-License-Identifier: MIT
 """CP2108: GET QUAD_PORT_CONFIG (SiLabs wValue 0x370c, 73 B) matching linux cp210x.c.
 
 DT510 (U13 CP2108) — read back GPIO alternate / RS-485 DE settings

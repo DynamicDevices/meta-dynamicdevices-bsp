@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-License-Identifier: GPL-3.0-only
+# SPDX-License-Identifier: MIT
 #
 # DT510 — apply TAA5412-Q1 register table with driver RUNNING.
 # Path B (tac5x1x-codec @ 1-0051) and Path A (pcm6240) — do NOT unbind for bench tuning.

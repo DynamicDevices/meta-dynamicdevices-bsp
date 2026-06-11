@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-only
+# SPDX-License-Identifier: MIT
 """CP2108: attempt to PATCH + WRITE quad NVM config blob (EnhancedFxn_IFC RS-485).
 
 READ path matches linux cp210x.c + cp2108-get-portconfig.py (Vendor IN, bRequest 0xff,

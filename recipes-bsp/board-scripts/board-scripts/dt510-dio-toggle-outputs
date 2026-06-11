@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: GPL-3.0-only
+# SPDX-License-Identifier: MIT
 #
 # Toggle DT510 DO1–DO4 (gpiochip0 lines 6–9) as *held* push-pull outputs.
 # Uses libgpiod gpioset --toggle so lines stay claimed (avoid short gpioset

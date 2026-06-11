@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-License-Identifier: GPL-3.0-only
+# SPDX-License-Identifier: MIT
 # DT510 — Auracast / LE Audio HCI smoke: UM12155-aligned read + safe write commands via hcitool.
 # Requires root (run: sudo dt510-auracast-hci-check.sh). Needs hci0 + hcitool (bluez5).
 # Does NOT validate end-to-end BIS/Auracast audio — controller / HCI acceptance only.

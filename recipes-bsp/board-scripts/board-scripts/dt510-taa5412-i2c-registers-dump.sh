@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-License-Identifier: GPL-3.0-only
+# SPDX-License-Identifier: MIT
 #
 # DT510 — read / decode TAA5412-Q1 registers with driver RUNNING.
 #

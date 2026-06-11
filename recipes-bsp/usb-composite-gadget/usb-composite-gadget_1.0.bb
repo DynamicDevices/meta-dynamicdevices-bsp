@@ -1,7 +1,7 @@
 SUMMARY = "USB Composite Gadget for imx8mm-jaguar-sentai"
 DESCRIPTION = "USB composite gadget service providing CDC ACM serial and UAC2 audio interfaces for bidirectional communication with host computer"
-LICENSE = "GPL-3.0-or-later"
-LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/GPL-3.0-or-later;md5=1c76c4cc354acaac30ed4d5eefea7245"
+LICENSE = "MIT"
+LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
 SRC_URI = " \
     file://setup-usb-composite-gadget \

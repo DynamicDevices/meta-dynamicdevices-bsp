@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-License-Identifier: GPL-3.0-only
+# SPDX-License-Identifier: MIT
 #
 # DT510 — TI TAA5412-Q1 smoke checks (Path A pcm6240 or Path B tac5x1x-ti OOT).
 # Prefers ALSA pcm **driver_mic**; falls back to plughw.

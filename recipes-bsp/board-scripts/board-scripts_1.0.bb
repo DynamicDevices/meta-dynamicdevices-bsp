@@ -3,8 +3,8 @@ DESCRIPTION = "Collection of shell scripts for board testing, configuration, and
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
-LICENSE = "GPL-3.0-only"
-LIC_FILES_CHKSUM ?= "file://${COMMON_LICENSE_DIR}/GPL-3.0-only;md5=c79ff39f19dfec6d293b95dea7b07891"
+LICENSE = "MIT"
+LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
 SRC_URI:append:imx8mm-jaguar-sentai = " \
   file://board-info.sh \

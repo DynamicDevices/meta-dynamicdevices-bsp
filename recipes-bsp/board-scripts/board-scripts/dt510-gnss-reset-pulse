@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: GPL-3.0-only
+# SPDX-License-Identifier: MIT
 #
 # Pulse NEO-M9V GNSS_RES# (gpiochip3 / GPIO4_IO29, active-low).
 # pinctrl pull-up holds reset deasserted when idle; assert ≥50 ms then release.

@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-License-Identifier: GPL-3.0-only
+# SPDX-License-Identifier: MIT
 #
 # Unlock eMMC hardware boot partitions (boot0/boot1) and fill them with zeros.
 # Intended for lab / manufacturing recovery when combined with reflashing (e.g. uuu).
