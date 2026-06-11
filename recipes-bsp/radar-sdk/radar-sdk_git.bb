@@ -33,7 +33,7 @@ LIC_FILES_CHKSUM = "file://3rd_party/libs/argparse/LICENSE;md5=8c440aa75fef5b9fe
                     file://sdk/c/ifxRadarSegmentation/license.txt;md5=a776397476d1327c006486da9a188726 \
                     file://sdk/py/wrapper_radarsdk/LICENSE.txt;md5=2b808264f161b58da3d816b7a2e6a918"
 
-SRC_URI = "git://github.com/DynamicDevices/radar-sdk.git;protocol=https;branch=main"
+SRC_URI = "git://github.com/DynamicDevices/radar-sdk.git;protocol=https"
 
 # Modify these as desired
 PV = "3.6.4"

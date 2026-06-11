@@ -17,7 +17,7 @@ LIC_FILES_CHKSUM = "file://LICENSE;md5=86d3f3a95c324c9479bd8986968f4327"
 SRCREV = "5c56bd24066c780aad5836429bfa2ecc4f9a944c"
 PV = "0.0.0-dev+git${SRCPV}"
 
-SRC_URI = "git://github.com/apache/mynewt-mcumgr-cli.git;protocol=https;branch=master"
+SRC_URI = "git://github.com/apache/mynewt-mcumgr-cli.git;protocol=https"
 
 S = "${WORKDIR}/git"
 

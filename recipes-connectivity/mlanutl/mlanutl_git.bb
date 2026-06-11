@@ -10,7 +10,7 @@ PN = "mlanutl"
 # Note: mlanutl is a userspace utility and works with any kernel version
 # Using lf-5.15.71_2.2.0 branch (latest available)
 SRC_URI = "git://github.com/nxp-imx/mwifiex-iw612.git;protocol=https;branch=lf-5.15.71_2.2.0"
-SRCREV = "${AUTOREV}"
+SRCREV = "4cc2c8831f27c8eceece6b66fc2de8b73360f520"
 
 S = "${WORKDIR}/git/mapp/mlanutl"
 

@@ -6,7 +6,7 @@ LIC_FILES_CHKSUM = "file://gpl-2.0.txt;md5=b234ee4d69f5fce4486a80fdaf4a4263"
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
-SRC_URI = "git://github.com/DynamicDevices/stm32flash.git;protocol=https;branch=master"
+SRC_URI = "git://github.com/DynamicDevices/stm32flash.git;protocol=https"
 
 SRCREV = "2c10fe10c06bdb36a018a0abf65ebc98a10f8490"
 
