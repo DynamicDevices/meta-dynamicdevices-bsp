@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: MIT
 
 echo 'SUBSYSTEM=="input", KERNEL=="event[0-9]*",
 
