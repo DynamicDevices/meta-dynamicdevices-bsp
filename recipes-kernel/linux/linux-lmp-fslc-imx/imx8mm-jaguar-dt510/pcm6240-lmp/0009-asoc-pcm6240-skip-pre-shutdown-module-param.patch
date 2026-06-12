@@ -11,13 +11,13 @@ Default off (production safe). When set, capture shutdown still clears ASI TX
 
 Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 ---
- sound/soc/codecs/pcm6240.c | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+ sound/soc/codecs/pcm6240.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
 diff --git a/sound/soc/codecs/pcm6240.c b/sound/soc/codecs/pcm6240.c
 --- a/sound/soc/codecs/pcm6240.c
 +++ b/sound/soc/codecs/pcm6240.c
-@@ -65,6 +65,12 @@
+@@ -65,6 +65,11 @@
  
  #include "pcm6240.h"
  
