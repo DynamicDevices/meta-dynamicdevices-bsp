@@ -27,7 +27,7 @@ diff --git a/sound/soc/codecs/pcm6240.c b/sound/soc/codecs/pcm6240.c
  #include <linux/i2c.h>
  #include <linux/module.h>
  #include <linux/of_irq.h>
-@@ -1963,6 +1964,22 @@ out:
+@@ -1963,6 +1964,23 @@ out:
  	return ret;
  }
  
@@ -72,7 +72,7 @@ diff --git a/sound/soc/codecs/pcm6240.c b/sound/soc/codecs/pcm6240.c
  static int pcmdevice_asi_capture_enable(struct snd_soc_dai *dai, bool enable)
  {
  	struct snd_soc_component *codec = dai->component;
-@@ -2015,7 +2039,12 @@ static int pcmdevice_startup(struct snd_pcm_substream *substream,
+@@ -2015,7 +2039,13 @@ static int pcmdevice_startup(struct snd_pcm_substream *substream,
  			     struct snd_soc_dai *dai)
  {
  	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
