@@ -1,8 +1,8 @@
 #!/bin/sh
 # DT510 TAA5412-Q1 driver mic: boot ALSA mixer defaults (pcm6240 / driver_mic).
-# Regbin PRE_POWER_UP (staggered power + Ch1 Digi=0 on capture open) runs from
-# pcm6240 startup; this script sets production Ch1 Digi/Fine after card probe.
-# Re-apply gain after arecord open if level is low (PRE_POWER mutes Ch1 Digi).
+# Regbin PRE_POWER_UP (staggered power + HPF; no Ch1 Digi write) runs from
+# pcm6240 startup (0008: PRE_POWER before ASI); this script sets Ch1 Digi/Fine at boot.
+# Re-apply gain after arecord only on old images that still mute 0x52 in PRE_POWER.
 #
 # Optional env: TAA5412_MIXER (default driver_mic), TAA5412_CH1_DIGI (default 177),
 # TAA5412_CH1_FINE (default 8 — reg 0x53 lower nibble / Ch1 Fine ALSA control).

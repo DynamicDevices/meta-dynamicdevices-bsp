@@ -166,7 +166,7 @@ In **`imx8mm-jaguar-dt510.dts`**:
 
 **Michael `taa5412-registers-michael.conf`** programs **power / micbias only** (`0x02`, `0x78`, page‑1 `0x73`) — **not** ASI format, word length, or **`PASITX*`** slot map.
 
-**BSP `taa5412-1dev-reg.json` / `taa5412-i2c-1-1dev.bin` (Path A):** **`PRE_POWER_UP`** is **staggered** (per-command **`delay`** ms): **Ch1 Digi mute `0x52=0x00`**, **VREF `0x02=0x03`**, page‑1 **MICBIAS `0x73=0xd0`**, **PWR `0x78=0xa0`**, AC coupling **`0x50`/`0x55`/`0x5a`/`0x5e`**, **HPF `0x72=0x28`** (12 Hz @ 48 kHz — **`ADC_DSP_HPF_SEL=2d`**, TAA5412 **P0 R0x72 `DSP_CFG0`**), then **CH_EN `0x76=0xc0`**. **Does not write Ch1 Fine** or production **Digi 177** — those stay **ALSA kcontrols** (**`taa5412-init`** / AVM). Still **does not write** **`PASI0`/`PASITX*`** — driver **`0004`**. Boot: **`taa5412-init`** sets **Ch1 Digi 177 / Fine 8**; each capture open **PRE_POWER** re-mutes **Ch1 Digi** until **`amixer`** restores level.
+**BSP `taa5412-1dev-reg.json` / `taa5412-i2c-1-1dev.bin` (Path A):** **`PRE_POWER_UP`** is **staggered** (per-command **`delay`** ms): **VREF `0x02=0x03`**, page‑1 **MICBIAS `0x73=0xd0`**, **PWR `0x78=0xa0`**, AC coupling **`0x50`/`0x55`/`0x5a`/`0x5e`**, **HPF `0x72=0x28`** (12 Hz @ 48 kHz — **`ADC_DSP_HPF_SEL=2d`**, TAA5412 **P0 R0x72 `DSP_CFG0`**), then **CH_EN `0x76=0xc0`**. **Does not write Ch1 Digi/Fine** — **`taa5412-init`** / AVM set **Digi 177 / Fine 8** at boot and they persist across capture open. Still **does not write** **`PASI0`/`PASITX*`** — driver **`0004`**. Factory target **543** still loads regbin with **`0x52=0`** on **PRE_POWER** until the next BSP pin.
 
 **Bench I2C apply:** **`taa5412-registers-michael.conf`** is optional when regbin + **`taa5412-init`** are on the image; keep for A/B compare or pre-regbin factory targets.
 
@@ -186,20 +186,20 @@ In **`imx8mm-jaguar-dt510.dts`**:
 
 | Layer | Change |
 |-------|--------|
-| **Regbin** | Staggered **`PRE_POWER_UP`**; **Ch1 Digi `0x52=0`** at block start; **HPF `0x72=0x28`** before **CH_EN** |
+| **Regbin** | Staggered **`PRE_POWER_UP`**; **HPF `0x72=0x28`** before **CH_EN**; **no `0x52` write** |
 | **`0008`** | **`startup`**: **`pcmdevice_capture_pre_power()`** → **`msleep(20)`** → **`pcmdevice_asi_capture_enable`**; skip duplicate **PRE_POWER** on **`.mute_stream` unmute** |
 | **`0009`** | Module param **`skip_pre_shutdown`** (default **0**) — lab only; skips **PRE_SHUTDOWN** between back‑to‑back captures |
-| **`taa5412-init`** | Boot still **Ch1 Digi 177**; re‑**`amixer`** after open if capture is quiet |
+| **`taa5412-init`** | Boot **Ch1 Digi 177 / Fine 8**; no regbin Digi reset on open (post‑543 regbin) |
 
 **Capture open order (after fix):**
 
-1. **`pcmdevice_startup`** → regbin **PRE_POWER** (muted Digi, staggered analog)
+1. **`pcmdevice_startup`** → regbin **PRE_POWER** (staggered analog + HPF)
 2. **`msleep(20)`** (driver settle after regbin delays)
 3. **`pcmdevice_asi_capture_enable`** — **PASI0/ASI_TX**
 4. **`.mute_stream` unmute** → no‑op for **PRE_POWER** (**0008**)
-5. Userspace **`amixer -D driver_mic sset '…Ch1 Digi' 177`** (or AVM **`call_mic_gain`**) when level needed
+5. **`taa5412-init`** / AVM gain applies without a post-open **`amixer`** workaround on images with this regbin
 
-**Bench A/B (pre‑fix workaround):** mute **Digi 0** before open, **200 ms** after open → **Digi 177** — see **`vix-apps/lab-artifacts/driver-mic-ref/pop-mitigation-20260612-144129/SUMMARY.md`**. Superseded by BSP fix above on factory images with **0008** + new regbin.
+**Bench A/B (legacy hotpatch / target 543 regbin):** **`MIC_POP_MITIGATE=1`** in **`dt510-driver-mic-reference-playback-test.sh`** — mute **Digi 0** before open, restore gain **~200 ms** after open — only needed when **PRE_POWER** still writes **`0x52=0`**. See **`vix-apps/lab-artifacts/driver-mic-ref/pop-mitigation-20260612-144129/SUMMARY.md`**. Not required after this regbin + **0008**.
 
 **HPF note:** **`0x72=0x28`** = **12 Hz** cutoff @ 48 kHz (**`ADC_DSP_HPF_SEL=2d`**, TAA5412 datasheet **§7.1.1.69 `DSP_CFG0`**). Michael/PurePath may prefer **1 Hz (`0x18`)** or programmable IIR — validate on bench before UAT.
 
@@ -276,7 +276,7 @@ In **`imx8mm-jaguar-dt510.dts`**:
 | **526+** | — | **Ch1 Digi pre-stream gain ignored** — **`pcm6240` `0003`** replays regbin **`PRE_POWER_UP`** on capture open (see § Ch1 Digi / PRE_POWER_UP). |
 | **536** | `f841dfc` | **`0005` only** — pre-stream Digi **50/100/200** OK before **`arecord`**; within ~50 ms of open readback **240** (saturated); mid-stream **`sset`** works (~83 dB drop). **`mute_stream`** replays regbin (see § Ch1 Digi). |
 | **541** | `276b7e4` | **`0005`+`0006`** — **silent capture** (peak=0): **`PRE_SHUTDOWN`** powers down; **`0006`** skips **`PRE_POWER`** on unmute; ASI only (**`PASITXCH1` bit5** set, **`VREF`/`PWR`=0**). |
-| **Next factory target** | *(BSP pending)* | **`0007`** + regbin without Digi/Fine in **`PRE_POWER_UP`** — restore power on unmute without resetting **`0x52`**. |
+| **Next factory target** | *(BSP pending)* | **`0008`** + regbin **without `0x52`/`Fine` in `PRE_POWER_UP`** (543 still has **`52=00` mute**). |
 
 ### What works on target 438 (current bench)
 
