@@ -1,0 +1,89 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Dynamic Devices <support@dynamicdevices.co.uk>
+Date: Thu, 12 Jun 2026 12:00:00 +0000
+Subject: [PATCH] ASoC: pcm6240: PRE_POWER before ASI on capture startup (DT510)
+
+0005 enabled ASI TX in pcmdevice_startup before ASoC mute_stream replayed
+PRE_POWER_UP (~50 ms later). Analog VREF/MICBIAS/CH_EN then stepped while
+PASITX was already live, causing a ~39 ms 97% FS pop on driver_mic open.
+
+Run regbin PRE_POWER_UP in startup first (Ch1 Digi muted in regbin), allow
+analog settle, then enable ASI (0004). Skip duplicate PRE_POWER on capture
+mute_stream unmute (0006 pattern — power is already up from startup).
+
+Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
+---
+ sound/soc/codecs/pcm6240.c | 35 ++++++++++++++++++++++++++++++++---
+ 1 file changed, 32 insertions(+), 3 deletions(-)
+
+diff --git a/sound/soc/codecs/pcm6240.c b/sound/soc/codecs/pcm6240.c
+--- a/sound/soc/codecs/pcm6240.c
++++ b/sound/soc/codecs/pcm6240.c
+@@ -55,6 +55,7 @@
+ #include <asm/unaligned.h>
+ #include <linux/firmware.h>
+ #include <linux/gpio.h>
++#include <linux/delay.h>
+ #include <linux/i2c.h>
+ #include <linux/module.h>
+ #include <linux/of_irq.h>
+@@ -1963,6 +1964,22 @@ out:
+ 	return ret;
+ }
+ 
++static int pcmdevice_apply_pre_power_up(struct snd_soc_dai *dai)
++{
++	struct snd_soc_component *codec = dai->component;
++	struct pcmdevice_priv *pcm_dev = snd_soc_component_get_drvdata(codec);
++
++	if (pcm_dev->fw_state == PCMDEVICE_FW_LOAD_FAILED) {
++		dev_err(pcm_dev->dev, "%s: bin file not loaded\n", __func__);
++		return -EINVAL;
++	}
++
++	mutex_lock(&pcm_dev->codec_lock);
++	pcmdevice_select_cfg_blk(pcm_dev, pcm_dev->cur_conf,
++				 PCMDEVICE_BIN_BLK_PRE_POWER_UP);
++	mutex_unlock(&pcm_dev->codec_lock);
++	return 0;
++}
++
+ static int pcmdevice_mute(struct snd_soc_dai *dai, int mute, int stream)
+ {
+ 	struct snd_soc_component *codec = dai->component;
+@@ -1974,6 +1991,10 @@ static int pcmdevice_mute(struct snd_soc_dai *dai, int mute, int stream)
+ 		return -EINVAL;
+ 	}
+ 
++	/* PRE_POWER runs in startup (0008); ASI follows after settle. */
++	if (!mute && stream == SNDRV_PCM_STREAM_CAPTURE)
++		return 0;
++
+ 	if (mute)
+ 		block_type = PCMDEVICE_BIN_BLK_PRE_SHUTDOWN;
+ 	else
+@@ -1982,6 +2003,9 @@ static int pcmdevice_mute(struct snd_soc_dai *dai, int mute, int stream)
+ /* I2S stereo 32-bit: ch1 slot 0, ch2 slot 16 (see tac5x1x bench target 426). */
+ #define PCMDEVICE_PASITXCH2_I2S_STEREO	0x30
+ 
++/* Extra settle after regbin PRE_POWER delays before ASI TX (pop mitigation). */
++#define PCMDEVICE_CAPTURE_POWER_SETTLE_MS 20
++
+ static int pcmdevice_asi_capture_enable(struct snd_soc_dai *dai, bool enable)
+ {
+ 	struct snd_soc_component *codec = dai->component;
+@@ -2015,7 +2039,12 @@ static int pcmdevice_startup(struct snd_pcm_substream *substream,
+ 			     struct snd_soc_dai *dai)
+ {
+ 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+-		return pcmdevice_asi_capture_enable(dai, true);
++		int ret;
++
++		ret = pcmdevice_apply_pre_power_up(dai);
++		if (ret)
++			return ret;
++		msleep(PCMDEVICE_CAPTURE_POWER_SETTLE_MS);
++		return pcmdevice_asi_capture_enable(dai, true);
+ 	}
+ 
+ 	return 0;

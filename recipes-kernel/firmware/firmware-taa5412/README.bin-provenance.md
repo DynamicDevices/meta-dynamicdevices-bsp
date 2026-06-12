@@ -83,8 +83,9 @@ The JSON mirrors TI **`pcmdevice`** PPC-style scripts under **`settings.configur
 1. Locate block **`PRE_POWER_UP - Dev 1`** (and **`POST_POWER_UP`** / **`PRE_SHUTDOWN`** if you touch power sequencing).
 2. Each **`commands`** entry uses **`book`**, **`page`**, **`register`** (hex **strings without `0x`**), **`mask`** (**`ff`** for full-byte writes), **`data`** (hex byte string), optional **`delay`**.
 3. **Example — analogue coupling (`ADC_CHx_CFG0`):** On **book `0`**, **page `0`**, TI docs (**SLASF37**) encode **CM_TOL** in **`ADC_CHx_CFG0`**. For registers **`50`**, **`55`**, **`5a`**, **`5e`** (channels **1–4**), set **`"data": "00"`** when the mic path is **AC-coupled** on the PCB. **`"04"`** corresponds to DC-oriented tolerance bits and has been observed when captures stay flatlined on AC hardware—always reconcile with the schematic *before* copying settings across boards.
-4. Run **§ A′** **`node export-regbin.js`** or **§ A** Windows export.
-5. Install **`taa5412-i2c-1-1dev.bin`** on the target under **`/lib/firmware/`** with the exact name **`pcm6240`** **`request_firmware()`** expects (**§ Why this file…** above). **Remount read-write** if the rootfs is **ro**, then **`sync`**. **Reboot** (or full driver reprobe) so firmware loads again.
+4. **DT510 pop mitigation (2026‑06) — `PRE_POWER_UP` order:** page select → **`52=00`** (Ch1 Digi mute) → **`02=03`** (VREF, **15 ms**) → page **1** **`73=d0`** (MICBIAS, **15 ms**) → **`78=a0`** (PWR, **15 ms**) → **`50/55/5a/5e=00`** (AC, **5–10 ms** each) → **`72=28`** (HPF 12 Hz, **10 ms**) → **`76=c0`** (CH_EN, **5 ms**) → **`77=c0`**. Regenerate with **§ A′** after JSON edits.
+5. Run **§ A′** **`node export-regbin.js`** or **§ A** Windows export.
+6. Install **`taa5412-i2c-1-1dev.bin`** on the target under **`/lib/firmware/`** with the exact name **`pcm6240`** **`request_firmware()`** expects (**§ Why this file…** above). **Remount read-write** if the rootfs is **ro**, then **`sync`**. **Reboot** (or full driver reprobe) so firmware loads again.
 
 ## Reading codec registers on DT510 (**`regmap`** debugfs)
 

@@ -166,7 +166,7 @@ In **`imx8mm-jaguar-dt510.dts`**:
 
 **Michael `taa5412-registers-michael.conf`** programs **power / micbias only** (`0x02`, `0x78`, page‑1 `0x73`) — **not** ASI format, word length, or **`PASITX*`** slot map.
 
-**BSP `taa5412-1dev-reg.json` / `taa5412-i2c-1-1dev.bin` (Path A):** **`PRE_POWER_UP`** programs **Michael-aligned power** (`0x02` **VREF = `0x03`**, **`0x78` PWR = `0xa0`**, page‑1 **`0x73` MICBIAS = `0xd0`**), **IN1+IN2 channel enable** (`0x76` **CH_EN = `0xc0`** — ADC1+2 only), and AC coupling (`0x50`/`0x55`/`0x5a`/`0x5e`). **Does not write Ch1–4 Digi/Fine** (`0x52`/`0x53`/`0x57`/`0x58`/`0x5b`/`0x5c`/`0x5f`/`0x60`) — those are **ALSA kcontrols** only (default **240** / **8** via **`taa5412-init`**). Still **does not write** **`0x1a` (`PASI0`)**, **`0x1e`/`0x1f` (`PASITXCH1/2`)** — driver **`0004`**. Boot backup: **`taa5412-init`** systemd oneshot (**`alsa-state`**, DT510) re-applies **`amixer -D driver_mic`** **`Ch1 Digi` / `Ch1 Fine`** (**240** / **8**) after probe.
+**BSP `taa5412-1dev-reg.json` / `taa5412-i2c-1-1dev.bin` (Path A):** **`PRE_POWER_UP`** is **staggered** (per-command **`delay`** ms): **Ch1 Digi mute `0x52=0x00`**, **VREF `0x02=0x03`**, page‑1 **MICBIAS `0x73=0xd0`**, **PWR `0x78=0xa0`**, AC coupling **`0x50`/`0x55`/`0x5a`/`0x5e`**, **HPF `0x72=0x28`** (12 Hz @ 48 kHz — **`ADC_DSP_HPF_SEL=2d`**, TAA5412 **P0 R0x72 `DSP_CFG0`**), then **CH_EN `0x76=0xc0`**. **Does not write Ch1 Fine** or production **Digi 177** — those stay **ALSA kcontrols** (**`taa5412-init`** / AVM). Still **does not write** **`PASI0`/`PASITX*`** — driver **`0004`**. Boot: **`taa5412-init`** sets **Ch1 Digi 177 / Fine 8**; each capture open **PRE_POWER** re-mutes **Ch1 Digi** until **`amixer`** restores level.
 
 **Bench I2C apply:** **`taa5412-registers-michael.conf`** is optional when regbin + **`taa5412-init`** are on the image; keep for A/B compare or pre-regbin factory targets.
 
@@ -178,7 +178,32 @@ In **`imx8mm-jaguar-dt510.dts`**:
 
 **Bench decode:** **`dt510-taa5412-i2c-registers-dump.sh`** prints **`word_len_idx`** = **`(PASI0 >> 4) & 3`** (0→16b … 3→32b per table above).
 
-### Ch1 Digi / PRE_POWER_UP on capture startup
+### Capture open pop mitigation (2026‑06)
+
+**Symptom (`.239`, 2026‑06‑12):** Cold **`arecord -D driver_mic_in1`** after **`PRE_SHUTDOWN`**: **~39 ms** **97% FS** click. Root cause: **`0005`** ran **ASI TX** in **`pcmdevice_startup`** while **`0007`** replayed **`PRE_POWER_UP`** later via **`.mute_stream` unmute`** — analog **VREF/MICBIAS/CH_EN** stepped with **PASITX** already live.
+
+**BSP fix (regbin + driver):**
+
+| Layer | Change |
+|-------|--------|
+| **Regbin** | Staggered **`PRE_POWER_UP`**; **Ch1 Digi `0x52=0`** at block start; **HPF `0x72=0x28`** before **CH_EN** |
+| **`0008`** | **`startup`**: **`pcmdevice_capture_pre_power()`** → **`msleep(20)`** → **`pcmdevice_asi_capture_enable`**; skip duplicate **PRE_POWER** on **`.mute_stream` unmute** |
+| **`0009`** | Module param **`skip_pre_shutdown`** (default **0**) — lab only; skips **PRE_SHUTDOWN** between back‑to‑back captures |
+| **`taa5412-init`** | Boot still **Ch1 Digi 177**; re‑**`amixer`** after open if capture is quiet |
+
+**Capture open order (after fix):**
+
+1. **`pcmdevice_startup`** → regbin **PRE_POWER** (muted Digi, staggered analog)
+2. **`msleep(20)`** (driver settle after regbin delays)
+3. **`pcmdevice_asi_capture_enable`** — **PASI0/ASI_TX**
+4. **`.mute_stream` unmute** → no‑op for **PRE_POWER** (**0008**)
+5. Userspace **`amixer -D driver_mic sset '…Ch1 Digi' 177`** (or AVM **`call_mic_gain`**) when level needed
+
+**Bench A/B (pre‑fix workaround):** mute **Digi 0** before open, **200 ms** after open → **Digi 177** — see **`vix-apps/lab-artifacts/driver-mic-ref/pop-mitigation-20260612-144129/SUMMARY.md`**. Superseded by BSP fix above on factory images with **0008** + new regbin.
+
+**HPF note:** **`0x72=0x28`** = **12 Hz** cutoff @ 48 kHz (**`ADC_DSP_HPF_SEL=2d`**, TAA5412 datasheet **§7.1.1.69 `DSP_CFG0`**). Michael/PurePath may prefer **1 Hz (`0x18`)** or programmable IIR — validate on bench before UAT.
+
+### Ch1 Digi / PRE_POWER_UP on capture startup (historical)
 
 **Symptom (target 526+, 2026‑06‑11):** Pre-stream **`amixer -D driver_mic`** or **`i2cset`** on **`0x52` (Ch1 Digi)** appears ignored — gain only changes if set **after** **`arecord`** is already running. **`Ch1 Digi`** readback snaps back to regbin default (**240 / `0xf0`**) when the capture stream opens.
 
@@ -203,6 +228,8 @@ In **`imx8mm-jaguar-dt510.dts`**:
 | **`0005-asoc-pcm6240-skip-pre-power-up-on-capture-startup.patch`** | Skip mute/**`PRE_POWER_UP`** in **`startup`** |
 | **`0006-asoc-pcm6240-skip-capture-unmute-pre-power-up.patch`** | *(superseded)* Skip **`PRE_POWER_UP`** on capture unmute — caused **541** silence |
 | **`0007-asoc-pcm6240-restore-capture-unmute-pre-power-up.patch`** | Restore **`PRE_POWER_UP`** on capture unmute (net undoes **0006**) |
+| **`0008-asoc-pcm6240-pre-power-before-asi-capture-startup.patch`** | **PRE_POWER in `startup` before ASI**; skip duplicate unmute **PRE_POWER** |
+| **`0009-asoc-pcm6240-skip-pre-shutdown-module-param.patch`** | Optional **`skip_pre_shutdown`** module param (lab) |
 
 **Target 541 regression (`276b7e4`, 2026‑06‑11):** With **`0005`+`0006`**, **`PRE_SHUTDOWN`** on stream close leaves **`VREF=0`**, **`PWR=0`**, **`CH_EN=0`**. Capture open runs **`0004` ASI only** — **`PASITXCH1` bit5=1**, **`PASI0=0x70`**, but analog path off → **peak=0**. Target **536** (`0005` only) still ran **`PRE_POWER`** via **`mute_stream`** → saturated but non-silent.
 
@@ -224,7 +251,7 @@ In **`imx8mm-jaguar-dt510.dts`**:
 | **ch1 always silent**, ch0 only | **`pcm6240` `0004` enables PASITXCH1 only** — **`PASITXCH2=0x01`** (slot 1, **ASI_TX off**) | I2C during capture: **CH1=0x20**, **CH2=0x01**; manual **PASITXCH2=0x30** → ch1 peak **~12500**; reset **0x01** → ch1 **0** again. **0x21** (ASI_TX on slot 1) still silent — need **slot 16** (**0x30**), same as tac5x1x **426**. |
 | Regmap vs I2C | Regmap cache **stale** for **0x1f** on pcm6240 | Regmap **001f: 01** while **i2cget 0x1f** reads **0x30** — use **`i2cget`** or dump script I2C path for PASITXCH2. |
 
-**Fix:** extend **`pcm6240-lmp/0004`** to write **`PASITXCH2=0x30`** on capture startup (paired with **`0005`** tac5x1x behaviour). Lab gain: tune **`TAA5412 i2c1 Dev0 Ch1 Digi Volume`** (and Ch2 when stereo matters) — e.g. **200** for ~−19 dBFS without clipping.
+**Fix:** extend **`pcm6240-lmp/0004`** to write **`PASITXCH2=0x30`** on capture startup (paired with **`0005`** tac5x1x behaviour). Lab gain: tune **`TAA5412 i2c1 Dev0 Ch1 Digi Volume`** (and Ch2 when stereo matters) — production default **177** (max 0% clip @ Ollie 80%, 2026‑06‑12 sweep); **`DIGI_GAIN=240`** for stress / legacy parity.
 
 **Codec-side (Path A):** **`pcm6240-lmp/0004`** sets **`PASITXCH1` ASI_TX** and **`PASI0=0x70`** on capture — firmware **`PRE_POWER_UP`** alone was insufficient; **must also set `PASITXCH2=0x30`** for stereo ch1. Path B equivalent: **`kernel-module-tac5x1x-ti-taa5412/0005`** (both PASITXCH1/CH2 ASI_TX).
 
@@ -307,4 +334,4 @@ During capture, **`TCR2=RCR2`**, **`TCR4/TCR5=RCR4/RCR5`**, **`TCR4` FSD_MSTR** 
 - **`meta-subscriber-overrides/docs/DT510-HARDWARE-BRINGUP.md`** § TAA5412
 - Workspace bench log **`lab-artifacts/taa5412-michael-compare-20260526.md`** (Michael regbin / I2C vs factory, **`taa5412-init`**)
 
-*Last updated: **2026‑06‑11** — § Ch1 Digi: target **541** silence from **`0006`**; fix **`0007`** + regbin trim; **536** saturated baseline; bring-up through **438**; **0028 v4** (439) pending for SAI5 clock pass.*
+*Last updated: **2026‑06‑12** — capture open pop mitigation (**0008**/**0009**, staggered regbin + HPF); § Ch1 Digi history; bring-up through **438**.*

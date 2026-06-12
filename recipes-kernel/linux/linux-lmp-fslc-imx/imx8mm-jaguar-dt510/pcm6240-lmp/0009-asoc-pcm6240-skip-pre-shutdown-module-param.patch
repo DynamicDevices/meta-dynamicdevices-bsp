@@ -1,0 +1,41 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Dynamic Devices <support@dynamicdevices.co.uk>
+Date: Thu, 12 Jun 2026 12:00:00 +0000
+Subject: [PATCH] ASoC: pcm6240: optional skip PRE_SHUTDOWN on capture close (DT510)
+
+PRE_SHUTDOWN on every arecord close forces a cold PRE_POWER on the next open.
+For lab pop A/B, allow keeping analog powered between back-to-back captures.
+
+Default off (production safe). When set, capture shutdown still clears ASI TX
+(0004) but skips regbin PRE_SHUTDOWN. Higher idle power; not for field units.
+
+Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
+---
+ sound/soc/codecs/pcm6240.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/sound/soc/codecs/pcm6240.c b/sound/soc/codecs/pcm6240.c
+--- a/sound/soc/codecs/pcm6240.c
++++ b/sound/soc/codecs/pcm6240.c
+@@ -65,6 +65,12 @@
+ 
+ #include "pcm6240.h"
+ 
++static bool pcm6240_skip_pre_shutdown;
++module_param_named(skip_pre_shutdown, pcm6240_skip_pre_shutdown, bool, 0644);
++MODULE_PARM_DESC(skip_pre_shutdown,
++		 "Skip PRE_SHUTDOWN on capture close (lab pop A/B; default off)");
++
+ static const struct i2c_device_id pcmdevice_i2c_id[] = {
+ 	{ "adc3120",  ADC3120  },
+ 	{ "adc5120",  ADC5120  },
+@@ -1954,6 +1960,9 @@ static int pcmdevice_mute(struct snd_soc_dai *dai, int mute, int stream)
+ 		return -EINVAL;
+ 	}
+ 
++	if (mute && stream == SNDRV_PCM_STREAM_CAPTURE && pcm6240_skip_pre_shutdown)
++		return 0;
++
+ 	/* PRE_POWER runs in startup (0008); ASI follows after settle. */
+ 	if (!mute && stream == SNDRV_PCM_STREAM_CAPTURE)
+ 		return 0;
