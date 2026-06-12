@@ -199,7 +199,7 @@ In **`imx8mm-jaguar-dt510.dts`**:
 4. **`.mute_stream` unmute** → no‑op for **PRE_POWER** (**0008**)
 5. **`taa5412-init`** / AVM gain applies without a post-open **`amixer`** workaround on images with this regbin
 
-**Bench A/B (legacy hotpatch / target 543 regbin):** **`MIC_POP_MITIGATE=1`** in **`dt510-driver-mic-reference-playback-test.sh`** — mute **Digi 0** before open, restore gain **~200 ms** after open — only needed when **PRE_POWER** still writes **`0x52=0`**. See **`vix-apps/lab-artifacts/driver-mic-ref/pop-mitigation-20260612-144129/SUMMARY.md`**. Not required after this regbin + **0008**.
+**Lab scripts (546+):** **`dt510-driver-mic-reference-playback-test.sh`** applies **Ch1 Digi/Fine** before **`arecord`** by default (**`MIC_DIGI_BEFORE_CAPTURE=1`**); no post-open mute/unmute workaround. Historical A/B on target **543**: **`vix-apps/lab-artifacts/driver-mic-ref/pop-mitigation-20260612-144129/SUMMARY.md`**.
 
 **HPF note:** **`0x72=0x28`** = **12 Hz** cutoff @ 48 kHz (**`ADC_DSP_HPF_SEL=2d`**, TAA5412 datasheet **§7.1.1.69 `DSP_CFG0`**). Michael/PurePath may prefer **1 Hz (`0x18`)** or programmable IIR — validate on bench before UAT.
 
