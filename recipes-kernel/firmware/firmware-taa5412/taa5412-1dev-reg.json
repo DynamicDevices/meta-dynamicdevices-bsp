@@ -22,26 +22,8 @@
                                 "register": "2",
                                 "mask": "ff",
                                 "data": "03",
-                                "delay": 15,
+                                "delay": "",
                                 "$$hashKey": "02T"
-                            },
-                            {
-                                "book": "0",
-                                "page": "1",
-                                "register": "73",
-                                "mask": "ff",
-                                "data": "d0",
-                                "delay": 15,
-                                "$$hashKey": "03K"
-                            },
-                            {
-                                "book": "0",
-                                "page": "0",
-                                "register": "78",
-                                "mask": "ff",
-                                "data": "a0",
-                                "delay": 15,
-                                "$$hashKey": "03H"
                             },
                             {
                                 "book": "0",
@@ -49,7 +31,7 @@
                                 "register": "50",
                                 "mask": "ff",
                                 "data": "00",
-                                "delay": 10,
+                                "delay": "",
                                 "$$hashKey": "02Z"
                             },
                             {
@@ -58,7 +40,7 @@
                                 "register": "55",
                                 "mask": "ff",
                                 "data": "00",
-                                "delay": 5,
+                                "delay": "",
                                 "$$hashKey": "032"
                             },
                             {
@@ -67,7 +49,7 @@
                                 "register": "5a",
                                 "mask": "ff",
                                 "data": "00",
-                                "delay": 5,
+                                "delay": "",
                                 "$$hashKey": "035"
                             },
                             {
@@ -76,17 +58,80 @@
                                 "register": "5e",
                                 "mask": "ff",
                                 "data": "00",
-                                "delay": 10,
+                                "delay": "",
                                 "$$hashKey": "038"
                             },
                             {
                                 "book": "0",
                                 "page": "0",
-                                "register": "72",
+                                "register": "52",
                                 "mask": "ff",
-                                "data": "28",
-                                "delay": 10,
+                                "data": "f0",
+                                "delay": "",
                                 "$$hashKey": "03M"
+                            },
+                            {
+                                "book": "0",
+                                "page": "0",
+                                "register": "53",
+                                "mask": "ff",
+                                "data": "80",
+                                "delay": "",
+                                "$$hashKey": "03N"
+                            },
+                            {
+                                "book": "0",
+                                "page": "0",
+                                "register": "57",
+                                "mask": "ff",
+                                "data": "00",
+                                "delay": "",
+                                "$$hashKey": "03O"
+                            },
+                            {
+                                "book": "0",
+                                "page": "0",
+                                "register": "58",
+                                "mask": "ff",
+                                "data": "80",
+                                "delay": "",
+                                "$$hashKey": "03P"
+                            },
+                            {
+                                "book": "0",
+                                "page": "0",
+                                "register": "5b",
+                                "mask": "ff",
+                                "data": "00",
+                                "delay": "",
+                                "$$hashKey": "03Q"
+                            },
+                            {
+                                "book": "0",
+                                "page": "0",
+                                "register": "5c",
+                                "mask": "ff",
+                                "data": "80",
+                                "delay": "",
+                                "$$hashKey": "03S"
+                            },
+                            {
+                                "book": "0",
+                                "page": "0",
+                                "register": "5f",
+                                "mask": "ff",
+                                "data": "00",
+                                "delay": "",
+                                "$$hashKey": "03T"
+                            },
+                            {
+                                "book": "0",
+                                "page": "0",
+                                "register": "60",
+                                "mask": "ff",
+                                "data": "80",
+                                "delay": "",
+                                "$$hashKey": "03U"
                             },
                             {
                                 "book": "0",
@@ -94,7 +139,7 @@
                                 "register": "76",
                                 "mask": "ff",
                                 "data": "c0",
-                                "delay": 5,
+                                "delay": "",
                                 "$$hashKey": "03B"
                             },
                             {
@@ -105,6 +150,24 @@
                                 "data": "c0",
                                 "delay": "",
                                 "$$hashKey": "03E"
+                            },
+                            {
+                                "book": "0",
+                                "page": "0",
+                                "register": "78",
+                                "mask": "ff",
+                                "data": "a0",
+                                "delay": "",
+                                "$$hashKey": "03H"
+                            },
+                            {
+                                "book": "0",
+                                "page": "1",
+                                "register": "73",
+                                "mask": "ff",
+                                "data": "d0",
+                                "delay": "",
+                                "$$hashKey": "03K"
                             }
                         ],
                         "blockType": "PRE_POWER_UP",
