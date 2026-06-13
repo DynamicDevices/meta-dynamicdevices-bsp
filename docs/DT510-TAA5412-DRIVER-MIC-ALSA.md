@@ -133,7 +133,7 @@ sudo grep -E '^(001e|0076):' /sys/kernel/debug/regmap/1-0051/registers
 In **`imx8mm-jaguar-dt510.dts`**:
 
 - **`/delete-property/ fsl,sai-asynchronous`** — NXP EVK leaves this on **`&sai5`**; remove inherited async so **`fsl,sai-synchronous-rx`** is valid ( **`fsl,sai-asynchronous`** + **`fsl,sai-synchronous-rx`** together → **`fsl_sai_probe` → `-EINVAL`**, card deferred — early **`lmp-350`**).
-- **`fsl,sai-synchronous-rx`** — BCLK on **`SAI5_RXC`**, LRCK on **`SAI5_TX_SYNC`**: Rx is bit-clock master during **`arecord`**, Tx follows for frame sync. Kernel **0028** mirrors **RCR2/RCR4/RCR5 → TCR2/TCR4/TCR5** from regmap reads on capture, prefers TDM **slots×width** for BCLK, clears stale **bclk_ratio**, enables **Tx TERE** on capture trigger. MSO pass: LRCLK **~48 kHz**, BCLK **~3.072 MHz**, ratio **~64**.
+- **`fsl,sai-synchronous-rx`** — BCLK on **`SAI5_RXC`**, LRCK on **`SAI5_TX_SYNC`**: Rx is bit-clock master during **`arecord`**, Tx follows for frame sync. Kernel **0028** mirrors **RCR2/RCR4/RCR5 → TCR2/TCR4/TCR5** from regmap reads on capture, prefers TDM **slots×width** for BCLK, clears stale **bclk_ratio**, enables **Tx TERE** on capture trigger. **0029** (after **0028**, target **546+** follow-up): mirrors **RCR3 → TCR3**, derives **slots** from channel count when **`dai-tdm-slot-width`** is set (avoids stale **`bclk_ratio(128)`** forcing **6.144 MHz**), target MSO **~48 kHz / 3.072 MHz / ratio 64**.
 - **`sound-taa5412` CPU DAI:** **`dai-tdm-slot-num = <2>`**, **`dai-tdm-slot-width = <32>`** — 48 kHz stereo **64 BCLK/LRCLK** (S16 payload in 32-bit I2S slots; not Michael’s bare 16-bit sample formula).
 - **`assigned-clock-rates = <12288000>`**, **`AUDIO_PLL1_OUT`**, **`fsl,sai-mclk-direction-output`**.
 
