@@ -15,24 +15,24 @@ Pairs with skip_pre_shutdown (0009) for back-to-back VoIP captures.
 
 Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 ---
- sound/soc/codecs/pcm6240.c | 78 ++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 78 insertions(+)
+ sound/soc/codecs/pcm6240.c | 62 +++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 62 insertions(+), 4 deletions(-)
 
 diff --git a/sound/soc/codecs/pcm6240.c b/sound/soc/codecs/pcm6240.c
 --- a/sound/soc/codecs/pcm6240.c
 +++ b/sound/soc/codecs/pcm6240.c
-@@ -2003,6 +2003,9 @@ static int pcmdevice_mute(struct snd_soc_dai *dai, int mute, int stream)
+@@ -2011,6 +2011,10 @@
  /* I2S stereo 32-bit: ch1 slot 0, ch2 slot 16 (see tac5x1x bench target 426). */
  #define PCMDEVICE_PASITXCH2_I2S_STEREO	0x30
  
-+/* TAA5412 capture power / gain (page 0) — regbin PRE_POWER target values. */
++/* TAA5412 capture power / gain (page 0) - regbin PRE_POWER target values. */
 +#define PCMDEVICE_REG_CH_EN		PCMDEVICE_REG(0x0, 0x76)
 +#define PCMDEVICE_REG_PWR_MIC		PCMDEVICE_REG(0x0, 0x78)
 +
  /* Extra settle after regbin PRE_POWER delays before ASI TX (pop mitigation). */
  #define PCMDEVICE_CAPTURE_POWER_SETTLE_MS 20
  
-@@ -2036,6 +2039,73 @@ static int pcmdevice_asi_capture_enable(struct snd_soc_dai *dai, bool enable)
+@@ -2046,16 +2050,80 @@ static int pcmdevice_asi_capture_enable(struct snd_soc_dai *dai, bool enable)
  	return ret;
  }
  
@@ -96,7 +96,11 @@ diff --git a/sound/soc/codecs/pcm6240.c b/sound/soc/codecs/pcm6240.c
 +		mutex_lock(&pcm_dev->codec_lock);
 +		warm = pcmdevice_capture_analog_powered(pcm_dev);
 +		mutex_unlock(&pcm_dev->codec_lock);
-+
+ 
+-		ret = pcmdevice_apply_pre_power_up(dai);
+-		if (ret)
+-			return ret;
+-		msleep(PCMDEVICE_CAPTURE_POWER_SETTLE_MS);
 +		if (!warm) {
 +			ret = pcmdevice_apply_pre_power_up(dai);
 +			if (ret)
@@ -109,11 +113,7 @@ diff --git a/sound/soc/codecs/pcm6240.c b/sound/soc/codecs/pcm6240.c
 +			dev_dbg(pcm_dev->dev, "%s: warm capture open (skip PRE_POWER)\n",
 +				__func__);
 +		}
- 
--		ret = pcmdevice_apply_pre_power_up(dai);
--		if (ret)
--			return ret;
--		msleep(PCMDEVICE_CAPTURE_POWER_SETTLE_MS);
++
  		return pcmdevice_asi_capture_enable(dai, true);
  	}
  
