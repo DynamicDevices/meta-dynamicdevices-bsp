@@ -1,0 +1,119 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Dynamic Devices <support@dynamicdevices.co.uk>
+Date: Sun, 15 Jun 2026 12:00:00 +0000
+Subject: [PATCH] ASoC: pcm6240: warm capture open + restore Ch1 Digi (DT510)
+
+PRE_POWER on every cold capture open powers analog without rewriting 0x52,
+so Ch1 Digi drops from boot 177 (0xb1) to chip default 161 (0xa1) and
+sec1+ capture collapses.
+
+When CH_EN/PWR already indicate a powered capture path, skip PRE_POWER
+(warm open). After a cold PRE_POWER, re-apply Ch1 Digi from regmap cache
+(last amixer/taa5412-init value) before ASI TX.
+
+Pairs with skip_pre_shutdown (0009) for back-to-back VoIP captures.
+
+Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
+---
+ sound/soc/codecs/pcm6240.c | 78 ++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 78 insertions(+)
+
+diff --git a/sound/soc/codecs/pcm6240.c b/sound/soc/codecs/pcm6240.c
+--- a/sound/soc/codecs/pcm6240.c
++++ b/sound/soc/codecs/pcm6240.c
+@@ -2003,6 +2003,9 @@ static int pcmdevice_mute(struct snd_soc_dai *dai, int mute, int stream)
+ /* I2S stereo 32-bit: ch1 slot 0, ch2 slot 16 (see tac5x1x bench target 426). */
+ #define PCMDEVICE_PASITXCH2_I2S_STEREO	0x30
+ 
++/* TAA5412 capture power / gain (page 0) — regbin PRE_POWER target values. */
++#define PCMDEVICE_REG_CH_EN		PCMDEVICE_REG(0x0, 0x76)
++#define PCMDEVICE_REG_PWR_MIC		PCMDEVICE_REG(0x0, 0x78)
++
+ /* Extra settle after regbin PRE_POWER delays before ASI TX (pop mitigation). */
+ #define PCMDEVICE_CAPTURE_POWER_SETTLE_MS 20
+ 
+@@ -2036,6 +2039,73 @@ static int pcmdevice_asi_capture_enable(struct snd_soc_dai *dai, bool enable)
+ 	return ret;
+ }
+ 
++static bool pcmdevice_capture_analog_powered(struct pcmdevice_priv *pcm_dev)
++{
++	unsigned int ch_en = 0, pwr = 0;
++
++	if (pcmdev_dev_read(pcm_dev, 0, PCMDEVICE_REG_CH_EN, &ch_en) < 0)
++		return false;
++	if (pcmdev_dev_read(pcm_dev, 0, PCMDEVICE_REG_PWR_MIC, &pwr) < 0)
++		return false;
++
++	return ((ch_en & 0xc0) == 0xc0) && ((pwr & 0xa0) == 0xa0);
++}
++
++static int pcmdevice_restore_taa5412_digi_gain(struct snd_soc_dai *dai)
++{
++	struct snd_soc_component *codec = dai->component;
++	struct pcmdevice_priv *pcm_dev = snd_soc_component_get_drvdata(codec);
++	struct regmap *map = pcm_dev->regmap;
++	unsigned int digi = 0, fine = 0;
++	int ret;
++
++	if (pcm_dev->chip_id != TAA5412 && pcm_dev->chip_id != TAD5412)
++		return 0;
++
++	mutex_lock(&pcm_dev->codec_lock);
++	ret = regmap_read(map, TAA5412_REG_CH1_DIGITAL_VOLUME, &digi);
++	if (!ret)
++		ret = regmap_read(map, TAA5412_REG_CH1_FINE_GAIN, &fine);
++	if (ret) {
++		dev_err(pcm_dev->dev, "%s: regmap_read digi/fine err=%d\n",
++			__func__, ret);
++		goto out;
++	}
++
++	ret = pcmdev_dev_write(pcm_dev, 0, TAA5412_REG_CH1_DIGITAL_VOLUME, digi);
++	if (!ret)
++		ret = pcmdev_dev_write(pcm_dev, 0, TAA5412_REG_CH1_FINE_GAIN, fine);
++	if (ret)
++		dev_err(pcm_dev->dev, "%s: restore Ch1 Digi/Fine err=%d\n",
++			__func__, ret);
++	else
++		dev_dbg(pcm_dev->dev, "%s: restored Ch1 Digi=0x%02x Fine=0x%02x\n",
++			__func__, digi, fine);
++out:
++	mutex_unlock(&pcm_dev->codec_lock);
++	return ret;
++}
++
+ static int pcmdevice_startup(struct snd_pcm_substream *substream,
+ 			     struct snd_soc_dai *dai)
+ {
+ 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
++		struct snd_soc_component *codec = dai->component;
++		struct pcmdevice_priv *pcm_dev =
++			snd_soc_component_get_drvdata(codec);
+ 		int ret;
++		bool warm;
++
++		mutex_lock(&pcm_dev->codec_lock);
++		warm = pcmdevice_capture_analog_powered(pcm_dev);
++		mutex_unlock(&pcm_dev->codec_lock);
++
++		if (!warm) {
++			ret = pcmdevice_apply_pre_power_up(dai);
++			if (ret)
++				return ret;
++			msleep(PCMDEVICE_CAPTURE_POWER_SETTLE_MS);
++			ret = pcmdevice_restore_taa5412_digi_gain(dai);
++			if (ret)
++				return ret;
++		} else {
++			dev_dbg(pcm_dev->dev, "%s: warm capture open (skip PRE_POWER)\n",
++				__func__);
++		}
+ 
+-		ret = pcmdevice_apply_pre_power_up(dai);
+-		if (ret)
+-			return ret;
+-		msleep(PCMDEVICE_CAPTURE_POWER_SETTLE_MS);
+ 		return pcmdevice_asi_capture_enable(dai, true);
+ 	}
+ 
