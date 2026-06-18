@@ -36,6 +36,15 @@
                             },
                             {
                                 "book": "0",
+                                "page": "1",
+                                "register": "24",
+                                "mask": "ff",
+                                "data": "00",
+                                "delay": 5,
+                                "$$hashKey": "03AGC"
+                            },
+                            {
+                                "book": "0",
                                 "page": "0",
                                 "register": "78",
                                 "mask": "ff",
@@ -82,15 +91,6 @@
                             {
                                 "book": "0",
                                 "page": "0",
-                                "register": "72",
-                                "mask": "ff",
-                                "data": "28",
-                                "delay": 10,
-                                "$$hashKey": "03HPF"
-                            },
-                            {
-                                "book": "0",
-                                "page": "0",
                                 "register": "76",
                                 "mask": "ff",
                                 "data": "c0",
@@ -105,6 +105,15 @@
                                 "data": "c0",
                                 "delay": 5,
                                 "$$hashKey": "03E"
+                            },
+                            {
+                                "book": "0",
+                                "page": "0",
+                                "register": "72",
+                                "mask": "ff",
+                                "data": "10",
+                                "delay": 10,
+                                "$$hashKey": "03HPF"
                             }
                         ],
                         "blockType": "PRE_POWER_UP",
