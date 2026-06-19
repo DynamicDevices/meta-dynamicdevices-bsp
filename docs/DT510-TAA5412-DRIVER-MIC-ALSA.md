@@ -199,7 +199,24 @@ In **`imx8mm-jaguar-dt510.dts`**:
 4. **`.mute_stream` unmute** → no‑op for **PRE_POWER** (**0008**)
 5. **`taa5412-init`** / AVM gain applies without a post-open **`amixer`** workaround on images with this regbin
 
-**Lab scripts (546+):** **`dt510-driver-mic-reference-playback-test.sh`** applies **Ch1 Digi/Fine** before **`arecord`** by default (**`MIC_DIGI_BEFORE_CAPTURE=1`**); no post-open mute/unmute workaround. Historical A/B on target **543**: **`vix-apps/lab-artifacts/driver-mic-ref/pop-mitigation-20260612-144129/SUMMARY.md`**.
+**Lab scripts (546+):** **`dt510-driver-mic-reference-playback-test.sh`** — **2026-06-19:** defaults **`AVM_PTT_GAIN_CHOREO=1`**, **`MIC_DIGI_BEFORE_CAPTURE=1`**, **`DIGI_GAIN=240`**, same gain (or **`MIC_POST_OPEN_DIGI`**) @ **`MIC_GAIN_AFTER_STREAM_SECS=0.2`**. Required on **569+** until pcm6240 latch root cause fixed — see **`vix-apps/lab-artifacts/driver-mic-ref/README.md`** § latch. Historical pop A/B: **`pop-mitigation-20260612-144129/SUMMARY.md`**.
+
+### pcm6240 capture latch (569+, 2026-06-19)
+
+**Symptom:** **`arecord -D driver_mic_in1`** opens, **~0.2 s pop**, then PCM **near zero** (sec1 peak ~5 or pop-only) unless **Ch1 Digi** is set **before** open **and** re-applied **~200 ms after** open.
+
+| Path | Pre-open (Ch1 Digi) | @ 200 ms | Notes |
+|------|---------------------|----------|--------|
+| **Bare / wrong** | 0 or 177 only | none or 177 | **Latches** on bench sine |
+| **AVM VoIP** | **`call_mic_gain`** (177) | **`driver_mic_post_open_gain`** (240) | Sustains; may clip on loud input |
+| **AVM PTT (lab trial)** | **`pa_mic_gain`** (200) | **`driver_mic_post_open_gain`** (200) | **LOCK 2026-06-19** — Michael sign-off |
+| **Lab script default** | 240 | 240 | Latch-safe; Ollie path clips — use for pass/fail only |
+
+**AVM code:** **`vix-apps` `2daadf0`** — `audio_stream_handler._schedule_driver_mic_post_open_gain`. Config keys: **`driver_mic_post_open_gain_enable`**, **`driver_mic_post_open_gain_delay_ms`**, **`driver_mic_post_open_gain`**. Factory default: post-open **disabled** — enable in lab **`config.txt`** until BSP fix.
+
+**Tracking:** [vix-apps #20](https://github.com/DynamicDevices/vix-apps/issues/20). **Hardware:** faulty units with **2k2 = 0 Ω** on mic bias path need extreme drive — distinguish from software latch.
+
+**Do not** rely on **`taa5412-init` boot Digi 177** alone for sustained capture on current factory images.
 
 **HPF note:** **`0x72=0x28`** = **12 Hz** cutoff @ 48 kHz (**`ADC_DSP_HPF_SEL=2d`**, TAA5412 datasheet **§7.1.1.69 `DSP_CFG0`**). Michael/PurePath may prefer **1 Hz (`0x18`)** or programmable IIR — validate on bench before UAT.
 
@@ -251,7 +268,9 @@ In **`imx8mm-jaguar-dt510.dts`**:
 | **ch1 always silent**, ch0 only | **`pcm6240` `0004` enables PASITXCH1 only** — **`PASITXCH2=0x01`** (slot 1, **ASI_TX off**) | I2C during capture: **CH1=0x20**, **CH2=0x01**; manual **PASITXCH2=0x30** → ch1 peak **~12500**; reset **0x01** → ch1 **0** again. **0x21** (ASI_TX on slot 1) still silent — need **slot 16** (**0x30**), same as tac5x1x **426**. |
 | Regmap vs I2C | Regmap cache **stale** for **0x1f** on pcm6240 | Regmap **001f: 01** while **i2cget 0x1f** reads **0x30** — use **`i2cget`** or dump script I2C path for PASITXCH2. |
 
-**Fix:** extend **`pcm6240-lmp/0004`** to write **`PASITXCH2=0x30`** on capture startup (paired with **`0005`** tac5x1x behaviour). Lab gain: tune **`TAA5412 i2c1 Dev0 Ch1 Digi Volume`** (and Ch2 when stereo matters) — production default **177** (max 0% clip @ Ollie 80%, 2026‑06‑12 sweep); **`DIGI_GAIN=240`** for stress / legacy parity.
+**Fix:** extend **`pcm6240-lmp/0004`** to write **`PASITXCH2=0x30`** on capture startup (paired with **`0005`** tac5x1x behaviour). Lab gain: tune **`TAA5412 i2c1 Dev0 Ch1 Digi Volume`** (and Ch2 when stereo matters).
+
+**Production / lab gain (2026-06-19, target 569+):** Boot **`taa5412-init`** sets **177 / 8**. **Sustained capture** requires AVM or lab **pre-open + post-open @ 200 ms** choreography — see § pcm6240 capture latch and **`vix-apps/lab-artifacts/driver-mic-ref/README.md`**. **177 alone latches**; **VoIP 177→240** sustains; **PTT trial 200→200**; **240→240** sustains but clips. Historical Ollie sweep “177 = 0% clip” assumed sustained capture — invalid without post-open bump.
 
 **Codec-side (Path A):** **`pcm6240-lmp/0004`** sets **`PASITXCH1` ASI_TX** and **`PASI0=0x70`** on capture — firmware **`PRE_POWER_UP`** alone was insufficient; **must also set `PASITXCH2=0x30`** for stereo ch1. Path B equivalent: **`kernel-module-tac5x1x-ti-taa5412/0005`** (both PASITXCH1/CH2 ASI_TX).
 
@@ -334,4 +353,4 @@ During capture, **`TCR2=RCR2`**, **`TCR4/TCR5=RCR4/RCR5`**, **`TCR4` FSD_MSTR** 
 - **`meta-subscriber-overrides/docs/DT510-HARDWARE-BRINGUP.md`** § TAA5412
 - Workspace bench log **`lab-artifacts/taa5412-michael-compare-20260526.md`** (Michael regbin / I2C vs factory, **`taa5412-init`**)
 
-*Last updated: **2026‑06‑12** — capture open pop mitigation (**0008**/**0009**, staggered regbin + HPF); § Ch1 Digi history; bring-up through **438**.*
+*Last updated: **2026‑06‑19** — pcm6240 capture latch + AVM post-open gain choreography (569); capture open pop (**0008**/**0009**); bring-up through **438**.*
