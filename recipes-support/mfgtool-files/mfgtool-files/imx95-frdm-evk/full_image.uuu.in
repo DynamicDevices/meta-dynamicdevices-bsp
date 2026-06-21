@@ -4,15 +4,18 @@ uuu_version 1.4.149
 # SDPS loads imx-boot-mfgtool (SPL+U-Boot); skip SDPV (unlike imx8mm). See imx93 template.
 SDPS: boot -f imx-boot-mfgtool
 
-# FRDM onboard eMMC = USDHC1 = U-Boot mmc dev 0. Explicit mmcdev 0 (default mmcdev=1 on this board).
+# FRDM onboard eMMC = USDHC1 = U-Boot mmc dev 0. Explicit emmc_dev/mmcdev 0 (default mmcdev=1 on this board).
 FB: ucmd setenv fastboot_dev mmc
 FB: ucmd setenv emmc_dev 0
 FB: ucmd setenv mmcdev 0
 FB: ucmd mmc dev 0
-FB: ucmd mmc dev 0 1; mmc erase 0 0x2000; mmc dev 0 0
-FB: flash -raw2sparse all ../@@MFGTOOL_FLASH_IMAGE@@-@@MACHINE@@@@IMAGE_NAME_SUFFIX@@.wic.gz
-FB: flash bootloader2 ../u-boot.itb
+FB: ucmd mmc dev ${mmcdev} 1; mmc erase 0 0x3C00; mmc dev 0 0
+# imx95 fastboot cannot gunzip — use uncompressed .wic/* (not .wic.gz).
+FB: flash -raw2sparse all ../@@MFGTOOL_FLASH_IMAGE@@-@@MACHINE@@@@IMAGE_NAME_SUFFIX@@.wic/*
 FB: flash bootloader ../imx-boot-@@MACHINE@@
+FB: flash bootloader2 ../u-boot-@@MACHINE@@.itb
+FB: flash bootloader_s ../imx-boot-@@MACHINE@@
+FB: flash bootloader2_s ../u-boot-@@MACHINE@@.itb
 FB: ucmd if env exists emmc_ack; then ; else setenv emmc_ack 0; fi;
 FB: ucmd mmc partconf 0 ${emmc_ack} 1 0
 FB: done

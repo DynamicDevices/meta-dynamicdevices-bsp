@@ -54,6 +54,7 @@ SRC_URI:append:imx95-frdm-evk = " \
     file://fix-environment-config.cfg \
     file://lmp-spl-fit.cfg \
     file://ostree-boot.cfg \
+    file://bootdelay-lab.cfg \
     file://factory-fastboot.cfg \
     file://enable-foundries-imx-commands.cfg \
     file://0002-skip-srctree-clean-check-out-of-tree.patch \
