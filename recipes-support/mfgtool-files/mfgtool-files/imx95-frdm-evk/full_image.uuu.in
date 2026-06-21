@@ -1,7 +1,7 @@
 uuu_version 1.4.149
 
 # imx95 SPL uses CONFIG_SPL_LOAD_IMX_CONTAINER (AHAB), not FIT on SDPV.
-# SDPS loads imx-boot-mfgtool (SPL+U-Boot); skip SDPV (unlike imx8mm). See imx93 template.
+# SDPS: single flash_all container (SPL+ATF+OP-TEE+U-Boot) → fastboot @ 0152. No SDPV.
 SDPS: boot -f imx-boot-mfgtool
 
 # FRDM onboard eMMC = USDHC1 = U-Boot mmc dev 0. Explicit emmc_dev/mmcdev 0 (default mmcdev=1 on this board).
