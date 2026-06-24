@@ -19,7 +19,7 @@
 #
 # ── Hardware team cheat sheet (driver stays bound) ─────────────────────────────
 #
-#   docker stop vix-apps-avm-1          # if AVM holds the mic
+#   docker stop vix-avm          # if AVM holds the mic
 #   grep taa5412 /proc/asound/cards     # expect taa5412codec when sound card probed
 #
 #   sudo dt510-taa5412-i2c-registers-apply.sh -f taa5412-registers-michael.conf -a 0x51 --verify
