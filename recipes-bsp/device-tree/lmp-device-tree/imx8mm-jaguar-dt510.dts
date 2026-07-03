@@ -911,6 +911,9 @@
  *
  * &i2c2 (Linux i2c-1): audio ICs (TAS2563 / TAS6424).
  * &i2c3 (Linux i2c-2): KSZ9896 switch @ 0x5f + charger + LT9611 HDMI bridge.
+ * &i2c4 (Linux i2c-3): SE050 secure element on dedicated D13/E13 pads; OpTEE
+ *   owns the bus and initialises the pinmux internally, so Linux must not
+ *   probe or re-mux those pins.
  * PMIC &i2c1 stays in imx8mm-evkb.dts (PCA9450).
  */
 &reg_vddext_3v3 {
@@ -1129,6 +1132,14 @@
 		vdd-supply = <&reg_vddext_3v3>;
 		vcc-supply = <&reg_vddext_3v3>;
 	};
+};
+
+/*
+ * SE050 secure world only: explicitly disable Linux &i2c4 so the inherited EVK
+ * DT cannot claim the controller or touch the dedicated I2C4 D13/E13 pads.
+ */
+&i2c4 {
+	status = "disabled";
 };
 
 /*
