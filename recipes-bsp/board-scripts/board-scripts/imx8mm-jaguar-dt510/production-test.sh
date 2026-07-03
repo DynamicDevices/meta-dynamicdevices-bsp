@@ -10,6 +10,7 @@ set -euo pipefail
 VERSION=0.1
 IGNORE_CONTAINER_ERRORS=0
 BSP_SHARE="${BOARD_SCRIPTS_SHARE:-/usr/share/board-scripts}"
+FACTORY_FEATURES="${FACTORY_FEATURES_FILE:-/usr/share/dynamicdevices/factory-features}"
 PING_TARGET="${PRODUCTION_TEST_PING_TARGET:-8.8.8.8}"
 WIFI_CON="${PRODUCTION_TEST_WIFI_CON:-VixProduction}"
 PLAY_WAV="${BSP_SHARE}/board-testing-now-starting-up-stereo-48k.wav"
@@ -37,6 +38,10 @@ done
 fail() {
 	echo "TEST FAILED: $*" >&2
 	exit 1
+}
+
+has_factory_feature() {
+	[ -f "$FACTORY_FEATURES" ] && grep -qx "$1" "$FACTORY_FEATURES"
 }
 
 confirm_yes() {
@@ -202,6 +207,42 @@ test_audio() {
 	cabin_loop_test
 }
 
+provision_foundries_se050() {
+	if ! has_factory_feature foundries-se050-hsm; then
+		echo "(4b) SE050 HSM provision — skipped (dev image; DISTRO foundries-se050-hsm not enabled)"
+		return 0
+	fi
+	if ! command -v provision-foundries-se050.sh >/dev/null 2>&1; then
+		fail "foundries-se050-hsm image but provision-foundries-se050.sh not installed"
+	fi
+	if ! step_optional "(4b) Provision SE050 for Foundries HSM (required before Wi-Fi on this image)?"; then
+		fail "SE050 provision required on foundries-se050-hsm images — run before step 5"
+	fi
+	provision-foundries-se050.sh || fail "SE050 Foundries provision failed"
+	confirm_yes "Did SE050 provision complete (PKCS#11 token + /etc/sota/hsm)?"
+}
+
+verify_foundries_se050_after_network() {
+	if ! has_factory_feature foundries-se050-hsm; then
+		return 0
+	fi
+	if [ ! -f /etc/sota/hsm ]; then
+		echo "WARNING: foundries-se050-hsm image but /etc/sota/hsm missing — device registered without SE050 HSM"
+		return 0
+	fi
+	if [ ! -f /var/sota/sql.db ]; then
+		echo "NOTE: not yet registered with Foundries (expected after step 5 Wi-Fi if token present)"
+		return 0
+	fi
+	if journalctl -u lmp-device-auto-register.service --no-pager 2>/dev/null |
+		grep -q 'hsm-module'; then
+		echo "Foundries registration used SE050 HSM (lmp-device-auto-register --hsm-module)"
+		return 0
+	fi
+	echo "WARNING: /var/sota/sql.db exists but lmp-device-auto-register log shows no --hsm-module"
+	echo "         Unit may have registered before step 4b — re-flash or factory re-provision required"
+}
+
 test_wifi() {
 	if ! step_optional "(5) Connect to factory Wi-Fi (${WIFI_CON})?"; then
 		fail "Wi-Fi test skipped"
@@ -218,6 +259,7 @@ test_wifi() {
 	nmcli dev wifi list | head -5 || true
 	ping -c 3 -W 5 "$PING_TARGET" || fail "ping ${PING_TARGET} via Wi-Fi failed"
 	confirm_yes "Did Wi-Fi associate to ${WIFI_CON} and ping succeed?"
+	verify_foundries_se050_after_network
 }
 
 test_ethernet() {
@@ -351,6 +393,14 @@ secure_device() {
 	read -r -p "(12) Secure the device? NOTE YOU CAN ONLY DO THIS ONCE [y/N] " response
 	if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
 		echo SECURING DEVICE
+		if has_factory_feature foundries-se050-hsm; then
+			verify_foundries_se050_after_network
+			if [ -f /var/sota/sql.db ] &&
+				! journalctl -u lmp-device-auto-register.service --no-pager 2>/dev/null |
+					grep -q 'hsm-module'; then
+				echo "WARNING: Foundries identity may not be SE050-backed — review before shipping"
+			fi
+		fi
 		set-fio-passwd.sh
 		rm -f /etc/salt
 		enable-firewall.sh
@@ -369,6 +419,7 @@ main() {
 	ensure_cp2108_nvm
 	test_dio_loopback
 	test_audio
+	provision_foundries_se050
 	test_wifi
 	test_ethernet
 	test_ble

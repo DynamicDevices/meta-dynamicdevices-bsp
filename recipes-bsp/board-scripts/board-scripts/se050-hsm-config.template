@@ -1,0 +1,9 @@
+# Factory station template — copy to /run/factory/se050-pins.env (mode 600) before
+# provision-foundries-se050.sh. Do NOT commit real PINs to git.
+#
+# Example (replace with HSM-generated values per manufacturing policy):
+# HSM_PIN="xxxxxxxx"
+# HSM_SOPIN="yyyyyyyy"
+
+HSM_PIN=""
+HSM_SOPIN=""

@@ -49,6 +49,8 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
   file://board-info.sh \
   file://set-fio-passwd.sh \
   file://enable-firewall.sh \
+  file://provision-foundries-se050.sh \
+  file://se050-hsm-config.template \
   file://production-test.sh \
   file://imx8mm-jaguar-dt510/production-test.sh \
   file://board-testing-now-starting-up-stereo-48k.wav \
@@ -91,6 +93,7 @@ do_install:append:imx8mm-jaguar-dt510() {
     install -m 0755 ${WORKDIR}/imx8mm-jaguar-dt510/production-test.sh ${D}${datadir}/${PN}/imx8mm-jaguar-dt510/
     install -m 0644 ${WORKDIR}/board-testing-now-starting-up-stereo-48k.wav ${D}${datadir}/${PN}/
     install -m 0644 ${WORKDIR}/tests-all-completed-stereo-48k.wav ${D}${datadir}/${PN}/
+    install -m 0644 ${WORKDIR}/se050-hsm-config.template ${D}${datadir}/${PN}/se050-hsm-config.template
     install -m 0755 ${WORKDIR}/dt510-gnss-reset-pulse ${D}${sbindir}/dt510-gnss-reset-pulse
     if ${@'true' if bb.utils.contains('MACHINE_FEATURES', 'taa5412', True, False, d) or bb.utils.contains('MACHINE_FEATURES', 'taa5412-tac5x1x-ti', True, False, d) else 'false'}; then
         install -d ${D}${datadir}/${PN}
@@ -120,3 +123,5 @@ RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = "${@bb.utils.contains('MACHINE_FEATU
 RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = "${@' python3' if bb.utils.contains('MACHINE_FEATURES', 'auracast', True, False, d) or bb.utils.contains('MACHINE_FEATURES', 'cp2108-usb-serial', True, False, d) else ''}"
 RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = "${@bb.utils.contains('MACHINE_FEATURES', 'cp2108-usb-serial', ' python3-pyusb', '', d)}"
 RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = " libgpiod-tools alsa-utils bluez5 can-utils"
+# SE050 Foundries manufacturing provision (production-test step 4b)
+RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = "${@' pkcs11-tool optee-client' if bb.utils.contains('MACHINE_FEATURES', 'se05x', True, False, d) else ''}"
