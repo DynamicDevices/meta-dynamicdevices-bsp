@@ -123,5 +123,6 @@ RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = "${@bb.utils.contains('MACHINE_FEATU
 RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = "${@' python3' if bb.utils.contains('MACHINE_FEATURES', 'auracast', True, False, d) or bb.utils.contains('MACHINE_FEATURES', 'cp2108-usb-serial', True, False, d) else ''}"
 RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = "${@bb.utils.contains('MACHINE_FEATURES', 'cp2108-usb-serial', ' python3-pyusb', '', d)}"
 RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = " libgpiod-tools alsa-utils bluez5 can-utils"
-# SE050 Foundries manufacturing provision (production-test step 4b)
-RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = "${@' pkcs11-tool optee-client' if bb.utils.contains('MACHINE_FEATURES', 'se05x', True, False, d) else ''}"
+# SE050 Foundries manufacturing provision (production-test step 4b).
+# pkcs11-tool is a binary from opensc — RDEPENDS must use the package name.
+RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = "${@' opensc optee-client' if bb.utils.contains('MACHINE_FEATURES', 'se05x', True, False, d) else ''}"
