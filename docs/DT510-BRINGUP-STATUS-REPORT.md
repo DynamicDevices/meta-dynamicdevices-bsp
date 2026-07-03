@@ -89,7 +89,7 @@ Lab status = Dynamic Devices on **interim DT510 boards** (May 2026). **Prototype
 | Battery charger | BQ25792, I²C3 `0x6B`; `CHGR_INT#` | **Partly** | Hardware described; **full charger driver** tied to factory kernel release |
 | HDMI bridge | LT9611, I²C3 `0x39` | **Not yet** | Held until display path confirmed on BOM |
 | HDMI fault / sideband | `HDMI2C1` etc. | **Not yet** | With LT9611 bring-up |
-| Secure element | SE050, I²C4 `0x48` | **Partly** | Security stack path documented; product provisioning TBD |
+| Secure element | SE050, I²C4 `0x48`, SoC **D13/E13** | **Partly** | OpTEE path documented; pinout errata in [`DT510-SE050.md`](DT510-SE050.md); provisioning TBD |
 
 ### Not on the DT510 schematic (skip when walking Vix BOM)
 

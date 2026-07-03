@@ -11,7 +11,8 @@ This folder holds **DeviceTree sources produced by an automated tool** (Ollie) f
 
 1. Drop or update the `.dts` / `.dtsi` (and any companion `.c` / `.h` from the same tool run) as revisions arrive.
 2. Review **diffs** against the current `imx8mm-jaguar-dt510.dts` and the [VIX DT510 pinout / hardware spec](https://docs.google.com/document/d/1dlVcfW7SrOifR-rGjkJnVbnQBO4uU8HeS1MEfDmgcYE/edit?usp=sharing).
-3. Drive **implementation** in the real recipes (DT symlink policy, kernel fragments) from the project plan tiers — using this folder only as **reference input**.
+3. **Note:** Ollie **`pin_mux.dts`** muxes **SAI1_RXD2/RXD3** as GPIO (PME/QUART) and does **not** include **I2C4** — SE050 is **D13/E13**, OpTEE-owned ([`docs/DT510-SE050.md`](../../DT510-SE050.md)).
+4. Drive **implementation** in the real recipes (DT symlink policy, kernel fragments) from the project plan tiers — using this folder only as **reference input**.
 
 ## Files
 

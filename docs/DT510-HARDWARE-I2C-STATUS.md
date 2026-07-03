@@ -15,7 +15,7 @@
 | `0x30a20000`   | I2C1               | `&i2c1`                | `i2c-0`                      |
 | `0x30a30000`   | I2C2               | `&i2c2`                | `i2c-1`                      |
 | `0x30a40000`   | I2C3               | `&i2c3`                | `i2c-2`                      |
-| I2C4 (SE050)   | `&i2c4`            | see SE050 / OpTEE      | (often **no** `i2c-3` in Linux) |
+| I2C4 (SE050)   | `&i2c4`            | OpTEE only; SoC **D13/E13** | (often **no** `i2c-3` in Linux) |
 
 `i2cdetect -l` may list only `i2c-1` and `i2c-2` by **name**, while `i2c-0` still exists under **sysfs** (`/sys/class/i2c-dev/`, `30a20000.i2c`).
 
@@ -35,11 +35,11 @@
 | **1** | `0x6a` | **TI TAS6424** | `tas6424@6a` | ASoC | **Driver bound (↗)** — **userspace ALSA path validated** (**`aplay`** via **`tannoy_slot2`/`3`**, **`tannoys`**) when **`alsa-state`** **`/etc/asound.conf`** present; **`sai1` clock** regressions historically separate from I²C — see **`docs/DT510-TAS6424-TANNOY-ALSA.md`**. |
 | **1** | `0x50` | **TI TAC5301** | `tac5301@50`, `sound-tac5301` | ASoC / `tac5301-codec` | **Driver bound (↗)** — friendly ALSA **`audio_loop`** (**playback**, cabin **loop** analogue out) + **`aux`** (**capture**, **reserved/unused** aux in per product); **`docs/DT510-TAC5301-AUDIO-LOOP-ALSA.md`**. |
 | **1** | `0x51` | **TI TAA5412** | `taa5412@51` | `snd_soc_pcm6240` | **Partial / lab (↗)** — **`alsa-state`** **`driver_mic`** when card **`taa5412-codec`** probes; **`docs/DT510-TAA5412-DRIVER-MIC-ALSA.md`**. Firmware, **`&micfil`**, **`sound-taa5412`** — see checklist. |
-| **1** | `0x48` | *(verify vs schematic / BOM)* | — | — | **Unknown (↗)**: **`i2cdetect`** can show extra addresses vs shipped DT — confirm vs SSOT (**not** **I2C4** SE050 **`0x48`**). |
+| **1** | `0x48` | *(not SE050 — verify BOM)* | — | — | **Unknown (↗)**: **`i2cdetect`** on **`i2c-1`** can show **`0x48`** — this is **not** the OpTEE **I2C4** SE050 (**D13/E13**, not visible in Linux). Confirm vs schematic. |
 | **2** | `0x28` | **TI LP5024** (RGB LED bank) | `led-controller@28`, `ti,lp5024` | leds-lp5xx / hwmon | **Not working (↗)**: **no** `driver` on `2-0028`, **`waiting_for_supplier`**, **no** `led5` / multi-led in `/sys/class/leds` — check **VDD/enable** graph and duplicate `VDDEXT` / regulator warnings. |
 | **2** | `0x3f` | **ST STTS22H** temp | `stts22h@3F` | `stts22` (IIO/hwmon) | **Not working (↗)**: `i2cget` **read error**; **no** `driver` on `2-003f`. |
 | **2** | `0x6b` | **TI BQ25792** charger | `bq25792@6b` | `bq257xx` MFD, charger, regulator | **Partial (↗)**: **`bq257xx` bound** to `2-006b`, **`bq257xx-charger.*`** / **`bq257xx-regulator.*`** present; **no** `power_supply` entries in `/sys/class/power_supply/` on that check — verify **Kconfig** / **MFD** child probe / `simple-battery` and **CHGR_INT#** (GPIO4_IO9) handling. |
-| **—** | I2C4 `0x48` | NXP **SE050** | OpTEE / no Linux child | TEE / crypto | **By design (↗)**: not listed as normal Linux I²C userland device. |
+| **—** | I2C4 `0x48` | NXP **SE050** (U31) | OpTEE / no Linux child; SoC **D13/E13** | TEE / crypto | **By design (↗)**: not listed as normal Linux I²C userland device. See [`DT510-SE050.md`](DT510-SE050.md). |
 
 **Legend (↗):** **OK** = behaviour matches expectation for this bring-up stage · **Not working** = bus or driver not delivering data · **Partial** = bind exists, userspace/child incomplete · **Unknown** = extra addresses on bus.
 

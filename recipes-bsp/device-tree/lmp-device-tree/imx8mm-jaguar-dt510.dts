@@ -32,7 +32,8 @@
  *   Low-power MCU: MCXC144VFM on UART4 (DCE RX/TX pads) — Linux **`ttymxc3`**; **not** the EVKB **`stdout-path`** UART (**`&uart2`** → **`ttymxc1`** @ **0x30890000** use the **UART2** debug header for Linux/U-Boot-style console unless HW docs say otherwise).
  *   Digital I/O: GPIO1_IO00/01/04–09 (DI/DO); IO10–IO13 TAS6424 sideband (see &tas6424). EVK hdmi@3d on &i2c2 disabled.
  *            `pinctrl_gpio1_dio_{in,out}`: DI pads 0x010 (PE=0, min DSE); DO pads 0x116 (`GPIO_STD`, internal pull-down). External pulls on PCB as required.
- *   SE050: I2C4 @ 0x48 — U-Boot / OpTEE; not expanded in this DTS.
+ *   SE050: I2C4 @ 0x48 (U31) — SoC balls D13/E13 (I2C4_SCL/SDA); OpTEE only, not in this DTS.
+ *            SAI1_RXD2/RXD3 (AG17/AF17) = ENET_PME# / QUART_RES# GPIO — not I2C4 (see docs/DT510-SE050.md).
  *
  * Bring-up status (lab — revise when verified):
  *   Serial console (**UART2** / **`ttymxc1`**): **lab 2026-05** — working after **hardware** fix on bench (BSP/U-Boot/cmdline were already consistent).
@@ -537,7 +538,7 @@
 	 * KSZ9896 / FEC sideband on SAI1 pads (see &ksz9896_sw).
 	 *   ENET_INTRP_N# — SAI1_RXFS → GPIO4_IO0, input to SoC, active-low (interrupt to MAC driver).
 	 *   ENET_RST_N#    — SAI1_RXC → GPIO4_IO1, output from SoC, active-low (switch reset).
-	 *   PME / wake     — SAI1_RXD2 → GPIO4_IO4 (ksz9896 PME hog).
+	 *   PME / wake     — SAI1_RXD2 → AG17 → GPIO4_IO4 (ksz9896 PME hog; not I2C4 — SE050 D13/E13).
 	 */
 	pinctrl_ksz9896_sideband: ksz9896sidebandgrp {
 		fsl,pins = <
