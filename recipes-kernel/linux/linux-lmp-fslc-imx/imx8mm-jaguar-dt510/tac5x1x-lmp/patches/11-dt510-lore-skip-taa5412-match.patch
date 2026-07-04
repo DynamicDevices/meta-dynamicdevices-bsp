@@ -19,7 +19,9 @@ Signed-off-by: Dynamic Devices <ajlennon@dynamicdevices.co.uk>
 diff --git a/drivers/mfd/tac5x1x-core.c b/drivers/mfd/tac5x1x-core.c
 --- a/drivers/mfd/tac5x1x-core.c
 +++ b/drivers/mfd/tac5x1x-core.c
-@@ -788,7 +788,6 @@ const struct of_device_id tac5x1x_of_match[] = {
+@@ -787,8 +787,7 @@
+
+ const struct of_device_id tac5x1x_of_match[] = {
  	{ .compatible = "ti,taa5212", .data = (void *)TAA5212 },
 -	{ .compatible = "ti,taa5412", .data = (void *)TAA5412 },
  	{ .compatible = "ti,tac5111", .data = (void *)TAC5111 },
