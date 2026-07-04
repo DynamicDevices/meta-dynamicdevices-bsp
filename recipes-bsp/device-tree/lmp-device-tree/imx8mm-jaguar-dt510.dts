@@ -78,12 +78,9 @@
 	 * Drop EVK audio composites not wired on DT510 (PMIC/audio/path differs).
 	 * NXP imx8mm-evk.dtsi: regulator-audio-board gates via &pca6416; sound-ak5558 / sound-ak4497
 	 * reference AK codecs removed under &i2c3 — delete these too or DTC fails on dangling phandles.
-	 * Also drop the inherited WM8524 codec node: leaving `audio-codec` alive can
-	 * reclaim the dedicated I2C4 pads that secure-world SE050 uses at runtime.
 	 */
 	/delete-node/ sound-micfil;
 	/delete-node/ sound-wm8524;
-	/delete-node/ audio-codec;
 	/delete-node/ sound-ak4458;
 	/delete-node/ sound-spdif;
 	/delete-node/ sound-bt-sco;
