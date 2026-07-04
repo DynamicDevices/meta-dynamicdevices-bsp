@@ -928,10 +928,11 @@
 	/delete-node/ tcpc@50;
 
 	/*
-	 * EVK hdmi@3d — Analog Devices ADV7535 (binds as adv7511). DT510 uses LT9611 on &i2c3; keep node but disabled
-	 * so no I²C driver probes and no IRQ/pinctrl runs (delete-node alone can be fragile across overlays).
+	 * EVK ADV7535 lives at adv7535@3d and binds as adv7511. DT510 uses LT9611 on
+	 * &i2c3, so disable the exact inherited node to stop its IRQ/pinctrl probe
+	 * from colliding with DT510 GPIO1_IO09 digital output usage.
 	 */
-	hdmi@3d {
+	adv7535@3d {
 		status = "disabled";
 	};
 

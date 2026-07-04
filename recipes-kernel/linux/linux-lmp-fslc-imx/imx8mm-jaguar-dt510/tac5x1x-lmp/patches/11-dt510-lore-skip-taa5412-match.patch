@@ -1,0 +1,28 @@
+From: Dynamic Devices <ajlennon@dynamicdevices.co.uk>
+Subject: [PATCH] mfd: tac5x1x: do not claim ti,taa5412 on DT510 Lore stack
+
+DT510 uses the Lore in-kernel TAC5301 stack at I2C 0x50, but the default
+driver-mic path at I2C 0x51 is still PCM6240. Leaving the Lore TAC5X1X core
+matched on `ti,taa5412` makes it probe the TAA5412 node as a second driver,
+which then trips the duplicate `tac5x1x-pinctrl` child registration and emits
+confusing boot noise.
+
+Keep the split-stack layout explicit: Lore TAC5X1X for `ti,tac5301`, PCM6240
+for `ti,taa5412`, and the separate TI OOT `snd-soc-tac5x1x-taa5412` recipe only
+when `taa5412-tac5x1x-ti` is deliberately selected.
+
+Signed-off-by: Dynamic Devices <ajlennon@dynamicdevices.co.uk>
+---
+ drivers/mfd/tac5x1x-core.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/mfd/tac5x1x-core.c b/drivers/mfd/tac5x1x-core.c
+index 0000000..1111111 100644
+--- a/drivers/mfd/tac5x1x-core.c
++++ b/drivers/mfd/tac5x1x-core.c
+@@ -788,7 +788,6 @@ const struct of_device_id tac5x1x_of_match[] = {
+ 	{ .compatible = "ti,taa5212", .data = (void *)TAA5212 },
+-	{ .compatible = "ti,taa5412", .data = (void *)TAA5412 },
+ 	{ .compatible = "ti,tac5111", .data = (void *)TAC5111 },
+ 	{ .compatible = "ti,tac5112", .data = (void *)TAC5112 },
+ 	{ .compatible = "ti,tac5211", .data = (void *)TAC5211 },
