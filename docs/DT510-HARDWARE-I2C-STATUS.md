@@ -29,7 +29,7 @@
 |----------------|------------|------------------|-----------------------------|------------------------|--------------------|
 | **0** | `0x25` | **NXP PCA9450** PMIC | Inherited from EVK (`&i2c1`) | regulator / pinctrl | **OK** (PMIC core; DTC/DT bind) |
 | **0** | `0x44` | **Sensirion SHT4x** | `sht40@44`, `sensirion,sht4x` | `sht4x.ko` (hwmon) | **Not working (↗)**: `i2cget` **read error**; **no** `/sys/.../0-0044/driver`; I²C not usable — fix **wiring, population,** or **I²C** before trusting humidity/temp. |
-| **2** | `0x5f` | **Microchip KSZ9896** (DSA / switch mgmt) | **`switch@5f`** under **`&i2c2`** (**confirm** bus + addr vs straps) | `microchip,ksz9896` | **Pending (↗)**: probe succeeds only after **I²C strap** + routing match DTS; see [`DT510-ETHERNET-KSZ9896.md`](DT510-ETHERNET-KSZ9896.md). |
+| **2** | `0x5f` | **Microchip KSZ9896** (DSA / switch mgmt) | **`switch@5f`** under **`&i2c3`** (Linux `i2c-2`) | `microchip,ksz9896` (DSA) | **Driver bound (↗)**: shows **`UU` at `0x5f`**, DSA ports **`lan1..lan4`** up on healthy hardware; validate with **`dt510-ksz9896-check.sh`**. See [`DT510-ETHERNET-KSZ9896.md`](DT510-ETHERNET-KSZ9896.md). |
 | **1** | `0x3d` | **ADV7535** (DSI→HDMI) | EVK carry-over | `adv7533` (optional) | **On bus (↗)**: not DT510 end-product focus; **display stack disabled** in DT510. |
 | **1** | `0x4c` | **TI TAS2563** | `tas2563@4C` | ASoC / `snd_soc_tas2563` | **Driver bound (↗)** — **`alsa-state`**: **`driver_speaker`**, **`drivers`**, **`tas2563-init`**; see **`docs/DT510-TAS2563-DRIVER-SPEAKER-ALSA.md`**. |
 | **1** | `0x6a` | **TI TAS6424** | `tas6424@6a` | ASoC | **Driver bound (↗)** — **userspace ALSA path validated** (**`aplay`** via **`tannoy_slot2`/`3`**, **`tannoys`**) when **`alsa-state`** **`/etc/asound.conf`** present; **`sai1` clock** regressions historically separate from I²C — see **`docs/DT510-TAS6424-TANNOY-ALSA.md`**. |
@@ -49,7 +49,7 @@
 
 - **Adapters:** `sudo i2cdetect -l` then `sudo i2cdetect -y 0` … `2` (use **adapter index** 0,1,2 = **&i2c1…3** as above).  
 - **SHT4x:** `sudo i2cget -y 0 0x44` (expect failure if not populated); driver: `ls /sys/bus/i2c/devices/0-0044/driver`.  
-- **KSZ (MIIM, not I²C):** `dmesg | grep -iE 'fec|mdio'`, `ethtool` on the primary netdev — see Ethernet doc.  
+- **KSZ9896 (I²C-managed DSA):** `dt510-ksz9896-check.sh --verbose` (or `sudo i2cdetect -y -r 2` → **`UU`** at `0x5f`, `ip -br link` → `lan1..lan4`, `dmesg | grep -i ksz` → no `-ENXIO`) — see Ethernet doc.  
 - **LP5024:** `cat /sys/bus/i2c/devices/2-0028/waiting_for_supplier`; `ls /sys/class/leds/`.  
 - **STTS22H:** `sudo i2cget -y 2 0x3f` (or WHOAMI per datasheet).  
 - **BQ25792:** `ls /sys/bus/i2c/devices/2-006b/`; `ls /sys/class/power_supply/`; `dmesg | grep bq25`.

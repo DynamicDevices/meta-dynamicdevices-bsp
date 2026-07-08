@@ -1,8 +1,20 @@
 # DT510 — KSZ9896CTXC Ethernet (bring-up)
 
+> **Current state (authoritative — 2026-07).** The live DTS is **I²C-managed DSA**:
+> `switch@5f microchip,ksz9896` on **`&i2c3` (Linux `i2c-2`) @ `0x5f`**, FEC RGMII
+> `fixed-link` CPU/conduit, DSA user ports **`lan1..lan4`**. A healthy switch shows
+> **`UU` at `0x5f`** in `i2cdetect -y -r 2` (driver bound), `lan1..lan4` in
+> `ip -br link`, and `DSA: tree 0 setup` with **no** `ksz … -ENXIO` in `dmesg`.
+> Validate with **`dt510-ksz9896-check.sh --verbose`** (board-scripts); it is the
+> switch health gate in `production-test.sh` step 6.
+>
+> Sections below that still describe **`&i2c2`**, **"MIIM-only"**, or say
+> **`i2cdetect` will not show `0x5F`** are **historical** (the transitional
+> MIIM/placeholder-bus era) and do not reflect the shipping design.
+
 ## Phased plan (product intent)
 
-1. **Now — DSA over I²C:** EE straps **KSZ9896** management to **I²C** (same strap pins as MIIM/SPI options per datasheet). BSP enables **`microchip,ksz9896`** on **`&i2c2`** **`switch@5f`** (**placeholder bus + 7-bit address** until pinout/strap SSOT — move node / adjust **`reg`** when confirmed).
+1. **Now — DSA over I²C:** EE straps **KSZ9896** management to **I²C** (same strap pins as MIIM/SPI options per datasheet). BSP enables **`microchip,ksz9896`** on **`&i2c3`** (Linux **`i2c-2`**) **`switch@5f`** — bus and 7-bit address are **confirmed** on shipping hardware.
 2. **Earlier lab — MIIM-only:** older trees used **`&fec1`** **`mdio`** **`ethernet-phy@1`…`@5`** for Clause **22** probe only; that **`mdio`** block is **removed** once DSA owns the switch.
 
 This doc is updated for the **I²C + DSA** device tree; §“Simple bring-up (analysis)” below still explains RGMII concepts.
@@ -15,7 +27,7 @@ This doc is updated for the **I²C + DSA** device tree; §“Simple bring-up (an
 
 - **`&iomuxc`:** `pinctrl_fec1_dt510` — RGMII (+ legacy MDC/MDIO mux where routed), **Ollie** / SSOT.
 - **`&fec1`:** `phy-mode = "rgmii-txid"`, **`fixed-link` 1G** + **`pause`**; **no** `phy-handle`; **no** FEC **`mdio`** — CPU MAC ties to DSA only.
-- **`&i2c2`:** **`switch@5f`** **`microchip,ksz9896`**: **`interrupts`** on **GPIO4_IO0**, **`reset-gpios`** on **GPIO4_IO1**; **`ethernet-ports`** with **`phy-handle`** → internal **`mdio { ethernet-phy@0…@3 }`** (**Microchip EVB-style**); CPU **`port@5`** **`rgmii-txid`** + **`tx-internal-delay-ps = <2000>`** + **`fixed-link`** **`pause`**.
+- **`&i2c3`** (Linux **`i2c-2`**)**:** **`switch@5f`** **`microchip,ksz9896`**: **`interrupts`** on **GPIO4_IO0**, **`reset-gpios`** on **GPIO4_IO1**; **`ethernet-ports`** with **`phy-handle`** → internal **`mdio { ethernet-phy@0…@3 }`** (**Microchip EVB-style**); CPU **`port@5`** **`rgmii-txid`** + **`tx-internal-delay-ps = <2000>`** + **`fixed-link`** **`pause`**.
 - **Kernel:** `ksz9896-ethernet-switch.cfg` enables **`CONFIG_NET_DSA_MICROCHIP_KSZ_COMMON`** + **`CONFIG_NET_DSA_MICROCHIP_KSZ9477_I2C`**; `ksz9896-mii-phy.cfg` retains PHYLIB helpers for integrated PHY code paths.
 
 ## KSZ9896C Port 6 — RGMII (default straps + DS §4.11.4)
@@ -165,14 +177,14 @@ This is the suggested **phase 1** pattern for **hardware prove-out** before a mo
 
 **Summary:** **`&fec1`** is **minimal** for the **CPU** link (`fixed-link` + Ollie pinctrl). **EVK pinctrl** is **not** copied — **SSOT** ENET1 only. **Future:** optional **I²C+DSA** or `mdio` phy children for debug (see *Phased plan*).
 
-**Sideband GPIOs (PME# / INTR# / RST#):** **INTR#** and **RST#** use **SAI1_RXFS** and **SAI1_RXC** (GPIO4_IO0 / IO1). **PME#** uses **SAI1_RXD2** → **AG17** (GPIO4_IO4) — hogged as input in DTS. These are **not** I2C4; **SE050** is on dedicated **`I2C4_SCL` / `I2C4_SDA`** SoC balls **D13 / E13** ([`DT510-SE050.md`](DT510-SE050.md)). **`reset-gpios`** for CPU-port switch reset is not wired in phase‑1 DT.
+**Sideband GPIOs (PME# / INTR# / RST#):** **INTR#** and **RST#** use **SAI1_RXFS** and **SAI1_RXC** (GPIO4_IO0 / IO1). **PME#** uses **SAI1_RXD2** → **AG17** (GPIO4_IO4) — hogged as input in DTS. These are **not** I2C4; **SE050** is on dedicated **`I2C4_SCL` / `I2C4_SDA`** SoC balls **D13 / E13** ([`DT510-SE050.md`](DT510-SE050.md)). Shipping DTS muxes **`pinctrl_ksz9896_sideband`** on **`&fec1`** with the RGMII pads; **`switch@5f`** owns **`reset-gpios`** on **GPIO4_IO1** (active-low pulse at probe).
 
 ## Build → flash → test (short)
 
 1. Pin BSP / manifest per `meta-subscriber-overrides/docs/DT510-HARDWARE-BRINGUP.md`.  
 2. Build **`imx8mm-jaguar-dt510`**.  
-3. On device: `dmesg | grep -iE 'fec|mdio|phy'`, `ip link` — expect a single **FEC**-backed link (e.g. `end0` / `eth0`), not DSA `lan*`.  
-4. **MDIO:** `ls /sys/bus/mdio/devices` — expect **PHY @1…@5** if the internal PHYs respond; **`phy-handle` is not** used for the **CPU** RGMII path (`fixed-link`). `i2cdetect` will **not** show the switch at I²C `0x5F` (expected).  
+3. On device: `dmesg | grep -iE 'ksz|dsa|fec'`, `ip -br link` — expect the FEC conduit **plus** DSA user ports **`lan1..lan4`** (DSA owns the switch; the CPU link is `fixed-link`).  
+4. **Switch alive:** `i2cdetect -y -r 2` shows **`UU` at `0x5f`** (ksz driver bound over I²C) and `dmesg` has **no** `ksz … -ENXIO`. Run **`dt510-ksz9896-check.sh --verbose`** for the one-shot PASS/FAIL. (The MIIM-era note that `i2cdetect` "will not show `0x5F`" no longer applies — that was SPI/MIIM management.)  
 5. RGMII timing: if the CPU link is wrong, tune `phy-mode` / delays (see NXP + KSZ threads). Port links are separate from CPU `fixed-link`.
 
 ## PHY diagnostics on-target (`mdio` vs `phytool`)

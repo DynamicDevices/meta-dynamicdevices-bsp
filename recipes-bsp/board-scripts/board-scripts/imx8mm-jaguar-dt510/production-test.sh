@@ -5,9 +5,16 @@
 #
 #  sudo production-test.sh [--ignore-container-errors]
 #
+# 0.2: assert real hardware evidence per step, not just operator [y/N]:
+#      - Ethernet (6) hard-checks the KSZ9896 switch (dt510-ksz9896-check.sh) and
+#        pings strictly via the Ethernet egress port (no Wi-Fi fallback masking).
+#      - DIO (3) fails if inputs never change; RS-485 (8) fails on echo mismatch.
+#      - Mic/cabin capture asserts non-silent PCM (dead codec); BLE asserts a
+#        powered controller enumerates.
+#
 set -euo pipefail
 
-VERSION=0.1
+VERSION=0.2
 IGNORE_CONTAINER_ERRORS=0
 BSP_SHARE="${BOARD_SCRIPTS_SHARE:-/usr/share/board-scripts}"
 FACTORY_FEATURES="${FACTORY_FEATURES_FILE:-/usr/share/dynamicdevices/factory-features}"
@@ -80,6 +87,17 @@ playback_wav() {
 	aplay -q -D "$dev" "$wav"
 }
 
+# A live capture codec produces dithered (non-zero) samples; a dead one yields
+# pure silence (all-zero PCM). Skip the 44-byte WAV header, then look for any
+# non-zero payload byte. Catches a dead mic/loop codec even if the operator is
+# unsure whether they heard the playback. Returns 0 if the capture has signal.
+capture_has_signal() {
+	local f=$1 nz
+	[ -s "$f" ] || return 1
+	nz=$(tail -c +45 "$f" 2>/dev/null | tr -d '\000' | wc -c)
+	[ "${nz:-0}" -gt 0 ]
+}
+
 stop_vix_apps() {
 	echo "Stopping vix-apps containers (Foundries registration check)..."
 	local names failed=0
@@ -131,18 +149,29 @@ test_dio_loopback() {
 		fail "DIO test skipped by operator"
 	fi
 	echo "Ensure DO1–DO4 ↔ DI1–DI4 loopback fixture is connected."
-	local s1 s2
+	# Sample DI several times across the DO toggle window and require the inputs to
+	# actually change. A stuck DI (dead GPIO / broken fixture) yields one constant
+	# value — that is a hard fail, not a warning, so a dead DIO path can't slip past
+	# on an over-eager operator "y".
+	local samples="" s got=0
 	dt510-dio-toggle-outputs 10 25 &
 	local tpid=$!
-	sleep 0.5
-	s1=$(dt510-dio-poll-inputs --once 2>/dev/null | tail -1 || true)
-	sleep 0.6
-	s2=$(dt510-dio-poll-inputs --once 2>/dev/null | tail -1 || true)
+	for _ in 1 2 3 4 5 6; do
+		s=$(dt510-dio-poll-inputs --once 2>/dev/null | tail -1 || true)
+		[ -n "$s" ] && {
+			samples="${samples}${s}\n"
+			got=$((got + 1))
+		}
+		sleep 0.4
+	done
 	wait "$tpid" 2>/dev/null || true
-	echo "DI sample 1: ${s1:-?}"
-	echo "DI sample 2: ${s2:-?}"
-	if [ -n "$s1" ] && [ -n "$s2" ] && [ "$s1" = "$s2" ]; then
-		echo "WARNING: DI lines did not change during DO toggle — check loopback wiring"
+	echo "DI samples:"
+	printf '%b' "$samples" | sed 's/^/  /'
+	[ "$got" -ge 2 ] || fail "DIO poll returned no usable samples (dt510-dio-poll-inputs)"
+	local distinct
+	distinct=$(printf '%b' "$samples" | sort -u | grep -c .)
+	if [ "$distinct" -lt 2 ]; then
+		fail "DI lines never changed during DO toggle — loopback/GPIO fault or fixture not connected"
 	fi
 	confirm_yes "Did DI inputs follow DO toggle on the loopback fixture?"
 }
@@ -177,6 +206,8 @@ driver_mic_test() {
 	fi
 	read -r -p "Press RETURN and speak toward the driver mic..."
 	arecord -q -D driver_mic -f S16_LE -r 48000 -c 2 -d 5 "$rec"
+	capture_has_signal "$rec" ||
+		fail "driver_mic captured pure silence — TAA5412 capture path dead (not just quiet)"
 	playback_wav "$rec" driver_speaker
 	rm -f "$rec"
 	confirm_yes "Did you hear the driver mic recording on the driver speaker?"
@@ -192,6 +223,8 @@ cabin_loop_test() {
 	local rec=/tmp/dt510-prod-loop.wav
 	read -r -p "Press RETURN and play audio into the cabin loop input..."
 	arecord -q -D aux -f S16_LE -r 48000 -c 2 -d 5 "$rec" || arecord -q -D audio_loop -f S16_LE -r 48000 -c 2 -d 5 "$rec"
+	capture_has_signal "$rec" ||
+		fail "cabin loop captured pure silence — TAC5301 capture path dead (not just quiet)"
 	playback_wav "$rec" driver_speaker
 	rm -f "$rec"
 	confirm_yes "Did you hear the cabin loop recording?"
@@ -263,32 +296,65 @@ test_wifi() {
 }
 
 test_ethernet() {
-	if ! step_optional "(6) Run Ethernet link and ping?"; then
+	if ! step_optional "(6) Run Ethernet switch health + link/ping?"; then
 		fail "Ethernet test skipped"
 	fi
+	# Hardware evidence FIRST: the KSZ9896 switch must actually be alive.
+	# A dead/un-reset switch fails silently — the FEC "eth0" conduit still shows
+	# state UP (fixed-link) so a plain link+ping test would PASS on dead hardware.
+	# dt510-ksz9896-check.sh asserts the ksz driver bound over I2C at 0x5f and DSA
+	# enumerated lan1..lan4. This is the check that stops us shipping a dead switch.
+	if command -v dt510-ksz9896-check.sh >/dev/null 2>&1; then
+		dt510-ksz9896-check.sh --verbose || fail "KSZ9896 switch health check failed — dead/un-reset switch (no lan1-lan4 / I2C -ENXIO at 0x5f)"
+	else
+		fail "dt510-ksz9896-check.sh missing — cannot validate the Ethernet switch"
+	fi
+	# Bring up the conduit and all switch user ports.
 	ip link set eth0 up 2>/dev/null || true
-	local n=0
+	local p
+	for p in lan1 lan2 lan3 lan4; do
+		ip link set "$p" up 2>/dev/null || true
+	done
+	# Find the Ethernet egress interface (the switch port the fixture cable is on
+	# that obtained a DHCP lease). Ping is scoped strictly to it — NO unscoped
+	# fallback, so a Wi-Fi route (already up from step 5) can never mask a dead
+	# Ethernet data path.
+	local eth_if="" n=0
 	while [ "$n" -lt 20 ]; do
-		if ip link show eth0 2>/dev/null | grep -q 'state UP'; then
-			if [ -n "$(ethtool eth0 2>/dev/null | grep 'Link detected: yes')" ] ||
-				ip link show eth0 | grep -q 'LOWER_UP'; then
+		for p in lan1 lan2 lan3 lan4 eth0; do
+			if ip -4 addr show "$p" 2>/dev/null | grep -q 'inet '; then
+				eth_if="$p"
 				break
 			fi
-		fi
+		done
+		[ -n "$eth_if" ] && break
 		sleep 1
 		n=$((n + 1))
 	done
-	ping -c 3 -W 5 -I eth0 "$PING_TARGET" || ping -c 3 -W 5 "$PING_TARGET" ||
-		fail "ping ${PING_TARGET} via eth0 failed"
-	confirm_yes "Did Ethernet link up and ping succeed?"
+	[ -n "$eth_if" ] ||
+		fail "no Ethernet port (lan1-lan4/eth0) obtained an IPv4 address — check fixture cable / DHCP"
+	echo "Ethernet egress interface: ${eth_if}"
+	ping -c 3 -W 5 -I "$eth_if" "$PING_TARGET" ||
+		fail "ping ${PING_TARGET} via ${eth_if} failed (Ethernet path only — no Wi-Fi fallback)"
+	confirm_yes "Did the Ethernet switch pass and ping via ${eth_if} succeed?"
 }
 
 test_ble() {
 	if ! step_optional "(7) Perform Bluetooth BLE scan?"; then
 		fail "BLE test skipped"
 	fi
+	# Hardware evidence: a controller must enumerate (dead/unbound radio => none).
+	# This does not depend on the RF environment, unlike counting advertisers.
+	hciconfig >/dev/null 2>&1 && hciconfig | grep -q '^hci' ||
+		bluetoothctl list 2>/dev/null | grep -qi 'Controller' ||
+		fail "no Bluetooth controller enumerated — radio not present/bound (check MAYA-W2/IW612 + firmware)"
 	bluetoothctl power on
+	bluetoothctl show 2>/dev/null | grep -qi 'Powered: yes' ||
+		fail "Bluetooth controller present but will not power on"
 	bluetoothctl --timeout 10 scan on
+	local seen
+	seen=$(bluetoothctl devices 2>/dev/null | grep -c 'Device' || true)
+	echo "BLE devices discovered: ${seen:-0}"
 	bluetoothctl power off
 	confirm_yes "Did you see BLE device names or MAC addresses?"
 }
@@ -310,8 +376,10 @@ test_rs485_loopback() {
 		timeout 2 dd if=/dev/etm bs=1 count=2 2>/dev/null | hexdump -v -e '2/1 "%02x"' || true )
 	wait || true
 	echo "RX: ${rx:-<none>}"
+	# Operator opted in with the fixture connected, so a bad/absent echo is a real
+	# transceiver/wiring fault — fail rather than warn.
 	if [ "$rx" != "a55a" ]; then
-		echo "WARNING: expected loopback a55a, got '${rx:-empty}'"
+		fail "RS-485 loopback mismatch on /dev/etm: expected a55a, got '${rx:-empty}' (transceiver/fixture fault)"
 	fi
 	if command -v rs485_tx_bytes >/dev/null 2>&1; then
 		rs485_tx_bytes --tty /dev/etm --baud "$baud" --hex "01020304" || true

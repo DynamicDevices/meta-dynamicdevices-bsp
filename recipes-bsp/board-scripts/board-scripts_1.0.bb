@@ -57,6 +57,7 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
   file://tests-all-completed-stereo-48k.wav \
   file://emmc-wipe-boot-partitions.sh \
   file://dt510-gnss-reset-pulse \
+  file://dt510-ksz9896-check.sh \
 "
 # Leading space required: SRC_URI:append concatenates without inserting separators.
 SRC_URI:append:imx8mm-jaguar-dt510 = "${@' file://dt510-taa5412-capture-check.sh' if bb.utils.contains('MACHINE_FEATURES', 'taa5412', True, False, d) or bb.utils.contains('MACHINE_FEATURES', 'taa5412-tac5x1x-ti', True, False, d) else ''}"
@@ -122,7 +123,8 @@ RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = "${@' i2c-tools' if bb.utils.contain
 RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = "${@bb.utils.contains('MACHINE_FEATURES', 'auracast', ' bluez5', '', d)}"
 RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = "${@' python3' if bb.utils.contains('MACHINE_FEATURES', 'auracast', True, False, d) or bb.utils.contains('MACHINE_FEATURES', 'cp2108-usb-serial', True, False, d) else ''}"
 RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = "${@bb.utils.contains('MACHINE_FEATURES', 'cp2108-usb-serial', ' python3-pyusb', '', d)}"
-RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = " libgpiod-tools alsa-utils bluez5 can-utils"
+# i2c-tools: i2cdetect evidence for the KSZ9896 switch check (dt510-ksz9896-check.sh, production-test step 6).
+RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = " libgpiod-tools alsa-utils bluez5 can-utils i2c-tools"
 # SE050 Foundries manufacturing provision (production-test step 4b).
 # pkcs11-tool is a binary from opensc — RDEPENDS must use the package name.
 RDEPENDS:${PN}:append:imx8mm-jaguar-dt510 = "${@' opensc optee-client' if bb.utils.contains('MACHINE_FEATURES', 'se05x', True, False, d) else ''}"
