@@ -21,6 +21,5 @@ if ! command -v gpioset >/dev/null 2>&1; then
 	exit 1
 fi
 
-gpioset -c "$CHIP" --active-low "${LINE}=1"
-sleep 0.05
-gpioset -c "$CHIP" --mode=exit --active-low "${LINE}=0"
+# libgpiod v2: -t 50ms,0 asserts active-low reset for 50 ms then releases.
+gpioset -c "$CHIP" -l -t 50ms,0 --by-name "${LINE}=active"
