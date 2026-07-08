@@ -165,7 +165,7 @@ This is the suggested **phase 1** pattern for **hardware prove-out** before a mo
 
 **Summary:** **`&fec1`** is **minimal** for the **CPU** link (`fixed-link` + Ollie pinctrl). **EVK pinctrl** is **not** copied — **SSOT** ENET1 only. **Future:** optional **I²C+DSA** or `mdio` phy children for debug (see *Phased plan*).
 
-**Sideband GPIOs (PME# / INTR# / RST#):** **INTR#** and **RST#** use **SAI1_RXFS** and **SAI1_RXC** (GPIO4_IO0 / IO1). **PME#** uses **SAI1_RXD2** → **AG17** (GPIO4_IO4) — hogged as input in DTS. These are **not** I2C4; **SE050** is on dedicated **`I2C4_SCL` / `I2C4_SDA`** SoC balls **D13 / E13** ([`DT510-SE050.md`](DT510-SE050.md)). **`&gpio4`** applies **`pinctrl_ksz9896_sideband`** at boot so **RST#** is muxed before the **I²C switch** driver probes; **`switch@5f`** **`reset-gpios`** on **GPIO4_IO1** (not a gpio-hog — driver owns the pulse).
+**Sideband GPIOs (PME# / INTR# / RST#):** **INTR#** and **RST#** use **SAI1_RXFS** and **SAI1_RXC** (GPIO4_IO0 / IO1). **PME#** uses **SAI1_RXD2** → **AG17** (GPIO4_IO4) — hogged as input in DTS. These are **not** I2C4; **SE050** is on dedicated **`I2C4_SCL` / `I2C4_SDA`** SoC balls **D13 / E13** ([`DT510-SE050.md`](DT510-SE050.md)). **`reset-gpios`** for CPU-port switch reset is not wired in phase‑1 DT.
 
 ## Build → flash → test (short)
 
