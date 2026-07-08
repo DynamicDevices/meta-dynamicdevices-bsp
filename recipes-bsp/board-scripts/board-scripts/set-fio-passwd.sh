@@ -6,6 +6,8 @@ if [ "$EUID" -ne 0 ]
   exit
 fi
 
+# Default if image ships no /etc/salt (lab images). Production lines install a
+# machine-specific salt: meta-subscriber-overrides board-scripts bbappend (not in BSP).
 SALT=DynamicDevices
 
 if [ -f /etc/salt ]; then

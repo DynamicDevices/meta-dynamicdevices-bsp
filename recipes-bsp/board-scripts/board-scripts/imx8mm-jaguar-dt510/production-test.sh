@@ -5,16 +5,18 @@
 #
 #  sudo production-test.sh [--ignore-container-errors]
 #
+# 0.4: GNSS (11) — NMEA required; fix optional (report UTC time or WARNING).
+# 0.3: RS-232 cross-port loopback (8) — manufacturing fixture RS232_1 ↔ RS232_2.
 # 0.2: assert real hardware evidence per step, not just operator [y/N]:
 #      - Ethernet (6) hard-checks the KSZ9896 switch (dt510-ksz9896-check.sh) and
 #        pings strictly via the Ethernet egress port (no Wi-Fi fallback masking).
-#      - DIO (3) fails if inputs never change; RS-485 (8) fails on echo mismatch.
+#      - DIO (3) fails if inputs never change; RS-485 (9) fails on echo mismatch.
 #      - Mic/cabin capture asserts non-silent PCM (dead codec); BLE asserts a
 #        powered controller enumerates.
 #
 set -euo pipefail
 
-VERSION=0.2
+VERSION=0.4
 IGNORE_CONTAINER_ERRORS=0
 BSP_SHARE="${BOARD_SCRIPTS_SHARE:-/usr/share/board-scripts}"
 FACTORY_FEATURES="${FACTORY_FEATURES_FILE:-/usr/share/dynamicdevices/factory-features}"
@@ -359,11 +361,49 @@ test_ble() {
 	confirm_yes "Did you see BLE device names or MAC addresses?"
 }
 
+# Cross-port echo: TX on $1 must arrive on $2 (reader starts before writer).
+rs232_cross_echo() {
+	local tx=$1 rx=$2 baud=$3 label=$4
+	local tx_hex="a55a0102" rx_hex
+	stty -F "$tx" "$baud" cs8 -cstopb -parenb raw -echo
+	stty -F "$rx" "$baud" cs8 -cstopb -parenb raw -echo min 0 time 10
+	timeout 0.2 dd if="$rx" bs=256 count=1 status=none 2>/dev/null || true
+	echo "${label}: TX ${tx_hex} on ${tx} → expect on ${rx}..."
+	rx_hex=$( ( timeout 3 dd if="$rx" bs=1 count=4 status=none 2>/dev/null |
+		hexdump -v -e '4/1 "%02x"' || true ) &
+		sleep 0.15
+		printf '%b' '\xA5\x5A\x01\x02' >"$tx"
+		wait )
+	echo "RX: ${rx_hex:-<none>}"
+	[ "$rx_hex" = "$tx_hex" ]
+}
+
+test_rs232_loopback() {
+	# CP2108 IFC0/1 — board nets RS232_1 / RS232_2 (not RS-485 /dev/etm).
+	local rs232_1=/dev/ttyUSB0 rs232_2=/dev/ttyUSB1
+	for dev in "$rs232_1" "$rs232_2"; do
+		[ -e "$dev" ] || fail "${dev} missing (CP2108 RS-232 not ready)"
+	done
+	if ! step_optional "(8) Run RS-232 loopback RS232_1 ↔ RS232_2 (9600 8N1)?"; then
+		fail "RS-232 test skipped"
+	fi
+	echo "Manufacturing fixture required: connect RS232_1 ↔ RS232_2 (cross-port loopback)."
+	echo "  RS232_1 = ${rs232_1} (CP2108 IFC0 — RS232TXD1 / RS232RXD1)"
+	echo "  RS232_2 = ${rs232_2} (CP2108 IFC1 — RS232TXD2 / RS232RXD2)"
+	echo "  TX on one port must reach RX on the other (not a same-port TX→RX jumper)."
+	local baud=9600
+	rs232_cross_echo "$rs232_1" "$rs232_2" "$baud" "RS232_1 → RS232_2" ||
+		fail "RS-232 loopback RS232_1 → RS232_2 failed (fixture not installed or wiring fault)"
+	rs232_cross_echo "$rs232_2" "$rs232_1" "$baud" "RS232_2 → RS232_1" ||
+		fail "RS-232 loopback RS232_2 → RS232_1 failed (fixture not installed or wiring fault)"
+	confirm_yes "Did RS-232 cross-port loopback pass (fixture installed)?"
+}
+
 test_rs485_loopback() {
 	if [ ! -e /dev/etm ]; then
 		fail "/dev/etm missing (CP2108 / udev not ready)"
 	fi
-	if ! step_optional "(8) Run RS-485 loopback on /dev/etm (9600 8O1)?"; then
+	if ! step_optional "(9) Run RS-485 loopback on /dev/etm (9600 8O1)?"; then
 		fail "RS-485 test skipped"
 	fi
 	local baud=9600
@@ -391,7 +431,7 @@ test_can_loopback() {
 	if ! ip link show can0 >/dev/null 2>&1; then
 		fail "can0 interface missing"
 	fi
-	if ! step_optional "(9) Run CAN loopback on can0 (500 kbit/s)?"; then
+	if ! step_optional "(10) Run CAN loopback on can0 (500 kbit/s)?"; then
 		fail "CAN test skipped"
 	fi
 	ip link set can0 down 2>/dev/null || true
@@ -410,8 +450,41 @@ test_can_loopback() {
 	confirm_yes "Did CAN loopback test pass?"
 }
 
+# Parse collected NMEA: print UTC time when fix present; WARNING only if no fix.
+gnss_report_fix() {
+	local sample=$1
+	local rmc gga status time_utc date_utc qual
+	rmc=$(printf '%s\n' "$sample" | grep -E '^\$G[NP]RMC,' | tail -1)
+	if [ -n "$rmc" ]; then
+		status=$(echo "$rmc" | cut -d, -f3)
+		time_utc=$(echo "$rmc" | cut -d, -f2)
+		date_utc=$(echo "$rmc" | cut -d, -f10)
+		if [ "$status" = "A" ]; then
+			echo "GNSS fix: valid (RMC status A)"
+			if [ -n "$time_utc" ]; then
+				echo "GNSS UTC time: ${time_utc} (RMC date ${date_utc:-unknown})"
+			fi
+			return 0
+		fi
+	fi
+	gga=$(printf '%s\n' "$sample" | grep -E '^\$G[NP]GGA,' | tail -1)
+	if [ -n "$gga" ]; then
+		qual=$(echo "$gga" | cut -d, -f7)
+		time_utc=$(echo "$gga" | cut -d, -f2)
+		if [ -n "$qual" ] && [ "$qual" -gt 0 ] 2>/dev/null; then
+			echo "GNSS fix: valid (GGA fix quality ${qual})"
+			if [ -n "$time_utc" ]; then
+				echo "GNSS UTC time: ${time_utc} (from GGA)"
+			fi
+			return 0
+		fi
+	fi
+	echo "WARNING: GNSS receiving NMEA but no navigation fix — no sky view or antenna indoors (not a production-test failure)"
+	return 1
+}
+
 test_gnss() {
-	if ! step_optional "(10) Run GNSS NMEA check on /dev/gnss?"; then
+	if ! step_optional "(11) Run GNSS NMEA check on /dev/gnss?"; then
 		fail "GNSS test skipped"
 	fi
 	[ -e /dev/gnss ] || fail "/dev/gnss missing"
@@ -419,20 +492,29 @@ test_gnss() {
 		dt510-gnss-reset-pulse
 	fi
 	stty -F /dev/gnss 38400 raw -echo min 0 time 20 2>/dev/null || true
-	local n=0 bytes=0
+	echo "Collecting NMEA from /dev/gnss (up to 15s; fix not required)..."
+	local sample="" n=0 bytes=0
 	while [ "$n" -lt 15 ]; do
-		bytes=$(timeout 2 dd if=/dev/gnss bs=1 count=64 2>/dev/null | wc -c)
-		[ "${bytes// /}" -gt 0 ] && break
+		local chunk
+		chunk=$(timeout 2 dd if=/dev/gnss bs=1 count=512 2>/dev/null || true)
+		if [ -n "$chunk" ]; then
+			sample="${sample}${chunk}"
+			bytes=$((bytes + ${#chunk}))
+		fi
+		[ "$bytes" -gt 0 ] &&
+			printf '%s' "$sample" | tr '\r' '\n' | grep -qE '^\$G[NP](RMC|GGA),' && break
 		sleep 1
 		n=$((n + 1))
 	done
-	echo "GNSS bytes received: ${bytes// /}"
-	[ "${bytes// /}" -gt 0 ] || fail "no NMEA data on /dev/gnss (fix not required)"
-	confirm_yes "Did GNSS return NMEA data (valid fix not required)?"
+	echo "GNSS bytes received: ${bytes}"
+	[ "$bytes" -gt 0 ] || fail "no NMEA data on /dev/gnss — GNSS UART path dead or not enumerating"
+	# Show a short sample for the log (first few talker sentences).
+	printf '%s' "$sample" | tr '\r' '\n' | grep -E '^\$G' | head -5 | sed 's/^/  /' || true
+	gnss_report_fix "$(printf '%s' "$sample" | tr '\r' '\n')" || true
 }
 
 test_modem() {
-	if ! step_optional "(11) Run cellular modem data ping?"; then
+	if ! step_optional "(12) Run cellular modem data ping?"; then
 		fail "modem test skipped"
 	fi
 	command -v mmcli >/dev/null 2>&1 || fail "mmcli not found (ModemManager)"
@@ -458,7 +540,7 @@ test_modem() {
 
 secure_device() {
 	echo
-	read -r -p "(12) Secure the device? NOTE YOU CAN ONLY DO THIS ONCE [y/N] " response
+	read -r -p "(13) Secure the device? NOTE YOU CAN ONLY DO THIS ONCE [y/N] " response
 	if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
 		echo SECURING DEVICE
 		if has_factory_feature foundries-se050-hsm; then
@@ -469,6 +551,19 @@ secure_device() {
 				echo "WARNING: Foundries identity may not be SE050-backed — review before shipping"
 			fi
 		fi
+		# Vix DT510 salt ships from meta-subscriber-overrides (board-scripts bbappend),
+		# installed as /etc/salt — not from public BSP. Do not secure without it.
+		[ -f /etc/salt ] ||
+			fail "/etc/salt missing — factory image must include Vix salt from subscriber board-scripts"
+		# shellcheck disable=SC1091
+		. /etc/salt
+		[ -n "${SALT:-}" ] || fail "/etc/salt invalid — SALT not set"
+		[ "${SALT}" != "AlexAndDionne2026" ] ||
+			fail "wrong /etc/salt on DT510 — Sentai salt must not be used for Vix manufacturing"
+		[ "${SALT}" != "DynamicDevices" ] ||
+			fail "refusing default DynamicDevices salt — image must ship Vix salt from subscriber"
+		echo "Manufacturing salt: loaded from /etc/salt (Vix DT510; value not logged)"
+		# Password = sha256("${SALT}|${soc_serial}|")
 		set-fio-passwd.sh
 		rm -f /etc/salt
 		enable-firewall.sh
@@ -491,6 +586,7 @@ main() {
 	test_wifi
 	test_ethernet
 	test_ble
+	test_rs232_loopback
 	test_rs485_loopback
 	test_can_loopback
 	test_gnss
