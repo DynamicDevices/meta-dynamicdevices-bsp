@@ -1,0 +1,91 @@
+From 94a76a8e0caca211a8cebf4d0db3d2b7dbd7ae90 Mon Sep 17 00:00:00 2001
+From: Alex Lennon <ajlennon@dynamicdevices.co.uk>
+Date: Sun, 19 Jul 2026 21:21:23 +0100
+Subject: [PATCH] ASoC/pinctrl: tac5x1x: adapt to kernel 6.12 APIs
+
+The TAC5x1x Lore series targets a newer-than-6.12 kernel. Three 6.12
+adaptations for the DT510 linux-fslc build:
+
+- pinctrl-tac5x1x: gpio_chip.set returns void on 6.12. Keep the int
+  helper (tac5x1x_gpio_set_value) for the internal direction_out caller
+  that needs the error, and wrap it in a void tac5x1x_gpio_set callback.
+- pinctrl-tac5x1x: devm_pinctrl_register() takes a mutable pinctrl_desc*
+  on 6.12; drop const from tac5x1x_pin_desc.
+- ASoC tac5x1x: snd_soc_component_to_dapm() does not exist on 6.12; use
+  snd_soc_component_get_dapm().
+
+Verified with a local aarch64 cross-compile of all three tac5x1x module
+objects (mfd core, pinctrl, codec) against linux-fslc 6.12.
+---
+ drivers/pinctrl/pinctrl-tac5x1x.c | 20 ++++++++++++++++----
+ sound/soc/codecs/tac5x1x.c        |  2 +-
+ 2 files changed, 17 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/pinctrl/pinctrl-tac5x1x.c b/drivers/pinctrl/pinctrl-tac5x1x.c
+index 4e59501f3f78..1225ce2abece 100644
+--- a/drivers/pinctrl/pinctrl-tac5x1x.c
++++ b/drivers/pinctrl/pinctrl-tac5x1x.c
+@@ -679,7 +679,8 @@ static const struct pinconf_ops tac5x1x_pin_conf_ops = {
+ 	.pin_config_group_set	= tac5x1x_pin_config_group_set,
+ };
+ 
+-static const struct pinctrl_desc tac5x1x_pin_desc = {
++/* Not const: kernel 6.12 devm_pinctrl_register() takes a mutable pinctrl_desc *. */
++static struct pinctrl_desc tac5x1x_pin_desc = {
+ 	.name		= "tac5x1x-pinctrl",
+ 	.owner		= THIS_MODULE,
+ 
+@@ -733,8 +734,8 @@ static int tac5x1x_gpio_get(struct gpio_chip *chip, unsigned int offset)
+ 	return ret;
+ }
+ 
+-static int tac5x1x_gpio_set(struct gpio_chip *chip, unsigned int offset,
+-			    int value)
++static int tac5x1x_gpio_set_value(struct gpio_chip *chip, unsigned int offset,
++				  int value)
+ {
+ 	struct tac5x1x_pin *priv = gpiochip_get_data(chip);
+ 	struct device *parent = priv->dev->parent;
+@@ -773,6 +774,17 @@ static int tac5x1x_gpio_set(struct gpio_chip *chip, unsigned int offset,
+ 	return ret;
+ }
+ 
++/*
++ * gpio_chip.set has a void return on kernel 6.12; keep the int-returning helper
++ * above for internal callers that need the error (direction_out), and wrap it
++ * here for the callback.
++ */
++static void tac5x1x_gpio_set(struct gpio_chip *chip, unsigned int offset,
++			     int value)
++{
++	tac5x1x_gpio_set_value(chip, offset, value);
++}
++
+ static int tac5x1x_gpio_direction_in(struct gpio_chip *chip,
+ 				     unsigned int offset)
+ {
+@@ -795,7 +807,7 @@ static int tac5x1x_gpio_direction_out(struct gpio_chip *chip,
+ {
+ 	int ret;
+ 
+-	ret = tac5x1x_gpio_set(chip, offset, value);
++	ret = tac5x1x_gpio_set_value(chip, offset, value);
+ 	if (ret)
+ 		return ret;
+ 
+diff --git a/sound/soc/codecs/tac5x1x.c b/sound/soc/codecs/tac5x1x.c
+index f3ce21464f47..6ac1cb440809 100644
+--- a/sound/soc/codecs/tac5x1x.c
++++ b/sound/soc/codecs/tac5x1x.c
+@@ -1740,7 +1740,7 @@ static s32 tac5x1x_add_widgets(struct snd_soc_component *component)
+ 	    snd_soc_component_get_drvdata(component);
+ 	struct tac5x1x *tac5x1x = tac5x1x_priv->tac5x1x;
+ 	struct snd_soc_dapm_context *dapm =
+-	    snd_soc_component_to_dapm(component);
++	    snd_soc_component_get_dapm(component);
+ 	s32 ret;
+ 
+ 	switch (tac5x1x->codec_type) {
+-- 
+2.43.0
+

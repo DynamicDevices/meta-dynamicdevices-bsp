@@ -248,6 +248,35 @@ being parsed against the 6.6 base. Fix: use the MACHINE-override form
 DTB is built by the **kernel** recipe (KERNEL_DEVICETREE), not `lmp-device-tree` — so
 the provider switch is what routes the DTS onto the 6.12 base.
 
+### Build 658 (FAILED) → NXP-downstream EVK DTBs
+
+Provider switch worked; 6.12 kernel + all 27 driver patches compiled. Failed in
+`do_compile` on `No rule to make target 'freescale/imx8mm-evk-pcie-ep.dtb'`: the
+`imx8mm-evk.inc`/`imx8mm-lpddr4-evk.conf` `KERNEL_DEVICETREE:append:use-nxp-bsp`
+adds ~21 NXP-only `imx8mm-evk-*.dtb` variants that don't exist in mainline. Fix:
+anonymous-python filter in the bbappend dropping `freescale/imx8mm-evk-*` at recipe
+finalization (keeps base `imx8mm-evk.dtb` + our board DTB). Committed `655c7e6`.
+
+### Build 659 (FAILED) → board DTB dangling phandle
+
+Kernel `Image` + `imx8mm-evk.dtb` built; board DTB failed: `csi@.../port/endpoint`
+referenced deleted label `imx8mm_mipi_csi_out`. We delete `&mipi_csi`'s `ports` but
+left `&csi`'s `port` (`csi_in`) dangling. Fix: `/delete-node/ port;` in `&csi`.
+Verified with a **local dtc compile** against the 6.12 tree (zero errors). `25a1866`.
+
+### Build 660 (FAILED) → tac5x1x driver 6.12 API mismatches
+
+Kernel `Image` + board DTB + `imx8mm-evk.dtb` all built. Failed in
+`do_compile_kernelmodules` on the forward-ported tac5x1x stack (Lore series targets
+newer-than-6.12 APIs): `pinctrl-tac5x1x.c` assigned an `int`-returning func to the
+`void gpio_chip.set` callback (`-Werror=incompatible-pointer-types`), and
+`tac5x1x.c` called nonexistent `snd_soc_component_to_dapm()`
+(`-Werror=implicit-function-declaration`). Fix (patch `0028`): void `.set` wrapper +
+int helper for the internal caller, drop `const` from `tac5x1x_pin_desc`
+(`devm_pinctrl_register` wants mutable on 6.12), `to_dapm`→`get_dapm`. **Verified by
+local aarch64 cross-compile** of all three tac5x1x module objects (mfd-core, pinctrl,
+codec) — clean, zero warnings.
+
 ## First-build watch items
 
 - **IW612 `moal`/`mlan`** — most likely first failure (NXP OOT WLAN vs mainline 6.12 APIs).

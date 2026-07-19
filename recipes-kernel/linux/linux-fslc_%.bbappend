@@ -68,6 +68,7 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
     file://imx8mm-jaguar-dt510/patches/0025-mfd-tac5x1x-DT510-TAC5301-analog-DT-defaults.patch \
     file://imx8mm-jaguar-dt510/patches/0026-ASoC-tas6424-rename-mixer-controls-for-passenger-tan.patch \
     file://imx8mm-jaguar-dt510/patches/0027-ASoC-fsl_sai-fix-SAI5-sync-rx-capture-clocks-DT510-T.patch \
+    file://imx8mm-jaguar-dt510/patches/0028-ASoC-pinctrl-tac5x1x-adapt-to-kernel-6.12-APIs.patch \
     file://imx8mm-jaguar-dt510/bq25792-charger.cfg \
     file://imx8mm-jaguar-dt510/bq257xx-mfd-kconfig.cfg \
     file://imx8mm-jaguar-dt510/cp2108-usb-serial.cfg \
