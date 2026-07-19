@@ -1,0 +1,91 @@
+From 9529d838aa90d6f1d33f104ff5cf551f1421098f Mon Sep 17 00:00:00 2001
+From: Dynamic Devices <support@dynamicdevices.co.uk>
+Date: Tue, 26 May 2026 12:00:00 +0000
+Subject: [PATCH 17/27] ASoC: pcm6240: enable ASI TX + I2S32 PASI0 on capture
+ (DT510)
+
+PRE_POWER_UP alone leaves PASITXCH1 bit5 clear and PASI0 at TDM defaults on
+bench pcm6240 images. Set PASI0=0x70 (I2S, 32-bit) and ASI_TX on PASITXCH1
+(slot 0) and PASITXCH2 (slot 16 for I2S stereo) on capture startup; clear
+ASI_TX on shutdown. Without PASITXCH2 ASI_TX, ALSA ch1 / IN2 is always silent.
+
+Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
+---
+ sound/soc/codecs/pcm6240.c | 50 +++++++++++++++++++++++++++++++++++---
+ 1 file changed, 47 insertions(+), 3 deletions(-)
+
+diff --git a/sound/soc/codecs/pcm6240.c b/sound/soc/codecs/pcm6240.c
+index b030c732c482..d0a913780ab5 100644
+--- a/sound/soc/codecs/pcm6240.c
++++ b/sound/soc/codecs/pcm6240.c
+@@ -1957,11 +1957,53 @@ static int pcmdevice_hw_params(struct snd_pcm_substream *substream,
+ 	return ret;
+ }
+ 
++#define PCMDEVICE_REG_PASI0		PCMDEVICE_REG(0x0, 0x1a)
++#define PCMDEVICE_REG_PASITXCH1		PCMDEVICE_REG(0x0, 0x1e)
++#define PCMDEVICE_REG_PASITXCH2		PCMDEVICE_REG(0x0, 0x1f)
++#define PCMDEVICE_PASITX_ASI_TX_EN	BIT(5)
++/* I2S stereo 32-bit: ch1 slot 0, ch2 slot 16 (see tac5x1x bench target 426). */
++#define PCMDEVICE_PASITXCH2_I2S_STEREO	0x30
++
++static int pcmdevice_asi_capture_enable(struct snd_soc_dai *dai, bool enable)
++{
++	struct snd_soc_component *codec = dai->component;
++	struct pcmdevice_priv *pcm_dev = snd_soc_component_get_drvdata(codec);
++	int ret = 0;
++
++	mutex_lock(&pcm_dev->codec_lock);
++	if (enable) {
++		ret = pcmdev_dev_write(pcm_dev, 0, PCMDEVICE_REG_PASI0, 0x70);
++		if (!ret)
++			ret = pcmdev_dev_update_bits(pcm_dev, 0,
++				PCMDEVICE_REG_PASITXCH1,
++				PCMDEVICE_PASITX_ASI_TX_EN,
++				PCMDEVICE_PASITX_ASI_TX_EN);
++		if (!ret)
++			ret = pcmdev_dev_write(pcm_dev, 0,
++				PCMDEVICE_REG_PASITXCH2,
++				PCMDEVICE_PASITXCH2_I2S_STEREO);
++	} else {
++		ret = pcmdev_dev_update_bits(pcm_dev, 0,
++				PCMDEVICE_REG_PASITXCH1,
++				PCMDEVICE_PASITX_ASI_TX_EN, 0);
++		if (!ret)
++			ret = pcmdev_dev_update_bits(pcm_dev, 0,
++				PCMDEVICE_REG_PASITXCH2,
++				PCMDEVICE_PASITX_ASI_TX_EN, 0);
++	}
++	mutex_unlock(&pcm_dev->codec_lock);
++
++	return ret;
++}
++
+ static int pcmdevice_startup(struct snd_pcm_substream *substream,
+ 			     struct snd_soc_dai *dai)
+ {
+-	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
+-		return pcmdevice_mute(dai, 0, SNDRV_PCM_STREAM_CAPTURE);
++	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
++		int ret = pcmdevice_mute(dai, 0, SNDRV_PCM_STREAM_CAPTURE);
++
++		return ret ? ret : pcmdevice_asi_capture_enable(dai, true);
++	}
+ 
+ 	return 0;
+ }
+@@ -1969,8 +2011,10 @@ static int pcmdevice_startup(struct snd_pcm_substream *substream,
+ static void pcmdevice_shutdown(struct snd_pcm_substream *substream,
+ 			       struct snd_soc_dai *dai)
+ {
+-	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
++	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+ 		pcmdevice_mute(dai, 1, SNDRV_PCM_STREAM_CAPTURE);
++		pcmdevice_asi_capture_enable(dai, false);
++	}
+ }
+ 
+ static const struct snd_soc_dai_ops pcmdevice_dai_ops = {
+-- 
+2.43.0
+

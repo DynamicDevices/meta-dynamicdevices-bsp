@@ -87,8 +87,20 @@
 	/delete-node/ sound-ak5558;
 	/delete-node/ sound-ak4497;
 
-	/* EVK DSI→HDMI graph tail — hdmi@3d on &i2c2 disabled under &i2c2; DT510 HDMI is LT9611 on &i2c3. */
-	/delete-node/ hdmi-connector;
+	/*
+	 * Mainline rebase (linux-fslc 6.12, base freescale/imx8mm-evk.dtsi):
+	 * Do NOT delete hdmi-connector or &mipi_dsi/ports. adv7535 (hdmi@3d) is kept
+	 * but disabled, and its endpoints reference &dsi_out and &hdmi_connector_in;
+	 * deleting those peers would leave dangling phandles (hard DTC error on the
+	 * mainline of-graph). The DSI→HDMI path is made inert instead by disabling
+	 * &mipi_dsi + hdmi@3d (below). (NXP vendor evk.dtsi structured this graph
+	 * differently, which is why the old /delete-node/ hdmi-connector worked there.)
+	 *
+	 * ir-receiver: mainline's node is unlabeled (there is no &ir_recv) and it
+	 * claims GPIO1_IO13, which DT510 uses for tas6424_warn (gpio-keys). Remove it
+	 * by node name so the pad is free and no phandle dangles.
+	 */
+	/delete-node/ ir-receiver;
 
 	/*
 	 * Fixed rails for on-board silicon:
@@ -1228,9 +1240,8 @@
 	status = "okay";
 };
 
-&ir_recv {
-	status = "disabled";
-};
+/* ir-receiver removed at root (/delete-node/ ir-receiver) — mainline node is
+ * unlabeled and clashes with tas6424_warn on GPIO1_IO13. See top of file. */
 
 &snvs_pwrkey {
 	status = "disabled";
@@ -1245,9 +1256,27 @@
 };
 
 &mipi_dsi {
+	/*
+	 * Disabled but KEEP `ports`: dsi_out must survive because adv7535_in (hdmi@3d,
+	 * kept + disabled) references &dsi_out. Mainline of-graph rejects dangling
+	 * phandles, so we make the path inert via status rather than deleting nodes.
+	 */
 	status = "disabled";
-	/* Drop dsi_out → adv7535_in link (hdmi@3d disabled). */
+};
+
+/*
+ * MIPI-CSI capture path. Mainline imx8mm-evk.dtsi enables &mipi_csi/&csi and wires
+ * &mipi_csi's imx8mm_mipi_csi_in endpoint to &ov5640_to_mipi_csi2 inside camera@3c
+ * (on &i2c3). DT510 deletes camera@3c, so the CSI-side endpoint would dangle. The
+ * camera is not fitted on DT510 — delete the CSI-side port and disable the path.
+ */
+&mipi_csi {
+	status = "disabled";
 	/delete-node/ ports;
+};
+
+&csi {
+	status = "disabled";
 };
 
 &spdif1 {

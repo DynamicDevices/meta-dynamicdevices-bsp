@@ -1,0 +1,54 @@
+From e4c38ebe9d3a2fe18f5c93d460de8703ddbbef55 Mon Sep 17 00:00:00 2001
+From: DD Fwdport <fwdport@dynamicdevices.co.uk>
+Date: Sun, 19 Jul 2026 19:02:30 +0100
+Subject: [PATCH 25/27] mfd: tac5x1x: DT510 TAC5301 analog DT defaults
+
+---
+ drivers/mfd/tac5x1x-core.c | 24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+
+diff --git a/drivers/mfd/tac5x1x-core.c b/drivers/mfd/tac5x1x-core.c
+index b8dee84f7c31..31a0fbc12822 100644
+--- a/drivers/mfd/tac5x1x-core.c
++++ b/drivers/mfd/tac5x1x-core.c
+@@ -13,6 +13,7 @@
+ #include <linux/mfd/tac5x1x/core.h>
+ #include <linux/mfd/tac5x1x/registers.h>
+ #include <linux/module.h>
++#include <linux/property.h>
+ #include <linux/of.h>
+ #include <linux/pm_runtime.h>
+ #include <linux/regmap.h>
+@@ -564,6 +565,29 @@ static int tac5x1x_probe(struct device *dev, struct tac5x1x *tac5x1x)
+ 				   TAC5X1X_OUT2CFG0_VCOM_MASK,
+ 				   tac5x1x->out2x_vcom_cfg);
+ 	}
++	/*
++	 * Optional board defaults (device tree):
++	 *   ti,adc1-single-ended -- P0 R0x50 bits [7:6] ADC_CH1_INSRC = 0b01 (single-ended IN1).
++	 *   ti,out1-mono-se-out1p -- P0 R0x64 bits [4:2] OUT1x_CFG = 0b010 (mono SE at OUT1P).
++	 * Matches tac5x1x codec DAPM "ADC1 Analog MUX" / "OUT1X Config MUX" field placement.
++	 */
++	if (device_property_read_bool(dev, "ti,adc1-single-ended")) {
++		ret = regmap_update_bits(tac5x1x->regmap, TAC5X1X_ADCCH1C0,
++					 GENMASK(7, 6), (1 << 6));
++		if (ret)
++			dev_warn(dev,
++				 "tac5x1x: ti,adc1-single-ended regmap_update_bits: %d\n",
++				 ret);
++	}
++
++	if (device_property_read_bool(dev, "ti,out1-mono-se-out1p")) {
++		ret = regmap_update_bits(tac5x1x->regmap, TAC5X1X_OUT1CFG0,
++					 GENMASK(4, 2), (2 << 2));
++		if (ret)
++			dev_warn(dev,
++				 "tac5x1x: ti,out1-mono-se-out1p regmap_update_bits: %d\n",
++				 ret);
++	}
+ 
+ 	dev_dbg(dev, "%s adding mfds\n", __func__);
+ 
+-- 
+2.43.0
+

@@ -1,0 +1,96 @@
+From 13d4d34c11e527226abc0863b181d7ef434ceb1b Mon Sep 17 00:00:00 2001
+From: Dynamic Devices <support@dynamicdevices.co.uk>
+Date: Mon, 25 May 2026 18:00:00 +0000
+Subject: [PATCH 27/27] ASoC: fsl_sai: fix SAI5 sync-rx capture clocks (DT510
+ TAA5412)
+
+On DT510 driver mic (TAA5412 on &sai5) BCLK is on SAI5_RXC and LRCLK on
+SAI5_TX_SYNC with fsl,sai-synchronous-rx. Register evidence on factory 430
+showed RCR2 /4 (3.072 MHz target) vs TCR2 /2 (6.144 MHz measured), TCR5=0,
+TCR4 missing FSD_MSTR, and stale bclk_ratio overriding TDM slot math.
+
+Mirror RCR2/RCR4/RCR5 to TCR2/TCR4/TCR5 on sync-rx capture, prefer TDM
+slots*width for BCLK, clear bclk_ratio when TDM is set, enable Tx TERE on
+capture trigger; keep is_consumer_mode[tx] (array pointer bug if scalar).
+
+Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
+---
+ sound/soc/fsl/fsl_sai.c | 34 +++++++++++++++++++++++++++++++++-
+ 1 file changed, 33 insertions(+), 1 deletion(-)
+
+diff --git a/sound/soc/fsl/fsl_sai.c b/sound/soc/fsl/fsl_sai.c
+index c5efbceb06d1..6f5b0f229a16 100644
+--- a/sound/soc/fsl/fsl_sai.c
++++ b/sound/soc/fsl/fsl_sai.c
+@@ -171,6 +171,9 @@ static int fsl_sai_set_dai_tdm_slot(struct snd_soc_dai *cpu_dai, u32 tx_mask,
+ 	sai->slots = slots;
+ 	sai->slot_width = slot_width;
+ 
++	if (slots > 0 && slot_width > 0)
++		sai->bclk_ratio = 0;
++
+ 	return 0;
+ }
+ 
+@@ -516,6 +519,14 @@ static int fsl_sai_set_bclk(struct snd_soc_dai *dai, bool tx, u32 freq)
+ 				   savediv / 2 - 1);
+ 	}
+ 
++	if (!tx && sai->synchronous[TX] && !sai->is_consumer_mode[tx]) {
++		u32 rc2;
++		regmap_read(sai->regmap, FSL_SAI_RCR2(ofs), &rc2);
++		regmap_update_bits(sai->regmap, FSL_SAI_TCR2(ofs),
++				   FSL_SAI_CR2_DIV_MASK | FSL_SAI_CR2_BYP | FSL_SAI_CR2_MSEL_MASK,
++				   rc2 & (FSL_SAI_CR2_DIV_MASK | FSL_SAI_CR2_BYP | FSL_SAI_CR2_MSEL_MASK));
++	}
++
+ 	return 0;
+ }
+ 
+@@ -572,7 +583,10 @@ static int fsl_sai_hw_params(struct snd_pcm_substream *substream,
+ 		return -EINVAL;
+ 	}
+ 
+-	bclk = params_rate(params) * (sai->bclk_ratio ? sai->bclk_ratio : slots * slot_width);
++	if (sai->slots && sai->slot_width)
++		bclk = params_rate(params) * sai->slots * sai->slot_width;
++	else
++		bclk = params_rate(params) * (sai->bclk_ratio ? sai->bclk_ratio : slots * slot_width);
+ 
+ 	if (!IS_ERR_OR_NULL(sai->pinctrl)) {
+ 		sai->pins_state = fsl_sai_get_pins_state(sai, bclk);
+@@ -717,6 +731,21 @@ static int fsl_sai_hw_params(struct snd_pcm_substream *substream,
+ 	regmap_write(sai->regmap, FSL_SAI_xMR(tx),
+ 		     ~0UL - ((1 << min(channels, slots)) - 1));
+ 
++	if (!sai->is_consumer_mode[tx] && !tx && sai->synchronous[TX]) {
++		u32 rc2, tx_cr4;
++		tx_cr4 = (val_cr4 & ~FSL_SAI_CR4_CHMOD_MASK) | FSL_SAI_CR4_FSD_MSTR;
++		regmap_update_bits(sai->regmap, FSL_SAI_TCR4(ofs),
++				   FSL_SAI_CR4_SYWD_MASK | FSL_SAI_CR4_FRSZ_MASK | FSL_SAI_CR4_FCONT_MASK | FSL_SAI_CR4_FSD_MSTR,
++				   tx_cr4);
++		regmap_update_bits(sai->regmap, FSL_SAI_TCR5(ofs),
++				   FSL_SAI_CR5_WNW_MASK | FSL_SAI_CR5_W0W_MASK | FSL_SAI_CR5_FBT_MASK, val_cr5);
++		regmap_write(sai->regmap, FSL_SAI_TMR, ~0UL - ((1 << min(channels, slots)) - 1));
++		regmap_read(sai->regmap, FSL_SAI_RCR2(ofs), &rc2);
++		regmap_update_bits(sai->regmap, FSL_SAI_TCR2(ofs),
++				   FSL_SAI_CR2_DIV_MASK | FSL_SAI_CR2_BYP | FSL_SAI_CR2_MSEL_MASK,
++				   rc2 & (FSL_SAI_CR2_DIV_MASK | FSL_SAI_CR2_BYP | FSL_SAI_CR2_MSEL_MASK));
++	}
++
+ 	return 0;
+ }
+ 
+@@ -828,6 +857,9 @@ static int fsl_sai_trigger(struct snd_pcm_substream *substream, int cmd,
+ 		if (fsl_sai_dir_is_synced(sai, adir))
+ 			regmap_update_bits(sai->regmap, FSL_SAI_xCSR((!tx), ofs),
+ 					   FSL_SAI_CSR_TERE, FSL_SAI_CSR_TERE);
++		else if (!tx && sai->synchronous[TX] && !sai->is_consumer_mode[tx])
++			regmap_update_bits(sai->regmap, FSL_SAI_TCSR(ofs),
++					   FSL_SAI_CSR_TERE, FSL_SAI_CSR_TERE);
+ 
+ 		regmap_update_bits(sai->regmap, FSL_SAI_xCSR(tx, ofs),
+ 				   FSL_SAI_CSR_xIE_MASK, FSL_SAI_FLAGS);
+-- 
+2.43.0
+
