@@ -217,11 +217,44 @@ Net: ~29 patches to carry, ~6 to drop. BQ257xx first (self-contained, fully upst
    ship via the existing `lmp-device-tree.bbappend` `SRC_URI` into `S`, which is on
    the include path. The scaffold `linux-fslc_%.bbappend` DTB-copy stub is only for
    the local `KERNEL_DEVICETREE` path and is inert for CI.
-6. [ ] Wire trimmed patch set into `linux-fslc_%.bbappend` (BQ25792 + TAC5x1x
-   cherry-picks; drop upstreamed).
-7. [ ] Config: port `CONFIG_*` fragments to 6.12 (verify symbol names).
-8. [ ] Resolve OOT/stack gaps (IW612 moal/mlan, NXP VPU/AFE) vs 6.12.
-9. [ ] Commit + push experiment branch; create vixdt CI branch; monitor build.
+6. [x] **Wire trimmed patch set — DONE (2026-07-19).** 27 patches forward-ported onto
+   linux-fslc SRCREV `e92f5b7050c7` (6.12.34, the recipe's exact pin — no drift) in
+   `_kernel-work/linux-fslc` (branch `dt510-fslc-6.12-fwdport`) and regenerated into
+   `recipes-kernel/linux/linux-fslc/imx8mm-jaguar-dt510/patches/`. BQ25792 (15),
+   pcm6240 deltas (2), TAC5x1x Lore stack + 6.12 Makefile wiring + analog defaults (8),
+   tas6424/fsl_sai ASoC (2). Kconfig/Makefile drift resolved by hand; the pcm6240
+   optional-IRQ patch, 6.6-compat shims, upstreamed imports and 6.6 `-objs` Makefile
+   hacks were dropped.
+7. [x] **Config fragments — DONE.** 15 `.cfg` wired; kernel-yocto (via `linux-imx.inc`)
+   merges them over the in-tree `defconfig`. Driver symbols verified against the patches.
+8. [x] **OOT/stack gaps — DONE (this round).** Disabled NXP VPU (`imx-vpu-hantro`,
+   vendor-kernel-coupled) via `MACHINE_FEATURES:remove vpu`; kept IW612 Wi-Fi
+   (`moal`/`mlan`) to test whether the NXP OOT WLAN driver builds on 6.12.
+9. [x] **Shipped to CI — DONE.** BSP `5d61c88` on `experiment/dt510-mainline-kernel`;
+   vixdt manifest branch `main-dt510-mainline-kernel` (BSP repin `2c32fee→5d61c88`);
+   ref registered in vixdt `ci-scripts/factory-config.yml` (master). Build **657**
+   (`platform-main-dt510-mainline-kernel`) running:
+   https://app.foundries.io/factories/vixdt/targets/657/
+
+### Build 657 (FAILED) → root cause + fix
+
+Build 657 compiled the **6.6 vendor kernel** (`linux-lmp-fslc-imx`), not `linux-fslc` —
+the plain `PREFERRED_PROVIDER_virtual/kernel = "linux-fslc"` in the machine conf was
+overridden by the LmP distro conf (parsed *after* the machine conf). The DTC error
+(`Label or path mipi_csi/csi not found`) was a symptom: the mainline of-graph DTS was
+being parsed against the 6.6 base. Fix: use the MACHINE-override form
+`PREFERRED_PROVIDER_virtual/kernel:imx8mm-jaguar-dt510 = "linux-fslc"` (verified that
+`csi`/`mipi_csi` labels exist in 6.12 `imx8mm.dtsi`). Also note: in vixdt CI the board
+DTB is built by the **kernel** recipe (KERNEL_DEVICETREE), not `lmp-device-tree` — so
+the provider switch is what routes the DTS onto the 6.12 base.
+
+## First-build watch items
+
+- **IW612 `moal`/`mlan`** — most likely first failure (NXP OOT WLAN vs mainline 6.12 APIs).
+  If it breaks: `MACHINE_FEATURES:remove nxpiw612-sdio` + drop `mlan moal` from autoload, re-push.
+- **TAC5x1x codec** — Lore series targets newer-than-6.12 APIs (we dropped the 6.6 compat
+  shims); watch for ASoC API mismatches at `do_compile`.
+- **DTB** — of-graph rebase (adv7535/dsi_out/csi) verified only by `dtc` in CI.
 
 ## Build note
 
