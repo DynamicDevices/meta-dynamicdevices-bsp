@@ -102,3 +102,21 @@ do_configure:append:imx8mm-jaguar-dt510(){
      bbwarn "imx8mm-jaguar-dt510.dts not found in ${WORKDIR}"
  fi
 }
+
+# Prune NXP-downstream EVK device trees that don't exist in mainline linux-fslc.
+# imx8mm-evk.inc + imx8mm-lpddr4-evk.conf append ~21 freescale/imx8mm-evk-*.dtb variants
+# (pcie-ep, rm67191/rm67199, 8mic, ak4497/5558, rpmsg, qca-wifi, ...) via
+# KERNEL_DEVICETREE:append:use-nxp-bsp. None have a rule in mainline's freescale/Makefile,
+# so do_compile dies "No rule to make target" (build 657/658). They can't be un-appended
+# from a conf; filter them here at recipe finalization. Keep the base imx8mm-evk.dtb
+# (exists in mainline) and our imx8mm-jaguar-dt510.dtb — neither matches the -evk- prefix.
+# Anonymous python runs after the machine-conf appends are merged, so getVar sees the
+# full flattened list and setVar wins for do_compile/do_deploy.
+python () {
+    if d.getVar('MACHINE') != 'imx8mm-jaguar-dt510':
+        return
+    dtbs = (d.getVar('KERNEL_DEVICETREE') or '').split()
+    keep = [x for x in dtbs if not x.startswith('freescale/imx8mm-evk-')]
+    if keep != dtbs:
+        d.setVar('KERNEL_DEVICETREE', ' '.join(keep))
+}
