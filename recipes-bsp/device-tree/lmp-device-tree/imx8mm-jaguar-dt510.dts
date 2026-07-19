@@ -1277,6 +1277,13 @@
 
 &csi {
 	status = "disabled";
+	/*
+	 * Base imx8mm.dtsi wires csi/port/endpoint (csi_in) <-> mipi_csi port@1
+	 * (imx8mm_mipi_csi_out). We delete mipi_csi's whole `ports` above, so csi_in
+	 * would dangle (phandle_references error). csi_in and imx8mm_mipi_csi_out only
+	 * reference each other, so drop csi's port too — clean, no camera on DT510.
+	 */
+	/delete-node/ port;
 };
 
 &spdif1 {
