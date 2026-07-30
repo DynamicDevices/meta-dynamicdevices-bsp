@@ -28,7 +28,7 @@
  *            datasheet) **NC** here. **DE timing:** `t_ACTIVE` typ **1 bit-time** after stop bit (datasheet Table 3.3). Customize part via
  *            Silicon Labs flow (**AN721**); open-source **`cp210x-program`** is unverified on CP2108 — see BSP docs. **QUART_RES#** on
  *            GPIO4_IO5 (SAI1_RXD3); enumerate **`ttyUSB*`** with **`udev` by-path**, not blindly by minor number.
- *   HDMI: LT9611 on &i2c3 @ 0x39 (GPIO2_IO11/6); HDMI2C1 fault GPIO4_IO28; bridge disabled until DSI graph ready.
+ *   HDMI: LT9611 on &i2c3 @ 0x39 (GPIO2_IO11/6); HDMI2C1 fault GPIO4_IO28; Tier C3 staged DSI graph (lt9611 + mipi_dsi still disabled pending BOM/I2C).
  *   Low-power MCU: MCXC144VFM on UART4 (DCE RX/TX pads) — Linux **`ttymxc3`**; **not** the EVKB **`stdout-path`** UART (**`&uart2`** → **`ttymxc1`** @ **0x30890000** use the **UART2** debug header for Linux/U-Boot-style console unless HW docs say otherwise).
  *   Digital I/O: GPIO1_IO00/01/04–09 (DI/DO); IO10–IO13 TAS6424 sideband (see &tas6424). EVK hdmi@3d on &i2c2 disabled.
  *            `pinctrl_gpio1_dio_{in,out}`: DI pads 0x010 (PE=0, min DSE); DO pads 0x116 (`GPIO_STD`, internal pull-down). External pulls on PCB as required.
@@ -50,7 +50,7 @@
  *   GNSS: NMEA on UART; **lab 2026-05-05:** valid fix with antenna — `$GNRMC`/`$GNGLL` status A, `$GNGGA` quality ≥1, `$GNGSA` 3D, multi-constellation in view.
  *   USB (host/gadget): working.
  *   CP2108 (**U13**) quad VCP: **[0]/[1]** RS‑232; **[2]/[3]** RS‑485 (**GPIO.10→`RS485_DE1`**, **GPIO.14→`RS485_DE2`** on bridge die — not SoC GPIO). **GPIO.2/GPIO.6** NC. **`quart-res-hog`** only line SoC drives to the bridge; stable **`/dev`** → **udev by-path**.
- *   HDMI (LT9611): TBD.
+ *   HDMI (LT9611): staged — DSI/HDMI graph + driver CFG present; nodes disabled until I2C @ 0x39 + 1.8 V VDD confirm.
  *   Low-power MCU link: TBD.
  *   Digital I/O: DI pads 0x010 (PE=0, DSE_X1); DO pads 0x116. Andy/Vix fleet: cab DI invert in &gpio1 gpio-line-config (GPIO_ACTIVE_LOW on 0,1,4,5); vix-apps dt510_gpio active_low=False (see checklist § Cab buttons).
  *   SE050: reachable; board security posture unsecured / provisioning TBD.
@@ -88,14 +88,28 @@
 	/delete-node/ sound-ak5558;
 	/delete-node/ sound-ak4497;
 
-	/* EVK DSI→HDMI graph tail — hdmi@3d on &i2c2 disabled under &i2c2; DT510 HDMI is LT9611 on &i2c3. */
-	/delete-node/ hdmi-connector;
+	/*
+	 * DT510 HDMI connector — graph to LT9611 port@2 (not EVK ADV7535).
+	 * Bridge and &mipi_dsi stay disabled until BOM/I2C probe (Tier C3 enable gate).
+	 */
+	hdmi-connector {
+		compatible = "hdmi-connector";
+		label = "hdmi";
+		type = "a";
+
+		port {
+			hdmi_connector_in: endpoint {
+				remote-endpoint = <&lt9611_out>;
+			};
+		};
+	};
 
 	/*
 	 * Fixed rails for on-board silicon:
 	 *   3V3 — imx8mm-evk.dtsi `reg_vddext_3v3` (VDDEXT_3V3) for audio/HDMI/CAN/etc.; do not reuse that name here.
 	 *   tas6424_hi_rail — 12V class-D VBATT+PVDD net for TAS6424 (nominal; confirm vs BOM).
 	 *   reg_wifi_sdio_vmmc — logical SDIO VMMC for IW612 (same 3.3 V net; isolates mmc from VDDEXT toggling).
+	 *   reg_lt9611_vdd_1v8 — stub 1.8 V for LT9611 MIPI phy (binding vdd-supply); confirm schematic parent before enable.
 	 */
 
 	/*
@@ -119,6 +133,18 @@
 		regulator-name = "TAS6424_VBAT_PVDD";
 		regulator-min-microvolt = <12000000>;
 		regulator-max-microvolt = <12000000>;
+		regulator-always-on;
+	};
+
+	/*
+	 * LT9611 MIPI phy VDD (binding: 1.8 V). Fixed stub until schematic names the real rail/parent.
+	 * Do not flip lt9611 status to okay without confirming this net on the BOM.
+	 */
+	reg_lt9611_vdd_1v8: regulator-lt9611-vdd-1v8 {
+		compatible = "regulator-fixed";
+		regulator-name = "LT9611_VDD_1V8";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
 		regulator-always-on;
 	};
 
@@ -925,13 +951,10 @@
 	/delete-node/ tcpc@50;
 
 	/*
-	 * EVK ADV7535 lives at adv7535@3d and binds as adv7511. DT510 uses LT9611 on
-	 * &i2c3, so disable the exact inherited node to stop its IRQ/pinctrl probe
-	 * from colliding with DT510 GPIO1_IO09 digital output usage.
+	 * EVK ADV7535 is hdmi@3d (compatible adi,adv7535). Delete it — DT510 HDMI is
+	 * LT9611 on &i2c3; leaving the EVK node would claim GPIO1_IO09 (DI/DO conflict).
 	 */
-	adv7535@3d {
-		status = "disabled";
-	};
+	/delete-node/ hdmi@3d;
 
 	/*
 	 * TI TAS2563 — I2C control + &sai3 audio. CODEC_SD# = GPIO5_IO4 (reset-gpios, active-low out).
@@ -1120,8 +1143,12 @@
 	};
 
 	/*
-	 * Lontium LT9611 — DSI→HDMI bridge. Requires regulators + DSI/MIPI graph per binding before status okay.
-	 * Pins: reset GPIO2_IO11 (HDMI_RES#), IRQ GPIO2_IO6 (HDMI_INT to chip — active-high input from LT9611).
+	 * Lontium LT9611 — DSI→HDMI bridge (Tier C3 staged).
+	 * Pins: reset GPIO2_IO11 (HDMI_RES#), IRQ GPIO2_IO6 (HDMI_INT — active-high from chip).
+	 * Binding: vdd = 1.8 V MIPI phy, vcc = 3.3 V IO; ports port@0 (DSI in) + port@2 (HDMI out).
+	 * Keep status disabled until I2C ACK @ 0x39 on fitted BOM and 1.8 V rail confirmed.
+	 * Reset polarity: HDMI_RES# uses GPIO_ACTIVE_LOW here; binding text says active-high RESET — verify at enable.
+	 * data-lanes: default 4 (EVK-style); confirm vs SSOT before okay.
 	 */
 	lt9611: lt9611@39 {
 		compatible = "lontium,lt9611";
@@ -1130,8 +1157,29 @@
 		reset-gpios = <&gpio2 11 GPIO_ACTIVE_LOW>;
 		interrupt-parent = <&gpio2>;
 		interrupts = <6 IRQ_TYPE_LEVEL_HIGH>;
-		vdd-supply = <&reg_vddext_3v3>;
+		vdd-supply = <&reg_lt9611_vdd_1v8>;
 		vcc-supply = <&reg_vddext_3v3>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+
+				lt9611_in: endpoint {
+					remote-endpoint = <&mipi_dsi_out>;
+				};
+			};
+
+			port@2 {
+				reg = <2>;
+
+				lt9611_out: endpoint {
+					remote-endpoint = <&hdmi_connector_in>;
+				};
+			};
+		};
 	};
 };
 
@@ -1194,7 +1242,7 @@
  *   snvs_pwrkey — EVK enables SNVS PMIC_ON_REQ power key; DT510 product has no wired key / avoid stray KEY_POWER input.
  *   reg_pcie0 / pcie0 — mini-PCIe power path not used (no M.2/NVMe on this SKU).
  *   backlight — no EVK-style LCD panel on DT510.
- *   mipi_dsi — display stack disabled until product HDMI/display bring-up.
+ *   mipi_dsi — DSI ports wired to LT9611; status disabled until Tier C3 enable gate.
  *   spdif1 — SPDIF not wired out for DT510 audio plan.
  */
 &uart3 {
@@ -1258,9 +1306,20 @@
 };
 
 &mipi_dsi {
+	samsung,esc-clock-frequency = <10000000>;
 	status = "disabled";
-	/* Drop dsi_out → adv7535_in link (hdmi@3d disabled). */
-	/delete-node/ ports;
+
+	/* DSI out → LT9611 port@0 (4 lanes default; confirm vs SSOT before status okay). */
+	ports {
+		port@1 {
+			reg = <1>;
+
+			mipi_dsi_out: endpoint {
+				remote-endpoint = <&lt9611_in>;
+				data-lanes = <1 2 3 4>;
+			};
+		};
+	};
 };
 
 &spdif1 {
