@@ -112,6 +112,17 @@ SRC_URI:append:imx8mm-jaguar-inst = " \
                 file://imx8mm-jaguar-inst/0002-wireless-iwlwifi-mvm-fix-crash-on-7265.patch \
 		file://imx8mm-jaguar-inst/micrel-phy-support.cfg \
 "
+SRC_URI:append:imx8mm-jaguar-screen = " \
+		file://i2c-dev-interface.cfg \
+                file://usb-modem-support.cfg \
+		file://gpio-keys.cfg \
+		file://imx8mm-jaguar-screen.dts \
+		file://0003-wireless-wilc1000-disable-scan-progress-message.patch \
+		file://usb-gadgets.cfg \
+                file://imx8mm-jaguar-screen/0001-wireless-iwlwifi-support-tx-power-cmd-v8.patch \
+                file://imx8mm-jaguar-screen/0002-wireless-iwlwifi-mvm-fix-crash-on-7265.patch \
+		file://imx8mm-jaguar-screen/micrel-phy-support.cfg \
+"
 
 # NOTE: This DTB file is created as a default for use with local development
 #       when building lmp-base. It is NOT used by the lmp build or under CI
@@ -122,6 +133,14 @@ do_configure:append:imx8mm-jaguar-inst(){
      echo "dtb-y += imx8mm-jaguar-inst.dtb" >> ${S}/arch/arm64/boot/dts/Makefile
  else
      bbwarn "imx8mm-jaguar-inst.dts not found in ${WORKDIR}, skipping DTS copy"
+ fi
+}
+do_configure:append:imx8mm-jaguar-screen(){
+ if [ -f ${WORKDIR}/imx8mm-jaguar-screen.dts ]; then
+     cp ${WORKDIR}/imx8mm-jaguar-screen.dts ${S}/arch/arm64/boot/dts
+     echo "dtb-y += imx8mm-jaguar-screen.dtb" >> ${S}/arch/arm64/boot/dts/Makefile
+ else
+     bbwarn "imx8mm-jaguar-screen.dts not found in ${WORKDIR}, skipping DTS copy"
  fi
 }
 
