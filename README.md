@@ -33,6 +33,7 @@ This is a **BSP (Board Support Package) layer** that provides:
 |---------|-------------|-----|
 | `imx8mm-jaguar-sentai` | Audio processing platform | i.MX8MM |
 | `imx8mm-jaguar-inst` | Industrial IoT platform | i.MX8MM |
+| `imx8mm-jaguar-screen` | SCREEN platform (INST clone) | i.MX8MM |
 | `imx8mm-jaguar-handheld` | Handheld device platform | i.MX8MM |
 | `imx8mm-jaguar-phasora` | Multi-sensor platform | i.MX8MM |
 | `imx93-jaguar-eink` | E-ink display platform | i.MX93 |

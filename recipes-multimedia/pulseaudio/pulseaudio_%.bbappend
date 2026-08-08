@@ -8,6 +8,7 @@ SYSTEMD_AUTO_ENABLE:${PN}  = "enable"
 # Only enable WebRTC for Dynamic Devices machines that need audio processing
 PACKAGECONFIG:append:imx8mm-jaguar-sentai = " webrtc"
 PACKAGECONFIG:append:imx8mm-jaguar-inst = " webrtc"
+PACKAGECONFIG:append:imx8mm-jaguar-screen = " webrtc"
 PACKAGECONFIG:append:imx8mm-jaguar-handheld = " webrtc"
 PACKAGECONFIG:append:imx8mm-jaguar-phasora = " webrtc"
 REPENDS:${PN} += " webrtc"
@@ -27,6 +28,12 @@ SRC_URI:append:imx8mm-jaguar-sentai = "\
     file://load-alsa-modules.pa \
 "
 SRC_URI:append:imx8mm-jaguar-inst = "\
+    file://pulseaudio.service \
+    file://load-unix-module.pa \
+    file://load-echo-cancellation-module.pa \
+    file://load-alsa-modules.pa \
+"
+SRC_URI:append:imx8mm-jaguar-screen = "\
     file://pulseaudio.service \
     file://load-unix-module.pa \
     file://load-echo-cancellation-module.pa \

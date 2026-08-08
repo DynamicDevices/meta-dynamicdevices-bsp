@@ -25,6 +25,9 @@ SRC_URI:append:imx8mm-jaguar-sentai = "\
 SRC_URI:append:imx8mm-jaguar-inst = "\
     file://99-ignore-uap.conf \
 "
+SRC_URI:append:imx8mm-jaguar-screen = "\
+    file://99-ignore-uap.conf \
+"
 SRC_URI:append:imx8mm-jaguar-handheld = "\
     file://99-ignore-uap.conf \
 "
@@ -64,6 +67,10 @@ do_install:append:imx8mm-jaguar-sentai() {
 }
 
 do_install:append:imx8mm-jaguar-inst() {
+    install -d ${D}${sysconfdir}/NetworkManager/conf.d
+    install -D -m 0644 ${WORKDIR}/99-ignore-uap.conf ${D}${sysconfdir}/NetworkManager/conf.d/99-ignore-uap.conf
+}
+do_install:append:imx8mm-jaguar-screen() {
     install -d ${D}${sysconfdir}/NetworkManager/conf.d
     install -D -m 0644 ${WORKDIR}/99-ignore-uap.conf ${D}${sysconfdir}/NetworkManager/conf.d/99-ignore-uap.conf
 }

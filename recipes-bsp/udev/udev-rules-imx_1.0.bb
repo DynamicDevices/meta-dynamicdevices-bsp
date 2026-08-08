@@ -13,6 +13,7 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
     file://imx8mm-jaguar-dt510/99-dt510-ovd485.rules \
 "
 SRC_URI:append:imx8mm-jaguar-inst = " file://20-jaguar.rules"
+SRC_URI:append:imx8mm-jaguar-screen = " file://20-jaguar.rules"
 SRC_URI:append:imx8mm-jaguar-handheld = " file://20-jaguar.rules"
 SRC_URI:append:imx8mm-jaguar-phasora = " file://20-jaguar.rules"
 SRC_URI:append:imx93-jaguar-eink = " file://20-jaguar.rules"
