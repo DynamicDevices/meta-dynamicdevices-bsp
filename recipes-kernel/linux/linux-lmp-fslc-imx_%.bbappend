@@ -118,10 +118,12 @@ SRC_URI:append:imx8mm-jaguar-screen = " \
 		file://gpio-keys.cfg \
 		file://imx8mm-jaguar-screen.dts \
 		file://0003-wireless-wilc1000-disable-scan-progress-message.patch \
+		file://0004-dts-imx8mm-evkb-fix-duplicate-label.patch \
 		file://usb-gadgets.cfg \
                 file://imx8mm-jaguar-screen/0001-wireless-iwlwifi-support-tx-power-cmd-v8.patch \
                 file://imx8mm-jaguar-screen/0002-wireless-iwlwifi-mvm-fix-crash-on-7265.patch \
 		file://imx8mm-jaguar-screen/micrel-phy-support.cfg \
+		file://imx8mm-jaguar-screen/st1010-mipi-dsi.cfg \
 "
 
 # NOTE: This DTB file is created as a default for use with local development

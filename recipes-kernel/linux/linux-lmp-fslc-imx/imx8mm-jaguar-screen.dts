@@ -1,6 +1,19 @@
 // SPDX-License-Identifier: (GPL-2.0 OR MIT)
 /*
  * Copyright 2020 NXP
+ *
+ * Dynamic Devices i.MX8MM Jaguar SCREEN (Active Screen).
+ * Display bring-up: native MIPI DSI → Santek ST1010B3CYOL (J006 40-way FFC).
+ * Touch (J004 / FT5626): out of scope — leave alone.
+ *
+ * NOTE: lmp-base / local kernel copy. LmP CI uses lmp-device-tree twin —
+ * keep both in sync.
+ *
+ * VDDEXT_3V3: use imx8mm-evk.dtsi `reg_vddext_3v3` (regulator-vddext-3v3).
+ * Do not re-label a second fixed regulator — DTC duplicate_label.
+ * PMIC: linux-lmp patch 0004-dts-imx8mm-evkb-fix-duplicate-label.patch
+ * must be on SRC_URI so shared kernel-source deletes pca9450@25 before
+ * imx8mm-evkb.dts adds pmic@25 (same as DT510 / Sentai).
  */
 
 #include "freescale/imx8mm-evkb.dts"
@@ -8,15 +21,88 @@
 #include <dt-bindings/leds/common.h>
 
 / {
-        model = "i.MX8MM Jaguar SCREEN board";
-        compatible = "fsl,imx8mm-jaguar-screen", "fsl,imx8mm-evk", "fsl,imx8mm";
+	model = "i.MX8MM Jaguar SCREEN board";
+	compatible = "fsl,imx8mm-jaguar-screen", "fsl,imx8mm-evk", "fsl,imx8mm";
+};
 
-	// Regulators
-	reg_vddext_3v3: regulator-vddext {
-		compatible = "regulator-fixed";
-		regulator-name = "VDDEXT_3V3";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
+/*
+ * Belt-and-braces for lmp-device-tree: if shared kernel-source still has the
+ * unpatched imx8mm-evkb.dts (delete pmic@4b, leave pca9450@25), drop the dtsi
+ * node so regulator labels are unique. Harmless when 0004 already applied.
+ */
+&i2c1 {
+	/delete-node/ pca9450@25;
+};
+
+/*
+ * EVK ADV7535 DSI→HDMI is not the Active Screen path. Remove so &mipi_dsi
+ * can be rewired to the ST1010 panel (see &mipi_dsi below).
+ */
+&i2c2 {
+	/delete-node/ hdmi@3d;
+};
+
+/*
+ * EVK PWM backlight is for the EVK LCD path — not validated for ST1010.
+ * TODO: wire product backlight (PWM/GPIO + rail) from schematic, then okay.
+ */
+&backlight {
+	status = "disabled";
+};
+
+/*
+ * Display — Santek ST1010B3CYOL (module P/N ST1010B3CYOL-RSLW-C A02)
+ *
+ * Assumptions (Alex 2026-08-08 + A02 mechanical OCR):
+ *   - Interface: native MIPI DSI on i.MX8MM &mipi_dsi (NOT LVDS; no DSI→LVDS bridge).
+ *   - Resolution: 1920×1200 (A02 note "Pixels H×V 1920×1200×3").
+ *   - LCD mate: J006 40-way FFC only for this bring-up.
+ *
+ * TODOs before status = "okay" / first light:
+ *   - Panel controller IC + init (or panel-simple.c of_match for
+ *     "santek,st1010b3cyol" with real drm_display_mode / lanes / mode_flags).
+ *   - DSI data-lane count and mapping vs schematic.
+ *   - reset-gpios / enable-gpios / power-supply / backlight phandle.
+ *   - Horizontal/vertical timings + pixel clock from electrical datasheet
+ *     (A02 is mechanical-only; catalog sibling LVDS rows are irrelevant).
+ *   - Confirm compatible: panel-simple-dsi entry vs dedicated DRM panel driver.
+ *
+ * Touch (J004 CTP, FT5626 on A02): intentionally omitted.
+ */
+&mipi_dsi {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "disabled";
+
+	panel@0 {
+		compatible = "santek,st1010b3cyol";
+		reg = <0>;
+		status = "disabled";
+		/* TODO: reset-gpios = <&gpioX Y GPIO_ACTIVE_LOW>; */
+		/* TODO: enable-gpios / power-supply / backlight = <&backlight>; */
+		/*
+		 * panel-simple-dsi lanes/flags live in the driver panel_desc_dsi
+		 * (not DT) once the of_match entry exists. Phasora-style dsi-lanes
+		 * applies only to dedicated panel drivers (e.g. raydium).
+		 */
+
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&mipi_dsi_out>;
+			};
+		};
+	};
+
+	ports {
+		port@1 {
+			reg = <1>;
+
+			mipi_dsi_out: endpoint {
+				remote-endpoint = <&panel_in>;
+				/* TODO: confirm lane count vs schematic (4-lane guess). */
+				data-lanes = <1 2 3 4>;
+			};
+		};
 	};
 };
 
