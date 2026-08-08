@@ -123,7 +123,8 @@ SRC_URI:append:imx8mm-jaguar-screen = " \
                 file://imx8mm-jaguar-screen/0001-wireless-iwlwifi-support-tx-power-cmd-v8.patch \
                 file://imx8mm-jaguar-screen/0002-wireless-iwlwifi-mvm-fix-crash-on-7265.patch \
 		file://imx8mm-jaguar-screen/micrel-phy-support.cfg \
-		file://imx8mm-jaguar-screen/st1010-mipi-dsi.cfg \
+		file://imx8mm-jaguar-screen/pmic-pca9450.cfg \
+		file://imx8mm-jaguar-screen/hx8279-mipi-dsi.cfg \
 "
 
 # NOTE: This DTB file is created as a default for use with local development

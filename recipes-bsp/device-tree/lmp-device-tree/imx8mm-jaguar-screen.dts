@@ -11,6 +11,11 @@
  * SoT files (WA store copies under ~/tmp/v3-room-screen-20260808/):
  *   - 202200.pdf — Condeco V3 Room Screen schematic
  *   - 1_HX8279-D initial code_…txt — MIPI init sequence (driver TBD)
+ *
+ * DTC notes (AESL LmP):
+ *   - Use imx8mm-evk.dtsi `reg_vddext_3v3` — do not redefine it.
+ *   - Delete pca9450@25 if unpatched imx8mm-evkb.dts left it alongside pmic@25
+ *     (also apply linux 0004-dts-imx8mm-evkb-fix-duplicate-label.patch).
  */
 
 #include "freescale/imx8mm-evkb.dts"
@@ -20,14 +25,6 @@
 / {
 	model = "i.MX8MM Jaguar SCREEN board";
 	compatible = "fsl,imx8mm-jaguar-screen", "fsl,imx8mm-evk", "fsl,imx8mm";
-
-	/* Regulators */
-	reg_vddext_3v3: regulator-vddext {
-		compatible = "regulator-fixed";
-		regulator-name = "VDDEXT_3V3";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-	};
 
 	/*
 	 * Backlight — net DSI_PWM on GPIO1_IO00 (schematic DSIPWM / AF14).
@@ -42,6 +39,11 @@
 		pinctrl-0 = <&pinctrl_dsi_pwm>;
 		status = "disabled";
 	};
+};
+
+/* Unpatched EVKB leaves pca9450@25 + pmic@25 → duplicate buck/ldo labels. */
+&i2c1 {
+	/delete-node/ pca9450@25;
 };
 
 /*
