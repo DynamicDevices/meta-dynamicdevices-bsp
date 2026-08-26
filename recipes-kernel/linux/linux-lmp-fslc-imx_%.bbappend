@@ -55,7 +55,7 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
 		file://imx8mm-sw_pad_ctl-fields.h \
 		file://imx8mm-jaguar-dt510/pmic-pca9450.cfg \
 		${@bb.utils.contains('MACHINE_FEATURES', 'cp2108-usb-serial', 'file://imx8mm-jaguar-dt510/cp2108-usb-serial.cfg', '', d)} \
-		${@bb.utils.contains('MACHINE_FEATURES', 'mcp251xfd-can', 'file://imx8mm-jaguar-dt510/mcp251xfd-can.cfg', '', d)} \
+		${@bb.utils.contains('MACHINE_FEATURES', 'mcp251xfd-can', 'file://imx8mm-jaguar-dt510/mcp251xfd-can.cfg file://imx8mm-jaguar-dt510/0030-can-mcp251xfd-timestamp-start-before-ring-init.patch', '', d)} \
 		file://usb-modem-support.cfg \
 		file://gpio-keys.cfg \
 		file://imx8mm-jaguar-dt510/video-disable.cfg \
