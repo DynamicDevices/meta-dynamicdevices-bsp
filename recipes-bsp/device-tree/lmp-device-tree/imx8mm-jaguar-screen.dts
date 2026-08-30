@@ -70,10 +70,11 @@
  * can be rewired to the HX8279-D panel. CTP FT5626 lives on this bus.
  */
 &i2c2 {
-	/delete-node/ hdmi@3d;
-
+	/* Properties must precede /delete-node/ and child nodes (dtc). */
 	clock-frequency = <400000>;
 	status = "okay";
+
+	/delete-node/ hdmi@3d;
 
 	touchscreen@38 {
 		/* FT5626 silicon; LmP 6.6.52 edt-ft5x06 has edt,edt-ft5506 (no focaltech,ft5426). */
