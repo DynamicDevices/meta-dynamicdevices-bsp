@@ -70,11 +70,18 @@
  * can be rewired to the HX8279-D panel. CTP FT5626 lives on this bus.
  */
 &i2c2 {
-	/* Properties must precede /delete-node/ and child nodes (dtc). */
+	/* Properties must precede subnodes (dtc). */
 	clock-frequency = <400000>;
 	status = "okay";
 
-	/delete-node/ hdmi@3d;
+	/*
+	 * EVK ADV7535 lives at adv7535@3d (binds as adv7511) — NOT hdmi@3d.
+	 * Same Phasora/DT510 footgun: wrong delete-node leaves bridge alive and
+	 * steals GPIO1_IO09 (our CTP IRQ) + MIPI port@1. Disable exact node.
+	 */
+	adv7535@3d {
+		status = "disabled";
+	};
 
 	touchscreen@38 {
 		/* FT5626 silicon; LmP 6.6.52 edt-ft5x06 has edt,edt-ft5506 (no focaltech,ft5426). */
@@ -144,6 +151,10 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 	status = "okay";
+
+	/* Drop EVK DSI→ADV7535 graph endpoints (conflict with panel ports). */
+	/delete-node/ port@0;
+	/delete-node/ port@1;
 
 	panel@0 {
 		compatible = "santek,st1010b3cyol", "himax,hx8279d";
