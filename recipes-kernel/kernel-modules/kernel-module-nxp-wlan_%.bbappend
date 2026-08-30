@@ -3,6 +3,7 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 # Only apply NXP WLAN patch for Dynamic Devices machines that use NXP WiFi
 SRC_URI:append:imx8mm-jaguar-sentai = " file://0001-nxp-wlan-disable-scan-progress-warning.patch"
 SRC_URI:append:imx8mm-jaguar-inst = " file://0001-nxp-wlan-disable-scan-progress-warning.patch"
+SRC_URI:append:imx8mm-jaguar-screen = " file://0001-nxp-wlan-disable-scan-progress-warning.patch"
 SRC_URI:append:imx8mm-jaguar-handheld = " file://0001-nxp-wlan-disable-scan-progress-warning.patch"
 SRC_URI:append:imx8mm-jaguar-phasora = " file://0001-nxp-wlan-disable-scan-progress-warning.patch"
 SRC_URI:append:imx8mm-jaguar-dt510 = " file://0001-nxp-wlan-disable-scan-progress-warning.patch"

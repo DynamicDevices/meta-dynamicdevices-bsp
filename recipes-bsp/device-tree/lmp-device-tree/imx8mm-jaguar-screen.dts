@@ -1,0 +1,166 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright 2020 NXP
+ *
+ * Dynamic Devices i.MX8MM Jaguar SCREEN (Active Screen / V3 Room Screen).
+ *
+ * Display bring-up (Michael Hull DEV WA 2026-08-08 + schematic 202200.pdf):
+ *   native MIPI DSI → Santek ST1010B3CYOL module, panel IC Himax HX8279-D.
+ * Touch (DSI_EN / DSI_INT CTP): documented TODO only — not implemented.
+ *
+ * SoT files (WA store copies under ~/tmp/v3-room-screen-20260808/):
+ *   - 202200.pdf — Condeco V3 Room Screen schematic
+ *   - 1_HX8279-D initial code_…txt — MIPI init sequence (driver TBD)
+ *
+ * DTC notes (AESL LmP):
+ *   - Use imx8mm-evk.dtsi `reg_vddext_3v3` — do not redefine it.
+ *   - Delete pca9450@25 if unpatched imx8mm-evkb.dts left it alongside pmic@25
+ *     (also apply linux 0004-dts-imx8mm-evkb-fix-duplicate-label.patch).
+ */
+
+#include "freescale/imx8mm-evkb.dts"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/leds/common.h>
+
+/ {
+	model = "i.MX8MM Jaguar SCREEN board";
+	compatible = "fsl,imx8mm-jaguar-screen", "fsl,imx8mm-evk", "fsl,imx8mm";
+
+	/*
+	 * Backlight — net DSI_PWM on GPIO1_IO00 (schematic DSIPWM / AF14).
+	 * Michael: default HI for full brightness initially (GPIO, not PWM yet).
+	 * Keep disabled until panel driver + first-light enable gate.
+	 */
+	backlight_dsi: backlight-dsi {
+		compatible = "gpio-backlight";
+		gpios = <&gpio1 0 GPIO_ACTIVE_HIGH>;
+		default-on;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_dsi_pwm>;
+		status = "disabled";
+	};
+};
+
+/* Unpatched EVKB leaves pca9450@25 + pmic@25 → duplicate buck/ldo labels. */
+&i2c1 {
+	/delete-node/ pca9450@25;
+};
+
+/*
+ * EVK ADV7535 DSI→HDMI is not the Active Screen path. Remove so &mipi_dsi
+ * can be rewired to the HX8279-D panel (see &mipi_dsi below).
+ */
+&i2c2 {
+	/delete-node/ hdmi@3d;
+};
+
+/* EVK pwm-backlight (GPIO1_IO01 / PWM1) is not the product path. */
+&backlight {
+	status = "disabled";
+};
+
+&iomuxc {
+	/*
+	 * Display GPIOs from 202200.pdf (Condeco V3 Room Screen):
+	 *   GPIO1_IO00  DSI_PWM   — backlight (gpio-high = full brightness)
+	 *   GPIO1_IO12  DSI_EN_2  — LCD load switch EN (TPS22913B); HI = LCD on
+	 *
+	 * Touch TODO (do not mux/claim until CTP bring-up):
+	 *   GPIO1_IO08  DSI_EN    — CTP enable (HI for CTP)
+	 *   GPIO1_IO09  DSI_INT   — CTP interrupt
+	 *
+	 * MIPI DSI data: D0–D3 + CLK (4-lane) on SoC MIPI_DSI_* balls.
+	 */
+	pinctrl_dsi_pwm: dsipwmgrp {
+		fsl,pins = <
+			MX8MM_IOMUXC_GPIO1_IO00_GPIO1_IO0	0x116
+		>;
+	};
+
+	pinctrl_dsi_lcd_en: dsilcdengrp {
+		fsl,pins = <
+			MX8MM_IOMUXC_GPIO1_IO12_GPIO1_IO12	0x116
+		>;
+	};
+};
+
+/*
+ * Display — ST1010B3CYOL module, Himax HX8279-D controller
+ *
+ * Known (2026-08-08 Michael + 202200.pdf):
+ *   - Native MIPI DSI 4-lane (NOT LVDS; no DSI→LVDS bridge).
+ *   - Resolution: 1920×1200 (module A02 mechanical).
+ *   - DSI_EN_2 (GPIO1_IO12) HI → LCD power path.
+ *   - DSI_PWM (GPIO1_IO00) HI → full backlight (initial).
+ *   - Init: 1_HX8279-D initial code…txt loaded over MIPI (driver TBD).
+ *   - I²C to LCD present; Michael: gut feel unused.
+ *
+ * TODOs before status = "okay" / first light:
+ *   - DRM panel driver or panel-simple-dsi of_match for himax,hx8279d
+ *     with MIPI init sequence + drm_display_mode / mode_flags.
+ *   - No mainline hx8279 driver (only hx8394 sibling) — need add or port.
+ *   - Pixel clock / porch timings from electrical datasheet (A02 is mechanical).
+ *   - Confirm reset line if any (not called out in Michael's enable list).
+ *
+ * Touch: intentionally omitted (DSI_EN / DSI_INT).
+ */
+&mipi_dsi {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "disabled";
+
+	panel@0 {
+		compatible = "himax,hx8279d", "santek,st1010b3cyol";
+		reg = <0>;
+		status = "disabled";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_dsi_lcd_en>;
+		/* DSI_EN_2 → TPS22913B EN; active-high per Michael. */
+		enable-gpios = <&gpio1 12 GPIO_ACTIVE_HIGH>;
+		backlight = <&backlight_dsi>;
+		/*
+		 * dsi-lanes belongs in a dedicated panel driver (Phasora-style).
+		 * panel-simple-dsi keeps lanes in the driver's panel_desc_dsi.
+		 * Schematic: 4-lane MIPI_DSI_D0..D3.
+		 */
+
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&mipi_dsi_out>;
+			};
+		};
+	};
+
+	ports {
+		port@1 {
+			reg = <1>;
+
+			mipi_dsi_out: endpoint {
+				remote-endpoint = <&panel_in>;
+				data-lanes = <1 2 3 4>;
+			};
+		};
+	};
+};
+
+//&fec1 {
+//	fsl,magic-packet;
+//	phy-handle = <&ethphy0>;
+//	phy-mode = "rgmii-id";
+////	phy-supply = <&reg_ethphy>;
+//	pinctrl-names = "default";
+//	pinctrl-0 = <&pinctrl_fec1>;
+//
+//	mdio {
+//		#address-cells = <1>;
+//		#size-cells = <0>;
+//
+//		ethphy0: ethernet-phy@7 {
+//			compatible = "ethernet-phy-ieee802.3-c22";
+//			interrupt-parent = <&gpio1>;
+//			interrupts = <10 IRQ_TYPE_LEVEL_LOW>;
+////			micrel,led-mode = <0>;
+//			reg = <7>;
+//		};
+//	};
+//};

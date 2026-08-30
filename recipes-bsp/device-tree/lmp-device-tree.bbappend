@@ -15,8 +15,12 @@ COMPATIBLE_MACHINE:imx8mm-jaguar-dt510 = ".*"
 SRC_URI:append:imx8mm-jaguar-inst = " \
         file://imx8mm-jaguar-inst.dts \
 "
+SRC_URI:append:imx8mm-jaguar-screen = " \
+        file://imx8mm-jaguar-screen.dts \
+"
 
 COMPATIBLE_MACHINE:imx8mm-jaguar-inst = ".*"
+COMPATIBLE_MACHINE:imx8mm-jaguar-screen = ".*"
 
 SRC_URI:append:imx8mm-jaguar-phasora = " \
         file://imx8mm-jaguar-phasora.dts \

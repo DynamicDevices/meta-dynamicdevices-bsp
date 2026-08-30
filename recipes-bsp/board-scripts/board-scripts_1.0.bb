@@ -37,6 +37,11 @@ SRC_URI:append:imx8mm-jaguar-inst = " \
   file://set-fio-passwd.sh \
   file://enable-firewall.sh \
 "
+SRC_URI:append:imx8mm-jaguar-screen = " \
+  file://board-info.sh \
+  file://set-fio-passwd.sh \
+  file://enable-firewall.sh \
+"
 
 SRC_URI:append:imx8mm-jaguar-dt510 = " \
   file://board-info.sh \
