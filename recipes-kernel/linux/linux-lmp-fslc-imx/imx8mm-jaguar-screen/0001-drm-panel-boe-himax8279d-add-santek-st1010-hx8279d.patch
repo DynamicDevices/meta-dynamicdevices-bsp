@@ -68,21 +68,21 @@ Assisted-by: Cursor <cursoragent@cursor.com>
 +/*
 + * Santek ST1010B3CYOL-RSLW-C (10.1" WUXGA) + Himax HX8279-D
 + * Init: Michael Hull "1_HX8279-D initial code_ 10.1WU …" (DEV WA 2026-08-08).
-+ * Mode: 1920x1200@~60Hz — BOE 10p pixel clock / porch budget transposed to
-+ * landscape WUXGA (A02 "Pixels H×V 1920×1200×3"). Confirm on scope / datasheet.
-+ * PENDING: Android display driver from Michael (correct DRM timings for
-+ * Active Screen / ST1010 / HX8279) — ask DEV WA after 2026-08-09 10:00 UK.
++ * Mode: Spec_ST1010B3CYOL-RSLW-C_RS02 §4 — native 1200×1920 @60 Hz,
++ * pixel clock typ 156 MHz, 4-lane MIPI. Mechanical outline is WUXGA 1920×1200.
++ * H porches FP60/sync24; typ tHP=1340 (implies HBP 56 vs table HBP 80).
++ * V porches FP17/sync2/BP12; typ tvp=1944.
 + */
 +static const struct drm_display_mode santek_st1010_display_mode = {
-+	.clock = 159420,
-+	.hdisplay = 1920,
-+	.hsync_start = 1920 + 10,
-+	.hsync_end = 1920 + 10 + 14,
-+	.htotal = 1920 + 10 + 14 + 4,
-+	.vdisplay = 1200,
-+	.vsync_start = 1200 + 80,
-+	.vsync_end = 1200 + 80 + 60,
-+	.vtotal = 1200 + 80 + 60 + 24,
++	.clock = 156000,
++	.hdisplay = 1200,
++	.hsync_start = 1200 + 60,
++	.hsync_end = 1200 + 60 + 24,
++	.htotal = 1340,
++	.vdisplay = 1920,
++	.vsync_start = 1920 + 17,
++	.vsync_end = 1920 + 17 + 2,
++	.vtotal = 1944,
 +};
 +
 +static const struct panel_cmd santek_st1010_hx8279d_on_cmds[] = {
@@ -260,6 +260,7 @@ Assisted-by: Cursor <cursoragent@cursor.com>
 +	{ 0xB9, 0xDA },
 +	{ 0xBA, 0x19 },
 +	{ 0xBB, 0x9A },
++	{ PANEL_CMD_DELAY, 5 },
 +	{ 0xBC, 0x25 },
 +	{ 0xBD, 0x29 },
 +	{ 0xBE, 0xA7 },
