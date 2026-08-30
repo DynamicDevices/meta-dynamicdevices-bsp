@@ -1,19 +1,16 @@
-From: Dynamic Devices <engineering@dynamicdevices.co.uk>
+From: Alex Lennon <ajlennon@dynamicdevices.co.uk>
+Date: Sun, 30 Aug 2026 12:20:00 +0100
 Subject: [PATCH] drm/panel: boe-himax8279d: add Santek ST1010 / HX8279-D
 
-Active Screen (imx8mm-jaguar-screen): Santek ST1010B3CYOL module with
-Himax HX8279-D. Vendor MIPI init from Michael Hull (10.1WU Ver0.0).
-
-- New of_match: santek,st1010b3cyol and himax,hx8279d
-- 1920x1200 mode (BOE 10p clock/porch transposed to landscape WUXGA)
-- Optional pp18/pp33 GPIOs (board only wires DSI_EN2 enable)
-- Support delay entries in init (cmd 0xff)
+Active Screen first light: ST1010 RS02 timings (1200x1920@60), vendor
+HX8279 init including bank-09 delay 5, of_match santek/himax.
 
 Assisted-by: Cursor <cursoragent@cursor.com>
 
---- a/drivers/gpu/drm/panel/panel-boe-himax8279d.c	2026-08-30 09:56:22.069395613 +0100
-+++ b/drivers/gpu/drm/panel/panel-boe-himax8279d.c	2026-08-30 09:56:49.287061798 +0100
-@@ -60,10 +60,15 @@
+---
+--- a/drivers/gpu/drm/panel/panel-boe-himax8279d.c
++++ b/drivers/gpu/drm/panel/panel-boe-himax8279d.c
+@@ -57,10 +57,15 @@
  static void disable_gpios(struct panel_info *pinfo)
  {
  	gpiod_set_value(pinfo->enable_gpio, 0);
@@ -31,7 +28,7 @@ Assisted-by: Cursor <cursoragent@cursor.com>
  static int send_mipi_cmds(struct drm_panel *panel, const struct panel_cmd *cmds)
  {
  	struct panel_info *pinfo = to_panel_info(panel);
-@@ -71,6 +76,11 @@
+@@ -68,6 +73,11 @@
  	int err;
  
  	for (i = 0; i < pinfo->desc->on_cmds_num; i++) {
@@ -43,9 +40,9 @@ Assisted-by: Cursor <cursoragent@cursor.com>
  		err = mipi_dsi_dcs_write_buffer(pinfo->link, &cmds[i],
  						sizeof(struct panel_cmd));
  
-@@ -134,12 +144,14 @@
- 	if (pinfo->prepared)
- 		return 0;
+@@ -118,12 +128,14 @@
+ 	struct panel_info *pinfo = to_panel_info(panel);
+ 	int err;
  
 -	gpiod_set_value(pinfo->pp18_gpio, 1);
 +	if (pinfo->pp18_gpio)
@@ -61,19 +58,18 @@ Assisted-by: Cursor <cursoragent@cursor.com>
  	/* T2: 14ms - 15ms */
  	usleep_range(14000, 15000);
  	gpiod_set_value(pinfo->enable_gpio, 1);
-@@ -832,6 +844,334 @@
+@@ -809,6 +821,334 @@
  	.on_cmds_num = 283,
  };
  
 +/*
 + * Santek ST1010B3CYOL-RSLW-C (10.1" WUXGA) + Himax HX8279-D
 + * Init: Michael Hull "1_HX8279-D initial code_ 10.1WU …" (DEV WA 2026-08-08).
-+ * Mode: Spec_ST1010B3CYOL-RSLW-C_RS02 §4 — native 1200×1920 @60 Hz,
-+ * pixel clock typ 156 MHz, 4-lane MIPI. Mechanical outline is WUXGA 1920×1200.
-+ * H porches FP60/sync24; typ tHP=1340 (implies HBP 56 vs table HBP 80).
-+ * V porches FP17/sync2/BP12; typ tvp=1944.
++ * Mode: Spec_ST1010B3CYOL-RSLW-C_RS02 §4 — native 1200×1920 @60 Hz / 156 MHz.
++ * Mechanical outline is WUXGA 1920×1200. H typ tHP=1340; V typ tvp=1944.
 + */
 +static const struct drm_display_mode santek_st1010_display_mode = {
++	/* Spec_ST1010B3CYOL-RSLW-C_RS02 §4: native 1200x1920 @60Hz, 156MHz, 4-lane */
 +	.clock = 156000,
 +	.hdisplay = 1200,
 +	.hsync_start = 1200 + 60,
@@ -260,7 +256,7 @@ Assisted-by: Cursor <cursoragent@cursor.com>
 +	{ 0xB9, 0xDA },
 +	{ 0xBA, 0x19 },
 +	{ 0xBB, 0x9A },
-+	{ PANEL_CMD_DELAY, 5 },
++	{ PANEL_CMD_DELAY, 5 }, /* vendor init bank 09 */
 +	{ 0xBC, 0x25 },
 +	{ 0xBD, 0x29 },
 +	{ 0xBE, 0xA7 },
@@ -397,7 +393,7 @@ Assisted-by: Cursor <cursoragent@cursor.com>
  static const struct of_device_id panel_of_match[] = {
  	{
  		.compatible = "boe,himax8279d8p",
-@@ -842,6 +1182,14 @@
+@@ -819,6 +1159,14 @@
  		.data = &boe_himax8279d10p_panel_desc,
  	},
  	{
@@ -412,7 +408,7 @@ Assisted-by: Cursor <cursoragent@cursor.com>
  		/* sentinel */
  	}
  };
-@@ -852,7 +1200,8 @@
+@@ -829,13 +1177,14 @@
  	struct device *dev = &pinfo->link->dev;
  	int ret;
  
@@ -420,14 +416,12 @@ Assisted-by: Cursor <cursoragent@cursor.com>
 +	/* Optional on Active Screen / ST1010 - only DSI_EN2 load-switch present. */
 +	pinfo->pp18_gpio = devm_gpiod_get_optional(dev, "pp18", GPIOD_OUT_HIGH);
  	if (IS_ERR(pinfo->pp18_gpio)) {
- 		ret = PTR_ERR(pinfo->pp18_gpio);
- 		if (ret != -EPROBE_DEFER)
-@@ -860,7 +1209,7 @@
- 		return ret;
+ 		return dev_err_probe(dev, PTR_ERR(pinfo->pp18_gpio),
+ 							 "failed to get pp18 gpio\n");
  	}
  
 -	pinfo->pp33_gpio = devm_gpiod_get(dev, "pp33", GPIOD_OUT_HIGH);
 +	pinfo->pp33_gpio = devm_gpiod_get_optional(dev, "pp33", GPIOD_OUT_HIGH);
  	if (IS_ERR(pinfo->pp33_gpio)) {
- 		ret = PTR_ERR(pinfo->pp33_gpio);
- 		if (ret != -EPROBE_DEFER)
+ 		return	dev_err_probe(dev, PTR_ERR(pinfo->pp33_gpio),
+ 							 "failed to get pp33 gpio\n");
