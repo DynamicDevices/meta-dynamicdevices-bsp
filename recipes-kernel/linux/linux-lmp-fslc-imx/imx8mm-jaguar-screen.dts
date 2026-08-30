@@ -76,12 +76,11 @@
 
 	/*
 	 * EVK ADV7535 lives at adv7535@3d (binds as adv7511) — NOT hdmi@3d.
-	 * Same Phasora/DT510 footgun: wrong delete-node leaves bridge alive and
-	 * steals GPIO1_IO09 (our CTP IRQ) + MIPI port@1. Disable exact node.
+	 * Delete the node (not just status=disabled): a disabled node still keeps
+	 * its port endpoint phandle to dsim_to_adv7535, which breaks dtc once we
+	 * rewire MIPI port@1 to the panel. Also frees GPIO1_IO09 for CTP IRQ.
 	 */
-	adv7535@3d {
-		status = "disabled";
-	};
+	/delete-node/ adv7535@3d;
 
 	touchscreen@38 {
 		/* FT5626 silicon; LmP 6.6.52 edt-ft5x06 has edt,edt-ft5506 (no focaltech,ft5426). */
@@ -152,8 +151,11 @@
 	#size-cells = <0>;
 	status = "okay";
 
-	/* Drop EVK DSI→ADV7535 graph endpoints (conflict with panel ports). */
-	/delete-node/ port@0;
+	/*
+	 * Keep SoC port@0 (dsim_from_lcdif ↔ lcdif_to_dsim). Deleting it breaks
+	 * lcdif phandle resolution. Only drop EVK port@1 (dsim_to_adv7535) and
+	 * reattach flat port@1 to the HX8279 panel (same shape as EVK→ADV).
+	 */
 	/delete-node/ port@1;
 
 	panel@0 {
@@ -173,14 +175,10 @@
 		};
 	};
 
-	ports {
-		port@1 {
-			reg = <1>;
-
-			mipi_dsi_out: endpoint {
-				remote-endpoint = <&panel_in>;
-				data-lanes = <1 2 3 4>;
-			};
+	port@1 {
+		mipi_dsi_out: endpoint {
+			remote-endpoint = <&panel_in>;
+			data-lanes = <1 2 3 4>;
 		};
 	};
 };
