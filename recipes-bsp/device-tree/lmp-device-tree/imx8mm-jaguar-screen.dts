@@ -76,7 +76,8 @@
 	status = "okay";
 
 	touchscreen@38 {
-		compatible = "focaltech,ft5626", "focaltech,ft5426", "edt,edt-ft5506";
+		/* FT5626 silicon; LmP 6.6.52 edt-ft5x06 has edt,edt-ft5506 (no focaltech,ft5426). */
+		compatible = "edt,edt-ft5506";
 		reg = <0x38>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_ctp_int>;
