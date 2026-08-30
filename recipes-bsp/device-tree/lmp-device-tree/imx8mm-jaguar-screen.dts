@@ -10,7 +10,7 @@
  *
  * SoT files (WA store copies under ~/tmp/v3-room-screen-20260808/):
  *   - 202200.pdf — Condeco V3 Room Screen schematic
- *   - 1_HX8279-D initial code_…txt — MIPI init sequence (driver TBD)
+ *   - 1_HX8279-D initial code_…txt — MIPI init (baked into panel-boe-himax8279d patch)
  *
  * DTC notes (AESL LmP):
  *   - Use imx8mm-evk.dtsi `reg_vddext_3v3` — do not redefine it.
@@ -29,7 +29,6 @@
 	/*
 	 * Backlight — net DSI_PWM on GPIO1_IO00 (schematic DSIPWM / AF14).
 	 * Michael: default HI for full brightness initially (GPIO, not PWM yet).
-	 * Keep disabled until panel driver + first-light enable gate.
 	 */
 	backlight_dsi: backlight-dsi {
 		compatible = "gpio-backlight";
@@ -37,7 +36,7 @@
 		default-on;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_dsi_pwm>;
-		status = "disabled";
+		status = "okay";
 	};
 };
 
@@ -92,37 +91,25 @@
  *   - Resolution: 1920×1200 (module A02 mechanical).
  *   - DSI_EN_2 (GPIO1_IO12) HI → LCD power path.
  *   - DSI_PWM (GPIO1_IO00) HI → full backlight (initial).
- *   - Init: 1_HX8279-D initial code…txt loaded over MIPI (driver TBD).
- *   - I²C to LCD present; Michael: gut feel unused.
+ *   - Init: HX8279-D vendor sequence via panel-boe-himax8279d (ST1010 of_match).
  *
- * TODOs before status = "okay" / first light:
- *   - DRM panel driver or panel-simple-dsi of_match for himax,hx8279d
- *     with MIPI init sequence + drm_display_mode / mode_flags.
- *   - No mainline hx8279 driver (only hx8394 sibling) — need add or port.
- *   - Pixel clock / porch timings from electrical datasheet (A02 is mechanical).
- *   - Confirm reset line if any (not called out in Michael's enable list).
- *
- * Touch: intentionally omitted (DSI_EN / DSI_INT).
+ * Timings: transposed BOE 10p budget for landscape WUXGA — confirm on scope /
+ * Android driver when Michael supplies it. Touch: intentionally omitted.
  */
 &mipi_dsi {
 	#address-cells = <1>;
 	#size-cells = <0>;
-	status = "disabled";
+	status = "okay";
 
 	panel@0 {
-		compatible = "himax,hx8279d", "santek,st1010b3cyol";
+		compatible = "santek,st1010b3cyol", "himax,hx8279d";
 		reg = <0>;
-		status = "disabled";
+		status = "okay";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_dsi_lcd_en>;
 		/* DSI_EN_2 → TPS22913B EN; active-high per Michael. */
 		enable-gpios = <&gpio1 12 GPIO_ACTIVE_HIGH>;
 		backlight = <&backlight_dsi>;
-		/*
-		 * dsi-lanes belongs in a dedicated panel driver (Phasora-style).
-		 * panel-simple-dsi keeps lanes in the driver's panel_desc_dsi.
-		 * Schematic: 4-lane MIPI_DSI_D0..D3.
-		 */
 
 		port {
 			panel_in: endpoint {
