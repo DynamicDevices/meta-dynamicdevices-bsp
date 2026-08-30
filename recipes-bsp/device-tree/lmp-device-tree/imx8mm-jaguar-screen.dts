@@ -4,13 +4,18 @@
  *
  * Dynamic Devices i.MX8MM Jaguar SCREEN (Active Screen / V3 Room Screen).
  *
- * Display bring-up (Michael Hull DEV WA 2026-08-08 + schematic 202200.pdf):
- *   native MIPI DSI → Santek ST1010B3CYOL module, panel IC Himax HX8279-D.
- * Touch (DSI_EN / DSI_INT CTP): documented TODO only — not implemented.
+ * Display (Michael Hull + SanTech Spec_ST1010B3CYOL-RSLW-C_RS02 + HX8279 init):
+ *   native MIPI DSI 4-lane → Santek ST1010B3CYOL, panel IC Himax HX8279-D ×2.
+ *   DRM mode: datasheet active 1200×1920 @60 Hz (mechanical WUXGA 1920×1200).
  *
- * SoT files (WA store copies under ~/tmp/v3-room-screen-20260808/):
- *   - 202200.pdf — Condeco V3 Room Screen schematic
- *   - 1_HX8279-D initial code_…txt — MIPI init (baked into panel-boe-himax8279d patch)
+ * CTP (2026-08-30 Michael): FocalTech FT5626 on hw I2C2;
+ *   GPIO1_IO08 HI enable, GPIO1_IO09 IRQ. I2C addr 0x38 (FocalTech default).
+ *
+ * Backlight (2026-08-30 Michael): GPIO1_IO01 HI = max; PWM later on same pad.
+ *
+ * Ethernet: Microchip KSZ9131RNX (Micrel driver via PHY ID).
+ *
+ * SoT: lab-docs/displays/Spec_ST1010…pdf + HX8279 init TXT; schematic 202200.pdf.
  *
  * DTC notes (AESL LmP):
  *   - Use imx8mm-evk.dtsi `reg_vddext_3v3` — do not redefine it.
@@ -20,6 +25,7 @@
 
 #include "freescale/imx8mm-evkb.dts"
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/leds/common.h>
 
 / {
@@ -27,16 +33,30 @@
 	compatible = "fsl,imx8mm-jaguar-screen", "fsl,imx8mm-evk", "fsl,imx8mm";
 
 	/*
-	 * Backlight — net DSI_PWM on GPIO1_IO00 (schematic DSIPWM / AF14).
-	 * Michael: default HI for full brightness initially (GPIO, not PWM yet).
+	 * Backlight — GPIO1_IO01 HI = maximum brightness (Michael 2026-08-30).
+	 * Same pad can be remuxed to PWM1 for dimming later; gpio-backlight for
+	 * first light.
 	 */
 	backlight_dsi: backlight-dsi {
 		compatible = "gpio-backlight";
-		gpios = <&gpio1 0 GPIO_ACTIVE_HIGH>;
+		gpios = <&gpio1 1 GPIO_ACTIVE_HIGH>;
 		default-on;
 		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_dsi_pwm>;
+		pinctrl-0 = <&pinctrl_dsi_bl>;
 		status = "okay";
+	};
+
+	/* CTP power / enable — GPIO1_IO08 must be HI (Michael). */
+	reg_ctp_en: regulator-ctp-en {
+		compatible = "regulator-fixed";
+		regulator-name = "ctp-en";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&gpio1 8 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		regulator-boot-on;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_ctp_en>;
 	};
 };
 
@@ -47,32 +67,47 @@
 
 /*
  * EVK ADV7535 DSI→HDMI is not the Active Screen path. Remove so &mipi_dsi
- * can be rewired to the HX8279-D panel (see &mipi_dsi below).
+ * can be rewired to the HX8279-D panel. CTP FT5626 lives on this bus.
  */
 &i2c2 {
 	/delete-node/ hdmi@3d;
+
+	clock-frequency = <400000>;
+	status = "okay";
+
+	touchscreen@38 {
+		compatible = "focaltech,ft5626", "focaltech,ft5426", "edt,edt-ft5506";
+		reg = <0x38>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_ctp_int>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <9 IRQ_TYPE_EDGE_FALLING>;
+		vcc-supply = <&reg_ctp_en>;
+		/* Mechanical WUXGA landscape; native panel scan is 1200×1920. */
+		touchscreen-size-x = <1920>;
+		touchscreen-size-y = <1200>;
+		status = "okay";
+	};
 };
 
-/* EVK pwm-backlight (GPIO1_IO01 / PWM1) is not the product path. */
+/* EVK pwm-backlight node — replaced by gpio-backlight on GPIO1_IO01 for now. */
 &backlight {
 	status = "disabled";
 };
 
 &iomuxc {
 	/*
-	 * Display GPIOs from 202200.pdf (Condeco V3 Room Screen):
-	 *   GPIO1_IO00  DSI_PWM   — backlight (gpio-high = full brightness)
-	 *   GPIO1_IO12  DSI_EN_2  — LCD load switch EN (TPS22913B); HI = LCD on
-	 *
-	 * Touch TODO (do not mux/claim until CTP bring-up):
-	 *   GPIO1_IO08  DSI_EN    — CTP enable (HI for CTP)
-	 *   GPIO1_IO09  DSI_INT   — CTP interrupt
+	 * Display / CTP GPIOs (Michael Hull 2026-08-30 + schematic 202200.pdf):
+	 *   GPIO1_IO01  backlight max (HI); PWM later
+	 *   GPIO1_IO08  DSI_EN     — CTP enable (HI)
+	 *   GPIO1_IO09  DSI_INT    — CTP interrupt
+	 *   GPIO1_IO12  DSI_EN_2   — LCD load switch EN (TPS22913B); HI = LCD on
 	 *
 	 * MIPI DSI data: D0–D3 + CLK (4-lane) on SoC MIPI_DSI_* balls.
 	 */
-	pinctrl_dsi_pwm: dsipwmgrp {
+	pinctrl_dsi_bl: dsiblgrp {
 		fsl,pins = <
-			MX8MM_IOMUXC_GPIO1_IO00_GPIO1_IO0	0x116
+			MX8MM_IOMUXC_GPIO1_IO01_GPIO1_IO1	0x116
 		>;
 	};
 
@@ -81,20 +116,27 @@
 			MX8MM_IOMUXC_GPIO1_IO12_GPIO1_IO12	0x116
 		>;
 	};
+
+	pinctrl_ctp_en: ctpengrp {
+		fsl,pins = <
+			MX8MM_IOMUXC_GPIO1_IO08_GPIO1_IO8	0x116
+		>;
+	};
+
+	pinctrl_ctp_int: ctpintrgrp {
+		fsl,pins = <
+			MX8MM_IOMUXC_GPIO1_IO09_GPIO1_IO9	0x16
+		>;
+	};
 };
 
 /*
- * Display — ST1010B3CYOL module, Himax HX8279-D controller
+ * Display — ST1010B3CYOL module, Himax HX8279-D
  *
- * Known (2026-08-08 Michael + 202200.pdf):
- *   - Native MIPI DSI 4-lane (NOT LVDS; no DSI→LVDS bridge).
- *   - Resolution: 1920×1200 (module A02 mechanical).
+ *   - Native MIPI DSI 4-lane (NOT LVDS).
+ *   - Datasheet timing: 1200×1920 @60 Hz, ~156 MHz, 4 lanes (RS02 §4).
  *   - DSI_EN_2 (GPIO1_IO12) HI → LCD power path.
- *   - DSI_PWM (GPIO1_IO00) HI → full backlight (initial).
- *   - Init: HX8279-D vendor sequence via panel-boe-himax8279d (ST1010 of_match).
- *
- * Timings: transposed BOE 10p budget for landscape WUXGA — confirm on scope /
- * Android driver when Michael supplies it. Touch: intentionally omitted.
+ *   - Init: HX8279-D vendor sequence via panel-boe-himax8279d.
  */
 &mipi_dsi {
 	#address-cells = <1>;
@@ -130,24 +172,11 @@
 	};
 };
 
-//&fec1 {
-//	fsl,magic-packet;
-//	phy-handle = <&ethphy0>;
-//	phy-mode = "rgmii-id";
-////	phy-supply = <&reg_ethphy>;
-//	pinctrl-names = "default";
-//	pinctrl-0 = <&pinctrl_fec1>;
-//
-//	mdio {
-//		#address-cells = <1>;
-//		#size-cells = <0>;
-//
-//		ethphy0: ethernet-phy@7 {
-//			compatible = "ethernet-phy-ieee802.3-c22";
-//			interrupt-parent = <&gpio1>;
-//			interrupts = <10 IRQ_TYPE_LEVEL_LOW>;
-////			micrel,led-mode = <0>;
-//			reg = <7>;
-//		};
-//	};
-//};
+/*
+ * Ethernet — Microchip KSZ9131RNX on FEC RGMII (Michael 2026-08-30).
+ * Keep EVK fec1 pinmux / reset; bind Micrel driver via PHY ID.
+ */
+&ethphy0 {
+	compatible = "ethernet-phy-id0022.1640", "ethernet-phy-ieee802.3-c22";
+	/delete-property/ qca,disable-smarteee;
+};
