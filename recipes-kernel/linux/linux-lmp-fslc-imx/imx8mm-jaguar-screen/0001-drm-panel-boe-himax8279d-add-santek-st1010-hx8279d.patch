@@ -8,8 +8,8 @@ HX8279 init including bank-09 delay 5, of_match santek/himax.
 Assisted-by: Cursor <cursoragent@cursor.com>
 
 ---
---- a/drivers/gpu/drm/panel/panel-boe-himax8279d.c	2026-08-30 12:17:58.838675841 +0100
-+++ b/drivers/gpu/drm/panel/panel-boe-himax8279d.c	2026-08-30 12:17:58.867675430 +0100
+--- a/drivers/gpu/drm/panel/panel-boe-himax8279d.c
++++ b/drivers/gpu/drm/panel/panel-boe-himax8279d.c
 @@ -57,10 +57,15 @@
  static void disable_gpios(struct panel_info *pinfo)
  {
