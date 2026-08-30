@@ -127,6 +127,7 @@ SRC_URI:append:imx8mm-jaguar-screen = " \
 		file://imx8mm-jaguar-screen/edt-ft5x06-touchscreen.cfg \
 		file://imx8mm-jaguar-screen/pmic-pca9450.cfg \
 		file://imx8mm-jaguar-screen/hx8279-mipi-dsi.cfg \
+		file://imx8mm-jaguar-screen/imx56-ipu-video-disable.cfg \
 "
 
 # NOTE: This DTB file is created as a default for use with local development
