@@ -126,6 +126,7 @@ SRC_URI:append:imx8mm-jaguar-screen = " \
                 file://imx8mm-jaguar-screen/0001-wireless-iwlwifi-support-tx-power-cmd-v8.patch \
                 file://imx8mm-jaguar-screen/0002-wireless-iwlwifi-mvm-fix-crash-on-7265.patch \
 		file://imx8mm-jaguar-screen/0001-drm-panel-boe-himax8279d-add-santek-st1010-hx8279d.patch \
+		file://imx8mm-jaguar-screen/0002-drm-panel-boe-himax8279d-st1010-power-sequence.patch \
 		file://imx8mm-jaguar-screen/micrel-phy-support.cfg \
 		file://imx8mm-jaguar-screen/edt-ft5x06-touchscreen.cfg \
 		file://imx8mm-jaguar-screen/pmic-pca9450.cfg \
