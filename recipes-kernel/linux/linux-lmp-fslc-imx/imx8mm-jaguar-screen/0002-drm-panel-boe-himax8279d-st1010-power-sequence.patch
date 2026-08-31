@@ -1,0 +1,64 @@
+From: Alex Lennon <ajlennon@dynamicdevices.co.uk>
+Subject: [PATCH] drm/panel: honour ST1010 power-switch enable semantics
+
+The Active Screen board wires GPIO1_IO12 to the LCD load-switch enable,
+not to the HX8279-D RESET input. The generic Himax driver treats enable as
+reset and pulses it high-low-high before sending DCS commands. That power
+cycles the panel immediately before initialization and leaves the DSI packet
+header transfer timing out.
+
+Let the ST1010 descriptor mark enable as a power switch. Hold it high for
+10 ms before initialization, satisfying the panel's >6 ms reset-to-MIPI
+settling requirement without applying a false reset pulse.
+
+---
+ drivers/gpu/drm/panel/panel-boe-himax8279d.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+--- a/drivers/gpu/drm/panel/panel-boe-himax8279d.c
++++ b/drivers/gpu/drm/panel/panel-boe-himax8279d.c
+@@ -37,6 +37,9 @@ struct panel_desc {
+ 	unsigned int lanes;
+ 	const struct panel_cmd *on_cmds;
+ 	unsigned int on_cmds_num;
++	/* Some boards wire enable to a power switch, not the panel reset pin. */
++	bool enable_gpio_is_power;
++	unsigned int enable_power_on_delay_ms;
+ };
+ 
+ struct panel_info {
+@@ -134,8 +137,13 @@ static int boe_panel_prepare(struct drm_panel *panel)
+ 	usleep_range(5000, 6000);
+ 	if (pinfo->pp33_gpio)
+ 		gpiod_set_value(pinfo->pp33_gpio, 1);
++	if (pinfo->desc->enable_gpio_is_power) {
++		gpiod_set_value(pinfo->enable_gpio, 1);
++		msleep(pinfo->desc->enable_power_on_delay_ms);
++		goto send_init;
++	}
+ 
+-	/* enable / power-cycle sequence (Active Screen: DSI_EN2 load switch) */
++	/* reset sequence */
+ 	/* T2: 14ms - 15ms */
+ 	usleep_range(14000, 15000);
+ 	gpiod_set_value(pinfo->enable_gpio, 1);
+@@ -151,6 +159,7 @@ static int boe_panel_prepare(struct drm_panel *panel)
+ 	/* T5: 5ms - 6ms */
+ 	usleep_range(5000, 6000);
+ 
++send_init:
+ 	/* send init code */
+ 	err = send_mipi_cmds(panel, pinfo->desc->on_cmds);
+ 	if (err < 0) {
+@@ -1149,6 +1158,9 @@ static const struct panel_desc santek_st1010_hx8279d_panel_desc = {
+ 	.lanes = 4,
+ 	.on_cmds = santek_st1010_hx8279d_on_cmds,
+ 	.on_cmds_num = ARRAY_SIZE(santek_st1010_hx8279d_on_cmds),
++	/* GPIO1_IO12 controls the LCD power switch, it is not RESET. */
++	.enable_gpio_is_power = true,
++	.enable_power_on_delay_ms = 10,
+ };
+ 
+ static const struct of_device_id panel_of_match[] = {
+-- 
+2.43.0
