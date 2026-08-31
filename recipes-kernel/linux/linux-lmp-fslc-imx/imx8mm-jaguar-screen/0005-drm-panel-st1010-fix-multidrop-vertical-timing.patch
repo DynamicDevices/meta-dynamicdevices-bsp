@@ -1,0 +1,26 @@
+From: Alex Lennon <ajlennon@dynamicdevices.co.uk>
+Subject: [PATCH] drm/panel: st1010: fix HX8279-D multi-drop vertical timing
+
+The module timing table lists a 1944-line total but also lists porch and sync
+values which add up to 1951 lines.  The HX8279-D controller specification
+clarifies the multi-drop timing convention: for 1200x1920 the 1944-line total
+uses a 14-line vertical front porch and a 10-line back interval which includes
+the 2-line sync pulse.
+
+Express that timing in DRM terms as 14 front, 2 sync and 8 back.  This keeps
+the specified 156 MHz pixel clock and 1944-line total while giving the master
+and slave HX8279-D controllers their documented synchronization intervals.
+
+---
+--- a/drivers/gpu/drm/panel/panel-boe-himax8279d.c
++++ b/drivers/gpu/drm/panel/panel-boe-himax8279d.c
+@@ -1159,8 +1159,8 @@ static const struct drm_display_mode santek_st1010_display_mode = {
+ 	.hsync_end = 1200 + 60 + 24,
+ 	.htotal = 1340,
+ 	.vdisplay = 1920,
+-	.vsync_start = 1920 + 17,
+-	.vsync_end = 1920 + 17 + 2,
++	.vsync_start = 1920 + 14,
++	.vsync_end = 1920 + 14 + 2,
+ 	.vtotal = 1944,
+ };
