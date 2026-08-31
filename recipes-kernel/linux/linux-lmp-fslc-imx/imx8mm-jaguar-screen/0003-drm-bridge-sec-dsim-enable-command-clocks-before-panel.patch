@@ -1,0 +1,41 @@
+From: Alex Lennon <ajlennon@dynamicdevices.co.uk>
+Subject: [PATCH] drm: bridge: sec-dsim: enable command clocks before panel prepare
+
+The NXP sec-dsim atomic enable sequence prepares a directly attached panel
+before enabling the escape and byte clocks. Panel prepare sends the HX8279-D
+initialization over the DSI low-power command path, so its first packet header
+remains in the controller FIFO and times out.
+
+Enable the DSIM clocks after the PLL, D-PHY and FIFO are configured but before
+drm_panel_prepare(). This matches the SanTech ST1010 power-on requirement to
+send initialization while MIPI is in LP11. Leave the existing call removed so
+the clocks are configured exactly once.
+
+---
+ drivers/gpu/drm/bridge/sec-dsim.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+--- a/drivers/gpu/drm/bridge/sec-dsim.c
++++ b/drivers/gpu/drm/bridge/sec-dsim.c
+@@ -1281,6 +1281,9 @@ static void sec_mipi_dsim_bridge_atomic_enable(struct drm_bridge *bridge,
+ 	/* initialize FIFO pointers */
+ 	sec_mipi_dsim_init_fifo_pointers(dsim);
+ 
++	/* Panel prepare sends LP commands and therefore needs DSIM clocks. */
++	sec_mipi_dsim_config_clkctrl(dsim);
++
+ 	/* prepare panel if exists */
+ 	if (dsim->panel) {
+ 		ret = drm_panel_prepare(dsim->panel);
+@@ -1290,9 +1293,6 @@ static void sec_mipi_dsim_bridge_atomic_enable(struct drm_bridge *bridge,
+ 		}
+ 	}
+ 
+-	/* config esc clock, byte clock and etc */
+-	sec_mipi_dsim_config_clkctrl(dsim);
+-
+ 	/* enable panel if exists */
+ 	if (dsim->panel) {
+ 		ret = drm_panel_enable(dsim->panel);
+-- 
+2.43.0
