@@ -12,9 +12,12 @@ the specified 156 MHz pixel clock and 1944-line total while giving the master
 and slave HX8279-D controllers their documented synchronization intervals.
 
 ---
+ drivers/gpu/drm/panel/panel-boe-himax8279d.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
 --- a/drivers/gpu/drm/panel/panel-boe-himax8279d.c
 +++ b/drivers/gpu/drm/panel/panel-boe-himax8279d.c
-@@ -1159,8 +1159,8 @@ static const struct drm_display_mode santek_st1010_display_mode = {
+@@ -1159,7 +1159,7 @@ static const struct drm_display_mode santek_st1010_display_mode = {
  	.hsync_end = 1200 + 60 + 24,
  	.htotal = 1340,
  	.vdisplay = 1920,
@@ -24,3 +27,5 @@ and slave HX8279-D controllers their documented synchronization intervals.
 +	.vsync_end = 1920 + 14 + 2,
  	.vtotal = 1944,
  };
+-- 
+2.43.0
