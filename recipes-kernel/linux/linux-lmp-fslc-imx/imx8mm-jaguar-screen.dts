@@ -24,6 +24,7 @@
  */
 
 #include "freescale/imx8mm-evkb.dts"
+#include "imx8mm-sw_pad_ctl.h"
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/leds/common.h>
