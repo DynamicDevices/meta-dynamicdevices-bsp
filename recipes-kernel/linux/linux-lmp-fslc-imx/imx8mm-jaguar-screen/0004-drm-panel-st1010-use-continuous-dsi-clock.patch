@@ -1,0 +1,32 @@
+From: Alex Lennon <ajlennon@dynamicdevices.co.uk>
+Subject: [PATCH] drm/panel: st1010: use continuous DSI clock
+
+The ST1010 panel now completes its HX8279-D command initialization, but the
+physical panel remains uniformly pale while DRM scans a verified checkerboard
+from an active 1200x1920 XR24 framebuffer.  This isolates the remaining fault
+to the DSI video link rather than the framebuffer, LCDIF, panel power, or DCS
+command path.
+
+Unlike the BOE panels whose descriptor this integration started from, the
+ST1010 specification gives a continuous 468 MHz MIPI clock and 980 Mbps lane
+rate and does not specify non-continuous clock operation.  Keep its clock lane
+in HS while video is active so the dual HX8279-D receivers retain byte-clock
+lock across blanking intervals.
+
+---
+ drivers/gpu/drm/panel/panel-boe-himax8279d.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/drivers/gpu/drm/panel/panel-boe-himax8279d.c
++++ b/drivers/gpu/drm/panel/panel-boe-himax8279d.c
+@@ -1151,7 +1151,7 @@ static const struct panel_desc santek_st1010_hx8279d_panel_desc = {
+ 	.width_mm = 229,
+ 	.height_mm = 143,
+ 	.mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_SYNC_PULSE |
+-			MIPI_DSI_CLOCK_NON_CONTINUOUS | MIPI_DSI_MODE_LPM,
++			MIPI_DSI_MODE_LPM,
+ 	.format = MIPI_DSI_FMT_RGB888,
+ 	.lanes = 4,
+ 	.on_cmds = santek_st1010_hx8279d_on_cmds,
+-- 
+2.43.0
