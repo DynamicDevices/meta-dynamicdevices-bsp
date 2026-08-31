@@ -1,5 +1,9 @@
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
+# Shared board DTS/header sources staged by lmp-device-tree.
+FILESEXTRAPATHS:prepend:imx8mm-jaguar-dt510 := "${THISDIR}/../../recipes-bsp/device-tree/lmp-device-tree:"
+FILESEXTRAPATHS:prepend:imx8mm-jaguar-screen := "${THISDIR}/../../recipes-bsp/device-tree/lmp-device-tree:"
+
 # Belt-and-suspenders when DISTRO_FEATURES modsign is off but kernel metadata still
 # enables CONFIG_MODULE_SIG (factory-keys / modsign_key.pem not present locally).
 SRC_URI:append = "${@' file://disable-modsign.cfg' if (d.getVar('LOCAL_DEVELOPMENT_BUILD') or '0') == '1' or (d.getVar('MODSIGN_ENABLE') or '1') == '0' or (d.getVar('MODSIGN') or '1') == '0' else ''}"
@@ -105,6 +109,8 @@ SRC_URI:append:imx8mm-jaguar-inst = " \
 "
 SRC_URI:append:imx8mm-jaguar-screen = " \
 		file://i2c-dev-interface.cfg \
+		file://imx8mm-sw_pad_ctl.h \
+		file://imx8mm-sw_pad_ctl-fields.h \
                 file://usb-modem-support.cfg \
 		file://gpio-keys.cfg \
 		file://imx8mm-jaguar-screen.dts \
@@ -135,6 +141,8 @@ do_configure:append:imx8mm-jaguar-inst(){
 do_configure:append:imx8mm-jaguar-screen(){
  if [ -f ${WORKDIR}/imx8mm-jaguar-screen.dts ]; then
      cp ${WORKDIR}/imx8mm-jaguar-screen.dts ${S}/arch/arm64/boot/dts
+     cp ${WORKDIR}/imx8mm-sw_pad_ctl.h ${S}/arch/arm64/boot/dts
+     cp ${WORKDIR}/imx8mm-sw_pad_ctl-fields.h ${S}/arch/arm64/boot/dts
      echo "dtb-y += imx8mm-jaguar-screen.dtb" >> ${S}/arch/arm64/boot/dts/Makefile
  else
      bbwarn "imx8mm-jaguar-screen.dts not found in ${WORKDIR}, skipping DTS copy"
