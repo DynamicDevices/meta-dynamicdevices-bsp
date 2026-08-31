@@ -19,6 +19,8 @@ SRC_URI:append:imx8mm-jaguar-inst = " \
 "
 SRC_URI:append:imx8mm-jaguar-screen = " \
         file://imx8mm-jaguar-screen.dts \
+        file://imx8mm-sw_pad_ctl.h \
+        file://imx8mm-sw_pad_ctl-fields.h \
 "
 
 COMPATIBLE_MACHINE:imx8mm-jaguar-inst = ".*"
