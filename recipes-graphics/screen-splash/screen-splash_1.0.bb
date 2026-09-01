@@ -18,9 +18,9 @@ SYSTEMD_SERVICE:${PN} = "screen-splash.service"
 SYSTEMD_AUTO_ENABLE:${PN} = "enable"
 
 do_compile() {
-    ${CC} ${CFLAGS} ${CPPFLAGS} `${PKG_CONFIG} --cflags libdrm libpng` \
+    ${CC} ${CFLAGS} ${CPPFLAGS} `pkg-config --cflags libdrm libpng` \
         ${S}/screen-splash.c -o screen-splash \
-        `${PKG_CONFIG} --libs libdrm libpng` ${LDFLAGS}
+        `pkg-config --libs libdrm libpng` ${LDFLAGS}
 }
 
 do_install() {
