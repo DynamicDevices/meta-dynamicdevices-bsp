@@ -1,0 +1,13 @@
+[Unit]
+Description=Active-Edge early display splash
+DefaultDependencies=no
+After=local-fs.target systemd-udev-trigger.service
+Before=basic.target graphical.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/screen-splash /usr/share/screen-splash/active-edge-splash-1200x1920.png
+TimeoutStartSec=20
+
+[Install]
+WantedBy=basic.target

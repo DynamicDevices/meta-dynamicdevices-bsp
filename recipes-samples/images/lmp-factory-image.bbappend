@@ -6,3 +6,6 @@
 CORE_IMAGE_BASE_INSTALL:append:imx8mm-jaguar-sentai = " \
     ${@bb.utils.contains('MACHINE_FEATURES', 'xm125-radar', 'xm125-firmware', '', d)} \
 "
+
+# Show the canonical Active-Edge lockup as soon as the Screen DRM output binds.
+CORE_IMAGE_BASE_INSTALL:append:imx8mm-jaguar-screen = " screen-splash"
