@@ -27,7 +27,15 @@ SRC_URI:append:imx8mm-jaguar-inst = " \
 SRC_URI:append:imx8mm-jaguar-screen = " \
     file://custom-dtb.cfg \
     file://01-customise-dtb.patch \
+    file://02-st1010-hx8279d-display.patch \
+    file://himax-hx8279d.c \
+    file://screen-splash.cfg \
 "
+
+do_configure:prepend:imx8mm-jaguar-screen() {
+    install -m 0644 ${WORKDIR}/himax-hx8279d.c \
+        ${S}/drivers/video/himax-hx8279d.c
+}
 
 SRC_URI:append:imx8mm-jaguar-handheld = " \
     file://custom-dtb.cfg \
@@ -56,4 +64,3 @@ SRC_URI:append:imx95-frdm-evk = " \
 #SRC_URI:append:imx8ulp-lpddr4-evk = " \
 #    file://custom-dtb.cfg \
 #"
-

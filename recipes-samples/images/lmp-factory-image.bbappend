@@ -9,3 +9,7 @@ CORE_IMAGE_BASE_INSTALL:append:imx8mm-jaguar-sentai = " \
 
 # Show the canonical Active-Edge lockup as soon as the Screen DRM output binds.
 CORE_IMAGE_BASE_INSTALL:append:imx8mm-jaguar-screen = " screen-splash"
+
+# Put the U-Boot-native BMP beside the FIT/DTB in the boot filesystem.
+IMAGE_BOOT_FILES:append:imx8mm-jaguar-screen = " active-edge-splash-1200x1920.bmp"
+do_image_wic[depends] += "screen-uboot-splash:do_deploy"
