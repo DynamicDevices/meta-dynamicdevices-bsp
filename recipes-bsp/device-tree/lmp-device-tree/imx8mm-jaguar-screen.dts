@@ -124,10 +124,6 @@
 	/delete-node/ ov5640_mipi@3c;
 };
 
-&mipi_csi {
-	status = "disabled";
-};
-
 /* EVK pwm-backlight node — replaced by gpio-backlight on GPIO1_IO01 for now. */
 &backlight {
 	status = "disabled";
