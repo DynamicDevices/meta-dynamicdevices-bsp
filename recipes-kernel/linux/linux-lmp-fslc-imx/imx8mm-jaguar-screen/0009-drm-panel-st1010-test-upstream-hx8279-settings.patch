@@ -37,14 +37,14 @@ this patch changes only the DRM mode and DSI clock behaviour.
  
  static const struct panel_cmd santek_st1010_hx8279d_on_cmds[] = {
 @@ -1208,7 +1208,8 @@ static const struct panel_desc santek_st1010_hx8279d_panel_desc = {
-	.bpc = 8,
-	.width_mm = 229,
-	.height_mm = 143,
+ 	.bpc = 8,
+ 	.width_mm = 229,
+ 	.height_mm = 143,
 -	.mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_SYNC_PULSE |
 +	.mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_SYNC_PULSE |
 +			MIPI_DSI_CLOCK_NON_CONTINUOUS |
-			MIPI_DSI_MODE_LPM,
-	.format = MIPI_DSI_FMT_RGB888,
-	.lanes = 4,
+ 			MIPI_DSI_MODE_LPM,
+ 	.format = MIPI_DSI_FMT_RGB888,
+ 	.lanes = 4,
 -- 
 2.43.0
