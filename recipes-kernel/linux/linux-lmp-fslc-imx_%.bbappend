@@ -134,6 +134,7 @@ SRC_URI:append:imx8mm-jaguar-screen = " \
 		file://imx8mm-jaguar-screen/0007-drm-panel-st1010-use-bios-panel-timings.patch \
 		file://imx8mm-jaguar-screen/0008-drm-panel-st1010-add-boot-time-mode-overrides.patch \
 		file://imx8mm-jaguar-screen/0009-drm-panel-st1010-test-upstream-hx8279-settings.patch \
+		file://imx8mm-jaguar-screen/0010-net-phy-micrel-ksz9131-verify-rgmii-delay.patch \
 		file://imx8mm-jaguar-screen/micrel-phy-support.cfg \
 		file://imx8mm-jaguar-screen/edt-ft5x06-touchscreen.cfg \
 		file://imx8mm-jaguar-screen/pmic-pca9450.cfg \
