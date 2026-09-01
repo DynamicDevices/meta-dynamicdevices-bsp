@@ -453,4 +453,3 @@ U_BOOT_DRIVER(hx8279d_panel) = {
 	.plat_auto = sizeof(struct mipi_dsi_panel_plat),
 	.priv_auto = sizeof(struct hx8279d_priv),
 };
-
