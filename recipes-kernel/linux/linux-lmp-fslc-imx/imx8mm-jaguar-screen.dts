@@ -33,6 +33,13 @@
 	model = "i.MX8MM Jaguar SCREEN board";
 	compatible = "fsl,imx8mm-jaguar-screen", "fsl,imx8mm-evk", "fsl,imx8mm";
 
+	/* EVKB reference-audio nodes are not fitted on Jaguar SCREEN. */
+	/delete-node/ sound-ak4458;
+	/delete-node/ sound-ak5558;
+	/delete-node/ sound-ak4497;
+	/delete-node/ sound-bt-sco;
+	/delete-node/ regulator-audio-board;
+
 	/*
 	 * Backlight — GPIO1_IO01 HI = maximum brightness (Michael 2026-08-30).
 	 * Same pad can be remuxed to PWM1 for dimming later; gpio-backlight for
@@ -66,6 +73,12 @@
 	/delete-node/ pca9450@25;
 };
 
+/* AX210 Wi-Fi uses PCIe; its unfitted Bluetooth USB path is not UART1. */
+&uart1 {
+	status = "disabled";
+	/delete-node/ bluetooth;
+};
+
 /*
  * EVK ADV7535 DSI→HDMI is not the Active Screen path. Remove so &mipi_dsi
  * can be rewired to the HX8279-D panel. CTP FT5626 lives on this bus.
@@ -92,11 +105,27 @@
 		interrupt-parent = <&gpio1>;
 		interrupts = <9 IRQ_TYPE_EDGE_FALLING>;
 		vcc-supply = <&reg_ctp_en>;
+		iovcc-supply = <&reg_ctp_en>;
 		/* Mechanical WUXGA landscape; native panel scan is 1200×1920. */
 		touchscreen-size-x = <1920>;
 		touchscreen-size-y = <1200>;
 		status = "okay";
 	};
+};
+
+/* Remove unfitted EVKB reference audio, GPIO expander and camera devices. */
+&i2c3 {
+	/delete-node/ ak4458@10;
+	/delete-node/ ak4497@11;
+	/delete-node/ ak4458@12;
+	/delete-node/ ak5558@13;
+	/delete-node/ gpio@20;
+	/delete-node/ camera@3c;
+	/delete-node/ ov5640_mipi@3c;
+};
+
+&mipi_csi {
+	status = "disabled";
 };
 
 /* EVK pwm-backlight node — replaced by gpio-backlight on GPIO1_IO01 for now. */
