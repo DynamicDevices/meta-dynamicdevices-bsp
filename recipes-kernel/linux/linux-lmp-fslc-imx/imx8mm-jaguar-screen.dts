@@ -113,15 +113,13 @@
 	};
 };
 
-/* Remove unfitted EVKB reference audio, GPIO expander and camera devices. */
+/* Remove unfitted EVKB reference audio and GPIO expander devices. */
 &i2c3 {
 	/delete-node/ ak4458@10;
 	/delete-node/ ak4497@11;
 	/delete-node/ ak4458@12;
 	/delete-node/ ak5558@13;
 	/delete-node/ gpio@20;
-	/delete-node/ camera@3c;
-	/delete-node/ ov5640_mipi@3c;
 };
 
 /* EVK pwm-backlight node — replaced by gpio-backlight on GPIO1_IO01 for now. */
