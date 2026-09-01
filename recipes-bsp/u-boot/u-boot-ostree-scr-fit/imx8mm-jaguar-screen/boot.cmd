@@ -11,6 +11,17 @@ setenv rootpart 2
 setenv fdt_file_final imx8mm-jaguar-screen.dtb
 setenv fit_addr ${initrd_addr}
 
+# Display the full-screen, pre-rotated Active-Edge artwork when the U-Boot
+# HX8279 panel driver is available. Failure is deliberately non-fatal so
+# recovery and unattended boot remain possible on headless hardware.
+if load mmc ${devnum}:${bootpart} ${loadaddr} active-edge-splash-1200x1920.bmp; then
+	if bmp display ${loadaddr}; then
+		echo "Active-Edge U-Boot splash displayed"
+	else
+		echo "Active-Edge U-Boot splash skipped: display unavailable"
+	fi
+fi
+
 # Boot firmware updates
 
 # Offsets are in blocks (512KB each)

@@ -1,0 +1,118 @@
+From: Alex Lennon <ajlennon@dynamicdevices.co.uk>
+Subject: [PATCH] drm/panel: st1010: add boot-time mode overrides
+
+Allow development images to select the ST1010 DSI video mode and adjust
+the pixel clock and blanking intervals from the kernel command line.  This
+permits controlled panel experiments by editing boot arguments and rebooting
+instead of rebuilding the kernel for every timing combination.
+
+The parameters only affect the ST1010 descriptor; existing BOE panels keep
+their fixed modes.
+
+---
+ drivers/gpu/drm/panel/panel-boe-himax8279d.c | 66 ++++++++++++++++++++
+ 1 file changed, 66 insertions(+)
+
+--- a/drivers/gpu/drm/panel/panel-boe-himax8279d.c
++++ b/drivers/gpu/drm/panel/panel-boe-himax8279d.c
+@@ -38,11 +38,33 @@ struct panel_desc {
+ 	const struct panel_cmd *on_cmds;
+ 	unsigned int on_cmds_num;
+ 	bool use_generic_init_cmds;
++	bool allow_boot_overrides;
+ 	/* Some boards wire enable to a power switch, not the panel reset pin. */
+ 	bool enable_gpio_is_power;
+ 	unsigned int enable_power_on_delay_ms;
+ };
+ 
++static char *st1010_video_mode = "sync-pulse";
++module_param(st1010_video_mode, charp, 0444);
++MODULE_PARM_DESC(st1010_video_mode,
++		 "ST1010 DSI video mode: burst, sync-pulse, or sync-event");
++
++static int st1010_clock = -1;
++module_param(st1010_clock, int, 0444);
++MODULE_PARM_DESC(st1010_clock, "ST1010 pixel clock in kHz");
++
++#define ST1010_TIMING_PARAM(_name) \
++	static int st1010_##_name = -1; \
++	module_param(st1010_##_name, int, 0444); \
++	MODULE_PARM_DESC(st1010_##_name, "ST1010 " #_name " in pixels/lines")
++
++ST1010_TIMING_PARAM(hfp);
++ST1010_TIMING_PARAM(hsync);
++ST1010_TIMING_PARAM(hbp);
++ST1010_TIMING_PARAM(vfp);
++ST1010_TIMING_PARAM(vsync);
++ST1010_TIMING_PARAM(vbp);
++
+ struct panel_info {
+ 	struct drm_panel base;
+ 	struct mipi_dsi_device *link;
+@@ -227,6 +249,35 @@ static int boe_panel_get_modes(struct drm_panel *panel,
+ 		return -ENOMEM;
+ 	}
+ 
++	if (pinfo->desc->allow_boot_overrides) {
++		int hfp = st1010_hfp >= 0 ? st1010_hfp :
++			  mode->hsync_start - mode->hdisplay;
++		int hsync = st1010_hsync >= 0 ? st1010_hsync :
++			    mode->hsync_end - mode->hsync_start;
++		int hbp = st1010_hbp >= 0 ? st1010_hbp :
++			  mode->htotal - mode->hsync_end;
++		int vfp = st1010_vfp >= 0 ? st1010_vfp :
++			  mode->vsync_start - mode->vdisplay;
++		int vsync = st1010_vsync >= 0 ? st1010_vsync :
++			    mode->vsync_end - mode->vsync_start;
++		int vbp = st1010_vbp >= 0 ? st1010_vbp :
++			  mode->vtotal - mode->vsync_end;
++
++		if (st1010_clock >= 0)
++			mode->clock = st1010_clock;
++		mode->hsync_start = mode->hdisplay + hfp;
++		mode->hsync_end = mode->hsync_start + hsync;
++		mode->htotal = mode->hsync_end + hbp;
++		mode->vsync_start = mode->vdisplay + vfp;
++		mode->vsync_end = mode->vsync_start + vsync;
++		mode->vtotal = mode->vsync_end + vbp;
++
++		dev_info(panel->dev,
++			 "ST1010 mode %dx%d clock=%d h=%d/%d/%d v=%d/%d/%d\n",
++			 mode->hdisplay, mode->vdisplay, mode->clock,
++			 hfp, hsync, hbp, vfp, vsync, vbp);
++	}
++
+ 	drm_mode_set_name(mode);
+ 
+ 	drm_mode_probed_add(connector, mode);
+@@ -1164,6 +1215,7 @@ static const struct panel_desc santek_st1010_hx8279d_panel_desc = {
+ 	.on_cmds = santek_st1010_hx8279d_on_cmds,
+ 	.on_cmds_num = ARRAY_SIZE(santek_st1010_hx8279d_on_cmds),
+ 	.use_generic_init_cmds = true,
++	.allow_boot_overrides = true,
+ 	/* GPIO1_IO12 controls the LCD power switch, it is not RESET. */
+ 	.enable_gpio_is_power = true,
+ 	.enable_power_on_delay_ms = 10,
+@@ -1240,6 +1292,20 @@ static int panel_probe(struct mipi_dsi_device *dsi)
+ 
+ 	desc = of_device_get_match_data(&dsi->dev);
+ 	dsi->mode_flags = desc->mode_flags;
++	if (desc->allow_boot_overrides) {
++		dsi->mode_flags &= ~(MIPI_DSI_MODE_VIDEO_BURST |
++				     MIPI_DSI_MODE_VIDEO_SYNC_PULSE);
++		if (!strcmp(st1010_video_mode, "burst"))
++			dsi->mode_flags |= MIPI_DSI_MODE_VIDEO_BURST;
++		else if (!strcmp(st1010_video_mode, "sync-pulse"))
++			dsi->mode_flags |= MIPI_DSI_MODE_VIDEO_SYNC_PULSE;
++		else if (strcmp(st1010_video_mode, "sync-event"))
++			dev_warn(&dsi->dev,
++				 "unknown st1010_video_mode=%s; using sync-event\n",
++				 st1010_video_mode);
++		dev_info(&dsi->dev, "ST1010 DSI video mode: %s\n",
++			 st1010_video_mode);
++	}
+ 	dsi->format = desc->format;
+ 	dsi->lanes = desc->lanes;
+ 	pinfo->desc = desc;
+-- 
+2.43.0

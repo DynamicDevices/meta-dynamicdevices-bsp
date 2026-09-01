@@ -1,0 +1,50 @@
+From: Alex Lennon <ajlennon@dynamicdevices.co.uk>
+Subject: [PATCH] drm/panel: st1010: test upstream HX8279 settings
+
+Use the mode published by the upstream HX8279 driver for the 10.1-inch
+Aoly SL101PM1794FOG-V15 panel.  It has the same 1200x1920 resolution,
+four RGB888 lanes, and almost the same pixel clock as the ST1010 vendor
+BIOS data, but uses conventional sync widths and non-continuous clocking.
+
+Keep the ST1010-specific power sequence and HX8279 initialization table;
+this patch changes only the DRM mode and DSI clock behaviour.
+
+---
+ drivers/gpu/drm/panel/panel-boe-himax8279d.c | 18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
+
+--- a/drivers/gpu/drm/panel/panel-boe-himax8279d.c
++++ b/drivers/gpu/drm/panel/panel-boe-himax8279d.c
+@@ -1153,13 +1153,13 @@ static const struct drm_display_mode santek_st1010_display_mode = {
+-	/* Vendor BIOS panel data: native 1200x1920 @60Hz, 159.391MHz, 4-lane */
+-	.clock = 159391,
++	/* Upstream Aoly SL101PM1794FOG-V15 HX8279 mode, 1200x1920 @60Hz */
++	.clock = 159420,
+ 	.hdisplay = 1200,
+ 	.hsync_start = 1200 + 80,
+-	.hsync_end = 1200 + 80 + 1,
+-	.htotal = 1341,
++	.hsync_end = 1200 + 80 + 60,
++	.htotal = 1200 + 80 + 60 + 24,
+ 	.vdisplay = 1920,
+-	.vsync_start = 1920 + 35,
+-	.vsync_end = 1920 + 35 + 1,
+-	.vtotal = 1981,
++	.vsync_start = 1920 + 10,
++	.vsync_end = 1920 + 10 + 14,
++	.vtotal = 1920 + 10 + 14 + 4,
+ };
+ 
+ static const struct panel_cmd santek_st1010_hx8279d_on_cmds[] = {
+@@ -1208,7 +1208,8 @@ static const struct panel_desc santek_st1010_hx8279d_panel_desc = {
+ 	.bpc = 8,
+ 	.width_mm = 229,
+ 	.height_mm = 143,
+-	.mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_SYNC_PULSE |
++	.mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_SYNC_PULSE |
++			MIPI_DSI_CLOCK_NON_CONTINUOUS |
+ 			MIPI_DSI_MODE_LPM,
+ 	.format = MIPI_DSI_FMT_RGB888,
+ 	.lanes = 4,
+-- 
+2.43.0

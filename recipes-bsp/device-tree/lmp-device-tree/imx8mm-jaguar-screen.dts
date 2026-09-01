@@ -250,6 +250,8 @@
 		compatible = "santek,st1010b3cyol", "himax,hx8279d";
 		reg = <0>;
 		status = "okay";
+		/* Native portrait scan is mounted with its right edge uppermost. */
+		rotation = <90>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_dsi_lcd_en>;
 		/* DSI_EN_2 → TPS22913B EN; active-high per Michael. */
