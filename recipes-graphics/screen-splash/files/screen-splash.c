@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <math.h>
 #include <png.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -20,6 +21,15 @@
 
 #define WAIT_MS 50
 #define WAIT_LIMIT_MS 15000
+#define ANIMATION_PERIOD_MS 2400
+#define ANIMATION_HOLD_MS 300
+#define ARC_SWEEP_MS 1300
+#define MARK_LANDSCAPE_X_MIN 240
+#define MARK_LANDSCAPE_X_MAX 620
+#define MARK_LANDSCAPE_Y_MIN 449
+#define MARK_LANDSCAPE_Y_MAX 749
+#define ARC_GLINT_X_MIN 285
+#define ARC_GLINT_X_MAX 575
 #define CARBON_R 0x07
 #define CARBON_G 0x11
 #define CARBON_B 0x1f
@@ -155,19 +165,36 @@ static int create_framebuffer(int fd, uint32_t width, uint32_t height,
 	return fb->map == MAP_FAILED ? -1 : 0;
 }
 
+static const uint8_t *source_pixel(const struct image *splash, uint32_t x,
+				   uint32_t y, uint32_t width, uint32_t height)
+{
+	uint32_t source_x, source_y;
+
+	if (splash->width == width && splash->height == height) {
+		source_x = x;
+		source_y = y;
+	} else {
+		/* Rotate the landscape source clockwise into native portrait scanout. */
+		source_x = y;
+		source_y = splash->height - 1 - x;
+	}
+	return splash->rgba + (source_y * splash->width + source_x) * 4;
+}
+
 static int render(uint8_t *buffer, uint32_t pitch, uint32_t width,
 		  uint32_t height, const struct image *splash)
 {
 	uint32_t x, y;
 
-	if (splash->width != width || splash->height != height)
+	if (!((splash->width == width && splash->height == height) ||
+	      (splash->width == height && splash->height == width)))
 		return -1;
 
 	for (y = 0; y < height; y++) {
 		uint32_t *row = (uint32_t *)(buffer + y * pitch);
 
 		for (x = 0; x < width; x++) {
-			const uint8_t *pixel = splash->rgba + (y * width + x) * 4;
+			const uint8_t *pixel = source_pixel(splash, x, y, width, height);
 			uint32_t alpha = pixel[3];
 			uint32_t red = (pixel[0] * alpha + CARBON_R * (255 - alpha)) / 255;
 			uint32_t green = (pixel[1] * alpha + CARBON_G * (255 - alpha)) / 255;
@@ -178,6 +205,94 @@ static int render(uint8_t *buffer, uint32_t pitch, uint32_t width,
 	return 0;
 }
 
+/*
+ * Animate only the coloured edge mark.  The source PNG remains the single
+ * source of truth, so frame zero is pixel-identical to the U-Boot splash and
+ * every loop returns to that exact frame before its short resting phase.
+ */
+static void render_animation_frame(uint8_t *buffer, uint32_t pitch,
+				   uint32_t width, uint32_t height,
+				   const struct image *splash,
+				   unsigned int elapsed_ms)
+{
+	unsigned int cycle_ms = elapsed_ms % ANIMATION_PERIOD_MS;
+	double arc_progress = 0.0;
+	uint32_t x, y, x_start, x_end, y_start, y_end;
+	int landscape_output = splash->width == width;
+
+	if (cycle_ms >= ANIMATION_HOLD_MS &&
+	    cycle_ms < ANIMATION_HOLD_MS + ARC_SWEEP_MS)
+		arc_progress = (double)(cycle_ms - ANIMATION_HOLD_MS) / ARC_SWEEP_MS;
+	if (landscape_output) {
+		x_start = MARK_LANDSCAPE_X_MIN;
+		x_end = width < MARK_LANDSCAPE_X_MAX + 1 ? width : MARK_LANDSCAPE_X_MAX + 1;
+		y_start = MARK_LANDSCAPE_Y_MIN;
+		y_end = height < MARK_LANDSCAPE_Y_MAX + 1 ? height : MARK_LANDSCAPE_Y_MAX + 1;
+	} else {
+		x_start = splash->height - 1 - MARK_LANDSCAPE_Y_MAX;
+		x_end = splash->height - MARK_LANDSCAPE_Y_MIN;
+		y_start = MARK_LANDSCAPE_X_MIN;
+		y_end = MARK_LANDSCAPE_X_MAX + 1;
+	}
+
+	for (y = y_start; y < y_end; y++) {
+		uint32_t *row = (uint32_t *)(buffer + y * pitch);
+
+		for (x = x_start; x < x_end; x++) {
+			const uint8_t *pixel = source_pixel(splash, x, y, width, height);
+			uint32_t source_x = landscape_output ? x : y;
+			uint32_t source_y = landscape_output ? y : splash->height - 1 - x;
+			uint32_t alpha = pixel[3];
+			uint32_t red = (pixel[0] * alpha + CARBON_R * (255 - alpha)) / 255;
+			uint32_t green = (pixel[1] * alpha + CARBON_G * (255 - alpha)) / 255;
+			uint32_t blue = (pixel[2] * alpha + CARBON_B * (255 - alpha)) / 255;
+
+			uint32_t maximum = red > green ? red : green;
+			uint32_t minimum = red < green ? red : green;
+			double highlight = 0.0;
+
+			maximum = maximum > blue ? maximum : blue;
+			minimum = minimum < blue ? minimum : blue;
+			/* Exclude the white diamond and carbon background. */
+			/* Keep anti-aliased boundary pixels untouched: the silhouette must not grow. */
+			if (maximum - minimum > 45 && maximum > 120) {
+				if (arc_progress > 0.0 &&
+				    (source_y < 540 || source_y > 660)) {
+					double arc_envelope = sin(M_PI * arc_progress);
+					double arc_x = source_y < 540
+						? ARC_GLINT_X_MIN + arc_progress *
+						  (ARC_GLINT_X_MAX - ARC_GLINT_X_MIN)
+						: ARC_GLINT_X_MAX - arc_progress *
+						  (ARC_GLINT_X_MAX - ARC_GLINT_X_MIN);
+					double distance = ((double)source_x - arc_x) / 34.0;
+
+					highlight = 0.78 * arc_envelope * arc_envelope *
+						exp(-(distance * distance));
+				}
+				/* Blend toward Cloud rather than multiplying saturated colours. */
+				red += (uint32_t)((255 - red) * highlight);
+				green += (uint32_t)((255 - green) * highlight);
+				blue += (uint32_t)((255 - blue) * highlight);
+			}
+			row[x] = (red << 16) | (green << 8) | blue;
+		}
+	}
+}
+
+static unsigned int elapsed_milliseconds(const struct timespec *start)
+{
+	struct timespec now;
+	uint64_t milliseconds;
+
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	milliseconds = (uint64_t)(now.tv_sec - start->tv_sec) * 1000;
+	if (now.tv_nsec >= start->tv_nsec)
+		milliseconds += (now.tv_nsec - start->tv_nsec) / 1000000;
+	else
+		milliseconds -= (start->tv_nsec - now.tv_nsec) / 1000000;
+	return (unsigned int)milliseconds;
+}
+
 int main(int argc, char **argv)
 {
 	drmModeRes *resources = NULL;
@@ -185,6 +300,7 @@ int main(int argc, char **argv)
 	drmModeModeInfo mode;
 	struct framebuffer fb = { 0 };
 	struct image logo = { 0 };
+	struct timespec animation_start;
 	uint32_t crtc_id = 0;
 	int waited, fd = -1, result = EXIT_FAILURE;
 
@@ -246,6 +362,7 @@ int main(int argc, char **argv)
 			strerror(errno));
 		goto out;
 	}
+	clock_gettime(CLOCK_MONOTONIC, &animation_start);
 
 	/*
 	 * Keep the framebuffer alive without retaining DRM mastership. Once the UI
@@ -260,8 +377,12 @@ int main(int argc, char **argv)
 			drmModeFreeCrtc(crtc);
 			break;
 		}
-		if (crtc)
+		if (crtc) {
 			drmModeFreeCrtc(crtc);
+			render_animation_frame(fb.map, fb.pitch, mode.hdisplay,
+					       mode.vdisplay, &logo,
+					       elapsed_milliseconds(&animation_start));
+		}
 	}
 	result = EXIT_SUCCESS;
 
