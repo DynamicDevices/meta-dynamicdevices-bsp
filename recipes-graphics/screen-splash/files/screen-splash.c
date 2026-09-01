@@ -19,8 +19,10 @@
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 
-#define WAIT_MS 50
+#define DRM_WAIT_MS 50
 #define WAIT_LIMIT_MS 15000
+#define FRAME_INTERVAL_NS 33333333L
+#define HANDOFF_POLL_FRAMES 3
 #define ANIMATION_PERIOD_MS 2400
 #define ANIMATION_HOLD_MS 300
 #define ARC_SWEEP_MS 1300
@@ -50,8 +52,44 @@ struct framebuffer {
 
 static void sleep_poll_interval(void)
 {
-	struct timespec delay = { .tv_sec = 0, .tv_nsec = WAIT_MS * 1000000L };
+	struct timespec delay = { .tv_sec = 0, .tv_nsec = DRM_WAIT_MS * 1000000L };
 	nanosleep(&delay, NULL);
+}
+
+static void add_nanoseconds(struct timespec *time, long nanoseconds)
+{
+	time->tv_nsec += nanoseconds;
+	if (time->tv_nsec >= 1000000000L) {
+		time->tv_sec++;
+		time->tv_nsec -= 1000000000L;
+	}
+}
+
+static int timespec_after(const struct timespec *left,
+			  const struct timespec *right)
+{
+	return left->tv_sec > right->tv_sec ||
+		(left->tv_sec == right->tv_sec && left->tv_nsec > right->tv_nsec);
+}
+
+static void sleep_until(struct timespec *deadline)
+{
+	struct timespec now, delay;
+
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	if (timespec_after(&now, deadline)) {
+		/* Drop a late frame rather than spinning to catch up. */
+		*deadline = now;
+		return;
+	}
+	delay.tv_sec = deadline->tv_sec - now.tv_sec;
+	delay.tv_nsec = deadline->tv_nsec - now.tv_nsec;
+	if (delay.tv_nsec < 0) {
+		delay.tv_sec--;
+		delay.tv_nsec += 1000000000L;
+	}
+	while (nanosleep(&delay, &delay) != 0 && errno == EINTR)
+		;
 }
 
 static int open_drm_card(void)
@@ -174,9 +212,9 @@ static const uint8_t *source_pixel(const struct image *splash, uint32_t x,
 		source_x = x;
 		source_y = y;
 	} else {
-		/* Rotate the landscape source clockwise into native portrait scanout. */
-		source_x = y;
-		source_y = splash->height - 1 - x;
+		/* Rotate landscape counter-clockwise for the physical panel mounting. */
+		source_x = splash->width - 1 - y;
+		source_y = x;
 	}
 	return splash->rgba + (source_y * splash->width + source_x) * 4;
 }
@@ -217,31 +255,49 @@ static void render_animation_frame(uint8_t *buffer, uint32_t pitch,
 {
 	unsigned int cycle_ms = elapsed_ms % ANIMATION_PERIOD_MS;
 	double arc_progress = 0.0;
+	double frame_intensity = 0.0;
+	double upper_arc_x = 0.0;
+	double lower_arc_x = 0.0;
 	uint32_t x, y, x_start, x_end, y_start, y_end;
 	int landscape_output = splash->width == width;
 
 	if (cycle_ms >= ANIMATION_HOLD_MS &&
-	    cycle_ms < ANIMATION_HOLD_MS + ARC_SWEEP_MS)
+	    cycle_ms < ANIMATION_HOLD_MS + ARC_SWEEP_MS) {
+		double envelope;
+
 		arc_progress = (double)(cycle_ms - ANIMATION_HOLD_MS) / ARC_SWEEP_MS;
+		envelope = sin(M_PI * arc_progress);
+		frame_intensity = 0.78 * envelope * envelope;
+		upper_arc_x = ARC_GLINT_X_MIN + arc_progress *
+			(ARC_GLINT_X_MAX - ARC_GLINT_X_MIN);
+		lower_arc_x = ARC_GLINT_X_MAX - arc_progress *
+			(ARC_GLINT_X_MAX - ARC_GLINT_X_MIN);
+	}
 	if (landscape_output) {
 		x_start = MARK_LANDSCAPE_X_MIN;
 		x_end = width < MARK_LANDSCAPE_X_MAX + 1 ? width : MARK_LANDSCAPE_X_MAX + 1;
 		y_start = MARK_LANDSCAPE_Y_MIN;
 		y_end = height < MARK_LANDSCAPE_Y_MAX + 1 ? height : MARK_LANDSCAPE_Y_MAX + 1;
 	} else {
-		x_start = splash->height - 1 - MARK_LANDSCAPE_Y_MAX;
-		x_end = splash->height - MARK_LANDSCAPE_Y_MIN;
-		y_start = MARK_LANDSCAPE_X_MIN;
-		y_end = MARK_LANDSCAPE_X_MAX + 1;
+		x_start = MARK_LANDSCAPE_Y_MIN;
+		x_end = MARK_LANDSCAPE_Y_MAX + 1;
+		y_start = splash->width - 1 - MARK_LANDSCAPE_X_MAX;
+		y_end = splash->width - MARK_LANDSCAPE_X_MIN;
 	}
 
 	for (y = y_start; y < y_end; y++) {
 		uint32_t *row = (uint32_t *)(buffer + y * pitch);
 
 		for (x = x_start; x < x_end; x++) {
-			const uint8_t *pixel = source_pixel(splash, x, y, width, height);
-			uint32_t source_x = landscape_output ? x : y;
-			uint32_t source_y = landscape_output ? y : splash->height - 1 - x;
+			uint32_t source_x = landscape_output ? x : splash->width - 1 - y;
+			uint32_t source_y = landscape_output ? y : x;
+			const uint8_t *pixel;
+
+			/* The central mark never animates; avoid reading or rewriting it. */
+			if (source_y >= 540 && source_y <= 660)
+				continue;
+			pixel = splash->rgba +
+				(source_y * splash->width + source_x) * 4;
 			uint32_t alpha = pixel[3];
 			uint32_t red = (pixel[0] * alpha + CARBON_R * (255 - alpha)) / 255;
 			uint32_t green = (pixel[1] * alpha + CARBON_G * (255 - alpha)) / 255;
@@ -256,18 +312,12 @@ static void render_animation_frame(uint8_t *buffer, uint32_t pitch,
 			/* Exclude the white diamond and carbon background. */
 			/* Keep anti-aliased boundary pixels untouched: the silhouette must not grow. */
 			if (maximum - minimum > 45 && maximum > 120) {
-				if (arc_progress > 0.0 &&
-				    (source_y < 540 || source_y > 660)) {
-					double arc_envelope = sin(M_PI * arc_progress);
-					double arc_x = source_y < 540
-						? ARC_GLINT_X_MIN + arc_progress *
-						  (ARC_GLINT_X_MAX - ARC_GLINT_X_MIN)
-						: ARC_GLINT_X_MAX - arc_progress *
-						  (ARC_GLINT_X_MAX - ARC_GLINT_X_MIN);
-					double distance = ((double)source_x - arc_x) / 34.0;
+				if (arc_progress > 0.0) {
+					double arc_x = source_y < 540 ? upper_arc_x : lower_arc_x;
+					double profile = 1.0 - fabs((double)source_x - arc_x) / 68.0;
 
-					highlight = 0.78 * arc_envelope * arc_envelope *
-						exp(-(distance * distance));
+					if (profile > 0.0)
+						highlight = frame_intensity * profile * profile;
 				}
 				/* Blend toward Cloud rather than multiplying saturated colours. */
 				red += (uint32_t)((255 - red) * highlight);
@@ -277,6 +327,14 @@ static void render_animation_frame(uint8_t *buffer, uint32_t pitch,
 			row[x] = (red << 16) | (green << 8) | blue;
 		}
 	}
+}
+
+static int animation_is_active(unsigned int elapsed_ms)
+{
+	unsigned int cycle_ms = elapsed_ms % ANIMATION_PERIOD_MS;
+
+	return cycle_ms >= ANIMATION_HOLD_MS &&
+		cycle_ms < ANIMATION_HOLD_MS + ARC_SWEEP_MS;
 }
 
 static unsigned int elapsed_milliseconds(const struct timespec *start)
@@ -300,8 +358,10 @@ int main(int argc, char **argv)
 	drmModeModeInfo mode;
 	struct framebuffer fb = { 0 };
 	struct image logo = { 0 };
-	struct timespec animation_start;
+	struct timespec animation_start, next_frame;
 	uint32_t crtc_id = 0;
+	unsigned int frame_number = 0;
+	int previous_active = 0;
 	int waited, fd = -1, result = EXIT_FAILURE;
 
 	if (argc != 2 || load_png(argv[1], &logo) != 0) {
@@ -309,7 +369,7 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
-	for (waited = 0; waited < WAIT_LIMIT_MS; waited += WAIT_MS) {
+	for (waited = 0; waited < WAIT_LIMIT_MS; waited += DRM_WAIT_MS) {
 		fd = open_drm_card();
 		if (fd >= 0) {
 			resources = drmModeGetResources(fd);
@@ -363,26 +423,35 @@ int main(int argc, char **argv)
 		goto out;
 	}
 	clock_gettime(CLOCK_MONOTONIC, &animation_start);
+	next_frame = animation_start;
 
 	/*
 	 * Keep the framebuffer alive without retaining DRM mastership. Once the UI
 	 * replaces our scanout, exit and release the old dumb buffer automatically.
 	 */
 	for (;;) {
-		drmModeCrtc *crtc;
+		unsigned int elapsed_ms;
+		int active;
 
-		sleep_poll_interval();
-		crtc = drmModeGetCrtc(fd, crtc_id);
-		if (crtc && crtc->buffer_id != fb.id) {
-			drmModeFreeCrtc(crtc);
-			break;
+		add_nanoseconds(&next_frame, FRAME_INTERVAL_NS);
+		sleep_until(&next_frame);
+		if (frame_number++ % HANDOFF_POLL_FRAMES == 0) {
+			drmModeCrtc *crtc = drmModeGetCrtc(fd, crtc_id);
+
+			if (crtc && crtc->buffer_id != fb.id) {
+				drmModeFreeCrtc(crtc);
+				break;
+			}
+			if (crtc)
+				drmModeFreeCrtc(crtc);
 		}
-		if (crtc) {
-			drmModeFreeCrtc(crtc);
+		elapsed_ms = elapsed_milliseconds(&animation_start);
+		active = animation_is_active(elapsed_ms);
+		if (active || previous_active) {
 			render_animation_frame(fb.map, fb.pitch, mode.hdisplay,
-					       mode.vdisplay, &logo,
-					       elapsed_milliseconds(&animation_start));
+					       mode.vdisplay, &logo, elapsed_ms);
 		}
+		previous_active = active;
 	}
 	result = EXIT_SUCCESS;
 

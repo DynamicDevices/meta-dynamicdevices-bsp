@@ -12,8 +12,9 @@
    releases DRM master immediately for the product UI, and runs a clear
    2.4-second edge-glint loop until the UI replaces its framebuffer.
 
-The Linux renderer rotates the landscape source clockwise into native panel
-scanout. Its first 300 ms and the 800 ms rest at the end of every loop are
+The Linux renderer rotates the landscape source counter-clockwise into native
+panel scanout, matching the physical hwlab mounting proven by webcam. Its first
+300 ms and the 800 ms rest at the end of every loop are
 pixel-identical to the U-Boot BMP. The animation changes only saturated pixels
 inside the edge mark: opposing glints run along the outer arcs while the inner
 mark, lockup, background and typography remain static. Glints are limited to
@@ -23,11 +24,15 @@ silhouette and removing the apparent widen/snap at the loop boundary.
 There is no video decoder or compositor dependency during boot. The process
 writes its already-scanned-out dumb buffer after dropping DRM master, polls for
 the UI's replacement framebuffer, and exits as soon as that handoff occurs.
+Frames use an absolute 30 fps monotonic schedule so rendering time does not
+accumulate as cadence drift. The renderer skips the static centre and rest
+period, uses a bounded arithmetic glint profile rather than a per-pixel
+exponential, and checks UI takeover independently at approximately 100 ms.
 
 Review media generated from the same animation routine:
 
 - [`active-edge-boot-animation-preview.mp4`](media/active-edge-boot-animation-preview.mp4)
-  — canonical 1920x1200 landscape, H.264, 20 fps, 2.4 seconds.
+  — canonical 1920x1200 landscape, H.264, 30 fps, 2.4 seconds.
 - [`active-edge-boot-animation-preview.gif`](media/active-edge-boot-animation-preview.gif)
   — 960x600 looping review copy.
 
