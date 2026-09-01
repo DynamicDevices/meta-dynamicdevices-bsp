@@ -4,12 +4,32 @@
 
 1. U-Boot keeps its text console on `ttymxc1`.
 2. U-Boot initializes the ST1010B3CYOL / HX8279-D panel at its native
-   1200x1920 scanout and displays the pre-rotated Active-Edge BMP from the boot
-   filesystem.
+   1200x1920 scanout and displays a pre-rotated derivative of the canonical
+   1920x1200 landscape Active-Edge artwork from the boot filesystem.
 3. Linux boots quietly with `fbcon` mapped away from `fb0`, preserving the
    splash until DRM takes over.
-4. `screen-splash` redraws the same canonical artwork once Linux DRM is ready
-   and releases DRM master for the product UI.
+4. `screen-splash` redraws the same canonical artwork once Linux DRM is ready,
+   releases DRM master immediately for the product UI, and runs a clear
+   2.4-second edge-glint loop until the UI replaces its framebuffer.
+
+The Linux renderer rotates the landscape source clockwise into native panel
+scanout. Its first 300 ms and the 800 ms rest at the end of every loop are
+pixel-identical to the U-Boot BMP. The animation changes only saturated pixels
+inside the edge mark: opposing glints run along the outer arcs while the inner
+mark, lockup, background and typography remain static. Glints are limited to
+high-intensity interior colour
+pixels and use squared easing before the endpoints, preserving the mark's
+silhouette and removing the apparent widen/snap at the loop boundary.
+There is no video decoder or compositor dependency during boot. The process
+writes its already-scanned-out dumb buffer after dropping DRM master, polls for
+the UI's replacement framebuffer, and exits as soon as that handoff occurs.
+
+Review media generated from the same animation routine:
+
+- [`active-edge-boot-animation-preview.mp4`](media/active-edge-boot-animation-preview.mp4)
+  — canonical 1920x1200 landscape, H.264, 20 fps, 2.4 seconds.
+- [`active-edge-boot-animation-preview.gif`](media/active-edge-boot-animation-preview.gif)
+  — 960x600 looping review copy.
 
 ## Live Linux evidence (target 2796, 2026-09-01)
 

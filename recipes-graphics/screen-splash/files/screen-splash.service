@@ -6,8 +6,12 @@ Before=basic.target graphical.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/screen-splash /usr/share/screen-splash/active-edge-splash-1200x1920.png
+ExecStart=/usr/bin/screen-splash /usr/share/screen-splash/active-edge-splash-1920x1200.png
 TimeoutStartSec=20
+NoNewPrivileges=yes
+ProtectHome=yes
+ProtectSystem=strict
+PrivateTmp=yes
 
 [Install]
 WantedBy=basic.target
