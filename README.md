@@ -54,6 +54,23 @@ NXP upstream `MACHINE` names in `meta-imx` (parent configs for this layer):
 
 Android BSP product name (separate from Yocto): `evk_95` (`lunch evk_95-nxp_stable-*`).
 
+### Jaguar SCREEN PMIC validation
+
+Runtime validation completed on 2026-09-01 using an
+`imx8mm-jaguar-screen` board running LmP target
+`imx8mm-jaguar-screen-lmp-2796` with kernel `6.6.52-lmp-standard`:
+
+- The live device tree reports `i.MX8MM Jaguar SCREEN board`.
+- The PCA9450A is present on I2C1 at address `0x25` and bound to the
+  `nxp-pca9450` driver.
+- `CONFIG_REGULATOR_PCA9450=y` is active in the running kernel.
+- BUCK1-BUCK6 and LDO1-LDO4 were registered and enabled at their expected
+  voltages. LDO5 was registered and disabled, consistent with the DTS because
+  it is not marked `regulator-boot-on` or `regulator-always-on`.
+
+This confirms that the Jaguar SCREEN BSP PMIC implementation is working on
+hardware, rather than only compiling successfully.
+
 ## Usage
 
 To use this BSP layer, add it to your `bblayers.conf`:
@@ -120,4 +137,3 @@ See the [LICENSE](./LICENSE) file for complete terms and conditions.
 
 - **[meta-dynamicdevices](https://github.com/DynamicDevices/meta-dynamicdevices)** - Main application layer
 - **[Wiki](https://github.com/DynamicDevices/meta-dynamicdevices/wiki)** - Comprehensive documentation
-
