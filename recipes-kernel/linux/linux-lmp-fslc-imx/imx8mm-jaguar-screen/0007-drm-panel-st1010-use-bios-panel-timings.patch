@@ -1,0 +1,38 @@
+From: Alex Lennon <ajlennon@dynamicdevices.co.uk>
+Subject: [PATCH] drm/panel: st1010: use vendor BIOS panel timings
+
+The vendor "10.1 FHD BIOS light up panel data" workbook specifies a
+159.39126 MHz pixel clock and 1341x1981 totals for the 1200x1920 panel.
+Use its explicit porch and sync values so both cascaded HX8279-D source
+drivers receive the timing used by the vendor bring-up configuration.
+
+---
+ drivers/gpu/drm/panel/panel-boe-himax8279d.c | 18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
+
+--- a/drivers/gpu/drm/panel/panel-boe-himax8279d.c
++++ b/drivers/gpu/drm/panel/panel-boe-himax8279d.c
+@@ -1153,12 +1153,12 @@ static const struct drm_display_mode santek_st1010_display_mode = {
+-	/* Spec_ST1010B3CYOL-RSLW-C_RS02 §4: native 1200x1920 @60Hz, 156MHz, 4-lane */
++	/* Vendor BIOS panel data: native 1200x1920 @60Hz, 159.391MHz, 4-lane */
+-	.clock = 156000,
++	.clock = 159391,
+ 	.hdisplay = 1200,
+-	.hsync_start = 1200 + 60,
+-	.hsync_end = 1200 + 60 + 24,
+-	.htotal = 1340,
++	.hsync_start = 1200 + 80,
++	.hsync_end = 1200 + 80 + 1,
++	.htotal = 1341,
+ 	.vdisplay = 1920,
+-	.vsync_start = 1920 + 14,
+-	.vsync_end = 1920 + 14 + 2,
+-	.vtotal = 1944,
++	.vsync_start = 1920 + 35,
++	.vsync_end = 1920 + 35 + 1,
++	.vtotal = 1981,
+ };
+ 
+ static const struct panel_cmd santek_st1010_hx8279d_on_cmds[] = {
+-- 
+2.43.0
