@@ -390,7 +390,23 @@ static int hx8279d_enable_backlight(struct udevice *dev)
 static int hx8279d_get_display_timing(struct udevice *dev,
 				      struct display_timing *timing)
 {
+	struct mipi_dsi_panel_plat *plat = dev_get_plat(dev);
+	struct mipi_dsi_device *dsi = plat->device;
+
 	memcpy(timing, &st1010_timing, sizeof(*timing));
+
+	/*
+	 * The NXP i.MX8M SEC-DSIM bridge assigns plat->device immediately
+	 * before asking the panel for its timing, then passes that device to
+	 * dsi_host_init(). Populate the device here, as NXP's RM67191 panel
+	 * driver does, so the host does not see a zero lane count.
+	 */
+	if (dsi) {
+		dsi->lanes = plat->lanes;
+		dsi->format = plat->format;
+		dsi->mode_flags = plat->mode_flags;
+	}
+
 	return 0;
 }
 
