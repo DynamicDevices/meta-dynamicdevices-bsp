@@ -32,15 +32,6 @@ SRC_URI:append:imx8mm-jaguar-sentai = " \
 		file://imx8mm-jaguar-sentai.dts \
 "
 
-# lmp-kernel-cache has imx93 BSP metadata only; imx95 FRDM is not upstream yet.
-SRC_URI:append:imx95-frdm-evk = " \
-    file://imx95-15x15-lpddr4x-frdm.scc \
-    file://imx95-15x15-lpddr4x-frdm-standard.scc \
-    file://imx95-15x15-lpddr4x-frdm.cfg \
-    file://imx95-15x15-frdm.dts \
-    file://imx95-frdm-evk/android-binder.cfg \
-"
-
 # NOTE: This DTB file is created as a default for use with local development
 #       when building lmp-base. It is NOT used by the lmp build or under CI
 #       which uses the DTS in lmp-device-tree
