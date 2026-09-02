@@ -121,7 +121,15 @@
 	/delete-node/ ak5558@13;
 	/delete-node/ gpio@20;
 	/delete-node/ camera@3c;
-	/delete-node/ ov5640_mipi@3c;
+};
+
+/* Keep the labelled camera graph intact for dtc, but disable the unfitted path. */
+&ov5640_mipi {
+	status = "disabled";
+};
+
+&mipi_csi_1 {
+	status = "disabled";
 };
 
 /* EVK pwm-backlight node — replaced by gpio-backlight on GPIO1_IO01 for now. */
