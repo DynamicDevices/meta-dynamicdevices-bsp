@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2026 Dynamic Devices Ltd
+ *
+ * FRDM-IMX95 reuses 15x15 EVK u-boot SPL/binman overlay until
+ * imx95_15x15_frdm_defconfig is available in u-boot-fio imx-2024.04.
+ */
+
+#include "imx95-15x15-evk-u-boot.dtsi"
+
+/ {
+	/* SPL FIT boot — node must carry bootph-pre-ram or fdtgrep drops it from SPL DTB */
+	bootloader {
+		compatible = "lmp,bootloader";
+		bootph-pre-ram;
+	};
+};

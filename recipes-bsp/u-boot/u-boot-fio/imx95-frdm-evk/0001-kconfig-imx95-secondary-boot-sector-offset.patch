@@ -1,0 +1,29 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Dynamic Devices <support@dynamicdevices.co.uk>
+Date: Sat, 30 May 2026 00:00:00 +0000
+Subject: [PATCH] imx: Kconfig: expose SECONDARY_BOOT_SECTOR_OFFSET for i.MX94/95
+
+lmp-mfgtool enables CONFIG_FSL_FASTBOOT_BOOTLOADER_SECONDARY, which
+references CONFIG_SECONDARY_BOOT_SECTOR_OFFSET in fb_fsl_partitions.c.
+The symbol was only visible for IMX93 and older SoCs, so imx95 mfgtool
+u-boot builds fail at compile time with an undeclared identifier.
+
+Upstream imx93 mfgtool sets CONFIG_SECONDARY_BOOT_SECTOR_OFFSET=0x0;
+extend Kconfig visibility to IMX94/95 so the same fragment applies.
+---
+ arch/arm/mach-imx/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/mach-imx/Kconfig b/arch/arm/mach-imx/Kconfig
+index 1111111111..2222222222 100644
+--- a/arch/arm/mach-imx/Kconfig
++++ b/arch/arm/mach-imx/Kconfig
+@@ -37,7 +37,7 @@ config SECONDARY_BOOT_RUNTIME_DETECTION
+ config SECONDARY_BOOT_SECTOR_OFFSET
+ 	hex "SD/MMC sector offset used for ROM secondary boot"
+ 	default 0x0
+-	depends on IMX8MQ || IMX8MM || IMX8MP || IMX8MN || MX6ULL || MX6UL || MX6 || MX7 || MX7ULP || IMX8QM || IMX8QXP || IMX8ULP || IMX93
++	depends on IMX8MQ || IMX8MM || IMX8MP || IMX8MN || MX6ULL || MX6UL || MX6 || MX7 || MX7ULP || IMX8QM || IMX8QXP || IMX8ULP || IMX93 || IMX94 || IMX95
+ 	help
+ 	  Set the sector offset to non-zero value in SPL used for
+ 	  secondary boot image. This value should be same as the

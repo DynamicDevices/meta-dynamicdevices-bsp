@@ -1,0 +1,16 @@
+# short-description: GPT eMMC SOTA layout for imx95-frdm-evk (VFAT /boot clear of SPL FIT @ 0x300)
+# long-description:
+# Same roles as meta-lmp emmc-imx-gpt-sota.wks (VFAT boot + ext4 OSTree root) but /boot
+# starts at LBA 0x1000 so user-area SPL u-boot.itb (0x300..0xf78, ~1.56 MiB) does not
+# overlap the VFAT boot sector. imx-boot lives in eMMC boot hwpart (flash bootloader).
+#
+# User-area map (sectors):
+#   0x0000..0x07ff  GPT (1 MiB)
+#   0x0300..0x0f78  SPL u-boot.itb (programmed by UUU, not in WIC)
+#   0x1000..0x54271  p1 boot (VFAT, boot.itb)
+#   0x54800..end     p2 otaroot (ext4)
+#
+part /boot --source bootimg-partition --ondisk mmcblk --fstype=vfat --label boot --offset 4096 --fsoptions="noatime"
+part / --source rootfs --ondisk mmcblk --fstype=ext4 --label otaroot --offset 346112 --fsoptions="noatime,commit=60"
+
+bootloader --ptable gpt
