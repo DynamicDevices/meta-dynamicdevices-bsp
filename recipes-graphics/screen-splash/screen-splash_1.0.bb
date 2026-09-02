@@ -8,6 +8,7 @@ SRC_URI = " \
     file://screen-splash.c \
     file://screen-splash.service \
     file://active-edge-splash-1920x1200.png \
+    file://active-edge-splash-1200x1920.png \
 "
 
 S = "${WORKDIR}"
@@ -29,6 +30,8 @@ do_install() {
     install -m 0755 ${B}/screen-splash ${D}${bindir}/screen-splash
     install -m 0644 ${WORKDIR}/active-edge-splash-1920x1200.png \
         ${D}${datadir}/screen-splash/active-edge-splash-1920x1200.png
+    install -m 0644 ${WORKDIR}/active-edge-splash-1200x1920.png \
+        ${D}${datadir}/screen-splash/active-edge-splash-1200x1920.png
     install -m 0644 ${WORKDIR}/screen-splash.service \
         ${D}${systemd_system_unitdir}/screen-splash.service
 }
