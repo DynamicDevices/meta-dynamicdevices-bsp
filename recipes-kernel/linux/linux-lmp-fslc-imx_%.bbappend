@@ -1,3 +1,5 @@
+inherit display-panel-profile
+
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 # imx8mm-jaguar-dt510 DTS + imx8mm-sw_pad_ctl.h live under lmp-device-tree (SoC pad words, shared header).
 FILESEXTRAPATHS:prepend:imx8mm-jaguar-dt510 := "${THISDIR}/../../recipes-bsp/device-tree/lmp-device-tree:"

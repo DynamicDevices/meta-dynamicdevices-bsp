@@ -18,6 +18,11 @@
 - DSI clock: non-continuous
 - Commands: low-power mode, generic writes for HX8279 register pages
 
+The U-Boot timing fields use the same ordering explicitly: horizontal
+front/sync/back `80/60/24`, vertical front/sync/back `10/14/4`. The inherited
+EVK ADV7535 node must be disabled or U-Boot selects the HDMI bridge before this
+panel and reports `display unavailable`.
+
 These values match the upstream Linux Aoly SL101PM1794FOG-V15 HX8279 profile.
 The ST1010 retains its own vendor initialization sequence and board power
 handling; only the link timing and clock behaviour are shared.
@@ -50,6 +55,8 @@ handling; only the link timing and clock behaviour are shared.
 
 ## Remaining work
 
+- First U-Boot cold-boot validation is pending the boot-firmware OTA carrying
+  version `2026090201`.
 - Confirm the final colour test and full-screen graphical scanout.
 - Expose the DTS panel orientation through the DRM connector from the panel
   driver, so Wayland compositors can consume it automatically.

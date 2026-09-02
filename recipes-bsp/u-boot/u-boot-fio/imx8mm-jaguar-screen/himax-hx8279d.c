@@ -29,12 +29,12 @@ static const struct display_timing st1010_timing = {
 	.pixelclock.typ = 159420000,
 	.hactive.typ = 1200,
 	.hfront_porch.typ = 80,
-	.hback_porch.typ = 60,
-	.hsync_len.typ = 24,
+	.hback_porch.typ = 24,
+	.hsync_len.typ = 60,
 	.vactive.typ = 1920,
 	.vfront_porch.typ = 10,
-	.vback_porch.typ = 14,
-	.vsync_len.typ = 4,
+	.vback_porch.typ = 4,
+	.vsync_len.typ = 14,
 	.flags = DISPLAY_FLAGS_HSYNC_HIGH | DISPLAY_FLAGS_VSYNC_HIGH,
 };
 

@@ -1,6 +1,7 @@
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
 inherit lmp-signing-override
+inherit display-panel-profile
 
 SRC_URI:append:imx8mm-jaguar-sentai = " \
     file://custom-dtb.cfg \

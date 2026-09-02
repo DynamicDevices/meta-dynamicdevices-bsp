@@ -7,7 +7,7 @@ Raydium development panel to the production Jaguar Screen panel.
 Signed-off-by: Alex Lennon <ajlennon@dynamicdevices.co.uk>
 
 ---
- arch/arm/dts/imx8mm-evk.dtsi | 13 ++++++-------
+ arch/arm/dts/imx8mm-evk.dtsi | 15 +++++++--------
  drivers/video/Kconfig         |  9 +++++++++
  drivers/video/Makefile        |  1 +
  3 files changed, 16 insertions(+), 7 deletions(-)
@@ -40,6 +40,15 @@ diff --git a/arch/arm/dts/imx8mm-evk.dtsi b/arch/arm/dts/imx8mm-evk.dtsi
  		status = "okay";
  
  		port {
+@@ -348,7 +347,7 @@
+ 		reg = <0x3d>;
+ 		adi,addr-cec = <0x3c>;
+ 		adi,dsi-lanes = <4>;
+-		status = "okay";
++		status = "disabled";
+ 
+ 		port {
+ 			adv7535_from_dsim: endpoint {
 @@ -733,7 +732,8 @@
  
  	pinctrl_mipi_dsi_en: mipidsiengrp {
