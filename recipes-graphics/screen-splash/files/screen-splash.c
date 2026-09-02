@@ -174,9 +174,9 @@ static const uint8_t *source_pixel(const struct image *splash, uint32_t x,
 		source_x = x;
 		source_y = y;
 	} else {
-		/* Rotate the landscape source clockwise into native portrait scanout. */
-		source_x = y;
-		source_y = splash->height - 1 - x;
+		/* Rotate the landscape source counter-clockwise into native portrait scanout. */
+		source_x = splash->width - 1 - y;
+		source_y = x;
 	}
 	return splash->rgba + (source_y * splash->width + source_x) * 4;
 }
@@ -229,10 +229,10 @@ static void render_animation_frame(uint8_t *buffer, uint32_t pitch,
 		y_start = MARK_LANDSCAPE_Y_MIN;
 		y_end = height < MARK_LANDSCAPE_Y_MAX + 1 ? height : MARK_LANDSCAPE_Y_MAX + 1;
 	} else {
-		x_start = splash->height - 1 - MARK_LANDSCAPE_Y_MAX;
-		x_end = splash->height - MARK_LANDSCAPE_Y_MIN;
-		y_start = MARK_LANDSCAPE_X_MIN;
-		y_end = MARK_LANDSCAPE_X_MAX + 1;
+		x_start = MARK_LANDSCAPE_Y_MIN;
+		x_end = MARK_LANDSCAPE_Y_MAX + 1;
+		y_start = splash->width - 1 - MARK_LANDSCAPE_X_MAX;
+		y_end = splash->width - MARK_LANDSCAPE_X_MIN;
 	}
 
 	for (y = y_start; y < y_end; y++) {
@@ -240,8 +240,8 @@ static void render_animation_frame(uint8_t *buffer, uint32_t pitch,
 
 		for (x = x_start; x < x_end; x++) {
 			const uint8_t *pixel = source_pixel(splash, x, y, width, height);
-			uint32_t source_x = landscape_output ? x : y;
-			uint32_t source_y = landscape_output ? y : splash->height - 1 - x;
+			uint32_t source_x = landscape_output ? x : splash->width - 1 - y;
+			uint32_t source_y = landscape_output ? y : x;
 			uint32_t alpha = pixel[3];
 			uint32_t red = (pixel[0] * alpha + CARBON_R * (255 - alpha)) / 255;
 			uint32_t green = (pixel[1] * alpha + CARBON_G * (255 - alpha)) / 255;

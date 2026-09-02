@@ -12,12 +12,13 @@
    releases DRM master immediately for the product UI, and runs a clear
    2.4-second edge-glint loop until the UI replaces its framebuffer.
 
-The Linux renderer rotates the landscape source clockwise into native panel
-scanout, matching the current physical hwlab mounting proven after the image
-rebuild. The U-Boot BMP and portrait desktop derivative use that same rotation,
-so no stage can independently invert the brand artwork. Its first 300 ms and
-the 800 ms rest at the end of every loop are
-pixel-identical to the U-Boot BMP. The animation changes only saturated pixels
+The Linux DRM renderer rotates the landscape source counter-clockwise into
+native panel scanout. This direction is proven from build 2823 on the physical
+hwlab assembly; clockwise scanout displayed the lockup upside down. U-Boot and
+Weston have separate rotation paths and must each be verified at their own
+handoff rather than inferred from DRM coordinates. Its first 300 ms and the
+800 ms rest at the end of every loop reproduce the unanimated canonical
+artwork. The animation changes only saturated pixels
 inside the edge mark: opposing glints run along the outer arcs while the inner
 mark, lockup, background and typography remain static. Glints are limited to
 high-intensity interior colour
