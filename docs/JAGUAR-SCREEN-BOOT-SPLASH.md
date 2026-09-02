@@ -13,7 +13,10 @@
    2.4-second edge-glint loop until the UI replaces its framebuffer.
 
 The Linux renderer rotates the landscape source clockwise into native panel
-scanout. Its first 300 ms and the 800 ms rest at the end of every loop are
+scanout, matching the current physical hwlab mounting proven after the image
+rebuild. The U-Boot BMP and portrait desktop derivative use that same rotation,
+so no stage can independently invert the brand artwork. Its first 300 ms and
+the 800 ms rest at the end of every loop are
 pixel-identical to the U-Boot BMP. The animation changes only saturated pixels
 inside the edge mark: opposing glints run along the outer arcs while the inner
 mark, lockup, background and typography remain static. Glints are limited to
