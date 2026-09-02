@@ -5,6 +5,7 @@
 DISPLAY_PANEL_PROFILE ?= ""
 DISPLAY_PANEL_ROTATION ?= "0"
 DISPLAY_FBCON_ROTATE ?= "0"
+DISPLAY_WESTON_TRANSFORM ?= "normal"
 
 # Foundries OSTree writes this into each deployment's /boot/loader/uEnv.txt,
 # so the console orientation survives OTA updates.
