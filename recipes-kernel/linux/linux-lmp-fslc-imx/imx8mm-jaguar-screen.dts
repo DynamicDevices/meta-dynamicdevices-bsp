@@ -38,6 +38,7 @@
 	/delete-node/ sound-ak5558;
 	/delete-node/ sound-ak4497;
 	/delete-node/ sound-bt-sco;
+	/delete-node/ sound-micfil;
 	/delete-node/ regulator-audio-board;
 
 	/*
@@ -124,6 +125,11 @@
 
 /* EVK pwm-backlight node — replaced by gpio-backlight on GPIO1_IO01 for now. */
 &backlight {
+	status = "disabled";
+};
+
+/* EVKB PDM microphones are not fitted on Jaguar SCREEN. */
+&micfil {
 	status = "disabled";
 };
 
