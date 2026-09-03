@@ -39,4 +39,4 @@ MACHINE_FEATURES:append:imx8mm-jaguar-screen = "${@'' if d.getVar('LOCAL_DEVELOP
 
 # When a new bootloader is used, e.g. moving to a new LMP up-rev here
 LMP_BOOT_FIRMWARE_VERSION:imx8mm-jaguar-sentai = "2"
-LMP_BOOT_FIRMWARE_VERSION:imx8mm-jaguar-screen = "2026090201"
+LMP_BOOT_FIRMWARE_VERSION:imx8mm-jaguar-screen = "2026090301"

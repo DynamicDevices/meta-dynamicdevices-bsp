@@ -13,9 +13,9 @@
    2.4-second edge-glint loop until the UI replaces its framebuffer.
 
 The Linux renderer rotates the landscape source clockwise into native panel
-scanout, matching the current physical hwlab mounting proven after the image
-rebuild. The U-Boot BMP and portrait desktop derivative use that same rotation,
-so no stage can independently invert the brand artwork. Its first
+scanout, then flips the native Y axis to match the physical hwlab mounting.
+The U-Boot BMP uses the identical boot-stage transform; Weston does not inherit
+or repeat it. Its first
 300 ms and the 800 ms rest at the end of every loop are
 pixel-identical to the U-Boot BMP. The animation changes only saturated pixels
 inside the edge mark: opposing glints run along the outer arcs while the inner
@@ -66,6 +66,6 @@ against Foundries/NXP U-Boot 2024.04. The resulting DT selects the Santek
 compatible with four DSI lanes, RGB888 scanout, 90-degree mounting metadata,
 GPIO1_IO12 panel power, and GPIO1_IO01 backlight.
 
-The next gate is the factory Yocto build. Do not flash its bootloader until the
-generated artifacts have passed recipe/config inspection and the i.MX8MM
-recovery path is ready.
+Boot-firmware version `2026090301` carries the DSI lane handoff and U-Boot-only
+Y-axis splash correction. A version change is required because Foundries boot
+firmware is updated independently from the OSTree root filesystem.

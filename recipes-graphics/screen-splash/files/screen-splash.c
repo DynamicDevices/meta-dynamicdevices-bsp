@@ -212,8 +212,8 @@ static const uint8_t *source_pixel(const struct image *splash, uint32_t x,
 		source_x = x;
 		source_y = y;
 	} else {
-		/* Rotate landscape clockwise for the physical panel mounting. */
-		source_x = y;
+		/* Rotate clockwise, then flip native Y for the physical panel mounting. */
+		source_x = splash->width - 1 - y;
 		source_y = splash->height - 1 - x;
 	}
 	return splash->rgba + (source_y * splash->width + source_x) * 4;
@@ -281,15 +281,15 @@ static void render_animation_frame(uint8_t *buffer, uint32_t pitch,
 	} else {
 		x_start = splash->height - 1 - MARK_LANDSCAPE_Y_MAX;
 		x_end = splash->height - MARK_LANDSCAPE_Y_MIN;
-		y_start = MARK_LANDSCAPE_X_MIN;
-		y_end = MARK_LANDSCAPE_X_MAX + 1;
+		y_start = splash->width - 1 - MARK_LANDSCAPE_X_MAX;
+		y_end = splash->width - MARK_LANDSCAPE_X_MIN;
 	}
 
 	for (y = y_start; y < y_end; y++) {
 		uint32_t *row = (uint32_t *)(buffer + y * pitch);
 
 		for (x = x_start; x < x_end; x++) {
-			uint32_t source_x = landscape_output ? x : y;
+			uint32_t source_x = landscape_output ? x : splash->width - 1 - y;
 			uint32_t source_y = landscape_output ? y : splash->height - 1 - x;
 			const uint8_t *pixel;
 
