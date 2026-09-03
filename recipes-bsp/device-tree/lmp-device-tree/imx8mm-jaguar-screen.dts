@@ -107,9 +107,10 @@
 		interrupts = <9 IRQ_TYPE_EDGE_FALLING>;
 		vcc-supply = <&reg_ctp_en>;
 		iovcc-supply = <&reg_ctp_en>;
-		/* Mechanical WUXGA landscape; native panel scan is 1200×1920. */
-		touchscreen-size-x = <1920>;
-		touchscreen-size-y = <1200>;
+		/* FT5626's pre-calibrated native coordinate space is not LCD pixels. */
+		touchscreen-size-x = <600>;
+		touchscreen-size-y = <1024>;
+		touchscreen-inverted-x;
 		status = "okay";
 	};
 };
