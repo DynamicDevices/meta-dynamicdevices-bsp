@@ -6,8 +6,8 @@
 2. U-Boot initializes the ST1010B3CYOL / HX8279-D panel at its native
    1200x1920 scanout and displays a pre-rotated derivative of the canonical
    1920x1200 landscape Active-Edge artwork from the boot filesystem.
-3. Linux boots quietly with `fbcon` mapped away from `fb0`, preserving the
-   splash until DRM takes over.
+3. Linux boots without DRM fbdev emulation, so no kernel fbdev client replaces
+   the U-Boot scanout before the early DRM splash performs Linux's first modeset.
 4. `screen-splash` redraws the same canonical artwork once Linux DRM is ready,
    releases DRM master immediately for the product UI, and runs a clear
    2.4-second edge-glint loop until the UI replaces its framebuffer.
