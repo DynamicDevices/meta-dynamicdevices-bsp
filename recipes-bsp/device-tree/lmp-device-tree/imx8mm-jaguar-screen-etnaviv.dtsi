@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+
+/*
+ * Replace NXP's combined galcore GPU description with the two upstream-style
+ * Vivante cores consumed by Etnaviv. Keep this in a feature-gated include;
+ * the standard Jaguar Screen galcore image must retain the NXP node.
+ */
+&gpu {
+	compatible = "vivante,gc";
+	reg = <0x0 0x38000000 0x0 0x8000>;
+	/delete-property/ reg-names;
+	interrupts = <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>;
+	/delete-property/ interrupt-names;
+	clocks = <&clk IMX8MM_CLK_GPU_AHB>,
+		 <&clk IMX8MM_CLK_GPU_BUS_ROOT>,
+		 <&clk IMX8MM_CLK_GPU3D_ROOT>,
+		 <&clk IMX8MM_CLK_GPU3D_ROOT>;
+	clock-names = "reg", "bus", "core", "shader";
+	assigned-clocks = <&clk IMX8MM_CLK_GPU3D_CORE>,
+			  <&clk IMX8MM_GPU_PLL_OUT>;
+	assigned-clock-parents = <&clk IMX8MM_GPU_PLL_OUT>;
+	assigned-clock-rates = <0>, <1000000000>;
+	/delete-property/ throttle,max_state;
+	/delete-property/ #cooling-cells;
+};
+
+/ {
+	gpu_2d_etnaviv: gpu@38008000 {
+		compatible = "vivante,gc";
+		reg = <0x0 0x38008000 0x0 0x8000>;
+		interrupts = <GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8MM_CLK_GPU_AHB>,
+			 <&clk IMX8MM_CLK_GPU_BUS_ROOT>,
+			 <&clk IMX8MM_CLK_GPU2D_ROOT>;
+		clock-names = "reg", "bus", "core";
+		assigned-clocks = <&clk IMX8MM_CLK_GPU2D_CORE>,
+				  <&clk IMX8MM_GPU_PLL_OUT>;
+		assigned-clock-parents = <&clk IMX8MM_GPU_PLL_OUT>;
+		assigned-clock-rates = <0>, <1000000000>;
+		power-domains = <&pgc_gpu>;
+	};
+};

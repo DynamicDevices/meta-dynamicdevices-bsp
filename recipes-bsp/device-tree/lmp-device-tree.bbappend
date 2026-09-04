@@ -21,10 +21,20 @@ SRC_URI:append:imx8mm-jaguar-screen = " \
         file://imx8mm-jaguar-screen.dts \
         file://imx8mm-sw_pad_ctl.h \
         file://imx8mm-sw_pad_ctl-fields.h \
+	${@bb.utils.contains('DISTRO_FEATURES', 'etnaviv', 'file://imx8mm-jaguar-screen-etnaviv.dtsi', '', d)} \
 "
 
 COMPATIBLE_MACHINE:imx8mm-jaguar-inst = ".*"
 COMPATIBLE_MACHINE:imx8mm-jaguar-screen = ".*"
+
+# Append a complete upstream-style two-core GPU description only for Etnaviv.
+# A compatible-only change is insufficient because NXP's galcore node also
+# combines the 3D/2D register ranges and uses different clock names.
+do_configure:prepend:imx8mm-jaguar-screen() {
+        if ${@bb.utils.contains('DISTRO_FEATURES', 'etnaviv', 'true', 'false', d)}; then
+		printf '\n#include "imx8mm-jaguar-screen-etnaviv.dtsi"\n' >> ${WORKDIR}/imx8mm-jaguar-screen.dts
+        fi
+}
 
 SRC_URI:append:imx8mm-jaguar-phasora = " \
         file://imx8mm-jaguar-phasora.dts \
