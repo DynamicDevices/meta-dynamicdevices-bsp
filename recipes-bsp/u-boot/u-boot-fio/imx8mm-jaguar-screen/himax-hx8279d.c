@@ -35,7 +35,7 @@ static const struct display_timing st1010_timing = {
 	.vfront_porch.typ = 10,
 	.vback_porch.typ = 4,
 	.vsync_len.typ = 14,
-	.flags = DISPLAY_FLAGS_HSYNC_HIGH | DISPLAY_FLAGS_VSYNC_HIGH,
+	.flags = DISPLAY_FLAGS_HSYNC_LOW | DISPLAY_FLAGS_VSYNC_LOW,
 };
 
 static const struct hx8279d_cmd st1010_init[] = {
@@ -443,7 +443,16 @@ static int hx8279d_probe(struct udevice *dev)
 	struct hx8279d_priv *priv = dev_get_priv(dev);
 	int ret;
 
-	/* DSI_EN_2 is a TPS22913B load-switch enable, not panel RESET. */
+	/*
+	 * DSI_EN_2 is a TPS22913B load-switch enable, not panel RESET.
+	 * Force a real off interval so a warm reset cannot inherit controller
+	 * state left by Linux or an earlier U-Boot attempt.
+	 */
+	ret = dm_gpio_set_value(&priv->panel_enable, 0);
+	if (ret)
+		return ret;
+	mdelay(20);
+
 	ret = dm_gpio_set_value(&priv->panel_enable, 1);
 	if (ret)
 		return ret;

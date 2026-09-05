@@ -1,0 +1,68 @@
+Subject: [PATCH] video: match Linux LCDIF and SEC-DSIM enable sequence
+
+Linux enables LCDIF underflow recovery, preserves the panel's sync polarity,
+sends the panel prepare/enable commands while DSIM is in command mode, and
+only then enables video transfer. U-Boot instead forced both sync signals
+high and entered DSIM video standby before the panel command sequence.
+
+Move the standby transition into the existing dsi_host_enable() callback so
+the i.MX SEC-DSIM bridge ordering becomes configure -> panel init -> video on.
+Also enable the LCDIF recovery behavior used by Linux.
+
+Upstream-Status: Submitted
+
+diff --git a/drivers/video/mxsfb.c b/drivers/video/mxsfb.c
+index 94137917..d585df54 100644
+--- a/drivers/video/mxsfb.c
++++ b/drivers/video/mxsfb.c
+@@ -157,6 +157,8 @@ static void mxs_lcd_init(struct udevice *dev, u32 fb_addr,
+ 
+ 	writel(valid_data << LCDIF_CTRL1_BYTE_PACKING_FORMAT_OFFSET,
+ 		&regs->hw_lcdif_ctrl1);
++	writel(LCDIF_CTRL1_RECOVER_ON_UNDERFLOW,
++		&regs->hw_lcdif_ctrl1_set);
+ 
+ 	if (bridge)
+ 		writel(LCDIF_CTRL2_OUTSTANDING_REQS_REQ_16, &regs->hw_lcdif_ctrl2);
+diff --git a/drivers/video/nxp/imx/sec_dsim_imx.c b/drivers/video/nxp/imx/sec_dsim_imx.c
+index 95f814db..8d9272c1 100644
+--- a/drivers/video/nxp/imx/sec_dsim_imx.c
++++ b/drivers/video/nxp/imx/sec_dsim_imx.c
+@@ -123,10 +123,6 @@ static int imx_sec_dsim_check_timing(struct udevice *dev, struct display_timing
+ {
+ 	struct imx_sec_dsim_priv *priv = dev_get_priv(dev);
+ 
+-	/* DSI force the Polarities as high */
+-	priv->adj.flags &= ~(DISPLAY_FLAGS_HSYNC_LOW | DISPLAY_FLAGS_VSYNC_LOW);
+-	priv->adj.flags |= DISPLAY_FLAGS_HSYNC_HIGH | DISPLAY_FLAGS_VSYNC_HIGH;
+-
+ 	*timing = priv->adj;
+ 
+ 	return 0;
+diff --git a/drivers/video/nxp/imx/sec_mipi_dsim.c b/drivers/video/nxp/imx/sec_mipi_dsim.c
+index a12a310e..e2f1f485 100644
+--- a/drivers/video/nxp/imx/sec_mipi_dsim.c
++++ b/drivers/video/nxp/imx/sec_mipi_dsim.c
+@@ -1269,9 +1269,6 @@ static int sec_mipi_dsim_bridge_prepare(struct sec_mipi_dsim *dsim_host)
+ 	/* config esc clock, byte clock and etc */
+ 	sec_mipi_dsim_config_clkctrl(dsim_host);
+ 
+-	/* enable data transfer of dsim */
+-	sec_mipi_dsim_set_standby(dsim_host, true);
+-
+ 	return 0;
+ }
+ 
+@@ -1428,6 +1425,10 @@ static int sec_mipi_dsim_init(struct udevice *dev,
+ 
+ static int sec_mipi_dsim_enable(struct udevice *dev)
+ {
++	struct sec_mipi_dsim *dsim_host = dev_get_priv(dev);
++
++	/* Panel commands are complete; start video transfer last, like Linux. */
++	sec_mipi_dsim_set_standby(dsim_host, true);
+ 	return 0;
+ }
+ 
+-- 
+2.43.0
