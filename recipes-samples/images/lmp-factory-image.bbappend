@@ -6,3 +6,7 @@
 CORE_IMAGE_BASE_INSTALL:append:imx8mm-jaguar-sentai = " \
     ${@bb.utils.contains('MACHINE_FEATURES', 'xm125-radar', 'xm125-firmware', '', d)} \
 "
+
+# Put the U-Boot-native BMP beside the FIT/DTB in the boot filesystem.
+IMAGE_BOOT_FILES:append:imx8mm-jaguar-screen = " active-edge-splash-1200x1920.bmp"
+do_image_wic[depends] += "screen-uboot-splash:do_deploy"

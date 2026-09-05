@@ -11,6 +11,15 @@ setenv rootpart 2
 setenv fdt_file_final imx8mm-jaguar-screen.dtb
 setenv fit_addr ${initrd_addr}
 
+# Display the pre-rotated U-Boot BMP.  Failure remains non-fatal for recovery.
+if load mmc ${devnum}:${bootpart} ${loadaddr} active-edge-splash-1200x1920.bmp; then
+	if bmp display ${loadaddr}; then
+		echo "Active-Edge U-Boot splash displayed"
+	else
+		echo "Active-Edge U-Boot splash skipped: display unavailable"
+	fi
+fi
+
 # Boot firmware updates
 
 # Offsets are in blocks (512KB each)
