@@ -390,7 +390,22 @@ static int hx8279d_enable_backlight(struct udevice *dev)
 static int hx8279d_get_display_timing(struct udevice *dev,
 				      struct display_timing *timing)
 {
+	struct mipi_dsi_panel_plat *plat = dev_get_plat(dev);
+	struct mipi_dsi_device *dsi = plat->device;
+
 	memcpy(timing, &st1010_timing, sizeof(*timing));
+
+	/*
+	 * The SEC-DSIM host creates its DSI device before requesting the
+	 * panel timing.  Transfer the panel characteristics here, before the
+	 * later mipi_dsi_attach() call validates the lane count.
+	 */
+	if (dsi) {
+		dsi->lanes = plat->lanes;
+		dsi->format = plat->format;
+		dsi->mode_flags = plat->mode_flags;
+	}
+
 	return 0;
 }
 
