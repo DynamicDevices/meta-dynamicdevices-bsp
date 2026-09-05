@@ -367,6 +367,16 @@ static int hx8279d_init_sequence(struct udevice *dev)
 		return ret;
 	mdelay(20);
 
+	/*
+	 * Match the working Linux panel lifecycle.  Its prepare callback sends
+	 * DISPLAY_ON above, then the enable callback waits another 120 ms and
+	 * sends DISPLAY_ON once more before the backlight is enabled.
+	 */
+	mdelay(120);
+	ret = mipi_dsi_dcs_set_display_on(dsi);
+	if (ret < 0)
+		return ret;
+
 	return 0;
 }
 
