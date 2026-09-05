@@ -1,0 +1,59 @@
+Subject: [PATCH] video: sec-dsim: align ST1010 link clocks with Linux
+
+The ST1010 Linux configuration uses non-continuous clock mode with a 12 MHz
+DSI PHY reference.  U-Boot previously set only CLKLANE_STOP_START and left
+the DSIM non-continuous-clock enable bit clear.  It also deleted the SoC DSI
+clock assignments, making the PHY reference depend on the display PLL rate.
+
+Program both non-continuous clock bits exactly as the Linux sec-dsim driver
+does and retain the SoC's 266 MHz core / 12 MHz PHY reference assignments.
+
+Upstream-Status: Submitted [board-independent DSIM bit fix; board clock
+configuration remains Jaguar Screen specific]
+
+diff --git a/drivers/video/nxp/imx/sec_mipi_dsim.c b/drivers/video/nxp/imx/sec_mipi_dsim.c
+--- a/drivers/video/nxp/imx/sec_mipi_dsim.c
++++ b/drivers/video/nxp/imx/sec_mipi_dsim.c
+@@ -102,7 +102,7 @@
+ #define TIMEOUT_SET_BTAOUT(x)		REG_PUT(x, 23, 16)
+ #define TIMEOUT_SET_LPDRTOUT(x)		REG_PUT(x, 15,  0)
+ 
+-#define CONFIG_NON_CONTINOUS_CLOCK_LANE	BIT(31)
++#define CONFIG_NON_CONTINUOUS_CLOCK_LANE	BIT(31)
+ #define CONFIG_CLKLANE_STOP_START	BIT(30)
+ #define CONFIG_MFLUSH_VS		BIT(29)
+ #define CONFIG_EOT_R03			BIT(28)
+@@ -863,8 +863,11 @@ static void sec_mipi_dsim_config_dpi(struct sec_mipi_dsim *dsim)
+ 
+ 	dsim_write(dsim, rgb_status, DSIM_RGB_STATUS);
+ 
+-	if (dsim->mode_flags & MIPI_DSI_CLOCK_NON_CONTINUOUS)
+-		config |= CONFIG_CLKLANE_STOP_START;
++	if (dsim->mode_flags & MIPI_DSI_CLOCK_NON_CONTINUOUS) {
++		config |= CONFIG_NON_CONTINUOUS_CLOCK_LANE;
++		if (dsim->mode_flags & MIPI_DSI_MODE_VIDEO)
++			config |= CONFIG_CLKLANE_STOP_START;
++	}
+ 
+ 	if (dsim->mode_flags & MIPI_DSI_MODE_VSYNC_FLUSH)
+ 		config |= CONFIG_MFLUSH_VS;
+diff --git a/arch/arm/dts/imx8mm-evk-u-boot.dtsi b/arch/arm/dts/imx8mm-evk-u-boot.dtsi
+--- a/arch/arm/dts/imx8mm-evk-u-boot.dtsi
++++ b/arch/arm/dts/imx8mm-evk-u-boot.dtsi
+@@ -180,9 +180,11 @@
+ };
+ 
+ &mipi_dsi {
+-	/delete-property/ assigned-clocks;
+-	/delete-property/ assigned-clock-parents;
+-	/delete-property/ assigned-clock-rates;
++	assigned-clocks = <&clk IMX8MM_CLK_DSI_CORE>,
++			  <&clk IMX8MM_CLK_DSI_PHY_REF>;
++	assigned-clock-parents = <&clk IMX8MM_SYS_PLL1_266M>,
++				 <&clk IMX8MM_CLK_24M>;
++	assigned-clock-rates = <266000000>, <12000000>;
+ };
+ 
+ &lcdif {
+-- 
+2.43.0
