@@ -1,0 +1,29 @@
+Subject: [PATCH] clk: provide ST1010 pixel clock before DSIM attaches
+
+The LCDIF composite cannot retune VIDEO_PLL1. Provide a supported parent
+rate and assign it before LCDIF probes and attaches its DSI bridge.
+
+Upstream-Status: Inappropriate [Jaguar Screen panel configuration]
+
+diff --git a/drivers/clk/imx/clk-pll14xx.c b/drivers/clk/imx/clk-pll14xx.c
+--- a/drivers/clk/imx/clk-pll14xx.c
++++ b/drivers/clk/imx/clk-pll14xx.c
+@@ -88,2 +88,3 @@
+ 	PLL_1443X_RATE(650000000U, 325, 3, 2, 0),
++	PLL_1443X_RATE(637680000U, 425, 4, 2, 7864),
+ 	PLL_1443X_RATE(594000000U, 198, 2, 2, 0),
+diff --git a/arch/arm/dts/imx8mm-evk-u-boot.dtsi b/arch/arm/dts/imx8mm-evk-u-boot.dtsi
+--- a/arch/arm/dts/imx8mm-evk-u-boot.dtsi
++++ b/arch/arm/dts/imx8mm-evk-u-boot.dtsi
+@@ -186,0 +187,11 @@
++
++&lcdif {
++	assigned-clocks = <&clk IMX8MM_VIDEO_PLL1>,
++			  <&clk IMX8MM_CLK_LCDIF_PIXEL>,
++			  <&clk IMX8MM_CLK_DISP_AXI>,
++			  <&clk IMX8MM_CLK_DISP_APB>;
++	assigned-clock-parents = <0>, <&clk IMX8MM_VIDEO_PLL1_OUT>,
++				 <&clk IMX8MM_SYS_PLL2_1000M>,
++				 <&clk IMX8MM_SYS_PLL1_800M>;
++	assigned-clock-rates = <637680000>, <159420000>, <500000000>, <200000000>;
++};

@@ -28,6 +28,7 @@ SRC_URI:append:imx8mm-jaguar-screen = " \
     file://custom-dtb.cfg \
     file://01-customise-dtb.patch \
     file://02-st1010-hx8279d-display.patch \
+    file://03-screen-pixel-clock.patch \
     file://himax-hx8279d.c \
     file://screen-splash.cfg \
 "
