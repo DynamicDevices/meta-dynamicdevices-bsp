@@ -5,8 +5,9 @@ sends the panel prepare/enable commands while DSIM is in command mode, and
 only then enables video transfer. U-Boot instead forced both sync signals
 high and entered DSIM video standby before the panel command sequence.
 
-Move the standby transition into the existing dsi_host_enable() callback so
-the i.MX SEC-DSIM bridge ordering becomes configure -> panel init -> video on.
+Move the standby transition into the existing dsi_host_enable() callback and
+defer bridge/panel enable until LCDIF is running. The i.MX SEC-DSIM ordering
+then becomes LCDIF on -> configure -> panel init -> DSI video on, like Linux.
 Also enable the LCDIF recovery behavior used by Linux.
 
 Upstream-Status: Submitted
@@ -24,6 +25,34 @@ index 94137917..d585df54 100644
  
  	if (bridge)
  		writel(LCDIF_CTRL2_OUTSTANDING_REQS_REQ_16, &regs->hw_lcdif_ctrl2);
+@@ -371,12 +373,6 @@ static int mxs_video_probe(struct udevice *dev)
+ 				return ret;
+ 			}
+ 
+-			ret = video_bridge_set_backlight(priv->disp_dev, 80);
+-			if (ret) {
+-				dev_err(dev, "fail to set backlight\n");
+-				return ret;
+-			}
+-
+ 			enable_bridge = true;
+ 
+ 			/* sec dsim needs enable ploarity at low, default we set to high */
+@@ -399,6 +395,14 @@ static int mxs_video_probe(struct udevice *dev)
+ 	if (ret)
+ 		return ret;
+ 
++	if (enable_bridge) {
++		ret = video_bridge_set_backlight(priv->disp_dev, 80);
++		if (ret) {
++			dev_err(dev, "fail to set backlight\n");
++			return ret;
++		}
++	}
++
+ 	switch (bpp) {
+ 	case 32:
+ 	case 24:
 diff --git a/drivers/video/nxp/imx/sec_dsim_imx.c b/drivers/video/nxp/imx/sec_dsim_imx.c
 index 95f814db..8d9272c1 100644
 --- a/drivers/video/nxp/imx/sec_dsim_imx.c
