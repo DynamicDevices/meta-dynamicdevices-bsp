@@ -428,6 +428,7 @@ static int hx8279d_probe(struct udevice *dev)
 	plat->format = MIPI_DSI_FMT_RGB888;
 	plat->mode_flags = MIPI_DSI_MODE_VIDEO |
 			   MIPI_DSI_MODE_VIDEO_SYNC_PULSE |
+			   MIPI_DSI_CLOCK_NON_CONTINUOUS |
 			   MIPI_DSI_MODE_LPM;
 	return 0;
 }
@@ -453,4 +454,3 @@ U_BOOT_DRIVER(hx8279d_panel) = {
 	.plat_auto = sizeof(struct mipi_dsi_panel_plat),
 	.priv_auto = sizeof(struct hx8279d_priv),
 };
-
