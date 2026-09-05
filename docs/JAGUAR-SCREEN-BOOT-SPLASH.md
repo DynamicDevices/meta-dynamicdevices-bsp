@@ -51,6 +51,19 @@ Review media generated from the same animation routine:
   `martian source` messages over the raw framebuffer. Detaching `fbcon`
   produced a clean stable image.
 
+## Multi-DRM handoff evidence (target 2853, 2026-09-05)
+
+- The Etnaviv graphics stack exposes the render GPU as `/dev/dri/card0` and
+  the connected DSI display as `/dev/dri/card1`.
+- The original splash helper repeatedly opened only the first card, so it
+  could never discover `DSI-1` and timed out despite the connector already
+  being ready.
+- The helper now scans every DRM card on each bounded retry and retains the
+  first card with a connected, mode-bearing connector and usable CRTC.
+- A Yocto-built AArch64 helper displayed native `1200x1920` scanout on
+  connector 35, remained active until Weston modeset `card1`, then exited zero
+  while Weston returned active with the logical `1920x1200` output.
+
 ## Implementation status
 
 This increment supplies the quiet Linux hand-off, mounting orientation,

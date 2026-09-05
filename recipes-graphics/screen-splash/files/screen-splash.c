@@ -92,28 +92,6 @@ static void sleep_until(struct timespec *deadline)
 		;
 }
 
-static int open_drm_card(void)
-{
-	DIR *dir = opendir("/dev/dri");
-	struct dirent *entry;
-	char path[PATH_MAX];
-	int fd = -1;
-
-	if (!dir)
-		return -1;
-
-	while ((entry = readdir(dir))) {
-		if (strncmp(entry->d_name, "card", 4) != 0)
-			continue;
-		snprintf(path, sizeof(path), "/dev/dri/%s", entry->d_name);
-		fd = open(path, O_RDWR | O_CLOEXEC);
-		if (fd >= 0)
-			break;
-	}
-	closedir(dir);
-	return fd;
-}
-
 static drmModeConnector *find_connector(int fd, drmModeRes *resources)
 {
 	int i;
@@ -154,6 +132,50 @@ static uint32_t find_crtc(int fd, drmModeRes *resources,
 		drmModeFreeEncoder(encoder);
 	}
 	return 0;
+}
+
+static int find_display(int *display_fd, drmModeRes **display_resources,
+			drmModeConnector **display_connector,
+			uint32_t *display_crtc_id)
+{
+	DIR *dir = opendir("/dev/dri");
+	struct dirent *entry;
+	char path[PATH_MAX];
+
+	if (!dir)
+		return -1;
+
+	while ((entry = readdir(dir))) {
+		drmModeRes *resources;
+		drmModeConnector *connector;
+		uint32_t crtc_id;
+		int fd;
+
+		if (strncmp(entry->d_name, "card", 4) != 0)
+			continue;
+		snprintf(path, sizeof(path), "/dev/dri/%s", entry->d_name);
+		fd = open(path, O_RDWR | O_CLOEXEC);
+		if (fd < 0)
+			continue;
+		resources = drmModeGetResources(fd);
+		connector = resources ? find_connector(fd, resources) : NULL;
+		crtc_id = connector ? find_crtc(fd, resources, connector) : 0;
+		if (connector && crtc_id) {
+			*display_fd = fd;
+			*display_resources = resources;
+			*display_connector = connector;
+			*display_crtc_id = crtc_id;
+			closedir(dir);
+			return 0;
+		}
+		if (connector)
+			drmModeFreeConnector(connector);
+		if (resources)
+			drmModeFreeResources(resources);
+		close(fd);
+	}
+	closedir(dir);
+	return -1;
 }
 
 static int load_png(const char *path, struct image *image)
@@ -370,25 +392,8 @@ int main(int argc, char **argv)
 	}
 
 	for (waited = 0; waited < WAIT_LIMIT_MS; waited += DRM_WAIT_MS) {
-		fd = open_drm_card();
-		if (fd >= 0) {
-			resources = drmModeGetResources(fd);
-			if (resources)
-				connector = find_connector(fd, resources);
-			if (connector) {
-				crtc_id = find_crtc(fd, resources, connector);
-				if (crtc_id)
-					break;
-				drmModeFreeConnector(connector);
-				connector = NULL;
-			}
-			if (resources) {
-				drmModeFreeResources(resources);
-				resources = NULL;
-			}
-			close(fd);
-			fd = -1;
-		}
+		if (find_display(&fd, &resources, &connector, &crtc_id) == 0)
+			break;
 		sleep_poll_interval();
 	}
 
