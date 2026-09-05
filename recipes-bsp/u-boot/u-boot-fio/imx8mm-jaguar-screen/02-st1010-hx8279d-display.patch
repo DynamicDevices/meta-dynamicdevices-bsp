@@ -1,21 +1,17 @@
 From: Alex Lennon <ajlennon@dynamicdevices.co.uk>
-Subject: [PATCH] video: add Jaguar Screen ST1010/HX8279-D path
+Subject: [PATCH] video: route Jaguar Screen DSIM to HX8279-D panel
 
-Select the panel driver and rewire the i.MX8MM EVK control DT from the
-Raydium development panel to the production Jaguar Screen panel.
+Select the production ST1010/HX8279-D panel and route the first DSIM output
+away from the EVK ADV7535 HDMI bridge.
 
 Signed-off-by: Alex Lennon <ajlennon@dynamicdevices.co.uk>
 
 ---
- arch/arm/dts/imx8mm-evk.dtsi | 13 ++++++-------
- drivers/video/Kconfig         |  9 +++++++++
- drivers/video/Makefile        |  1 +
- 3 files changed, 16 insertions(+), 7 deletions(-)
-
 diff --git a/arch/arm/dts/imx8mm-evk.dtsi b/arch/arm/dts/imx8mm-evk.dtsi
+index 20027497..9b291dff 100644
 --- a/arch/arm/dts/imx8mm-evk.dtsi
 +++ b/arch/arm/dts/imx8mm-evk.dtsi
-@@ -138,17 +138,16 @@
+@@ -138,25 +138,24 @@
  	};
  
  	rm67199_panel {
@@ -39,8 +35,46 @@ diff --git a/arch/arm/dts/imx8mm-evk.dtsi b/arch/arm/dts/imx8mm-evk.dtsi
 +		rotation = <90>;
  		status = "okay";
  
+-		port {
+-			rm67191_from_dsim: endpoint {
+-				remote-endpoint = <&dsim_to_rm67191>;
+-			};
++	port {
++		rm67191_from_dsim: endpoint {
++			remote-endpoint = <&dsim_to_adv7535>;
+ 		};
+ 	};
++	};
+ };
+ 
+ &A53_0 {
+@@ -346,7 +345,7 @@
+ 		reg = <0x3d>;
+ 		adi,addr-cec = <0x3c>;
+ 		adi,dsi-lanes = <4>;
+-		status = "okay";
++		status = "disabled";
+ 
  		port {
-@@ -733,7 +732,8 @@
+ 			adv7535_from_dsim: endpoint {
+@@ -514,15 +513,10 @@
+ 
+ 	port@1 {
+ 		dsim_to_adv7535: endpoint {
+-			remote-endpoint = <&adv7535_from_dsim>;
+-		};
+-	};
+-
+-	port@2 {
+-		dsim_to_rm67191: endpoint {
+ 			remote-endpoint = <&rm67191_from_dsim>;
+ 		};
+ 	};
++
+ };
+ 
+ &iomuxc {
+@@ -732,7 +726,8 @@
  
  	pinctrl_mipi_dsi_en: mipidsiengrp {
  		fsl,pins = <
@@ -51,9 +85,10 @@ diff --git a/arch/arm/dts/imx8mm-evk.dtsi b/arch/arm/dts/imx8mm-evk.dtsi
  	};
  };
 diff --git a/drivers/video/Kconfig b/drivers/video/Kconfig
+index 57d78840..2f5de9b8 100644
 --- a/drivers/video/Kconfig
 +++ b/drivers/video/Kconfig
-@@ -516,6 +516,17 @@ config VIDEO_LCD_HIMAX_HX8394
+@@ -514,6 +514,17 @@ config VIDEO_LCD_HIMAX_HX8394
  	Say Y here if you want to enable support for Himax HX8394
  	dsi 4dl panel.
  
@@ -72,9 +107,10 @@ diff --git a/drivers/video/Kconfig b/drivers/video/Kconfig
  	bool "OTM8009A DSI LCD panel support"
  	select VIDEO_MIPI_DSI
 diff --git a/drivers/video/Makefile b/drivers/video/Makefile
+index 2c662e5f..99eb0ab1 100644
 --- a/drivers/video/Makefile
 +++ b/drivers/video/Makefile
-@@ -57,6 +57,7 @@ obj-$(CONFIG_VIDEO_EFI) += efi.o
+@@ -56,6 +56,7 @@ obj-$(CONFIG_VIDEO_EFI) += efi.o
  obj-$(CONFIG_VIDEO_IVYBRIDGE_IGD) += ivybridge_igd.o
  obj-$(CONFIG_VIDEO_LCD_ANX9804) += anx9804.o
  obj-$(CONFIG_VIDEO_LCD_ENDEAVORU) += endeavoru-panel.o
@@ -82,5 +118,7 @@ diff --git a/drivers/video/Makefile b/drivers/video/Makefile
  obj-$(CONFIG_VIDEO_LCD_HIMAX_HX8394) += himax-hx8394.o
  obj-$(CONFIG_VIDEO_LCD_HITACHI_TX18D42VM) += hitachi_tx18d42vm_lcd.o
  obj-$(CONFIG_VIDEO_LCD_ORISETECH_OTM8009A) += orisetech_otm8009a.o
+
 -- 
 2.43.0
+
