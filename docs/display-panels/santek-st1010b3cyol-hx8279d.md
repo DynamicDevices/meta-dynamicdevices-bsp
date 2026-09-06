@@ -8,6 +8,8 @@
 - Controller arrangement: two HX8279-D source drivers in the module
 - First validated carrier: `imx8mm-jaguar-screen`
 - First readable Foundries target: 2796 (2026-09-01)
+- First validated U-Boot splash target: 2868, boot firmware `2026090508`
+  (2026-09-05)
 
 ## Known-good display link
 
@@ -48,9 +50,29 @@ handling; only the link timing and clock behaviour are shared.
 - Boot-time `panel_boe_himax8279d.st1010_*` parameters remain available for
   controlled experiments without creating a kernel patch for every timing.
 
+## U-Boot splash evidence
+
+- Boot filesystem: FAT on `mmc 2:1`.
+- Generated derivative: `active-edge-splash-1200x1920.bmp`, 6,912,054 bytes,
+  1200 x 1920, 24 bpp, uncompressed.
+- SHA-256: `d7f04f12b61990c0edf45efbdc5392808925b3c01264349642545dd5eef380d0`.
+- U-Boot CRC32 over `0x697836` bytes: `5f68ed83`.
+- Reproducible display sequence:
+  `fatload mmc 2:1 0x40400000 active-edge-splash-1200x1920.bmp`,
+  `bmp info 0x40400000`, `crc32 0x40400000 0x697836`, then
+  `bmp display 0x40400000 0 0`.
+- A successful `bmp display` was not sufficient while DSIM video was enabled
+  before the panel command sequence and LCDIF scanout. The proven order is
+  panel power/command-mode setup, complete DCS initialization, LCDIF start,
+  then DSIM standby/video enable.
+- Target 2868 proved both the manual sequence and the automatic boot-script
+  path on the mounted panel with the correct orientation.
+
 ## Remaining work
 
-- Confirm the final colour test and full-screen graphical scanout.
+- Preserve or immediately reproduce the U-Boot frame during Linux DRM takeover;
+  do not allow fbcon to attach to the product display.
+- Confirm the final colour test under Linux and the complete kiosk takeover.
 - Expose the DTS panel orientation through the DRM connector from the panel
   driver, so Wayland compositors can consume it automatically.
 - Validate touch-axis swap/inversion against the final compositor transform.
