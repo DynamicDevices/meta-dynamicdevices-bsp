@@ -1,0 +1,108 @@
+Subject: [PATCH] drm: preserve firmware scanout until native modeset
+
+When U-Boot supplies an enabled simple-framebuffer, do not cycle the LCDIF
+power domain or SEC DSIM runtime clocks while the native DRM components bind.
+Their first atomic modeset takes ownership after the early userspace splash has
+already prepared the replacement framebuffer.
+
+Upstream-Status: Inappropriate [board boot-display handoff policy]
+
+diff --git a/drivers/gpu/drm/bridge/sec-dsim.c b/drivers/gpu/drm/bridge/sec-dsim.c
+index 8a63f345582d..9e684a03537b 100644
+--- a/drivers/gpu/drm/bridge/sec-dsim.c
++++ b/drivers/gpu/drm/bridge/sec-dsim.c
+@@ -275,6 +275,20 @@
+ #define conn_to_sec_mipi_dsim(conn)		\
+ 	container_of(conn, struct sec_mipi_dsim, connector)
+ 
++static bool firmware_framebuffer_active(void)
++{
++	struct device_node *node;
++	bool active;
++
++	node = of_find_compatible_node(NULL, NULL, "simple-framebuffer");
++	if (!node)
++		return false;
++	active = of_device_is_available(node);
++	of_node_put(node);
++
++	return active;
++}
++
+ /* used for CEA standard modes */
+ struct dsim_hblank_par {
+ 	char *name;		/* drm display mode name */
+@@ -1976,6 +1990,7 @@ int sec_mipi_dsim_bind(struct device *dev, struct device *master, void *data,
+ 	struct drm_connector *connector;
+ 	struct sec_mipi_dsim *dsim;
+ 	struct device_node *node = NULL;
++	bool preserve_boot_display = firmware_framebuffer_active();
+ 
+ 	dev_dbg(dev, "sec-dsim bridge bind begin\n");
+ 
+@@ -1995,10 +2010,12 @@ int sec_mipi_dsim_bind(struct device *dev, struct device *master, void *data,
+ 
+ 	dev_set_drvdata(dev, dsim);
+ 
+-	pm_runtime_get_sync(dev);
++	if (!preserve_boot_display)
++		pm_runtime_get_sync(dev);
+ 	version = dsim_read(dsim, DSIM_VERSION);
+ 	WARN_ON(version != pdata->version);
+-	pm_runtime_put_sync(dev);
++	if (!preserve_boot_display)
++		pm_runtime_put_sync(dev);
+ 
+ 	dev_info(dev, "version number is %#x\n", version);
+ 
+diff --git a/drivers/gpu/drm/mxsfb/mxsfb_drv.c b/drivers/gpu/drm/mxsfb/mxsfb_drv.c
+index 59e1147cae9c..9ee57dfdf22d 100644
+--- a/drivers/gpu/drm/mxsfb/mxsfb_drv.c
++++ b/drivers/gpu/drm/mxsfb/mxsfb_drv.c
+@@ -43,6 +43,20 @@ enum mxsfb_devtype {
+ 	MXSFB_V6,
+ };
+ 
++static bool firmware_framebuffer_active(void)
++{
++	struct device_node *node;
++	bool active;
++
++	node = of_find_compatible_node(NULL, NULL, "simple-framebuffer");
++	if (!node)
++		return false;
++	active = of_device_is_available(node);
++	of_node_put(node);
++
++	return active;
++}
++
+ static const struct mxsfb_devdata mxsfb_devdata[] = {
+ 	[MXSFB_V3] = {
+ 		.transfer_count	= LCDC_V3_TRANSFER_COUNT,
+@@ -214,6 +228,7 @@ static int mxsfb_load(struct drm_device *drm,
+ 	struct platform_device *pdev = to_platform_device(drm->dev);
+ 	struct mxsfb_drm_private *mxsfb;
+ 	struct resource *res;
++	bool preserve_boot_display = firmware_framebuffer_active();
+ 	int ret;
+ 
+ 	mxsfb = devm_kzalloc(&pdev->dev, sizeof(*mxsfb), GFP_KERNEL);
+@@ -288,9 +303,11 @@ static int mxsfb_load(struct drm_device *drm,
+ 		goto err_vblank;
+ 	mxsfb->irq = ret;
+ 
+-	pm_runtime_get_sync(drm->dev);
++	if (!preserve_boot_display)
++		pm_runtime_get_sync(drm->dev);
+ 	ret = mxsfb_irq_install(drm, mxsfb->irq);
+-	pm_runtime_put_sync(drm->dev);
++	if (!preserve_boot_display)
++		pm_runtime_put_sync(drm->dev);
+ 
+ 	if (ret < 0) {
+ 		dev_err(drm->dev, "Failed to install IRQ handler\n");
+
+-- 
+2.43.0
+

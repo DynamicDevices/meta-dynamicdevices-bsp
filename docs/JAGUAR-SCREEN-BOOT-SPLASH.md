@@ -103,7 +103,9 @@ separate GPU DRM device is present.
 
 U-Boot now leaves LCDIF running at OS prepare and passes its live framebuffer
 to Linux as a reserved `simple-framebuffer`. Linux `simpledrm` holds that exact
-frame while the native LCDIF/DSI driver probes; the early splash deliberately
+frame while the native LCDIF/DSI driver probes. When that firmware framebuffer
+is present, the native drivers do not cycle their runtime power domains merely
+to install IRQ handling or read the DSIM version. The early splash deliberately
 skips the firmware DRM card and commits its first frame on native DRM.
 
 The next gate is the factory Yocto build followed by a recorded cold boot. The
