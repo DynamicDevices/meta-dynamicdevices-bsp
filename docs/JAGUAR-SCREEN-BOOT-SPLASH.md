@@ -108,6 +108,12 @@ is present, the native drivers do not cycle their runtime power domains merely
 to install IRQ handling or read the DSIM version. The early splash deliberately
 skips the firmware DRM card and commits its first frame on native DRM.
 
+Target 2872 proved that a U-Boot source change is not deployed by an OSTree
+update when its boot-firmware marker is left unchanged: Linux contained the
+handoff support, but the running `2026090508` U-Boot supplied no
+`simple-framebuffer` node and the panel still went black. The handoff-capable
+payload is therefore rolled out as boot firmware `2026090601`.
+
 The next gate is the factory Yocto build followed by a recorded cold boot. The
 acceptance test is no countdown, no black handoff frame, no framebuffer-console
 output, and an upright Linux splash that remains until the product UI replaces
