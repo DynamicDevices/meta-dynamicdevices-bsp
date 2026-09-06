@@ -67,11 +67,13 @@ handling; only the link timing and clock behaviour are shared.
   then DSIM standby/video enable.
 - Target 2868 proved both the manual sequence and the automatic boot-script
   path on the mounted panel with the correct orientation.
+- A signed one-shot Linux FIT tested on 2026-09-06 proved native DRM can adopt
+  the firmware-active display domains, LCDIF, SEC DSIM and panel without a
+  black interval or visible mode-reset flash. The first native commit retains
+  the inherited mode/PLL and queues Linux's replacement framebuffer address.
 
 ## Remaining work
 
-- Preserve or immediately reproduce the U-Boot frame during Linux DRM takeover;
-  do not allow fbcon to attach to the product display.
 - Confirm the final colour test under Linux and the complete kiosk takeover.
 - Expose the DTS panel orientation through the DRM connector from the panel
   driver, so Wayland compositors can consume it automatically.

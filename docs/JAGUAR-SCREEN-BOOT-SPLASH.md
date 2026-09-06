@@ -178,10 +178,13 @@ The decisive isolation matrix was:
 
 This establishes a kernel ownership fault and rules out the splash artwork,
 simple framebuffer contents and Linux splash service as the cause of the
-delayed blackout. The production Linux change must adopt and hold the already
-active LCDIF, DSIM, block-controller domains, resets and clocks until native
-DRM's first replacement atomic commit. After that commit it may release the
-firmware framebuffer and inherited ownership normally.
+delayed blackout.
+
+The production Linux change now adopts the firmware-active display block power
+domains, LCDIF, SEC DSIM wrapper/common bridge and Santek panel. On the first
+native DRM commit it retains the running LCDIF mode and DSIM PLL, and queues
+only Linux's replacement framebuffer address. Normal native-driver ownership
+continues after that commit.
 
 `initcall_blacklist=`, `clk_ignore_unused` and `pd_ignore_unused` remain
 one-shot diagnostic tools only. Shipping them would prevent the Linux splash
@@ -189,9 +192,22 @@ and product UI from obtaining native DRM. Likewise, the relocated-RAM
 `video_off` write was useful to prove U-Boot teardown ownership but is not a
 source fix.
 
-Those initcall blacklists and ignore arguments are diagnostic only and must not
-ship: native DRM is required by the Linux splash and product UI. The next gate
-is a minimal native-driver fix that adopts the already-active LCDIF, DSI and
-display block-controller state, followed by another one-shot signed-FIT test.
-Final acceptance remains: no countdown, no black handoff frame, no framebuffer
-console output, and an upright Linux splash until the product UI replaces it.
+Those initcall blacklists and ignore arguments are diagnostic only and do not
+ship: native DRM is required by the Linux splash and product UI.
+
+The native-driver implementation was compiled as kernel release
+`6.6.52-lmp-standard`, packaged in a signed one-shot FIT and bench-tested on
+2026-09-06. The U-Boot frame remained visible through kernel display takeover,
+with no black handoff interval and no visible LCDIF/DSIM mode-reset flash. The
+tested FIT SHA-256 was
+`ba4e5e159b2532af6d933b3f8d6a742ed34c0fd12dcaf5850f4b8a739dff865c`;
+its kernel `Image` SHA-256 was
+`6647e66e4b8e15db58cb88a0d4c6072386fb1cb7b0d3f6fa34170e024b19ac53`.
+The compiled U-Boot default remains `bootdelay=0`; a previously saved
+environment value is a separate persistent override and must be returned to
+zero after lab debugging.
+
+The remaining integration gate is the manifest-pinned Foundries CI/OTA image,
+followed by a cold-boot check that the upright Linux splash remains until the
+product UI replaces it. The stock shutdown `/sysroot` unmount/watchdog delay is
+a separate reboot-path fault and is not part of this display handoff change.

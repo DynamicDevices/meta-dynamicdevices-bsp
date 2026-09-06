@@ -1,0 +1,507 @@
+From d3a99d20876e728f02a02682cacfd9ff3be0e752 Mon Sep 17 00:00:00 2001
+From: Alex J Lennon <ajlennon@dynamicdevices.co.uk>
+Date: Sun, 6 Sep 2026 14:05:29 +0100
+Subject: [PATCH] drm: imx: adopt firmware-active display pipeline
+
+U-Boot leaves the Jaguar Screen LCDIF, display block, SEC DSIM and panel
+running so its splash can remain visible while Linux starts. The native
+Linux drivers currently model those resources as disabled and reset or gate
+parts of the inherited pipeline before the first DRM atomic commit. That
+produces a black handoff frame.
+
+Detect the reserved simple-framebuffer and adopt the firmware-active state
+in the display block power domains, LCDIF, SEC DSIM wrapper/common bridge
+and panel. Retain the inherited LCDIF mode and DSIM PLL for the first
+native commit while queuing Linux's replacement framebuffer address, then
+continue with normal native-driver ownership.
+
+Signed-off-by: Alex J Lennon <ajlennon@dynamicdevices.co.uk>
+---
+ drivers/gpu/drm/bridge/sec-dsim.c            |  6 +-
+ drivers/gpu/drm/imx/lcdif/lcdif-crtc.c       |  5 ++
+ drivers/gpu/drm/imx/sec_mipi_dsim-imx.c      | 74 +++++++++++++++++-
+ drivers/gpu/drm/panel/panel-boe-himax8279d.c | 22 ++++++
+ drivers/gpu/imx/lcdif/lcdif-common.c         | 62 ++++++++++++++-
+ drivers/pmdomain/imx/imx8m-blk-ctrl.c        | 80 +++++++++++++++++++-
+ include/drm/bridge/sec_mipi_dsim.h           |  3 +-
+ include/video/imx-lcdif.h                    |  1 +
+ 8 files changed, 243 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/gpu/drm/bridge/sec-dsim.c b/drivers/gpu/drm/bridge/sec-dsim.c
+index 91a34d1ddce1..c349337ac647 100644
+--- a/drivers/gpu/drm/bridge/sec-dsim.c
++++ b/drivers/gpu/drm/bridge/sec-dsim.c
+@@ -1968,7 +1968,8 @@ static const struct drm_connector_funcs sec_mipi_dsim_connector_funcs = {
+ 
+ int sec_mipi_dsim_bind(struct device *dev, struct device *master, void *data,
+ 		       struct drm_encoder *encoder, void __iomem *base,
+-		       int irq, const struct sec_mipi_dsim_plat_data *pdata)
++		       int irq, const struct sec_mipi_dsim_plat_data *pdata,
++		       bool firmware_active)
+ {
+ 	int ret, version;
+ 	struct drm_device *drm_dev = data;
+@@ -1989,6 +1990,9 @@ int sec_mipi_dsim_bind(struct device *dev, struct device *master, void *data,
+ 	dsim->base = base;
+ 	dsim->pdata = pdata;
+ 	dsim->encoder = encoder;
++	dsim->enabled = firmware_active;
++	if (firmware_active)
++		dev_info(dev, "adopting firmware-active DSIM bridge\n");
+ 
+ 	dsim->dsi_host.ops = &sec_mipi_dsim_host_ops;
+ 	dsim->dsi_host.dev = dev;
+diff --git a/drivers/gpu/drm/imx/lcdif/lcdif-crtc.c b/drivers/gpu/drm/imx/lcdif/lcdif-crtc.c
+index 10273e5749b1..fe98d39e62f3 100644
+--- a/drivers/gpu/drm/imx/lcdif/lcdif-crtc.c
++++ b/drivers/gpu/drm/imx/lcdif/lcdif-crtc.c
+@@ -189,6 +189,11 @@ static void lcdif_crtc_atomic_enable(struct drm_crtc *crtc,
+ 		vm.flags |= DISPLAY_FLAGS_PIXDATA_NEGEDGE;
+ 
+ 	pm_runtime_get_sync(lcdif_crtc->dev->parent);
++	if (lcdif_release_firmware_active(lcdif)) {
++		dev_info(lcdif_crtc->dev,
++			 "retaining firmware LCDIF mode for first atomic commit\n");
++		return;
++	}
+ 
+ 	lcdif_set_mode(lcdif, &vm, use_i80);
+ 
+diff --git a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c b/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c
+index dd2a7c0c6335..88e4b7afd346 100644
+--- a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c
++++ b/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c
+@@ -57,12 +57,28 @@ struct imx_sec_dsim_device {
+ 	atomic_t rpm_suspended;
+ 
+ 	bool enabled;
++	bool firmware_active;
+ };
+ 
+ #define enc_to_dsim(enc) container_of(enc, struct imx_sec_dsim_device, encoder)
+ 
+ static struct imx_sec_dsim_device *dsim_dev;
+ 
++static bool firmware_framebuffer_active(void)
++{
++	struct device_node *node;
++	bool active;
++
++	node = of_find_compatible_node(NULL, NULL, "simple-framebuffer");
++	if (!node)
++		return false;
++
++	active = of_device_is_available(node);
++	of_node_put(node);
++
++	return active;
++}
++
+ #if CONFIG_PM
+ static int imx_sec_dsim_runtime_suspend(struct device *dev);
+ static int imx_sec_dsim_runtime_resume(struct device *dev);
+@@ -171,6 +187,7 @@ imx_sec_dsim_encoder_atomic_disable(struct drm_encoder *encoder,
+ 	pm_runtime_put_sync(dsim_dev->dev);
+ 
+ 	dsim_dev->enabled = false;
++	dsim_dev->firmware_active = false;
+ }
+ 
+ static int imx_sec_dsim_encoder_atomic_check(struct drm_encoder *encoder,
+@@ -402,7 +419,8 @@ static int imx_sec_dsim_bind(struct device *dev, struct device *master,
+ 
+ 	/* bind sec dsim bridge */
+ 	ret = sec_mipi_dsim_bind(dev, master, data, encoder,
+-				 dsim_dev->base, dsim_dev->irq, pdata);
++				 dsim_dev->base, dsim_dev->irq, pdata,
++				 dsim_dev->firmware_active);
+ 	if (ret) {
+ 		dev_err(dev, "failed to bind sec dsim bridge: %d\n", ret);
+ 		drm_encoder_cleanup(encoder);
+@@ -484,23 +502,71 @@ static int imx_sec_dsim_probe(struct platform_device *pdev)
+ 	if (ret)
+ 		return ret;
+ 
+-	atomic_set(&dsim_dev->rpm_suspended, 1);
+-
+-	pm_runtime_enable(dev);
++	if (firmware_framebuffer_active()) {
++		request_bus_freq(BUS_FREQ_HIGH);
++
++		ret = clk_prepare_enable(dsim_dev->clk_pllref);
++		if (ret)
++			goto release_bus_freq;
++		ret = clk_prepare_enable(dsim_dev->clk_cfg);
++		if (ret)
++			goto disable_pllref;
++		ret = clk_prepare_enable(dsim_dev->clk_apb);
++		if (ret)
++			goto disable_cfg;
++
++		atomic_set(&dsim_dev->rpm_suspended, 0);
++		ret = pm_runtime_set_active(dev);
++		if (ret)
++			goto disable_apb;
++		pm_runtime_enable(dev);
++		pm_runtime_get_noresume(dev);
++		dsim_dev->enabled = true;
++		dsim_dev->firmware_active = true;
++		dev_info(dev, "adopting firmware-active DSIM\n");
++	} else {
++		atomic_set(&dsim_dev->rpm_suspended, 1);
++		pm_runtime_enable(dev);
++	}
+ 
+ 	ret = component_add(dev, &imx_sec_dsim_ops);
+ 	if (ret) {
++		if (dsim_dev->firmware_active) {
++			pm_runtime_put_noidle(dev);
++			clk_disable_unprepare(dsim_dev->clk_apb);
++			clk_disable_unprepare(dsim_dev->clk_cfg);
++			clk_disable_unprepare(dsim_dev->clk_pllref);
++			release_bus_freq(BUS_FREQ_HIGH);
++		}
+ 		pm_runtime_disable(dev);
+ 		sec_dsim_of_put_resets(dsim_dev);
+ 		dev_err_probe(dev, ret, "Failed to add component\n");
+ 	}
+ 
+ 	return ret;
++
++disable_apb:
++	clk_disable_unprepare(dsim_dev->clk_apb);
++disable_cfg:
++	clk_disable_unprepare(dsim_dev->clk_cfg);
++disable_pllref:
++	clk_disable_unprepare(dsim_dev->clk_pllref);
++release_bus_freq:
++	release_bus_freq(BUS_FREQ_HIGH);
++	sec_dsim_of_put_resets(dsim_dev);
++	return ret;
+ }
+ 
+ static int imx_sec_dsim_remove(struct platform_device *pdev)
+ {
+ 	component_del(&pdev->dev, &imx_sec_dsim_ops);
++	if (dsim_dev->firmware_active) {
++		pm_runtime_put_noidle(&pdev->dev);
++		clk_disable_unprepare(dsim_dev->clk_apb);
++		clk_disable_unprepare(dsim_dev->clk_cfg);
++		clk_disable_unprepare(dsim_dev->clk_pllref);
++		release_bus_freq(BUS_FREQ_HIGH);
++	}
+ 	pm_runtime_disable(&pdev->dev);
+ 	sec_dsim_of_put_resets(dsim_dev);
+ 
+diff --git a/drivers/gpu/drm/panel/panel-boe-himax8279d.c b/drivers/gpu/drm/panel/panel-boe-himax8279d.c
+index 0ae409311e1e..2423eaf25a80 100644
+--- a/drivers/gpu/drm/panel/panel-boe-himax8279d.c
++++ b/drivers/gpu/drm/panel/panel-boe-himax8279d.c
+@@ -41,8 +41,24 @@ struct panel_desc {
+ 	/* Some boards wire enable to a power switch, not the panel reset pin. */
+ 	bool enable_gpio_is_power;
+ 	unsigned int enable_power_on_delay_ms;
++	bool firmware_handoff;
+ };
+ 
++static bool firmware_framebuffer_active(void)
++{
++	struct device_node *node;
++	bool active;
++
++	node = of_find_compatible_node(NULL, NULL, "simple-framebuffer");
++	if (!node)
++		return false;
++
++	active = of_device_is_available(node);
++	of_node_put(node);
++
++	return active;
++}
++
+ struct panel_info {
+ 	struct drm_panel base;
+ 	struct mipi_dsi_device *link;
+@@ -1191,6 +1207,7 @@ static const struct panel_desc santek_st1010_hx8279d_panel_desc = {
+ 	/* GPIO1_IO12 controls the LCD power switch, it is not RESET. */
+ 	.enable_gpio_is_power = true,
+ 	.enable_power_on_delay_ms = 10,
++	.firmware_handoff = true,
+ };
+ 
+ static const struct of_device_id panel_of_match[] = {
+@@ -1273,6 +1290,11 @@ static int panel_probe(struct mipi_dsi_device *dsi)
+ 	dsi->format = desc->format;
+ 	dsi->lanes = desc->lanes;
+ 	pinfo->desc = desc;
++	if (desc->firmware_handoff && firmware_framebuffer_active()) {
++		pinfo->prepared = true;
++		pinfo->enabled = true;
++		dev_info(&dsi->dev, "adopting firmware-active panel\n");
++	}
+ 
+ 	pinfo->link = dsi;
+ 	mipi_dsi_set_drvdata(dsi, pinfo);
+diff --git a/drivers/gpu/imx/lcdif/lcdif-common.c b/drivers/gpu/imx/lcdif/lcdif-common.c
+index 25d64642d271..513688bd98fb 100644
+--- a/drivers/gpu/imx/lcdif/lcdif-common.c
++++ b/drivers/gpu/imx/lcdif/lcdif-common.c
+@@ -40,12 +40,28 @@ struct lcdif_soc {
+ 	struct reset_control *soft_resetn;
+ 	struct reset_control *clk_enable;
+ 	atomic_t rpm_suspended;
++	bool firmware_active;
+ 
+ 	struct clk *clk_pix;
+ 	struct clk *clk_disp_axi;
+ 	struct clk *clk_disp_apb;
+ };
+ 
++static bool firmware_framebuffer_active(void)
++{
++	struct device_node *node;
++	bool active;
++
++	node = of_find_compatible_node(NULL, NULL, "simple-framebuffer");
++	if (!node)
++		return false;
++
++	active = of_device_is_available(node);
++	of_node_put(node);
++
++	return active;
++}
++
+ struct lcdif_soc_pdata {
+ 	bool hsync_invert;
+ 	bool vsync_invert;
+@@ -748,9 +764,30 @@ static int imx_lcdif_probe(struct platform_device *pdev)
+ 
+ 	platform_set_drvdata(pdev, lcdif);
+ 
+-	atomic_set(&lcdif->rpm_suspended, 0);
+-	pm_runtime_enable(dev);
+-	atomic_inc(&lcdif->rpm_suspended);
++	if (firmware_framebuffer_active()) {
++		request_bus_freq(BUS_FREQ_HIGH);
++		ret = lcdif_enable_clocks(lcdif);
++		if (ret) {
++			release_bus_freq(BUS_FREQ_HIGH);
++			return ret;
++		}
++
++		atomic_set(&lcdif->rpm_suspended, 0);
++		ret = pm_runtime_set_active(dev);
++		if (ret) {
++			lcdif_disable_clocks(lcdif);
++			release_bus_freq(BUS_FREQ_HIGH);
++			return ret;
++		}
++		pm_runtime_enable(dev);
++		pm_runtime_get_noresume(dev);
++		lcdif->firmware_active = true;
++		dev_info(dev, "adopting firmware-active LCDIF\n");
++	} else {
++		atomic_set(&lcdif->rpm_suspended, 0);
++		pm_runtime_enable(dev);
++		atomic_inc(&lcdif->rpm_suspended);
++	}
+ 
+ 	dev_dbg(dev, "%s: probe end\n", __func__);
+ 
+@@ -759,11 +796,30 @@ static int imx_lcdif_probe(struct platform_device *pdev)
+ 
+ static int imx_lcdif_remove(struct platform_device *pdev)
+ {
++	struct lcdif_soc *lcdif = platform_get_drvdata(pdev);
++
++	if (lcdif->firmware_active) {
++		pm_runtime_put_noidle(&pdev->dev);
++		lcdif_disable_clocks(lcdif);
++		release_bus_freq(BUS_FREQ_HIGH);
++	}
+ 	pm_runtime_disable(&pdev->dev);
+ 
+ 	return 0;
+ }
+ 
++bool lcdif_release_firmware_active(struct lcdif_soc *lcdif)
++{
++	if (!lcdif->firmware_active)
++		return false;
++
++	lcdif->firmware_active = false;
++	pm_runtime_put_noidle(lcdif->dev);
++
++	return true;
++}
++EXPORT_SYMBOL_GPL(lcdif_release_firmware_active);
++
+ #ifdef CONFIG_PM_SLEEP
+ static int imx_lcdif_suspend(struct device *dev)
+ {
+diff --git a/drivers/pmdomain/imx/imx8m-blk-ctrl.c b/drivers/pmdomain/imx/imx8m-blk-ctrl.c
+index 53b4cc16ea67..31ace5447247 100644
+--- a/drivers/pmdomain/imx/imx8m-blk-ctrl.c
++++ b/drivers/pmdomain/imx/imx8m-blk-ctrl.c
+@@ -37,6 +37,7 @@ struct imx8m_blk_ctrl {
+ 	struct regmap *noc_regmap;
+ 	struct imx8m_blk_ctrl_domain *domains;
+ 	struct genpd_onecell_data onecell_data;
++	bool firmware_display_active;
+ };
+ 
+ struct imx8m_blk_ctrl_noc_data {
+@@ -82,6 +83,7 @@ struct imx8m_blk_ctrl_domain {
+ 	struct device *power_dev;
+ 	struct imx8m_blk_ctrl *bc;
+ 	struct notifier_block power_nb;
++	bool inherited_active;
+ };
+ 
+ struct imx8m_blk_ctrl_data {
+@@ -98,6 +100,48 @@ to_imx8m_blk_ctrl_domain(struct generic_pm_domain *genpd)
+ 	return container_of(genpd, struct imx8m_blk_ctrl_domain, genpd);
+ }
+ 
++static bool firmware_framebuffer_active(void)
++{
++	struct device_node *node;
++	bool active;
++
++	node = of_find_compatible_node(NULL, NULL, "simple-framebuffer");
++	if (!node)
++		return false;
++
++	active = of_device_is_available(node);
++	of_node_put(node);
++
++	return active;
++}
++
++static bool imx8m_blk_ctrl_domain_is_active(struct imx8m_blk_ctrl_domain *domain)
++{
++	const struct imx8m_blk_ctrl_domain_data *data = domain->data;
++	struct imx8m_blk_ctrl *bc = domain->bc;
++	u32 value;
++
++	if (!bc->firmware_display_active)
++		return false;
++
++	if (data->clk_mask &&
++	    (regmap_read(bc->regmap, BLK_CLK_EN, &value) ||
++	     (value & data->clk_mask) != data->clk_mask))
++		return false;
++
++	if (data->rst_mask &&
++	    (regmap_read(bc->regmap, BLK_SFT_RSTN, &value) ||
++	     (value & data->rst_mask) != data->rst_mask))
++		return false;
++
++	if (data->mipi_phy_rst_mask &&
++	    (regmap_read(bc->regmap, BLK_MIPI_RESET_DIV, &value) ||
++	     (value & data->mipi_phy_rst_mask) != data->mipi_phy_rst_mask))
++		return false;
++
++	return true;
++}
++
+ static int imx8m_blk_ctrl_qos_set(struct imx8m_blk_ctrl_domain *domain)
+ {
+ 	const struct imx8m_blk_ctrl_domain_data *data = domain->data;
+@@ -207,6 +251,7 @@ static int imx8m_blk_ctrl_power_off(struct generic_pm_domain *genpd)
+ 
+ 	/* allow bus domain to suspend */
+ 	pm_runtime_put(bc->bus_power_dev);
++	domain->inherited_active = false;
+ 
+ 	return 0;
+ }
+@@ -234,6 +279,10 @@ static int imx8m_blk_ctrl_probe(struct platform_device *pdev)
+ 		return -ENOMEM;
+ 
+ 	bc->dev = dev;
++	bc->firmware_display_active =
++		of_device_is_compatible(dev->of_node,
++					"fsl,imx8mm-disp-blk-ctrl") &&
++		firmware_framebuffer_active();
+ 
+ 	bc_data = of_device_get_match_data(dev);
+ 
+@@ -316,12 +365,37 @@ static int imx8m_blk_ctrl_probe(struct platform_device *pdev)
+ 		domain->genpd.power_on = imx8m_blk_ctrl_power_on;
+ 		domain->genpd.power_off = imx8m_blk_ctrl_power_off;
+ 		domain->bc = bc;
++		domain->inherited_active =
++			imx8m_blk_ctrl_domain_is_active(domain);
+ 
+-		ret = pm_genpd_init(&domain->genpd, NULL, true);
++		if (domain->inherited_active) {
++			ret = pm_runtime_get_sync(bc->bus_power_dev);
++			if (ret < 0) {
++				pm_runtime_put_noidle(bc->bus_power_dev);
++				goto cleanup_pds;
++			}
++
++			ret = pm_runtime_get_sync(domain->power_dev);
++			if (ret < 0) {
++				pm_runtime_put_noidle(domain->power_dev);
++				pm_runtime_put(bc->bus_power_dev);
++				goto cleanup_pds;
++			}
++
++			dev_info(dev, "adopting firmware-active power domain %s\n",
++				 data->name);
++		}
++
++		ret = pm_genpd_init(&domain->genpd, NULL,
++				    !domain->inherited_active);
+ 		if (ret) {
+ 			dev_err_probe(dev, ret,
+ 				      "failed to init power domain \"%s\"\n",
+ 				      data->gpc_name);
++			if (domain->inherited_active) {
++				pm_runtime_put(domain->power_dev);
++				pm_runtime_put(bc->bus_power_dev);
++			}
+ 			dev_pm_domain_detach(domain->power_dev, true);
+ 			goto cleanup_pds;
+ 		}
+@@ -368,6 +442,10 @@ static int imx8m_blk_ctrl_probe(struct platform_device *pdev)
+ cleanup_pds:
+ 	for (i--; i >= 0; i--) {
+ 		pm_genpd_remove(&bc->domains[i].genpd);
++		if (bc->domains[i].inherited_active) {
++			pm_runtime_put(bc->domains[i].power_dev);
++			pm_runtime_put(bc->bus_power_dev);
++		}
+ 		dev_pm_domain_detach(bc->domains[i].power_dev, true);
+ 	}
+ 
+diff --git a/include/drm/bridge/sec_mipi_dsim.h b/include/drm/bridge/sec_mipi_dsim.h
+index ee7b278aa5dd..4a5a7b3a6fd6 100644
+--- a/include/drm/bridge/sec_mipi_dsim.h
++++ b/include/drm/bridge/sec_mipi_dsim.h
+@@ -104,7 +104,8 @@ int sec_mipi_dsim_check_pll_out(void *driver_private,
+ 				const struct drm_display_mode *mode);
+ int sec_mipi_dsim_bind(struct device *dev, struct device *master, void *data,
+ 		       struct drm_encoder *encoder, void __iomem *base,
+-		       int irq, const struct sec_mipi_dsim_plat_data *pdata);
++		       int irq, const struct sec_mipi_dsim_plat_data *pdata,
++		       bool firmware_active);
+ void sec_mipi_dsim_unbind(struct device *dev, struct device *master, void *data);
+ 
+ void sec_mipi_dsim_suspend(struct device *dev);
+diff --git a/include/video/imx-lcdif.h b/include/video/imx-lcdif.h
+index cf3ca6478418..a7cacd81e085 100644
+--- a/include/video/imx-lcdif.h
++++ b/include/video/imx-lcdif.h
+@@ -41,5 +41,6 @@ void lcdif_disable_controller(struct lcdif_soc *lcdif, bool use_i80);
+ void lcdif_dump_registers(struct lcdif_soc *lcdif);
+ long lcdif_pix_clk_round_rate(struct lcdif_soc *lcdif,
+ 			      unsigned long rate);
++bool lcdif_release_firmware_active(struct lcdif_soc *lcdif);
+ 
+ #endif
+-- 
+2.43.0
