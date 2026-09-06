@@ -131,6 +131,64 @@ transition. Masking `screen-splash.service` did not prevent it. This proves the
 remaining kernel fault is inherited display power/domain state, not the splash
 client or framebuffer contents.
 
+## NXP i.MX8M handoff model proved on target 2874
+
+The framebuffer and the machinery scanning it out are separate resources. On
+this board the inherited live chain is:
+
+```text
+reserved U-Boot framebuffer
+        -> LCDIF @ 32e00000
+        -> i.MX8M display block control / parent power domain
+        -> SEC DSIM @ 32e10000
+        -> ST1010B3CYOL / HX8279-D panel
+```
+
+Keeping only the framebuffer reservation and `simple-framebuffer` node did not
+keep the image visible. Conversely, the later clean black frame did not mean
+the BMP bytes had been overwritten: it was caused by Linux changing power,
+reset or clock ownership in the active scanout chain.
+
+Two independent transitions were isolated:
+
+1. NXP's U-Boot `arch/arm/lib/bootm.c` called `video_link_shut_down()` even
+   when the normal video-remove policy was disabled. The product fix gates it
+   with `CONFIG_VIDEO_REMOVE`, alongside preserving the mxsfb device through
+   OS prepare.
+2. Linux initially models firmware-active display resources as off. In
+   particular, the LCDIF runtime state, SEC DSIM domain access and
+   `imx8m-blk-ctrl` generic power-domain setup can reset or gate an inherited
+   pipeline before native DRM performs its first atomic commit.
+
+The Linux root clock plan is part of the same contract. The previous default
+assigned VIDEO_PLL1 rate of 1.0395 GHz conflicted with the running U-Boot
+pipeline. The control DT now assigns VIDEO_PLL1 at 594 MHz and LCDIF pixel at
+148.5 MHz, matching the handoff configuration and avoiding an early parent-PLL
+retune.
+
+The decisive isolation matrix was:
+
+| One-shot condition | Result |
+| --- | --- |
+| Preserve U-Boot LCDIF only | Frame later blanked |
+| Preserve framebuffer/simplefb and disable unused clock/domain cleanup | Frame later blanked |
+| Also blacklist native i.MX DRM, LCDIF and SEC DSIM initcalls | Frame later blanked |
+| Also blacklist `imx8m-blk-ctrl` | U-Boot frame remained visible |
+| Mask `screen-splash.service` without the complete kernel isolation | Frame still blanked |
+
+This establishes a kernel ownership fault and rules out the splash artwork,
+simple framebuffer contents and Linux splash service as the cause of the
+delayed blackout. The production Linux change must adopt and hold the already
+active LCDIF, DSIM, block-controller domains, resets and clocks until native
+DRM's first replacement atomic commit. After that commit it may release the
+firmware framebuffer and inherited ownership normally.
+
+`initcall_blacklist=`, `clk_ignore_unused` and `pd_ignore_unused` remain
+one-shot diagnostic tools only. Shipping them would prevent the Linux splash
+and product UI from obtaining native DRM. Likewise, the relocated-RAM
+`video_off` write was useful to prove U-Boot teardown ownership but is not a
+source fix.
+
 Those initcall blacklists and ignore arguments are diagnostic only and must not
 ship: native DRM is required by the Linux splash and product UI. The next gate
 is a minimal native-driver fix that adopts the already-active LCDIF, DSI and
