@@ -136,6 +136,17 @@ static uint32_t find_crtc(int fd, drmModeRes *resources,
 	return 0;
 }
 
+static int is_firmware_framebuffer(int fd)
+{
+	drmVersionPtr version = drmGetVersion(fd);
+	int firmware = version && version->name &&
+		strcmp(version->name, "simpledrm") == 0;
+
+	if (version)
+		drmFreeVersion(version);
+	return firmware;
+}
+
 static int find_display(int *display_fd, drmModeRes **display_resources,
 			drmModeConnector **display_connector,
 			uint32_t *display_crtc_id)
@@ -159,6 +170,11 @@ static int find_display(int *display_fd, drmModeRes **display_resources,
 		fd = open(path, O_RDWR | O_CLOEXEC);
 		if (fd < 0)
 			continue;
+		/* simpledrm preserves the U-Boot frame; render on native LCDIF DRM. */
+		if (is_firmware_framebuffer(fd)) {
+			close(fd);
+			continue;
+		}
 		resources = drmModeGetResources(fd);
 		connector = resources ? find_connector(fd, resources) : NULL;
 		crtc_id = connector ? find_crtc(fd, resources, connector) : 0;
@@ -236,9 +252,9 @@ static const uint8_t *source_pixel(const struct image *splash, uint32_t x,
 		source_x = x;
 		source_y = y;
 	} else {
-		/* Rotate landscape clockwise for the physical panel mounting. */
-		source_x = y;
-		source_y = splash->height - 1 - x;
+		/* Rotate landscape counter-clockwise to match the U-Boot derivative. */
+		source_x = splash->width - 1 - y;
+		source_y = x;
 	}
 	return splash->rgba + (source_y * splash->width + source_x) * 4;
 }
@@ -303,18 +319,18 @@ static void render_animation_frame(uint8_t *buffer, uint32_t pitch,
 		y_start = MARK_LANDSCAPE_Y_MIN;
 		y_end = height < MARK_LANDSCAPE_Y_MAX + 1 ? height : MARK_LANDSCAPE_Y_MAX + 1;
 	} else {
-		x_start = splash->height - 1 - MARK_LANDSCAPE_Y_MAX;
-		x_end = splash->height - MARK_LANDSCAPE_Y_MIN;
-		y_start = MARK_LANDSCAPE_X_MIN;
-		y_end = MARK_LANDSCAPE_X_MAX + 1;
+		x_start = MARK_LANDSCAPE_Y_MIN;
+		x_end = MARK_LANDSCAPE_Y_MAX + 1;
+		y_start = splash->width - 1 - MARK_LANDSCAPE_X_MAX;
+		y_end = splash->width - MARK_LANDSCAPE_X_MIN;
 	}
 
 	for (y = y_start; y < y_end; y++) {
 		uint32_t *row = (uint32_t *)(buffer + y * pitch);
 
 		for (x = x_start; x < x_end; x++) {
-			uint32_t source_x = landscape_output ? x : y;
-			uint32_t source_y = landscape_output ? y : splash->height - 1 - x;
+			uint32_t source_x = landscape_output ? x : splash->width - 1 - y;
+			uint32_t source_y = landscape_output ? y : x;
 			const uint8_t *pixel;
 
 			/* The central mark never animates; avoid reading or rewriting it. */

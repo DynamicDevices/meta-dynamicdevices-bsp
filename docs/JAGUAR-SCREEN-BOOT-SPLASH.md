@@ -12,9 +12,9 @@
    releases DRM master immediately for the product UI, and runs a clear
    2.4-second edge-glint loop until the UI replaces its framebuffer.
 
-The Linux renderer rotates the landscape source clockwise into native panel
-scanout, matching the current physical hwlab mounting proven after the image
-rebuild. The U-Boot BMP and portrait desktop derivative use that same rotation,
+The Linux renderer rotates the landscape source counter-clockwise into native
+panel scanout, matching the U-Boot BMP and portrait desktop derivative. This
+direction is proved by pixel comparison against the deployed U-Boot frame,
 so no stage can independently invert the brand artwork. Its first
 300 ms and the 800 ms rest at the end of every loop are
 pixel-identical to the U-Boot BMP. The animation changes only saturated pixels
@@ -62,6 +62,26 @@ Review media generated from the same animation routine:
   and resets LCDIF at OS prepare, Linux creates a new DRM framebuffer, and the
   deployed kernel attaches fbcon before a late userspace unbind can run.
 
+## Product boot delay and debug hotpatch
+
+The compiled Screen default is `bootdelay=0`. A lab session can temporarily
+restore an interruptible countdown from Linux after first recording the current
+environment:
+
+```sh
+sudo fw_printenv bootdelay
+sudo fw_setenv bootdelay 3
+```
+
+Return the board to product behaviour after debugging:
+
+```sh
+sudo fw_setenv bootdelay 0
+```
+
+This changes only the persistent `bootdelay` variable; it does not replace
+`bootcmd`, erase the environment, or touch boot firmware.
+
 ## Implementation status
 
 This increment supplies the quiet Linux hand-off, mounting orientation,
@@ -81,8 +101,12 @@ The early renderer scans all DRM cards and selects one that has a connected
 connector and usable CRTC; it does not assume `card0` is the display when a
 separate GPU DRM device is present.
 
+U-Boot now leaves LCDIF running at OS prepare and passes its live framebuffer
+to Linux as a reserved `simple-framebuffer`. Linux `simpledrm` holds that exact
+frame while the native LCDIF/DSI driver probes; the early splash deliberately
+skips the firmware DRM card and commits its first frame on native DRM.
+
 The next gate is the factory Yocto build followed by a recorded cold boot. The
-acceptance test is no framebuffer-console output and an upright Linux splash
-that remains until the product UI replaces its framebuffer. A short blackout
-may remain while native DRM resets and reprobes LCDIF/DSI; true scanout
-retention requires a later bootloader-framebuffer adoption change.
+acceptance test is no countdown, no black handoff frame, no framebuffer-console
+output, and an upright Linux splash that remains until the product UI replaces
+its framebuffer.

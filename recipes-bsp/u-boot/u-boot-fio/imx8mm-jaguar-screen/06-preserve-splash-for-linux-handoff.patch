@@ -1,0 +1,68 @@
+Subject: [PATCH] video: preserve splash scanout for Linux handoff
+
+Do not remove and reset the active LCDIF device during OS preparation. Add a
+simple-framebuffer node and reserve the U-Boot framebuffer in the Linux device
+tree so the branded frame remains valid until native DRM takes ownership.
+
+Upstream-Status: Inappropriate [board-specific seamless splash policy]
+
+diff --git a/board/freescale/imx8mm_evk/imx8mm_evk.c b/board/freescale/imx8mm_evk/imx8mm_evk.c
+index d61848f3..6bc2ca34 100644
+--- a/board/freescale/imx8mm_evk/imx8mm_evk.c
++++ b/board/freescale/imx8mm_evk/imx8mm_evk.c
+@@ -5,6 +5,7 @@
+ #include <common.h>
+ #include <efi_loader.h>
+ #include <env.h>
++#include <fdt_simplefb.h>
+ #include <init.h>
+ #include <miiphy.h>
+ #include <netdev.h>
+@@ -348,6 +349,28 @@ int board_init(void)
+ 	return 0;
+ }
+ 
++#if defined(CONFIG_OF_BOARD_SETUP)
++int ft_board_setup(void *blob, struct bd_info *bd)
++{
++	int ret;
++
++	/*
++	 * Keep the active U-Boot scanout visible while Linux starts. The
++	 * reserved simple-framebuffer is replaced by the native DRM driver
++	 * once the early userspace splash is ready.
++	 */
++	ret = fdt_simplefb_enable_and_mem_rsv(blob);
++	if (!ret)
++		return 0;
++
++	ret = fdt_simplefb_add_node(blob);
++	if (ret)
++		return ret;
++
++	return fdt_simplefb_enable_and_mem_rsv(blob);
++}
++#endif
++
+ int board_late_init(void)
+ {
+ #ifdef CONFIG_ENV_IS_IN_MMC
+diff --git a/drivers/video/mxsfb.c b/drivers/video/mxsfb.c
+index 6122f616..89c55ec6 100644
+--- a/drivers/video/mxsfb.c
++++ b/drivers/video/mxsfb.c
+@@ -479,6 +479,10 @@ U_BOOT_DRIVER(mxs_video) = {
+ 	.bind	= mxs_video_bind,
+ 	.probe	= mxs_video_probe,
+ 	.remove = mxs_video_remove,
+-	.flags	= DM_FLAG_PRE_RELOC | DM_FLAG_OS_PREPARE,
++	/*
++	 * Preserve the active scanout for the firmware-framebuffer handoff.
++	 * Linux replaces it with the native DRM framebuffer.
++	 */
++	.flags	= DM_FLAG_PRE_RELOC,
+ 	.priv_auto   = sizeof(struct mxsfb_priv),
+ };
+
+-- 
+2.43.0
