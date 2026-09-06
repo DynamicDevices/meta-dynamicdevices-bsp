@@ -15,6 +15,7 @@ SRC_URI:append:imx8mm-jaguar-inst = " \
 "
 SRC_URI:append:imx8mm-jaguar-screen = " \
     file://boot.cmd \
+    file://0001-check-closed-before-fiovb-init.patch \
 "
 
 SRC_URI:append:imx8mm-jaguar-handheld = " \

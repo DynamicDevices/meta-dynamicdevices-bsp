@@ -1,0 +1,24 @@
+From 2adcc9f12733e26c67ccce4a5b6f97f92f390e71 Mon Sep 17 00:00:00 2001
+From: Dynamic Devices <support@dynamicdevices.co.uk>
+Date: Sun, 6 Sep 2026 15:30:00 +0100
+Subject: [PATCH] boot: check closed state before invoking fiovb
+
+Open development boards store update state in the U-Boot environment and may
+legitimately omit the fiovb command.  Test board_is_closed first so hush does
+not invoke a command that is irrelevant on the open-board path.  Closed boards
+still initialise fiovb and retain the existing RPMB rollback behavior.
+
+Upstream-Status: Inappropriate [product-specific boot policy]
+
+Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
+---
+ boot-header.cmd.in | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/boot-header.cmd.in b/boot-header.cmd.in
+index 58aa25d..a208cca 100644
+--- a/boot-header.cmd.in
++++ b/boot-header.cmd.in
+@@ -39 +39 @@
+-if fiovb init ${devnum} && test -n "${board_is_closed}"; then
++if test -n "${board_is_closed}" && fiovb init ${devnum}; then
