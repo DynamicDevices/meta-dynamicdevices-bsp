@@ -38,6 +38,11 @@ This is a **BSP (Board Support Package) layer** that provides:
 | `imx8mm-jaguar-phasora` | Multi-sensor platform | i.MX8MM |
 | `imx93-jaguar-eink` | E-ink display platform | i.MX93 |
 
+Jaguar Screen maintainers must preserve the KSZ9131 RGMII transmit-delay fix;
+link negotiation alone does not prove working Ethernet. See
+[`docs/JAGUAR-SCREEN-ETHERNET.md`](docs/JAGUAR-SCREEN-ETHERNET.md) for the
+release invariant and bench regression check.
+
 ## Usage
 
 To use this BSP layer, add it to your `bblayers.conf`:
@@ -104,4 +109,3 @@ See the [LICENSE](./LICENSE) file for complete terms and conditions.
 
 - **[meta-dynamicdevices](https://github.com/DynamicDevices/meta-dynamicdevices)** - Main application layer
 - **[Wiki](https://github.com/DynamicDevices/meta-dynamicdevices/wiki)** - Comprehensive documentation
-
