@@ -39,7 +39,6 @@ MACHINE_FEATURES:append:imx8mm-jaguar-screen = "${@'' if d.getVar('LOCAL_DEVELOP
 
 # When a new bootloader is used, e.g. moving to a new LMP up-rev here
 LMP_BOOT_FIRMWARE_VERSION:imx8mm-jaguar-sentai = "2"
-# Changes to the Jaguar Screen U-Boot panel driver require firmwared to stage
-# and install the new signed boot payload.  This is newer than the board's
-# current 2026090301 marker.
-LMP_BOOT_FIRMWARE_VERSION:imx8mm-jaguar-screen = "2026090601"
+# The final OS-prepare handoff guard changes U-Boot proper, so firmwared must
+# stage and install a new signed boot payload rather than reusing 2026090601.
+LMP_BOOT_FIRMWARE_VERSION:imx8mm-jaguar-screen = "2026090602"

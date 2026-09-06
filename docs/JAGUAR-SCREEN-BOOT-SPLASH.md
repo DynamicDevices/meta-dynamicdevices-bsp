@@ -102,19 +102,34 @@ connector and usable CRTC; it does not assume `card0` is the display when a
 separate GPU DRM device is present.
 
 U-Boot now leaves LCDIF running at OS prepare and passes its live framebuffer
-to Linux as a reserved `simple-framebuffer`. Linux `simpledrm` holds that exact
-frame while the native LCDIF/DSI driver probes. When that firmware framebuffer
-is present, the native drivers do not cycle their runtime power domains merely
-to install IRQ handling or read the DSIM version. The early splash deliberately
-skips the firmware DRM card and commits its first frame on native DRM.
+to Linux as a reserved `simple-framebuffer`. The early splash deliberately
+skips that firmware DRM card and waits for a connected native DRM output.
+
+The earlier Linux workaround that skipped selected runtime-PM calls has been
+removed. It read the DSIM version while the domain was inaccessible (reporting
+`0x0`) and did not preserve the complete display pipeline.
 
 Target 2872 proved that a U-Boot source change is not deployed by an OSTree
 update when its boot-firmware marker is left unchanged: Linux contained the
 handoff support, but the running `2026090508` U-Boot supplied no
 `simple-framebuffer` node and the panel still went black. The handoff-capable
-payload is therefore rolled out as boot firmware `2026090601`.
+payload was therefore rolled out as boot firmware `2026090601`. The final
+U-Boot OS-prepare shutdown guard advances the next payload to `2026090602`.
 
-The next gate is the factory Yocto build followed by a recorded cold boot. The
-acceptance test is no countdown, no black handoff frame, no framebuffer-console
-output, and an upright Linux splash that remains until the product UI replaces
-its framebuffer.
+Target 2874 one-shot tests established both destructive transitions without a
+new Foundries build. The test command loaded the intended signed FIT from ext4
+`mmc 2:2`, cleared and saved both boot-command overrides before booting, and
+failed closed if that FIT could not be loaded. The U-Boot frame stayed visible
+when native LCDIF, SEC DSIM, i.MX DRM and `imx8m-blk-ctrl` initcalls were
+blacklisted with unused clock and power-domain cleanup disabled. Omitting only
+the block-controller blacklist caused a later blackout after the OSTree root
+transition. Masking `screen-splash.service` did not prevent it. This proves the
+remaining kernel fault is inherited display power/domain state, not the splash
+client or framebuffer contents.
+
+Those initcall blacklists and ignore arguments are diagnostic only and must not
+ship: native DRM is required by the Linux splash and product UI. The next gate
+is a minimal native-driver fix that adopts the already-active LCDIF, DSI and
+display block-controller state, followed by another one-shot signed-FIT test.
+Final acceptance remains: no countdown, no black handoff frame, no framebuffer
+console output, and an upright Linux splash until the product UI replaces it.

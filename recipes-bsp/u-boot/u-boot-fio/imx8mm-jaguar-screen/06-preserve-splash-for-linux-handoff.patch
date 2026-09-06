@@ -4,6 +4,10 @@ Do not remove and reset the active LCDIF device during OS preparation. Add a
 simple-framebuffer node and reserve the U-Boot framebuffer in the Linux device
 tree so the branded frame remains valid until native DRM takes ownership.
 
+The NXP video-link shutdown path bypasses U-Boot's CONFIG_VIDEO_REMOVE policy
+and removes the selected display unconditionally. Honour the standard option
+there as well; this machine deliberately leaves CONFIG_VIDEO_REMOVE disabled.
+
 Upstream-Status: Inappropriate [board-specific seamless splash policy]
 
 diff --git a/board/freescale/imx8mm_evk/imx8mm_evk.c b/board/freescale/imx8mm_evk/imx8mm_evk.c
@@ -64,5 +68,15 @@ index 6122f616..89c55ec6 100644
  	.priv_auto   = sizeof(struct mxsfb_priv),
  };
 
+diff --git a/arch/arm/lib/bootm.c b/arch/arm/lib/bootm.c
+index 7f0cfcff..5b0dfc6a 100644
+--- a/arch/arm/lib/bootm.c
++++ b/arch/arm/lib/bootm.c
+@@ -75,3 +75,3 @@ static void announce_and_cleanup(int fake)
+-#if defined(CONFIG_VIDEO_LINK)
+-	video_link_shut_down();
++#if defined(CONFIG_VIDEO_LINK) && defined(CONFIG_VIDEO_REMOVE)
++	video_link_shut_down();
+ #endif
 -- 
 2.43.0
