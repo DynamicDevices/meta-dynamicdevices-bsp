@@ -1,0 +1,15 @@
+[Unit]
+Description=Script to auto-register device into Factory
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=!/var/sota/sql.db
+
+[Service]
+Environment=USE_HOSTNAME=@@LMP_AUTO_REGISTER_USE_HOSTNAME@@
+Type=oneshot
+RemainAfterExit=true
+ExecStartPre=/usr/lib/systemd/systemd-time-wait-sync
+ExecStart=/usr/bin/lmp-device-auto-register
+
+[Install]
+WantedBy=multi-user.target
