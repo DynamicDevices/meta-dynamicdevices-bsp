@@ -67,6 +67,16 @@
 };
 
 /*
+ * The EVKB reference DTS enables an 88W8987 Bluetooth controller on UART1.
+ * The Active Screen product does not use that controller.  Keep the UART and
+ * its serdev child disabled so hci_nxp does not attempt firmware download and
+ * baud-rate negotiation during boot.
+ */
+&uart1 {
+	status = "disabled";
+};
+
+/*
  * EVK ADV7535 DSI→HDMI is not the Active Screen path. Remove so &mipi_dsi
  * can be rewired to the HX8279-D panel. CTP FT5626 lives on this bus.
  */
