@@ -80,10 +80,37 @@ timeout. Wi-Fi succeeds, but the disconnected `end0` profile has
 not declare all startup profiles settled. The service fails at 66.22 seconds,
 after which Docker starts and becomes active at 67.56 seconds.
 
-`systemd-time-wait-sync.service` is also enabled from `sysinit.target` and
-finishes at approximately 35 seconds. It delays the formal
-`multi-user.target` milestone but does not block the early splash, serial
-getty, network manager or Docker after the network wait is corrected.
+`systemd-time-wait-sync.service` is disabled as a standalone unit, but
+`lmp-device-auto-register.service` explicitly wants and orders itself after
+it. Systemd queues those dependencies before evaluating auto-register's
+`ConditionPathExists=!/var/sota/sql.db`, so an already-registered device still
+waits for clock synchronization. It finished at approximately 35 seconds in
+the baseline and delayed the formal `multi-user.target`, but did not block the
+early splash, serial getty or network manager.
+
+The safe source fix moves the same clock wait into auto-register's
+`ExecStartPre`. First registration still waits for valid time before its TLS
+operation; subsequent boots skip both registration and the clock wait when
+`/var/sota/sql.db` exists.
+
+## Signed FIT and initramfs composition
+
+The deployed target-2874 FIT is 24,428,317 bytes and has SHA-256
+`42161955c3283d9889b53b7a0b90193ce80bb27bbb8370ca4a9d922edd4bb0dd`.
+`dumpimage` reports:
+
+- gzip kernel payload: 10,734,575 bytes;
+- initramfs payload: 12,246,034 bytes;
+- initramfs after gzip expansion: 35,799,552 bytes;
+- 24 signed DTB configurations, including the Jaguar Screen DTB.
+
+Although FIT metadata labels the ramdisk payload as uncompressed, the payload
+is a gzip archive. Its largest expanded files include `libcrypto`, `libstdc++`,
+GLib/GIO, `libxml2`, `udevadm`, `e2fsck` and their runtime libraries. These are
+currently downstream of the OSTree, udev and filesystem recovery package
+graph. Direct file deletion is therefore rejected: the next trim gate is an
+exact image manifest/runtime-dependency comparison followed by recovery and
+rollback tests.
 
 ## Reversible A/B evidence
 
@@ -142,11 +169,10 @@ service override, wired autoconnect enabled and `bootdelay=0`.
 
 ### 3. Medium risk
 
-1. Stop enabling `systemd-time-wait-sync` globally for registered devices and
-   pull it only for operations that require verified wall-clock time. This can
-   move formal `multi-user.target` from about 35 seconds to the 12–13 second
-   runtime point, but OTA/TUF/TLS, certificate validation and offline-clock
-   behavior must be tested.
+1. Pull `systemd-time-wait-sync` only from the conditional first-registration
+   execution path. The source change retains the initial TLS/time contract and
+   avoids the approximately 35-second formal-target delay after enrolment.
+   Factory-reset registration and offline-clock behavior remain proof gates.
 2. Trim the 11.7 MiB initramfs and unused built-in kernel features. Kernel
    initramfs unpacking alone occupies roughly 0.6 seconds. Recovery and OSTree
    boot requirements must remain intact.
@@ -174,3 +200,16 @@ service override, wired autoconnect enabled and `bootdelay=0`.
 3. Repeat three warm boots and one cold-power boot with no bench overrides.
 4. Confirm the optimisation through the manifest-pinned Foundries/OTA image and
    exercise rollback/recovery.
+
+## Follow-on source captures
+
+These changes are deliberately split so each can be measured and reverted
+independently:
+
+| Change | Source commit | Expected effect | Remaining proof |
+| --- | --- | --- | --- |
+| Wait for any usable network | distro `110c11a` | approximately 55 s to runtime | Wi-Fi, wired and offline boots |
+| Remove Screen ModemManager | distro `5710c14` | remove absent WWAN probe work | image manifest and boot delta |
+| Earlier debug-only getty | distro `e443a54` | approximately 5 s to visible debug prompt | debug/prod composition |
+| Skip open-board `fiovb` invocation | BSP `fe2ea7c` | console hygiene; negligible time | open and closed boot-script paths |
+| Conditional first-registration time wait | BSP `25c6cfd` | remove approximately 35 s from formal target after enrolment | registered, factory-reset and offline boots |
