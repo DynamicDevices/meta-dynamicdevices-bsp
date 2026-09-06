@@ -97,6 +97,10 @@ against Foundries/NXP U-Boot 2024.04. The resulting DT selects the Santek
 compatible with four DSI lanes, RGB888 scanout, 90-degree mounting metadata,
 GPIO1_IO12 panel power, and GPIO1_IO01 backlight.
 
+The Linux panel patch is consolidated around the final bench-proven HX8279
+mode and power/init behavior. Superseded continuous-clock, intermediate timing,
+vendor-BIOS timing, and boot-parameter experiment patches are not shipped.
+
 The early renderer scans all DRM cards and selects one that has a connected
 connector and usable CRTC; it does not assume `card0` is the display when a
 separate GPU DRM device is present.
