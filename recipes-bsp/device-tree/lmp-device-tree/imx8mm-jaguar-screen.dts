@@ -36,6 +36,12 @@
 	/* EVKB Bluetooth PCM endpoint is not fitted on the Screen product. */
 	/delete-node/ sound-bt-sco;
 
+	/* The EVKB AKM audio daughterboard is not fitted on the Screen product. */
+	/delete-node/ sound-ak4458;
+	/delete-node/ sound-ak5558;
+	/delete-node/ sound-ak4497;
+	/delete-node/ regulator-audio-board;
+
 	/*
 	 * Backlight — GPIO1_IO01 HI = maximum brightness (Michael 2026-08-30).
 	 * Same pad can be remuxed to PWM1 for dimming later; gpio-backlight for
@@ -214,6 +220,15 @@
 			MX8MM_IOMUXC_NAND_CE1_B_USDHC3_STROBE   IMX8MM_PAD_USDHC_CLK_200MHZ
 		>;
 	};
+};
+
+/* Remove the unfitted EVKB AKM audio daughterboard and its GPIO supplier. */
+&i2c3 {
+	/delete-node/ ak4458@10;
+	/delete-node/ ak4497@11;
+	/delete-node/ ak4458@12;
+	/delete-node/ ak5558@13;
+	/delete-node/ gpio@20;
 };
 
 /* On-board 8-bit eMMC; Linux root filesystem is /dev/mmcblk2p2. */
