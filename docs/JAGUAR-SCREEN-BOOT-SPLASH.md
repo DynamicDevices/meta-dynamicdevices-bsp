@@ -220,5 +220,12 @@ zero after lab debugging.
 
 The remaining integration gate is the manifest-pinned Foundries CI/OTA image,
 followed by a cold-boot check that the upright Linux splash remains until the
-product UI replaces it. The stock shutdown `/sysroot` unmount/watchdog delay is
-a separate reboot-path fault and is not part of this display handoff change.
+product UI replaces it.
+
+The Screen build retains `CONFIG_CMD_WDT` for lab diagnostics but disables
+`CONFIG_WATCHDOG_AUTOSTART`. U-Boot 2024.04 otherwise starts WDOG1 with its
+60-second default timeout. Because the i.MX watchdog enable/configuration bits
+are write-once, Linux then cannot perform its normal immediate watchdog restart
+and only systemd's `RebootWatchdogSec=60` fallback resets the board. Boot
+firmware `2026090604` restores the pre-display-change reboot behaviour without
+altering the splash or display handoff.
