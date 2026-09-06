@@ -40,6 +40,7 @@
 	/delete-node/ sound-ak4458;
 	/delete-node/ sound-ak5558;
 	/delete-node/ sound-ak4497;
+	/delete-node/ sound-micfil;
 	/delete-node/ regulator-audio-board;
 
 	/*
@@ -126,6 +127,7 @@
 		interrupt-parent = <&gpio1>;
 		interrupts = <9 IRQ_TYPE_EDGE_FALLING>;
 		vcc-supply = <&reg_ctp_en>;
+		iovcc-supply = <&reg_ctp_en>;
 		/* Mechanical WUXGA landscape; native panel scan is 1200×1920. */
 		touchscreen-size-x = <1920>;
 		touchscreen-size-y = <1200>;
@@ -135,6 +137,11 @@
 
 /* EVK pwm-backlight node — replaced by gpio-backlight on GPIO1_IO01 for now. */
 &backlight {
+	status = "disabled";
+};
+
+/* EVKB PDM microphones are not fitted on the Screen product. */
+&micfil {
 	status = "disabled";
 };
 
