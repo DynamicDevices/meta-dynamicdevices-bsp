@@ -186,6 +186,17 @@ native DRM commit it retains the running LCDIF mode and DSIM PLL, and queues
 only Linux's replacement framebuffer address. Normal native-driver ownership
 continues after that commit.
 
+Target 2875 proved an additional OTA-specific failure mode. Although the
+machine configuration requested `drm_kms_helper.fbdev_emulation=0`, OSTree
+preserved the installed deployment's older kernel arguments. The running
+kernel therefore reported fbdev emulation enabled, created a zero-filled
+native `fb1` at 2.250 seconds and committed it at 2.258 seconds. The panel
+appeared to blank around `/init`, before `screen-splash` started at 7.108
+seconds. The Screen kernel now compiles `CONFIG_DRM_FBDEV_EMULATION=n`, so a
+Foundries OTA cannot reintroduce that intermediate black framebuffer by
+retaining stale deployment arguments. Native DRM remains enabled for the
+early splash client and product compositor.
+
 `initcall_blacklist=`, `clk_ignore_unused` and `pd_ignore_unused` remain
 one-shot diagnostic tools only. Shipping them would prevent the Linux splash
 and product UI from obtaining native DRM. Likewise, the relocated-RAM
