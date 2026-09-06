@@ -6,6 +6,7 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
     file://dt510-banner \
     ${@bb.utils.contains('MACHINE_FEATURES', 'bq25792-charger', 'file://bq257xx-charger-modprobe.conf', '', d)} \
 "
+SRC_URI:append:imx8mm-jaguar-screen = " file://99-z-jaguar-screen.conf"
 
 do_install:append() {
     # Install shared Dynamic Devices banner
@@ -38,6 +39,15 @@ do_install:append:imx8mm-jaguar-dt510() {
     fi
 }
 
+do_install:append:imx8mm-jaguar-screen() {
+    # The procps default enables martian-source logging globally. Keep real
+    # diagnostics on UART, but do not flood it with rejected network packets.
+    # This filename sorts after /etc/sysctl.d/99-sysctl.conf.
+    install -d ${D}${sysconfdir}/sysctl.d
+    install -m 0644 ${WORKDIR}/99-z-jaguar-screen.conf \
+        ${D}${sysconfdir}/sysctl.d/99-z-jaguar-screen.conf
+}
+
 FILES:${PN} += " \
     ${datadir}/dynamic-devices/banner \
     ${sysconfdir}/motd \
@@ -45,3 +55,4 @@ FILES:${PN} += " \
 "
 
 FILES:${PN}:append:imx8mm-jaguar-dt510 = "${@bb.utils.contains('MACHINE_FEATURES', 'bq25792-charger', ' ${sysconfdir}/modprobe.d/bq257xx-charger.conf', '', d)}"
+FILES:${PN}:append:imx8mm-jaguar-screen = " ${sysconfdir}/sysctl.d/99-z-jaguar-screen.conf"
