@@ -6,8 +6,8 @@
 2. U-Boot initializes the ST1010B3CYOL / HX8279-D panel at its native
    1200x1920 scanout and displays a pre-rotated derivative of the canonical
    1920x1200 landscape Active-Edge artwork from the boot filesystem.
-3. Linux boots quietly with `fbcon` mapped away from `fb0`, preserving the
-   splash until DRM takes over.
+3. Linux boots without `tty1` or framebuffer-console support, so kernel and
+   getty text can never bind to the product display.
 4. `screen-splash` redraws the same canonical artwork once Linux DRM is ready,
    releases DRM master immediately for the product UI, and runs a clear
    2.4-second edge-glint loop until the UI replaces its framebuffer.
@@ -51,6 +51,17 @@ Review media generated from the same animation routine:
   `martian source` messages over the raw framebuffer. Detaching `fbcon`
   produced a clean stable image.
 
+## U-Boot evidence (target 2868, 2026-09-05)
+
+- Boot firmware `2026090508` displays the 1200x1920 24-bpp derivative from
+  FAT `mmc 2:1` in both the manual and automatic boot-script paths.
+- The installed BMP is 6,912,054 bytes with CRC32 `5f68ed83` and SHA-256
+  `d7f04f12b61990c0edf45efbdc5392808925b3c01264349642545dd5eef380d0`.
+- Bench recording proves the artwork is upright and stable in U-Boot.
+- The same recording also proves the remaining handoff fault: U-Boot removes
+  and resets LCDIF at OS prepare, Linux creates a new DRM framebuffer, and the
+  deployed kernel attaches fbcon before a late userspace unbind can run.
+
 ## Implementation status
 
 This increment supplies the quiet Linux hand-off, mounting orientation,
@@ -66,6 +77,12 @@ against Foundries/NXP U-Boot 2024.04. The resulting DT selects the Santek
 compatible with four DSI lanes, RGB888 scanout, 90-degree mounting metadata,
 GPIO1_IO12 panel power, and GPIO1_IO01 backlight.
 
-The next gate is the factory Yocto build. Do not flash its bootloader until the
-generated artifacts have passed recipe/config inspection and the i.MX8MM
-recovery path is ready.
+The early renderer scans all DRM cards and selects one that has a connected
+connector and usable CRTC; it does not assume `card0` is the display when a
+separate GPU DRM device is present.
+
+The next gate is the factory Yocto build followed by a recorded cold boot. The
+acceptance test is no framebuffer-console output and an upright Linux splash
+that remains until the product UI replaces its framebuffer. A short blackout
+may remain while native DRM resets and reprobes LCDIF/DSI; true scanout
+retention requires a later bootloader-framebuffer adoption change.
