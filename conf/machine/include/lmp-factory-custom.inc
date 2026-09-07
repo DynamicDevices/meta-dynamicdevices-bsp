@@ -41,4 +41,4 @@ MACHINE_FEATURES:append:imx8mm-jaguar-screen = "${@'' if d.getVar('LOCAL_DEVELOP
 LMP_BOOT_FIRMWARE_VERSION:imx8mm-jaguar-sentai = "2"
 # The Screen bootloader and signed boot script are versioned together. Advance
 # this marker whenever either payload changes so firmwared installs it.
-LMP_BOOT_FIRMWARE_VERSION:imx8mm-jaguar-screen = "2026090701"
+LMP_BOOT_FIRMWARE_VERSION:imx8mm-jaguar-screen = "2026090702"

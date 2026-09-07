@@ -227,16 +227,16 @@ the U-Boot frame remained upright through native Linux DRM, Weston used
 The final Weston handover uses the landscape source image because the output
 transform already accounts for the portrait-mounted panel.
 
-The Screen build retains `CONFIG_CMD_WDT` for lab diagnostics but disables both
-`CONFIG_SPL_WATCHDOG` and `CONFIG_WATCHDOG_AUTOSTART`. SPL's legacy i.MX path
-otherwise starts WDOG1 with its 60-second default timeout before full U-Boot.
-Because the i.MX watchdog enable/configuration bits are write-once, Linux then
-cannot perform its normal immediate watchdog restart and only systemd's
-`RebootWatchdogSec=60` fallback resets the board. Boot firmware `2026090701`
-restores the pre-display-change reboot behaviour without altering the splash or
-display handoff.
+The Screen build retains `CONFIG_CMD_WDT` for lab diagnostics and disables
+`CONFIG_WATCHDOG_AUTOSTART`. Foundries target 2888 also disabled
+`CONFIG_SPL_WATCHDOG`, but the physical board still took about 78 seconds from
+the reboot request to the next kernel boot and its boot presentation regressed.
+That experiment was rejected. Boot firmware `2026090702` restores the exact
+U-Boot display configuration used by the target 2887 baseline while the Linux
+restart path is investigated independently.
 
-Foundries target 2888 is the functional validation build. It combines boot
-firmware `2026090701` with the final Waydroid landscape handover splash. The
-v1.0.0 release is complete only after that image has been installed and an
-immediate reboot into Android has been timed on the physical board.
+Foundries target 2888 is not a release candidate. It proved that disabling
+`CONFIG_SPL_WATCHDOG` did not solve the reboot delay and affected the proven
+boot presentation. The v1.0.0 release is complete only after a later image has
+restored the target 2887 display path and an immediate reboot into Android has
+been timed on the physical board.
