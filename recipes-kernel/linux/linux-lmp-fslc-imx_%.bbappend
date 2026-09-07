@@ -143,6 +143,7 @@ SRC_URI:append:imx8mm-jaguar-screen = " \
 		file://imx8mm-jaguar-screen/hx8279-mipi-dsi.cfg \
 		${@bb.utils.contains('DISTRO_FEATURES', 'etnaviv', 'file://imx8mm-jaguar-screen/etnaviv.cfg', '', d)} \
 		${@bb.utils.contains('DISTRO_FEATURES', 'waydroid', 'file://imx8mm-jaguar-screen/android-container.cfg', '', d)} \
+		${@bb.utils.contains('DISTRO_FEATURES', 'waydroid', 'file://imx8mm-jaguar-screen/apparmor.cfg', '', d)} \
 		file://imx8mm-jaguar-screen/imx56-ipu-video-disable.cfg \
 "
 
