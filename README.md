@@ -14,7 +14,7 @@ Board Support Package (BSP) layer for Dynamic Devices Edge Computing platforms.
 
 This layer provides hardware-specific support for Dynamic Devices edge computing platforms, including:
 
-- **i.MX8MM-based platforms**: Jaguar Sentai, Inst, Handheld, Phasora
+- **i.MX8MM-based platforms**: Jaguar Sentai, Inst, Screen, Handheld, Phasora
 - **i.MX93-based platforms**: Jaguar eInk
 
 ## Layer Type
@@ -33,7 +33,7 @@ This is a **BSP (Board Support Package) layer** that provides:
 |---------|-------------|-----|
 | `imx8mm-jaguar-sentai` | Audio processing platform | i.MX8MM |
 | `imx8mm-jaguar-inst` | Industrial IoT platform | i.MX8MM |
-| `imx8mm-jaguar-screen` | SCREEN platform (INST clone) | i.MX8MM |
+| `imx8mm-jaguar-screen` | 1200x1920 DSI display platform with seamless splash handover and Waydroid host support | i.MX8MM |
 | `imx8mm-jaguar-handheld` | Handheld device platform | i.MX8MM |
 | `imx8mm-jaguar-phasora` | Multi-sensor platform | i.MX8MM |
 | `imx93-jaguar-eink` | E-ink display platform | i.MX93 |
@@ -59,6 +59,9 @@ MACHINE = "imx8mm-jaguar-sentai"
 - `openembedded-core` - Core OpenEmbedded layer
 
 ## Documentation & Support
+
+The tested display and reboot contract is documented in
+[`docs/JAGUAR-SCREEN-BOOT-SPLASH.md`](docs/JAGUAR-SCREEN-BOOT-SPLASH.md).
 
 📚 **Comprehensive Documentation**: For detailed documentation, tutorials, and technical guides, visit the [meta-dynamicdevices Wiki](https://github.com/DynamicDevices/meta-dynamicdevices/wiki).
 
@@ -104,4 +107,3 @@ See the [LICENSE](./LICENSE) file for complete terms and conditions.
 
 - **[meta-dynamicdevices](https://github.com/DynamicDevices/meta-dynamicdevices)** - Main application layer
 - **[Wiki](https://github.com/DynamicDevices/meta-dynamicdevices/wiki)** - Comprehensive documentation
-

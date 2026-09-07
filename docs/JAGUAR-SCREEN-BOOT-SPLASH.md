@@ -11,6 +11,9 @@
 4. `screen-splash` redraws the same canonical artwork once Linux DRM is ready,
    releases DRM master immediately for the product UI, and runs a clear
    2.4-second edge-glint loop until the UI replaces its framebuffer.
+5. Weston takes DRM `card2`, rotates the native portrait scanout into a
+   1920x1200 landscape desktop, and keeps the landscape Active Edge artwork
+   visible until the Waydroid UI presents its first frame.
 
 The Linux renderer rotates the landscape source counter-clockwise into native
 panel scanout, matching the U-Boot BMP and portrait desktop derivative. This
@@ -218,9 +221,11 @@ The compiled U-Boot default remains `bootdelay=0`; a previously saved
 environment value is a separate persistent override and must be returned to
 zero after lab debugging.
 
-The remaining integration gate is the manifest-pinned Foundries CI/OTA image,
-followed by a cold-boot check that the upright Linux splash remains until the
-product UI replaces it.
+Foundries target 2887 proved the complete display path on the physical board:
+the U-Boot frame remained upright through native Linux DRM, Weston used
+`card2`, and the full-screen Waydroid UI replaced the splash at 1920x1200.
+The final Weston handover uses the landscape source image because the output
+transform already accounts for the portrait-mounted panel.
 
 The Screen build retains `CONFIG_CMD_WDT` for lab diagnostics but disables both
 `CONFIG_SPL_WATCHDOG` and `CONFIG_WATCHDOG_AUTOSTART`. SPL's legacy i.MX path
@@ -230,3 +235,8 @@ cannot perform its normal immediate watchdog restart and only systemd's
 `RebootWatchdogSec=60` fallback resets the board. Boot firmware `2026090701`
 restores the pre-display-change reboot behaviour without altering the splash or
 display handoff.
+
+The v1.0.0 release validation build is Foundries target 2888. It combines boot
+firmware `2026090701` with the final Waydroid landscape handover splash. A
+release is complete only after that target has been installed and an immediate
+reboot into Android has been timed on the physical board.
