@@ -146,6 +146,10 @@ SRC_URI:append:imx8mm-jaguar-screen = " \
 		file://imx8mm-jaguar-screen/imx56-ipu-video-disable.cfg \
 "
 
+# The Waydroid image provisioner identifies the decoder by its V4L2
+# capabilities. Ensure the NXP stateful endpoint exists before provisioning.
+KERNEL_MODULE_AUTOLOAD:append:imx8mm-jaguar-screen = "${@bb.utils.contains('DISTRO_FEATURES', 'waydroid', ' vsiv4l2', '', d)}"
+
 # NOTE: This DTB file is created as a default for use with local development
 #       when building lmp-base. It is NOT used by the lmp build or under CI
 #       which uses the DTS in lmp-device-tree
