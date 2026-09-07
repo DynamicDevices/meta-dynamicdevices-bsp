@@ -240,3 +240,17 @@ Foundries target 2888 is not a release candidate. It proved that disabling
 boot presentation. The v1.0.0 release is complete only after a later image has
 restored the target 2887 display path and an immediate reboot into Android has
 been timed on the physical board.
+
+A timestamped serial capture on target 2888 located the delay after
+`systemd-shutdown` had unmounted and synced all storage. It printed `Rebooting`
+at 01:09:29.462 UTC and did not reach SPL until 01:10:28.937, a 59.5-second
+gap. Linux did not print its normal `reboot: Restarting system` line, so the
+device-shutdown walk never reached the i.MX restart handler and systemd's
+60-second reboot watchdog performed the reset.
+
+The Screen machine therefore sets `RebootWatchdogSec=2s` in a systemd manager
+drop-in. A live test with the otherwise unchanged target 2888 image printed
+`Rebooting` at 01:16:24.393 and started SPL at 01:16:26.871, reducing the dead
+period to 2.48 seconds. This setting is armed only in the final shutdown phase,
+after services have stopped and filesystems have been unmounted and synced. It
+does not change U-Boot, the kernel, DRM, or the working splash handoff.

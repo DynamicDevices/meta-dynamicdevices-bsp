@@ -6,7 +6,10 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
     file://dt510-banner \
     ${@bb.utils.contains('MACHINE_FEATURES', 'bq25792-charger', 'file://bq257xx-charger-modprobe.conf', '', d)} \
 "
-SRC_URI:append:imx8mm-jaguar-screen = " file://99-z-jaguar-screen.conf"
+SRC_URI:append:imx8mm-jaguar-screen = " \
+    file://99-z-jaguar-screen.conf \
+    file://99-jaguar-screen-reboot-watchdog.conf \
+"
 
 do_install:append() {
     # Install shared Dynamic Devices banner
@@ -46,6 +49,13 @@ do_install:append:imx8mm-jaguar-screen() {
     install -d ${D}${sysconfdir}/sysctl.d
     install -m 0644 ${WORKDIR}/99-z-jaguar-screen.conf \
         ${D}${sysconfdir}/sysctl.d/99-z-jaguar-screen.conf
+
+    # The native display shutdown path can stall after systemd has completed
+    # its final sync. Bound that already-safe window instead of changing the
+    # proven bootloader or DRM handoff configuration.
+    install -d ${D}${sysconfdir}/systemd/system.conf.d
+    install -m 0644 ${WORKDIR}/99-jaguar-screen-reboot-watchdog.conf \
+        ${D}${sysconfdir}/systemd/system.conf.d/99-jaguar-screen-reboot-watchdog.conf
 }
 
 FILES:${PN} += " \
@@ -55,4 +65,7 @@ FILES:${PN} += " \
 "
 
 FILES:${PN}:append:imx8mm-jaguar-dt510 = "${@bb.utils.contains('MACHINE_FEATURES', 'bq25792-charger', ' ${sysconfdir}/modprobe.d/bq257xx-charger.conf', '', d)}"
-FILES:${PN}:append:imx8mm-jaguar-screen = " ${sysconfdir}/sysctl.d/99-z-jaguar-screen.conf"
+FILES:${PN}:append:imx8mm-jaguar-screen = " \
+    ${sysconfdir}/sysctl.d/99-z-jaguar-screen.conf \
+    ${sysconfdir}/systemd/system.conf.d/99-jaguar-screen-reboot-watchdog.conf \
+"
