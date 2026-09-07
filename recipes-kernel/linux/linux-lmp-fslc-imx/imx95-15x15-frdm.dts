@@ -57,6 +57,18 @@
 		num-channels = <2>;
 	};
 
+	hdmi-connector {
+		compatible = "hdmi-connector";
+		label = "hdmi";
+		type = "a";
+
+		port {
+			hdmi_connector_in: endpoint {
+				remote-endpoint = <&it6263_out>;
+			};
+		};
+	};
+
 	flexcan2_phy: can-phy {
 		compatible = "nxp,tja1051";
 		#phy-cells = <0>;
@@ -266,6 +278,19 @@
 	status = "okay";
 };
 
+/* FRDM HDMI J17: DPU display 1 -> pixel link 1 -> LVDS1 -> IT6263. */
+&display_pixel_link {
+	status = "okay";
+};
+
+&displaymix_irqsteer {
+	status = "okay";
+};
+
+&dpu {
+	status = "okay";
+};
+
 #if 0
 /* imx95.dtsi in linux-lmp-fslc-imx 6.6.52 lacks NETC; re-enable with imx95.dtsi backport */
 &enetc_port0 {
@@ -296,6 +321,24 @@
 	pinctrl-0 = <&pinctrl_flexcan5>;
 	pinctrl-names = "default";
 	phys = <&flexcan5_phy>;
+	status = "okay";
+};
+
+&ldb {
+	status = "okay";
+
+	channel@1 {
+		status = "okay";
+
+		port@1 {
+			lvds1_out: endpoint {
+				remote-endpoint = <&it6263_in>;
+			};
+		};
+	};
+};
+
+&ldb1_phy {
 	status = "okay";
 };
 
@@ -418,6 +461,8 @@
 };
 
 &lpi2c4 {
+	#address-cells = <1>;
+	#size-cells = <0>;
 	clock-frequency = <400000>;
 	pinctrl-0 = <&pinctrl_lpi2c4>;
 	pinctrl-names = "default";
@@ -442,6 +487,33 @@
 			color = <LED_COLOR_ID_WHITE>;
 			function = LED_FUNCTION_BACKLIGHT;
 			function-enumerator = <1>;
+		};
+	};
+
+	hdmi-bridge@4c {
+		compatible = "ite,it6263";
+		reg = <0x4c>;
+		reset-gpios = <&pcal6524 23 GPIO_ACTIVE_LOW>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+
+				it6263_in: endpoint {
+					remote-endpoint = <&lvds1_out>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+
+				it6263_out: endpoint {
+					remote-endpoint = <&hdmi_connector_in>;
+				};
+			};
 		};
 	};
 };
@@ -495,6 +567,14 @@
 			dai-format = "left_j";
 			remote-endpoint = <&sai1_port1_ep>;
 		};
+	};
+};
+
+&pixel_interleaver {
+	status = "okay";
+
+	channel@1 {
+		status = "okay";
 	};
 };
 
