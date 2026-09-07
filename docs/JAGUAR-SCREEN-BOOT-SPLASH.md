@@ -236,7 +236,7 @@ cannot perform its normal immediate watchdog restart and only systemd's
 restores the pre-display-change reboot behaviour without altering the splash or
 display handoff.
 
-The v1.0.0 release validation build is Foundries target 2888. It combines boot
-firmware `2026090701` with the final Waydroid landscape handover splash. A
-release is complete only after that target has been installed and an immediate
-reboot into Android has been timed on the physical board.
+Foundries target 2888 is the functional validation build. It combines boot
+firmware `2026090701` with the final Waydroid landscape handover splash. The
+v1.0.0 release is complete only after that image has been installed and an
+immediate reboot into Android has been timed on the physical board.
