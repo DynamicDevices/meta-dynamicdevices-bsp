@@ -222,10 +222,11 @@ The remaining integration gate is the manifest-pinned Foundries CI/OTA image,
 followed by a cold-boot check that the upright Linux splash remains until the
 product UI replaces it.
 
-The Screen build retains `CONFIG_CMD_WDT` for lab diagnostics but disables
-`CONFIG_WATCHDOG_AUTOSTART`. U-Boot 2024.04 otherwise starts WDOG1 with its
-60-second default timeout. Because the i.MX watchdog enable/configuration bits
-are write-once, Linux then cannot perform its normal immediate watchdog restart
-and only systemd's `RebootWatchdogSec=60` fallback resets the board. Boot
-firmware `2026090604` restores the pre-display-change reboot behaviour without
-altering the splash or display handoff.
+The Screen build retains `CONFIG_CMD_WDT` for lab diagnostics but disables both
+`CONFIG_SPL_WATCHDOG` and `CONFIG_WATCHDOG_AUTOSTART`. SPL's legacy i.MX path
+otherwise starts WDOG1 with its 60-second default timeout before full U-Boot.
+Because the i.MX watchdog enable/configuration bits are write-once, Linux then
+cannot perform its normal immediate watchdog restart and only systemd's
+`RebootWatchdogSec=60` fallback resets the board. Boot firmware `2026090701`
+restores the pre-display-change reboot behaviour without altering the splash or
+display handoff.
