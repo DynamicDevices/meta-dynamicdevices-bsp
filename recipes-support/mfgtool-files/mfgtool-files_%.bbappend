@@ -1,22 +1,33 @@
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
-# meta-lmp do_deploy_prepend_mx8() only runs for mx8, not mx95 — deploy imx-boot-mfgtool here.
-do_deploy:prepend:mx95-nxp-bsp() {
+SRC_URI:append:imx95-frdm-evk = " \
+    file://verify_image.uuu.in \
+    file://README-imx95-mfgtool.md \
+"
+
+do_compile:append:imx95-frdm-evk() {
+    sed -e 's/@@MACHINE@@/${MACHINE}/' \
+        -e 's/@@MFGTOOL_FLASH_IMAGE@@/${MFGTOOL_FLASH_IMAGE}/' \
+        -e 's/@@IMAGE_NAME_SUFFIX@@/${IMAGE_NAME_SUFFIX}/' \
+        ${S}/verify_image.uuu.in > verify_image.uuu
+}
+
+# meta-lmp only deploys an i.MX manufacturing boot container for mx8/mx93.
+# i.MX95 must use flash_all: falling back to the production imx-boot produces a
+# plausible-looking bundle which cannot complete the ROM/SPL UUU transitions.
+do_deploy:prepend:imx95-frdm-evk() {
     install -d ${DEPLOYDIR}/${PN}
-    # lmp-mfgtool builds flash_all (combined SDPS container); prefer explicit artifact.
-    if [ -f "${DEPLOY_DIR_IMAGE}/imx-boot-${MACHINE}-sd.bin-flash_all" ]; then
-        install -m 0644 "${DEPLOY_DIR_IMAGE}/imx-boot-${MACHINE}-sd.bin-flash_all" \
-            ${DEPLOYDIR}/${PN}/imx-boot-mfgtool
-    else
-        install -m 0644 ${DEPLOY_DIR_IMAGE}/imx-boot ${DEPLOYDIR}/${PN}/imx-boot-mfgtool
-    fi
+    install -m 0644 "${DEPLOY_DIR_IMAGE}/imx-boot-${MACHINE}-sd.bin-flash_all" \
+        ${DEPLOYDIR}/${PN}/imx-boot-mfgtool
     install -m 0644 ${DEPLOY_DIR_IMAGE}/u-boot.itb ${DEPLOYDIR}/${PN}/u-boot-mfgtool.itb
     install -m 0644 ${DEPLOY_DIR_IMAGE}/fitImage-${INITRAMFS_IMAGE}-${MACHINE}-${MACHINE} \
         ${DEPLOYDIR}/${PN}/fitImage-${MACHINE}-mfgtool
+    install -m 0644 ${WORKDIR}/verify_image.uuu ${DEPLOYDIR}/${PN}
+    install -m 0644 ${WORKDIR}/README-imx95-mfgtool.md ${DEPLOYDIR}/${PN}/README.md
 }
 
 def get_do_deploy_depends_mx95(d):
-    if 'mx95-nxp-bsp' in (d.getVar('MACHINEOVERRIDES') or '').split(':'):
+    if d.getVar('MACHINE') == 'imx95-frdm-evk':
         return " imx-boot:do_deploy"
     return ""
 

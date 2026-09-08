@@ -15,10 +15,16 @@ DEPLOY_OPTEE:lmp-mfgtool:imx8mm-jaguar-dt510 = "false"
 # imx93 uses flash_singleboot, imx8mm uses flash_evk
 IMXBOOT_TARGETS:lmp-mfgtool:imx93-jaguar-eink = "flash_singleboot"
 
-# imx95 (mx95): mfgtool needs combined flash_all container (SDPS → 0152, no SDPV).
+# imx95 (mx95): mfgtool needs the combined flash_all container for the
+# SDPS/SDPV ROM-to-SPL sequence.
 # Production sota still uses flash_a55 from machine conf until M7 demos wired for FRDM.
 IMXBOOT_TARGETS:lmp-mfgtool:imx95-frdm-evk = "flash_all"
 IMXBOOT_TARGETS:lmp-mfgtool:imx95-15x15-lpddr4x-frdm = "flash_all"
+
+# Match firmware-imx 8.26.1: the older lf-6.6.36_2.1.0 source hard-codes
+# v202311 for the M33 OEI DDR payload, while this NXP release uses v202409.
+SRCBRANCH:imx95-frdm-evk = "lf-6.6.52_2.2.1"
+SRCREV:imx95-frdm-evk = "81fca6434be0610f3f9216a762aadc4dc3e8d8db"
 
 # imx95-frdm-evk: meta-imx imx-boot copies mcore-demos → m7_image.bin for mx95 prepend.
 # flash_a55 (production / default mfgtool) does not consume m7_image.bin in imx-mkimage.

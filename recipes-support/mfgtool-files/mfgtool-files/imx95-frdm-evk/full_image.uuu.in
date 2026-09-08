@@ -1,17 +1,29 @@
 uuu_version 1.4.149
 
-# imx95 SPL uses CONFIG_SPL_LOAD_IMX_CONTAINER (AHAB), not FIT on SDPV.
-# SDPS: single flash_all container (SPL+ATF+OP-TEE+U-Boot) → fastboot @ 0152. No SDPV.
+# Keep all ROM/SPL protocol stages. UUU selects the commands which match the
+# USB identity exposed by the SoC; this is the NXP i.MX95 flash_all flow.
+SDP: boot -f imx-boot-mfgtool
 SDPS: boot -f imx-boot-mfgtool
 
-# FRDM onboard eMMC = USDHC1 = U-Boot mmc dev 0. Explicit emmc_dev/mmcdev 0 (default mmcdev=1 on this board).
+SDPU: delay 1000
+SDPU: write -f imx-boot-mfgtool -offset 0x57c00
+SDPU: jump
+
+SDPV: delay 1000
+SDPV: write -f imx-boot-mfgtool -skipspl
+SDPV: jump
+
+FB: delay 5000
+# FRDM onboard eMMC = USDHC1 = U-Boot mmc dev 0.
 FB: ucmd setenv fastboot_dev mmc
 FB: ucmd setenv emmc_dev 0
 FB: ucmd setenv mmcdev 0
-FB: ucmd mmc dev 0
-FB: ucmd mmc dev ${mmcdev} 1; mmc erase 0 0x3C00; mmc dev 0 0
-# imx95 fastboot cannot gunzip — use uncompressed .wic/* (not .wic.gz).
-FB: flash -raw2sparse all ../@@MFGTOOL_FLASH_IMAGE@@-@@MACHINE@@@@IMAGE_NAME_SUFFIX@@.wic/*
+FB: ucmd setenv loadaddr 0x92800000
+FB: ucmd mmc dev ${mmcdev} 0
+# UUU decompresses .wic.gz on the host. FB write programs the complete
+# Foundries WIC byte-for-byte in bounded chunks, including GPT and gaps.
+FB[-t 1800000]: write -f ../@@MFGTOOL_FLASH_IMAGE@@-@@MACHINE@@@@IMAGE_NAME_SUFFIX@@.wic.gz/* -blksz 512 -each 0x4000000
+# Install the production boot chain after the Foundries partition image.
 FB: flash bootloader ../imx-boot-@@MACHINE@@
 FB: flash bootloader2 ../u-boot-@@MACHINE@@.itb
 FB: flash bootloader_s ../imx-boot-@@MACHINE@@
