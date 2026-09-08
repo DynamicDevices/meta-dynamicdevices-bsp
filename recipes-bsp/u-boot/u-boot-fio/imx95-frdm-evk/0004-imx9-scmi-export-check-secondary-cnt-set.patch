@@ -15,10 +15,12 @@ diff --git a/arch/arm/mach-imx/imx9/scmi/soc.c b/arch/arm/mach-imx/imx9/scmi/soc
 index 1111111111..2222222222 100644
 --- a/arch/arm/mach-imx/imx9/scmi/soc.c
 +++ b/arch/arm/mach-imx/imx9/scmi/soc.c
-@@ -1594,3 +1594,13 @@ u32 container_hdr_alignment(void)
- 	return is_imx95_a0() ? 0x400: 0x4000;
+@@ -1119,5 +1119,15 @@ ulong h_spl_load_read(struct spl_load_info *load, ulong off,
+ 		return total << bd->log2blksz;
+ 	}
+ 
+ 	return blk_dread(bd, sector, count, buf) << bd->log2blksz;
  }
- #endif
 +
 +#include <imx_container.h>
 +

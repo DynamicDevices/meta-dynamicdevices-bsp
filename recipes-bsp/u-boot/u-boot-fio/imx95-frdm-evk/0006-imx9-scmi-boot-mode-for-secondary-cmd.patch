@@ -21,7 +21,13 @@ diff --git a/arch/arm/mach-imx/imx9/scmi/soc.c b/arch/arm/mach-imx/imx9/scmi/soc
 index 1111111111..2222222222 100644
 --- a/arch/arm/mach-imx/imx9/scmi/soc.c
 +++ b/arch/arm/mach-imx/imx9/scmi/soc.c
-@@ -1605,3 +1605,42 @@
+@@ -1123,9 +1123,48 @@ ulong h_spl_load_read(struct spl_load_info *load, ulong off,
+ #include <imx_container.h>
+ 
+ bool check_secondary_cnt_set(unsigned long *set_off)
+ {
+ 	if (set_off)
+ 		*set_off = 0;
  
  	return false;
  }
