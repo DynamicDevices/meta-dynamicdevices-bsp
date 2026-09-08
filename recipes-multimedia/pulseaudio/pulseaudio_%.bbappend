@@ -51,6 +51,12 @@ SRC_URI:append:imx8mm-jaguar-phasora = "\
     file://load-echo-cancellation-module.pa \
     file://load-alsa-modules.pa \
 "
+SRC_URI:append:imx95-frdm-evk = "\
+    file://pulseaudio.service \
+    file://load-unix-module.pa \
+    file://load-echo-cancellation-module.pa \
+    file://load-alsa-modules.pa \
+"
 
 do_install:append() {
         install -d ${D}/${systemd_unitdir}/system

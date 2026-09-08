@@ -8,22 +8,25 @@ but u-boot-fio imx-2024.04 only implements it for i.MX8 (static in misc.c).
 Factory u-boot-fio SPL links scmi/soc.c (CONFIG_SCMI_FIRMWARE) and fails to
 link without this symbol. Provide a primary-set stub in scmi/soc.c.
 ---
- arch/arm/mach-imx/imx9/scmi/soc.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+ arch/arm/mach-imx/imx9/scmi/soc.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
 diff --git a/arch/arm/mach-imx/imx9/scmi/soc.c b/arch/arm/mach-imx/imx9/scmi/soc.c
 index 1111111111..2222222222 100644
 --- a/arch/arm/mach-imx/imx9/scmi/soc.c
 +++ b/arch/arm/mach-imx/imx9/scmi/soc.c
-@@ -1119,5 +1119,15 @@ ulong h_spl_load_read(struct spl_load_info *load, ulong off,
- 		return total << bd->log2blksz;
- 	}
- 
- 	return blk_dread(bd, sector, count, buf) << bd->log2blksz;
- }
-+
+@@ -44,6 +44,7 @@
+ #endif
+ #include <spl.h>
+ #include <mmc.h>
 +#include <imx_container.h>
-+
+ #include <kaslr.h>
+ 
+ 
+@@ -51,6 +52,14 @@ DECLARE_GLOBAL_DATA_PTR;
+ 
+ rom_passover_t rom_passover_data = {0};
+ 
 +bool check_secondary_cnt_set(unsigned long *set_off)
 +{
 +	if (set_off)
@@ -31,3 +34,7 @@ index 1111111111..2222222222 100644
 +
 +	return false;
 +}
++
+ uint32_t scmi_get_rom_data(rom_passover_t *rom_data)
+ {
+ 	/* Read ROM passover data */

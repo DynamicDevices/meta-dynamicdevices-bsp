@@ -14,24 +14,20 @@ Apply after 0004-imx9-scmi-export-check-secondary-cnt-set.
 
 Signed-off-by: Dynamic Devices <support@dynamicdevices.co.uk>
 ---
- arch/arm/mach-imx/imx9/scmi/soc.c | 39 ++++++++++++++++++++++++++++++
- 1 file changed, 39 insertions(+)
+ arch/arm/mach-imx/imx9/scmi/soc.c | 41 +++++++++++++++++++++++++++++++
+ 1 file changed, 41 insertions(+)
 
 diff --git a/arch/arm/mach-imx/imx9/scmi/soc.c b/arch/arm/mach-imx/imx9/scmi/soc.c
 index 1111111111..2222222222 100644
 --- a/arch/arm/mach-imx/imx9/scmi/soc.c
 +++ b/arch/arm/mach-imx/imx9/scmi/soc.c
-@@ -1123,9 +1123,48 @@ ulong h_spl_load_read(struct spl_load_info *load, ulong off,
- #include <imx_container.h>
- 
- bool check_secondary_cnt_set(unsigned long *set_off)
- {
- 	if (set_off)
- 		*set_off = 0;
+@@ -63,6 +63,47 @@
  
  	return false;
  }
 +#ifdef CONFIG_CMD_SECONDARY_BOOT
++uint32_t scmi_get_rom_data(rom_passover_t *rom_data);
++
 +void boot_mode_enable_secondary(bool enable)
 +{
 +	/* TODO: SMC SRC GPR20 (missing docs) */
@@ -70,3 +66,6 @@ index 1111111111..2222222222 100644
 +	return 0;
 +}
 +#endif
+ 
+ uint32_t scmi_get_rom_data(rom_passover_t *rom_data)
+ {
