@@ -12,6 +12,9 @@
 #   0xa9000           p2 otaroot starts (ext4)
 #
 part /boot --source bootimg-partition --ondisk mmcblk --fstype=vfat --label boot --offset 4096 --fsoptions="noatime"
-part / --source rootfs --ondisk mmcblk --fstype=ext4 --label otaroot --offset 346112 --fsoptions="noatime,commit=60"
+# Use the deployed OSTree sysroot produced by do_image_ota_ext4.  Using the
+# generic rootfs source here creates a superficially valid filesystem but omits
+# /boot/loader/uEnv.txt and /ostree, which the Foundries boot.itb requires.
+part / --source otaimage --ondisk mmcblk --fstype=ext4 --label otaroot --offset 346112 --fsoptions="noatime,commit=60"
 
 bootloader --ptable gpt
