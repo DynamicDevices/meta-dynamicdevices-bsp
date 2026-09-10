@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Dynamic Devices <engineering@dynamicdevices.co.uk>
+Date: Thu, 10 Sep 2026 16:10:00 +0100
+Subject: [PATCH] mlanutl: honour LDFLAGS when linking
+
+Yocto supplies its GNU hash and hardening flags through LDFLAGS.  The
+standalone utility Makefile ignored that variable, producing a binary which
+failed the ldflags package QA check.
+
+Keep libraries after objects as required by linkers using --as-needed.
+
+Upstream-Status: Inappropriate [configuration-specific]
+---
+ mapp/mlanutl/Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/mapp/mlanutl/Makefile b/mapp/mlanutl/Makefile
+index a1932a1..da36516 100644
+--- a/mapp/mlanutl/Makefile
++++ b/mapp/mlanutl/Makefile
+@@ -47,6 +47,6 @@ all : tags default
+ 
+ $(TARGET): $(OBJECTS) $(HEADERS)
+-	$(ECHO)$(CC) $(LIBS) -o $@ $(OBJECTS)
++	$(ECHO)$(CC) $(LDFLAGS) -o $@ $(OBJECTS) $(LIBS)
+ 
+ %.o: %.c $(HEADERS)
+ 	$(ECHO)$(CC) $(CFLAGS) -c -o $@ $<
+-- 
+2.47.3

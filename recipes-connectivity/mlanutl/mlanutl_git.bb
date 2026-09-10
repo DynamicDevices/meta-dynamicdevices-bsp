@@ -8,9 +8,13 @@ PN = "mlanutl"
 
 # Use the same repository as the WiFi driver
 # Note: mlanutl is a userspace utility and works with any kernel version
-# Using lf-5.15.71_2.2.0 branch (latest available)
-SRC_URI = "git://github.com/nxp-imx/mwifiex-iw612.git;protocol=https;branch=lf-5.15.71_2.2.0"
-SRCREV = "${AUTOREV}"
+# NXP has not carried this standalone utility into the 6.12 mwifiex tree.
+# Pin the final lf-5.15.71_2.2.0 source instead of following a moving branch;
+# the utility talks to the driver ABI and remains independent of kernel APIs.
+SRC_URI = "git://github.com/nxp-imx/mwifiex-iw612.git;protocol=https;branch=lf-5.15.71_2.2.0 \
+           file://0001-mlanutl-honour-LDFLAGS.patch \
+"
+SRCREV = "4cc2c8831f27c8eceece6b66fc2de8b73360f520"
 
 S = "${WORKDIR}/git/mapp/mlanutl"
 
