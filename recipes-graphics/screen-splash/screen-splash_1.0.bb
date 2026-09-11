@@ -9,11 +9,20 @@ SRC_URI = " \
     file://screen-splash.service \
     file://active-edge-splash-1920x1200.png \
     file://active-edge-splash-1200x1920.png \
+    file://active-edge-splash-1280x720.png \
 "
 
 S = "${WORKDIR}"
 
 inherit pkgconfig systemd
+
+SCREEN_SPLASH_IMAGE ?= "active-edge-splash-1920x1200.png"
+SCREEN_SPLASH_IMAGE:imx95-frdm-evk = "active-edge-splash-1280x720.png"
+
+# A fixed panel may appear after early userspace starts. HDMI is hot-pluggable:
+# probe once after udev and never hold up a headless boot waiting for a monitor.
+SCREEN_SPLASH_WAIT_MS ?= "15000"
+SCREEN_SPLASH_WAIT_MS:imx95-frdm-evk = "0"
 
 SYSTEMD_SERVICE:${PN} = "screen-splash.service"
 SYSTEMD_AUTO_ENABLE:${PN} = "enable"
@@ -32,8 +41,13 @@ do_install() {
         ${D}${datadir}/screen-splash/active-edge-splash-1920x1200.png
     install -m 0644 ${WORKDIR}/active-edge-splash-1200x1920.png \
         ${D}${datadir}/screen-splash/active-edge-splash-1200x1920.png
-    install -m 0644 ${WORKDIR}/screen-splash.service \
-        ${D}${systemd_system_unitdir}/screen-splash.service
+    install -m 0644 ${WORKDIR}/active-edge-splash-1280x720.png \
+        ${D}${datadir}/screen-splash/active-edge-splash-1280x720.png
+    ln -s ${SCREEN_SPLASH_IMAGE} \
+        ${D}${datadir}/screen-splash/active-edge-splash.png
+    sed -e 's|@SCREEN_SPLASH_WAIT_MS@|${SCREEN_SPLASH_WAIT_MS}|g' \
+        ${WORKDIR}/screen-splash.service \
+        > ${D}${systemd_system_unitdir}/screen-splash.service
 }
 
 FILES:${PN} += "${datadir}/screen-splash"

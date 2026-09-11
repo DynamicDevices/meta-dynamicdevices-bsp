@@ -20,16 +20,10 @@
 #include <xf86drmMode.h>
 
 #define WAIT_MS 50
-#define WAIT_LIMIT_MS 15000
+#define DEFAULT_WAIT_LIMIT_MS 15000
 #define ANIMATION_PERIOD_MS 2400
 #define ANIMATION_HOLD_MS 300
 #define ARC_SWEEP_MS 1300
-#define MARK_LANDSCAPE_X_MIN 240
-#define MARK_LANDSCAPE_X_MAX 620
-#define MARK_LANDSCAPE_Y_MIN 449
-#define MARK_LANDSCAPE_Y_MAX 749
-#define ARC_GLINT_X_MIN 285
-#define ARC_GLINT_X_MAX 575
 #define CARBON_R 0x07
 #define CARBON_G 0x11
 #define CARBON_B 0x1f
@@ -46,6 +40,13 @@ struct framebuffer {
 	uint32_t pitch;
 	uint64_t size;
 	uint8_t *map;
+};
+
+struct animation_region {
+	uint32_t x_min;
+	uint32_t x_max;
+	uint32_t y_min;
+	uint32_t y_max;
 };
 
 static void sleep_poll_interval(void)
@@ -116,6 +117,25 @@ static uint32_t find_crtc(int fd, drmModeRes *resources,
 		drmModeFreeEncoder(encoder);
 	}
 	return 0;
+}
+
+static drmModeModeInfo select_mode(const drmModeConnector *connector,
+				   const struct image *splash)
+{
+	int i;
+
+	/* Preserve the U-Boot scanout mode whenever the monitor advertises it. */
+	for (i = 0; i < connector->count_modes; i++) {
+		const drmModeModeInfo *mode = &connector->modes[i];
+
+		if ((mode->hdisplay == splash->width &&
+		     mode->vdisplay == splash->height) ||
+		    (mode->hdisplay == splash->height &&
+		     mode->vdisplay == splash->width))
+			return *mode;
+	}
+
+	return connector->modes[0];
 }
 
 static int load_png(const char *path, struct image *image)
@@ -205,6 +225,40 @@ static int render(uint8_t *buffer, uint32_t pitch, uint32_t width,
 	return 0;
 }
 
+static int find_animation_region(const struct image *splash,
+				 struct animation_region *region)
+{
+	uint32_t x, y;
+	int found = 0;
+
+	region->x_min = splash->width;
+	region->x_max = 0;
+	region->y_min = splash->height;
+	region->y_max = 0;
+
+	for (y = 0; y < splash->height; y++) {
+		for (x = 0; x < splash->width; x++) {
+			const uint8_t *pixel = splash->rgba +
+				(y * splash->width + x) * 4;
+			uint32_t maximum = pixel[0] > pixel[1] ? pixel[0] : pixel[1];
+			uint32_t minimum = pixel[0] < pixel[1] ? pixel[0] : pixel[1];
+
+			maximum = maximum > pixel[2] ? maximum : pixel[2];
+			minimum = minimum < pixel[2] ? minimum : pixel[2];
+			if (pixel[3] < 128 || maximum - minimum <= 45 || maximum <= 120)
+				continue;
+
+			region->x_min = x < region->x_min ? x : region->x_min;
+			region->x_max = x > region->x_max ? x : region->x_max;
+			region->y_min = y < region->y_min ? y : region->y_min;
+			region->y_max = y > region->y_max ? y : region->y_max;
+			found = 1;
+		}
+	}
+
+	return found ? 0 : -1;
+}
+
 /*
  * Animate only the coloured edge mark.  The source PNG remains the single
  * source of truth, so frame zero is pixel-identical to the U-Boot splash and
@@ -213,27 +267,35 @@ static int render(uint8_t *buffer, uint32_t pitch, uint32_t width,
 static void render_animation_frame(uint8_t *buffer, uint32_t pitch,
 				   uint32_t width, uint32_t height,
 				   const struct image *splash,
+				   const struct animation_region *region,
 				   unsigned int elapsed_ms)
 {
 	unsigned int cycle_ms = elapsed_ms % ANIMATION_PERIOD_MS;
 	double arc_progress = 0.0;
+	double arc_x_min, arc_x_max, region_width;
 	uint32_t x, y, x_start, x_end, y_start, y_end;
+	uint32_t middle_y, quiet_half_height;
 	int landscape_output = splash->width == width;
 
 	if (cycle_ms >= ANIMATION_HOLD_MS &&
 	    cycle_ms < ANIMATION_HOLD_MS + ARC_SWEEP_MS)
 		arc_progress = (double)(cycle_ms - ANIMATION_HOLD_MS) / ARC_SWEEP_MS;
 	if (landscape_output) {
-		x_start = MARK_LANDSCAPE_X_MIN;
-		x_end = width < MARK_LANDSCAPE_X_MAX + 1 ? width : MARK_LANDSCAPE_X_MAX + 1;
-		y_start = MARK_LANDSCAPE_Y_MIN;
-		y_end = height < MARK_LANDSCAPE_Y_MAX + 1 ? height : MARK_LANDSCAPE_Y_MAX + 1;
+		x_start = region->x_min;
+		x_end = region->x_max + 1;
+		y_start = region->y_min;
+		y_end = region->y_max + 1;
 	} else {
-		x_start = MARK_LANDSCAPE_Y_MIN;
-		x_end = MARK_LANDSCAPE_Y_MAX + 1;
-		y_start = splash->width - 1 - MARK_LANDSCAPE_X_MAX;
-		y_end = splash->width - MARK_LANDSCAPE_X_MIN;
+		x_start = region->y_min;
+		x_end = region->y_max + 1;
+		y_start = splash->width - 1 - region->x_max;
+		y_end = splash->width - region->x_min;
 	}
+	middle_y = region->y_min + (region->y_max - region->y_min) / 2;
+	quiet_half_height = (region->y_max - region->y_min) / 5;
+	region_width = region->x_max - region->x_min;
+	arc_x_min = region->x_min + region_width * 0.12;
+	arc_x_max = region->x_max - region_width * 0.12;
 
 	for (y = y_start; y < y_end; y++) {
 		uint32_t *row = (uint32_t *)(buffer + y * pitch);
@@ -257,14 +319,16 @@ static void render_animation_frame(uint8_t *buffer, uint32_t pitch,
 			/* Keep anti-aliased boundary pixels untouched: the silhouette must not grow. */
 			if (maximum - minimum > 45 && maximum > 120) {
 				if (arc_progress > 0.0 &&
-				    (source_y < 540 || source_y > 660)) {
+				    (source_y + quiet_half_height < middle_y ||
+				     source_y > middle_y + quiet_half_height)) {
 					double arc_envelope = sin(M_PI * arc_progress);
-					double arc_x = source_y < 540
-						? ARC_GLINT_X_MIN + arc_progress *
-						  (ARC_GLINT_X_MAX - ARC_GLINT_X_MIN)
-						: ARC_GLINT_X_MAX - arc_progress *
-						  (ARC_GLINT_X_MAX - ARC_GLINT_X_MIN);
-					double distance = ((double)source_x - arc_x) / 34.0;
+					double arc_x = source_y < middle_y
+						? arc_x_min + arc_progress *
+						  (arc_x_max - arc_x_min)
+						: arc_x_max - arc_progress *
+						  (arc_x_max - arc_x_min);
+					double distance = ((double)source_x - arc_x) /
+						(region_width * 0.09);
 
 					highlight = 0.78 * arc_envelope * arc_envelope *
 						exp(-(distance * distance));
@@ -300,16 +364,32 @@ int main(int argc, char **argv)
 	drmModeModeInfo mode;
 	struct framebuffer fb = { 0 };
 	struct image logo = { 0 };
+	struct animation_region animation_region;
 	struct timespec animation_start;
 	uint32_t crtc_id = 0;
+	int wait_limit_ms = DEFAULT_WAIT_LIMIT_MS;
 	int waited, fd = -1, result = EXIT_FAILURE;
 
-	if (argc != 2 || load_png(argv[1], &logo) != 0) {
+	if (argc < 2 || argc > 3 || load_png(argv[1], &logo) != 0) {
 		fprintf(stderr, "screen-splash: cannot load logo\n");
 		return EXIT_FAILURE;
 	}
+	if (argc == 3) {
+		char *end = NULL;
+		long requested_wait = strtol(argv[2], &end, 10);
 
-	for (waited = 0; waited < WAIT_LIMIT_MS; waited += WAIT_MS) {
+		if (!end || *end || requested_wait < 0 || requested_wait > INT_MAX) {
+			fprintf(stderr, "screen-splash: invalid wait limit\n");
+			goto out;
+		}
+		wait_limit_ms = (int)requested_wait;
+	}
+	if (find_animation_region(&logo, &animation_region) != 0) {
+		fprintf(stderr, "screen-splash: no animated brand region found\n");
+		goto out;
+	}
+
+	for (waited = 0; waited <= wait_limit_ms; waited += WAIT_MS) {
 		fd = open_drm_card();
 		if (fd >= 0) {
 			resources = drmModeGetResources(fd);
@@ -334,11 +414,11 @@ int main(int argc, char **argv)
 
 	if (!connector) {
 		fprintf(stderr, "screen-splash: no connected DRM output after %d ms\n",
-			WAIT_LIMIT_MS);
+			wait_limit_ms);
 		goto out;
 	}
 
-	mode = connector->modes[0];
+	mode = select_mode(connector, &logo);
 	if (create_framebuffer(fd, mode.hdisplay, mode.vdisplay, &fb) != 0) {
 		fprintf(stderr, "screen-splash: framebuffer creation failed: %s\n",
 			strerror(errno));
@@ -381,6 +461,7 @@ int main(int argc, char **argv)
 			drmModeFreeCrtc(crtc);
 			render_animation_frame(fb.map, fb.pitch, mode.hdisplay,
 					       mode.vdisplay, &logo,
+					       &animation_region,
 					       elapsed_milliseconds(&animation_start));
 		}
 	}
