@@ -4,7 +4,8 @@ HOMEPAGE = "https://github.com/markusj/upd72020x-load"
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
 LICENSE = "LicenseRef-markusj-upd72020x-load"
-LIC_FILES_CHKSUM = "file://${THISDIR}/${PN}/loader-upstream-license-note;md5=5d6ccd4600a48e87bfb1a9eaae80ad67"
+LIC_FILES_CHKSUM = "file://${THISDIR}/${PN}/LicenseRef-markusj-upd72020x-load;md5=5d6ccd4600a48e87bfb1a9eaae80ad67"
+LICENSE_PATH:append = " ${THISDIR}/${PN}"
 
 inherit systemd
 
