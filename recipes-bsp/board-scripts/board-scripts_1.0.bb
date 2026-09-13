@@ -6,6 +6,10 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
+# The product image installs this package for every Jaguar machine. Some
+# machines intentionally provide no board-specific scripts yet.
+ALLOW_EMPTY:${PN} = "1"
+
 SRC_URI:append:imx8mm-jaguar-sentai = " \
   file://board-info.sh \
   file://test-leds-hb.sh \
