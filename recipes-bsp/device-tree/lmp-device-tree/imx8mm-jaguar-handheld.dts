@@ -3,21 +3,13 @@
  * Copyright 2020 NXP
  */
 
-#include "freescale/imx8mm-evkb.dts"
+#include "freescale/imx8mm-evk.dts"
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/leds/common.h>
 
 / {
         model = "i.MX8MM Jaguar 7in Handheld board";
         compatible = "fsl,imx8mm-jaguar-handheld", "fsl,imx8mm-evk", "fsl,imx8mm";
-
-	// Regulators
-	reg_vddext_3v3: regulator-vddext {
-		compatible = "regulator-fixed";
-		regulator-name = "VDDEXT_3V3";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-	};
 
         sound-ak4458 {
                 status = "disabled";
