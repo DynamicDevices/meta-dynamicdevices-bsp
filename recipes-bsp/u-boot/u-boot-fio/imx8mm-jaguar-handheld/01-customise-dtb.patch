@@ -6,7 +6,7 @@ index 1b183b25287..5104a1d7cc9 100644
  	is_bd71837 = !ret && ((is_bd71837 & 0xf0) == 0xa0);
  
  	if (!is_bd71837)
--		env_set("fdt_file", "imx8mm-evkb.dtb");
+-		env_set("fdt_file", "imx8mm-evk.dtb");
 +		env_set("fdt_file", "imx8mm-jaguar-handheld.dtb");
  	else
  		env_set("fdt_file", "imx8mm-evk-qca-wifi.dtb");
