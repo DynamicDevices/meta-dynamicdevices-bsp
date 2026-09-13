@@ -78,8 +78,8 @@ SRC_URI:append:imx93-jaguar-eink = " \
 "
 
 do_install() {
-    install -d ${D}${sbindir}
     if [ -n "$(ls -A ${WORKDIR}/*.sh 2>/dev/null)" ]; then
+        install -d ${D}${sbindir}
         install -m 0755 ${WORKDIR}/*.sh ${D}${sbindir}
     fi
 }
