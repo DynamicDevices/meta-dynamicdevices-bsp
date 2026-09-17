@@ -1,3 +1,9 @@
+Subject: [PATCH] board: select Jaguar Screen device tree
+
+Use the Jaguar Screen DTB instead of the EVK default during U-Boot handoff.
+
+Upstream-Status: Inappropriate [Jaguar Screen board configuration]
+
 diff --git a/board/freescale/imx8mm_evk/imx8mm_evk.c b/board/freescale/imx8mm_evk/imx8mm_evk.c
 index f27da09c655..62c0baf74bf 100644
 --- a/board/freescale/imx8mm_evk/imx8mm_evk.c
