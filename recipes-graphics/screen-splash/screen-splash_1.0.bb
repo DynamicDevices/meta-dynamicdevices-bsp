@@ -1,5 +1,5 @@
 SUMMARY = "Active-Edge early DRM splash screen"
-DESCRIPTION = "Displays the Active-Edge lockup as soon as the Jaguar Screen DRM connector is ready"
+DESCRIPTION = "Displays the Active-Edge lockup as soon as the product DRM connector is ready"
 LICENSE = "CLOSED"
 
 DEPENDS = "libdrm libpng"
@@ -8,6 +8,7 @@ SRC_URI = " \
     file://screen-splash.c \
     file://screen-splash.service \
     file://active-edge-splash-1920x1200.png \
+    file://active-edge-splash-1920x1080.png \
     file://active-edge-splash-1200x1920.png \
     file://active-edge-splash-1280x720.png \
 "
@@ -17,12 +18,11 @@ S = "${WORKDIR}"
 inherit pkgconfig systemd
 
 SCREEN_SPLASH_IMAGE ?= "active-edge-splash-1920x1200.png"
-SCREEN_SPLASH_IMAGE:imx95-frdm-evk = "active-edge-splash-1280x720.png"
+SCREEN_SPLASH_IMAGE:imx95-frdm-evk = "active-edge-splash-1920x1080.png"
 
-# A fixed panel may appear after early userspace starts. HDMI is hot-pluggable:
-# probe once after udev and never hold up a headless boot waiting for a monitor.
+# The Type=simple service can wait for a late DRM connector without delaying
+# the rest of userspace. This also covers the FRDM IT6263 probe interval.
 SCREEN_SPLASH_WAIT_MS ?= "15000"
-SCREEN_SPLASH_WAIT_MS:imx95-frdm-evk = "0"
 
 SYSTEMD_SERVICE:${PN} = "screen-splash.service"
 SYSTEMD_AUTO_ENABLE:${PN} = "enable"
@@ -39,6 +39,8 @@ do_install() {
     install -m 0755 ${B}/screen-splash ${D}${bindir}/screen-splash
     install -m 0644 ${WORKDIR}/active-edge-splash-1920x1200.png \
         ${D}${datadir}/screen-splash/active-edge-splash-1920x1200.png
+    install -m 0644 ${WORKDIR}/active-edge-splash-1920x1080.png \
+        ${D}${datadir}/screen-splash/active-edge-splash-1920x1080.png
     install -m 0644 ${WORKDIR}/active-edge-splash-1200x1920.png \
         ${D}${datadir}/screen-splash/active-edge-splash-1200x1920.png
     install -m 0644 ${WORKDIR}/active-edge-splash-1280x720.png \
