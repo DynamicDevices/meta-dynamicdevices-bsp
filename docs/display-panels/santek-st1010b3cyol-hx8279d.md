@@ -29,8 +29,9 @@ handling; only the link timing and clock behaviour are shared.
 - Native portrait scan is mounted landscape with the panel right edge at the
   top of the product: DTS `rotation = <90>`.
 - Linux text console default: `fbcon=rotate:1` (clockwise).
-- Touch logical area: 1920 x 1200. Touch transformation must follow the same
-  product orientation in the graphical compositor.
+- The FT5626 reports a pre-calibrated native touch range of 600 x 1024 with
+  X inverted relative to the mounted panel. The compositor maps that native
+  range onto the 1920 x 1200 logical output after applying the panel rotation.
 
 ## Power and initialization
 
@@ -77,4 +78,6 @@ handling; only the link timing and clock behaviour are shared.
 - Confirm the final colour test under Linux and the complete kiosk takeover.
 - Expose the DTS panel orientation through the DRM connector from the panel
   driver, so Wayland compositors can consume it automatically.
-- Validate touch-axis swap/inversion against the final compositor transform.
+- Touch range and X inversion were validated on the hwlab Jaguar Screen with
+  the rotated Weston kiosk on 2026-09-24; retain corner, centre and swipe tests
+  in physical acceptance after each display-stack change.
