@@ -78,6 +78,15 @@ The feature name is `tas2555`. The Screen machine includes its runtime
 dependency wiring, but does not enable the feature by default while the
 usable device configuration remains unconfirmed.
 
+The separately named `tas2555-rom1-dev` modifier is valid only alongside the
+base `tas2555` feature and only when `DEV_MODE=1`. The Screen device-tree and
+image-construction gates fail if either condition is false. When valid, the
+generated device tree adds the
+explicit `ti,rom1-dev` property and rootfs construction may omit
+`tas2555_uCDSP.bin`; this is an unprotected development exception, not a
+relaxation of the normal `tas2555` firmware gate. The driver must explicitly
+support that property before the mode can produce playback.
+
 The feature selects the `kernel-module-snd-soc-tas2555` package and kernel
 dependencies. Screen's generated header enables the SAI2/I2C1 DTS
 integration only when the feature is selected. `TAS2555_I2C_ADDRESS`
@@ -160,6 +169,24 @@ remain explicitly unprotected, start muted, keep boost disabled, use
 conservative gain and restrict playback to a reviewed clock/rate tuple derived
 from authoritative TAS2555 data. The existing `tas2555` feature retains its
 speaker-specific firmware requirement.
+
+The implemented DEV tuple is deliberately narrower than the normal driver:
+
+- ASI1 I2S only, with the PCM word length taken from ALSA hardware parameters;
+- 48 kHz only, enforced by an ALSA runtime constraint;
+- SAI2 MCLK fixed to 12.288 MHz (`256 * 48 kHz`), allowing the TAS2555 PLL to
+  remain powered down as described in SLASE69B section 9.4.3.1;
+- ROM1 selected with the datasheet value `B0_P0_R34 = 0x21`;
+- boost and I/V sense disabled, with the documented minimum 1.5 A boost limit
+  retained defensively in `B0_P0_R43`;
+- DAC gain set to the documented minimum 0 dB while retaining the reset-default
+  14 ns Class-D edge rate; and
+- the amplifier kept muted at probe and powered only through ALSA stream mute
+  transitions, using the TI shutdown sequence on stop/remove.
+
+This path deliberately skips firmware, configuration and calibration objects.
+It logs an explicit unprotected-mode warning and must not be used as evidence
+of production speaker protection.
 
 Configuration acceptance covers feature-gated driver packaging, SAI2/I2C1
 device-tree integration with the specified GPIOs, replacement of the
@@ -287,6 +314,32 @@ and contains `ti,tas2555` and `tas2555audio`.
 This strengthens the build evidence only. No speaker firmware was added, no
 audio-complete image was produced, and the target was not programmed or asked
 to play audio by this proof.
+
+### DEV-only ROM1 component proof, 2026-10-02
+
+The exact Cog manifest was evaluated with `DEV_MODE=1` and temporary machine
+features `tas2555 tas2555-rom1-dev`. Screen device-tree compilation attempted
+871 tasks and all passed. The generated DTB contains both `tas2555audio` and
+the explicit `ti,rom1-dev` property. Its SHA-256 is
+`8be8858d76e5c93c750c7247541d8e35024f88022bc7650641925f9f6273edb0`.
+
+The same tuple with `DEV_MODE=0` failed closed during kernel/device-tree
+configuration with `tas2555-rom1-dev is an unprotected development mode and
+requires DEV_MODE=1`. This proves that selecting the modifier cannot silently
+enter a production build.
+
+After adding the bounded ROM1 driver path, `bitbake kernel-module-tas2555
+-c package_qa` attempted 1,005 tasks. The six-patch stack applied cleanly and
+the kernel, device tree, module compile, install, packaging, packagedata and
+package QA tasks all passed. The installed ARM64 module has SHA-256
+`8c59b07bf33642b804cb39aa1f8c74e27c526384cbe5effbc9f999810b3948af`.
+The temporary AppArmor user-namespace relaxation used by the build was restored
+to its original value after completion.
+
+This is component evidence, not an image or playback acceptance. Before target
+use, build and verify an image carrying the exact DEV tuple, then begin with a
+very low-amplitude 48 kHz signal and DPX capture. The board must remain labelled
+as running unprotected ROM1 audio throughout that experiment.
 
 Full runtime behavior still requires review and target validation.
 No changes have been deployed and no TAS2555 playback has been verified.

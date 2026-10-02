@@ -13,6 +13,7 @@ SRC_URI = "git://git.ti.com/tas2555sw-android/tas2555-android-driver.git;protoco
            file://0003-tas2555-propagate-init-errors-and-limit-rates.patch \
            file://0004-tas2555-reject-runtime-firmware-reload.patch \
            file://0005-tas2555-fix-boost-off-selection.patch \
+           file://0006-tas2555-add-explicit-dev-only-rom1-mode.patch \
           "
 SRCREV = "0468cf54e49f57163e17998846b62dc941130929"
 

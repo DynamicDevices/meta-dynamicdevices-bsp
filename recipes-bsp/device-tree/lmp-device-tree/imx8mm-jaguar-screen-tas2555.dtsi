@@ -5,6 +5,9 @@
 		simple-audio-card,format = "i2s";
 		simple-audio-card,bitclock-master = <&tas2555_cpu_dai>;
 		simple-audio-card,frame-master = <&tas2555_cpu_dai>;
+#if TAS2555_ROM1_DEV
+		simple-audio-card,mclk-fs = <256>;
+#endif
 
 		tas2555_cpu_dai: simple-audio-card,cpu {
 			sound-dai = <&sai2>;
@@ -27,6 +30,9 @@
 		pinctrl-0 = <&pinctrl_tas2555_gpio>;
 		ti,cdc-reset-gpio = <&gpio3 19 GPIO_ACTIVE_LOW>;
 		ti,irq-gpio = <&gpio3 25 GPIO_ACTIVE_HIGH>;
+#if TAS2555_ROM1_DEV
+		ti,rom1-dev;
+#endif
 		status = "okay";
 	};
 };
@@ -34,6 +40,11 @@
 &sai2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_screen_sai2>;
+#if TAS2555_ROM1_DEV
+	assigned-clocks = <&clk IMX8MM_CLK_SAI2>;
+	assigned-clock-parents = <&clk IMX8MM_AUDIO_PLL1_OUT>;
+	assigned-clock-rates = <12288000>;
+#endif
 	fsl,sai-mclk-direction-output;
 	status = "okay";
 };

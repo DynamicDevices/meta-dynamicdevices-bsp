@@ -1,0 +1,238 @@
+From efc9e9feeee3e82108fc04de4af884c1cb219291 Mon Sep 17 00:00:00 2001
+From: Dynamic Devices Ltd <support@dynamicdevices.co.uk>
+Date: Fri, 2 Oct 2026 14:22:22 +0100
+Subject: [PATCH] tas2555: add explicit DEV-only ROM1 mode
+
+---
+ tas2555-codec.c  | 30 ++++++++++++++++
+ tas2555-core.c   | 94 ++++++++++++++++++++++++++++++++++++++++++++++++
+ tas2555-core.h   |  1 +
+ tas2555-regmap.c |  5 ++-
+ tas2555.h        |  2 ++
+ 5 files changed, 131 insertions(+), 1 deletion(-)
+
+diff --git a/tas2555-codec.c b/tas2555-codec.c
+index afaed73..2741f08 100755
+--- a/tas2555-codec.c
++++ b/tas2555-codec.c
+@@ -120,6 +120,10 @@ static int tas2555_startup(struct snd_pcm_substream *substream,
+ 	
+ 	dev_dbg(pTAS2555->dev, "%s\n", __func__);
+ 
++	if (pTAS2555->mbRom1Dev)
++		return snd_pcm_hw_constraint_single(substream->runtime,
++			SNDRV_PCM_HW_PARAM_RATE, 48000);
++
+ 	return 0;
+ }
+ 
+@@ -159,6 +163,32 @@ static int tas2555_hw_params(struct snd_pcm_substream *pSubstream,
+ 	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(pCodec);
+ 
+ 	dev_dbg(pCodec->dev, "%s\n", __func__);
++	if (pTAS2555->mbRom1Dev) {
++		unsigned int word_length;
++
++		if (pDAI->id != 0 || params_rate(pParams) != 48000)
++			return -EINVAL;
++
++		switch (params_width(pParams)) {
++		case 16:
++			word_length = 0x00;
++			break;
++		case 20:
++			word_length = 0x08;
++			break;
++		case 24:
++			word_length = 0x10;
++			break;
++		case 32:
++			word_length = 0x18;
++			break;
++		default:
++			return -EINVAL;
++		}
++
++		return pTAS2555->update_bits(pTAS2555,
++			TAS2555_ASI1_DAC_FORMAT_REG, 0x18, word_length);
++	}
+ 
+ 	return tas2555_set_sampling_rate(pTAS2555, params_rate(pParams));
+ }
+diff --git a/tas2555-core.c b/tas2555-core.c
+index aca1bcc..332b108 100755
+--- a/tas2555-core.c
++++ b/tas2555-core.c
+@@ -132,6 +132,21 @@ static unsigned int p_tas2555_startup_wo_boost_rom1_data[] = {
+ 	0xFFFFFFFF, 0xFFFFFFFF
+ };
+ 
++/*
++ * Deliberately bounded development sequence from SLASE69B:
++ * 12.288 MHz MCLK, 48 kHz, ROM1, no boost, no I/V sense, 0 dB DAC gain.
++ * Keep the device muted until the ALSA playback stream is unmuted.
++ */
++static unsigned int p_tas2555_rom1_dev_startup_data[] = {
++	TAS2555_CLK_ERR_CTRL1, 0x00,
++	TAS2555_MAIN_CLKIN_REG, 0x00,
++	TAS2555_POWER_CTRL2_REG, 0x80,
++	TAS2555_POWER_CTRL1_REG, 0xB8,
++	TAS2555_UDELAY, 2000,
++	TAS2555_CLK_ERR_CTRL1, 0x02,
++	0xFFFFFFFF, 0xFFFFFFFF
++};
++
+ static unsigned int p_tas2555_startup_with_boost_data[] = {
+ 	TAS2555_CLK_ERR_CTRL1, 0x00,	//disable clock error detection on PLL
+ 	TAS2555_PLL_CLKIN_REG, TAS2555_DEFAULT_PLL_CLKIN,
+@@ -468,6 +483,81 @@ int tas2555_load_default(struct tas2555_priv *pTAS2555)
+ 	return nResult;
+ }
+ 
++int tas2555_init_rom1_dev(struct tas2555_priv *pTAS2555)
++{
++	int nResult;
++
++	nResult = pTAS2555->write(pTAS2555, TAS2555_SW_RESET_REG, 0x01);
++	if (nResult < 0)
++		return nResult;
++
++	udelay(1000);
++	nResult = tas2555_load_default(pTAS2555);
++	if (nResult < 0)
++		return nResult;
++
++	nResult = pTAS2555->write(pTAS2555, TAS2555_DSP_MODE_SELECT_REG, 0x21);
++	if (nResult < 0)
++		return nResult;
++
++	nResult = pTAS2555->write(pTAS2555, TAS2555_CURRENT_LIMIT_REG, 0x00);
++	if (nResult < 0)
++		return nResult;
++
++	nResult = pTAS2555->write(pTAS2555, TAS2555_SPK_CTRL_REG, 0x04);
++	if (nResult < 0)
++		return nResult;
++
++	nResult = pTAS2555->write(pTAS2555, TAS2555_MUTE_REG, 0x03);
++	if (nResult < 0)
++		return nResult;
++
++	nResult = pTAS2555->write(pTAS2555, TAS2555_SOFT_MUTE_REG, 0x01);
++	if (nResult < 0)
++		return nResult;
++
++	pTAS2555->mnCurrentSampleRate = 48000;
++	dev_warn(pTAS2555->dev,
++		"DEV-only unprotected ROM1 mode: 48 kHz, boost off, 0 dB DAC gain\n");
++
++	return 0;
++}
++
++static int tas2555_enable_rom1_dev(struct tas2555_priv *pTAS2555,
++	bool bEnable)
++{
++	int nResult = 0;
++	unsigned int nValue = 0;
++
++	if (bEnable) {
++		if (pTAS2555->mbPowerUp)
++			return 0;
++
++		nResult = pTAS2555->read(pTAS2555, TAS2555_SAFE_GUARD_REG,
++			&nValue);
++		if (nResult < 0)
++			return nResult;
++		if ((nValue & 0xff) != TAS2555_SAFE_GUARD_PATTERN)
++			return -EIO;
++
++		nResult = tas2555_dev_load_data(pTAS2555,
++			p_tas2555_rom1_dev_startup_data);
++		if (nResult < 0)
++			return nResult;
++
++		nResult = tas2555_dev_load_data(pTAS2555,
++			p_tas2555_unmute_data);
++		if (nResult >= 0)
++			pTAS2555->mbPowerUp = true;
++	} else if (pTAS2555->mbPowerUp) {
++		nResult = tas2555_dev_load_data(pTAS2555,
++			p_tas2555_shutdown_data);
++		pTAS2555->mbPowerUp = false;
++	}
++
++	return nResult;
++}
++
+ static int tas2555_pwr_startup(struct tas2555_priv *pTAS2555)
+ {
+ 	int nResult = 0;
+@@ -523,6 +613,8 @@ int tas2555_enable(struct tas2555_priv *pTAS2555, bool bEnable)
+ 	struct TConfiguration *pConfiguration;
+ 
+ 	dev_dbg(pTAS2555->dev, "Enable: %d\n", bEnable);
++	if (pTAS2555->mbRom1Dev)
++		return tas2555_enable_rom1_dev(pTAS2555, bEnable);
+ 
+ 	if ((pTAS2555->mpFirmware->mnPrograms == 0)
+ 		||(pTAS2555->mpFirmware->mnConfigurations == 0)) {
+@@ -1872,6 +1964,8 @@ int tas2555_parse_dt(struct device *dev, struct tas2555_priv *pTAS2555)
+ 	struct device_node *np = dev->of_node;
+ 	int ret = 0;
+ 
++	pTAS2555->mbRom1Dev = of_property_read_bool(np, "ti,rom1-dev");
++
+ 	pTAS2555->mnResetGPIO = of_get_named_gpio(np, "ti,cdc-reset-gpio", 0);
+ 	if (pTAS2555->mnResetGPIO < 0) {
+ 		dev_err(pTAS2555->dev, "Looking up %s property in node %s failed %d\n",
+diff --git a/tas2555-core.h b/tas2555-core.h
+index 6b7f532..a39b6ed 100755
+--- a/tas2555-core.h
++++ b/tas2555-core.h
+@@ -60,6 +60,7 @@ void tas2555_load_fs_firmware(struct tas2555_priv *pTAS2555,
+ 	char *pFileName);
+ void tas2555_fw_ready(const struct firmware *pFW, void *pContext);
+ int tas2555_request_firmware(struct tas2555_priv *device);
++int tas2555_init_rom1_dev(struct tas2555_priv *device);
+ int tas2555_set_program(struct tas2555_priv *pTAS2555, unsigned int nProgram, int nConfig);
+ int tas2555_set_calibration(struct tas2555_priv *pTAS2555,
+ 	int nCalibration);
+diff --git a/tas2555-regmap.c b/tas2555-regmap.c
+index ca284fe..66f5579 100755
+--- a/tas2555-regmap.c
++++ b/tas2555-regmap.c
+@@ -526,7 +526,10 @@ static int tas2555_i2c_probe(struct i2c_client *pClient)
+ 
+ 	pTAS2555->mbTILoadActive = false;
+ 
+-	nResult = tas2555_request_firmware(pTAS2555);
++	if (pTAS2555->mbRom1Dev)
++		nResult = tas2555_init_rom1_dev(pTAS2555);
++	else
++		nResult = tas2555_request_firmware(pTAS2555);
+ 	if (nResult)
+ 		return nResult;
+ 
+diff --git a/tas2555.h b/tas2555.h
+index 13dd167..36a05af 100755
+--- a/tas2555.h
++++ b/tas2555.h
+@@ -74,6 +74,7 @@
+ #define TAS2555_DSP_MODE_SELECT_REG		TAS2555_REG(0, 0, 34)
+ #define TAS2555_SAFE_GUARD_REG			TAS2555_REG(0, 0, 37)
+ #define TAS2555_NONAME42_REG			TAS2555_REG(0, 0, 42)
++#define TAS2555_CURRENT_LIMIT_REG		TAS2555_REG(0, 0, 43)
+ #define TAS2555_CLK_ERR_CTRL1			TAS2555_REG(0, 0, 44)	/* B0_P0_R0x2c*/
+ #define TAS2555_CLK_ERR_CTRL2			TAS2555_REG(0, 0, 45)	/* B0_P0_R0x2d*/
+ #define TAS2555_CLK_ERR_CTRL3			TAS2555_REG(0, 0, 46)	/* B0_P0_R0x2e*/
+@@ -419,6 +420,7 @@ struct tas2555_priv {
+ 	bool mbIRQEnable;
+ 	bool stopping;
+ 	int firmware_result;
++	bool mbRom1Dev;
+ 
+ 	int (*read)(struct tas2555_priv * pTAS2555, unsigned int reg,
+ 		unsigned int *pValue);
+-- 
+2.43.0
+
