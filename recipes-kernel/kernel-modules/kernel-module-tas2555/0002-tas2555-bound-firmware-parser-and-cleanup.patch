@@ -1,0 +1,640 @@
+Subject: [PATCH] tas2555: bound firmware parsing and clean up allocations
+
+Use a checked reader for descriptions, section counts and command data,
+validate bulk command lengths and configuration references, handle
+allocation failures, and release parsed data during probe cleanup.
+
+Upstream-Status: Pending
+
+--- a/tas2555-core.c
++++ b/tas2555-core.c
+@@ -672,343 +672,255 @@
+ 	return pData[3] + (pData[2] << 8) + (pData[1] << 16) + (pData[0] << 24);
+ }
+ 
+-static int fw_parse_header(struct tas2555_priv *pTAS2555, 
+-	struct TFirmware * pFirmware, unsigned char *pData,
+-	unsigned int nSize)
+-{
+-	unsigned char *pDataStart = pData;
+-	unsigned int n;
+-	unsigned char pMagicNumber[] = { 0x35, 0x35, 0x35, 0x32 };
+-	if (nSize < 102) {
+-		dev_err(pTAS2555->dev, "Firmware: Header too short");
+-		return -1;
+-	}
+-
+-	if (memcmp(pData, pMagicNumber, 4)) {
+-		dev_err(pTAS2555->dev, "Firmware: Magic number doesn't match");
+-		return -1;
+-	}
+-
+-	pData += 4;
+-
+-	pFirmware->mnFWSize = fw_convert_number(pData);
+-	pData += 4;
+-
+-	pFirmware->mnChecksum = fw_convert_number(pData);
+-	pData += 4;
+-
+-	pFirmware->mnPPCVersion = fw_convert_number(pData);
+-	pData += 4;
+-
+-	pFirmware->mnFWVersion = fw_convert_number(pData);
+-	pData += 4;
+-
+-	if (pFirmware->mnPPCVersion >= PPC_WITH_DRIVER_VERSION) {
+-		pFirmware->mnDriverVersion = fw_convert_number(pData);
+-		pData += 4;
+-	}
+-
+-	pFirmware->mnTimeStamp = fw_convert_number(pData);
+-	pData += 4;
+-
+-	memcpy(pFirmware->mpDDCName, pData, 64);
+-	pData += 64;
+-
+-	n = strlen(pData);
+-	pFirmware->mpDescription = kmemdup(pData, n + 1, GFP_KERNEL);
+-	pData += n + 1;
+-
+-	if ((pData - pDataStart) >= nSize) {
+-		dev_err(pTAS2555->dev, "Firmware: Header too short after DDC description");
+-		return -1;
+-	}
+-
+-	pFirmware->mnDeviceFamily = fw_convert_number(pData);
+-	pData += 4;
+-
+-	pFirmware->mnDevice = fw_convert_number(pData);
+-	pData += 4;
+-
+-	fw_print_header(pTAS2555, pFirmware);
+-
+-	return pData - pDataStart;
+-}
++struct tas2555_fw_reader {
++	const unsigned char *data;
++	size_t remaining;
++	int error;
++};
+ 
+-static int fw_parse_block_data(struct tas2555_priv *pTAS2555, struct TFirmware *pFirmware,
+-	struct TBlock * pBlock, unsigned char *pData)
++static const unsigned char *fw_take(struct tas2555_fw_reader *reader,
++	size_t length)
+ {
+-	unsigned char *pDataStart = pData;
+-	unsigned int n;
++	const unsigned char *data;
+ 
+-	pBlock->mnType = fw_convert_number(pData);
+-	pData += 4;
+-
+-	if (pFirmware->mnDriverVersion >= PPC_WITH_CHKSUM_VERSION) {
+-		pBlock->mbPChkSumPresent = pData[0];
+-		pData++;
+-
+-		pBlock->mnPChkSum = pData[0];
+-		pData++;
+-
+-		pBlock->mbYChkSumPresent = pData[0];
+-		pData++;
+-
+-		pBlock->mnYChkSum = pData[0];
+-		pData++;
+-	} else {
+-		pBlock->mbPChkSumPresent = 0;
+-		pBlock->mbYChkSumPresent = 0;
++	if (reader->error)
++		return NULL;
++	if (length > reader->remaining) {
++		reader->error = -EBADMSG;
++		return NULL;
+ 	}
+-
+-	pBlock->mnCommands = fw_convert_number(pData);
+-	pData += 4;
+-
+-	n = pBlock->mnCommands * 4;
+-	pBlock->mpData = kmemdup(pData, n, GFP_KERNEL);
+-	pData += n;
+-
+-	return pData - pDataStart;
++	data = reader->data;
++	reader->data += length;
++	reader->remaining -= length;
++	return data;
+ }
+ 
+-static int fw_parse_data(struct tas2555_priv *pTAS2555, struct TFirmware *pFirmware,
+-	struct TData *pImageData, unsigned char *pData)
++static unsigned int fw_integer(struct tas2555_fw_reader *reader,
++	unsigned int length)
+ {
+-	unsigned char *pDataStart = pData;
+-	unsigned int nBlock;
+-	unsigned int n;
+-
+-	memcpy(pImageData->mpName, pData, 64);
+-	pData += 64;
+-
+-	n = strlen(pData);
+-	pImageData->mpDescription = kmemdup(pData, n + 1, GFP_KERNEL);
+-	pData += n + 1;
+-
+-	pImageData->mnBlocks = (pData[0] << 8) + pData[1];
+-	pData += 2;
++	const unsigned char *data = fw_take(reader, length);
++	unsigned int value = 0;
++	unsigned int index;
+ 
+-	pImageData->mpBlocks =
+-		kmalloc(sizeof(struct TBlock) * pImageData->mnBlocks, GFP_KERNEL);
+-
+-	for (nBlock = 0; nBlock < pImageData->mnBlocks; nBlock++) {
+-		n = fw_parse_block_data(pTAS2555, pFirmware, &(pImageData->mpBlocks[nBlock]), pData);
+-		pData += n;
+-	}
+-
+-	return pData - pDataStart;
++	if (data)
++		for (index = 0; index < length; index++)
++			value = (value << 8) | data[index];
++	return value;
+ }
+ 
+-static int fw_parse_pll_data(struct tas2555_priv *pTAS2555,
+-	struct TFirmware *pFirmware, unsigned char *pData)
++static void fw_name(struct tas2555_fw_reader *reader, char *name)
+ {
+-	unsigned char *pDataStart = pData;
+-	unsigned int n;
+-	unsigned int nPLL;
+-	struct TPLL *pPLL;
+-
+-	pFirmware->mnPLLs = (pData[0] << 8) + pData[1];
+-	pData += 2;
+-
+-	if (pFirmware->mnPLLs == 0)
+-		goto end;
++	const unsigned char *data = fw_take(reader, 64);
+ 
+-	pFirmware->mpPLLs = kmalloc(sizeof(struct TPLL) * pFirmware->mnPLLs, GFP_KERNEL);
+-	for (nPLL = 0; nPLL < pFirmware->mnPLLs; nPLL++) {
+-		pPLL = &(pFirmware->mpPLLs[nPLL]);
+-
+-		memcpy(pPLL->mpName, pData, 64);
+-		pData += 64;
+-
+-		n = strlen(pData);
+-		pPLL->mpDescription = kmemdup(pData, n + 1, GFP_KERNEL);
+-		pData += n + 1;
+-
+-		n = fw_parse_block_data(pTAS2555, pFirmware, &(pPLL->mBlock), pData);
+-		pData += n;
++	if (data) {
++		memcpy(name, data, 64);
++		name[63] = '\0';
+ 	}
+-
+-end:
+-
+-	return pData - pDataStart;
+ }
+ 
+-static int fw_parse_program_data(struct tas2555_priv *pTAS2555,
+-	struct TFirmware *pFirmware, unsigned char *pData)
++static char *fw_description(struct tas2555_fw_reader *reader)
+ {
+-	unsigned char *pDataStart = pData;
+-	unsigned int n;
+-	unsigned int nProgram;
+-	struct TProgram *pProgram;
++	const unsigned char *terminator;
++	const unsigned char *data;
++	char *description;
++	size_t length;
+ 
+-	pFirmware->mnPrograms = (pData[0] << 8) + pData[1];
+-	pData += 2;
+-
+-	if (pFirmware->mnPrograms == 0)
+-		goto end;
+-
+-	pFirmware->mpPrograms =
+-		kmalloc(sizeof(struct TProgram) * pFirmware->mnPrograms, GFP_KERNEL);
+-	for (nProgram = 0; nProgram < pFirmware->mnPrograms; nProgram++) {
+-		pProgram = &(pFirmware->mpPrograms[nProgram]);
+-		memcpy(pProgram->mpName, pData, 64);
+-		pData += 64;
+-
+-		n = strlen(pData);
+-		pProgram->mpDescription = kmemdup(pData, n + 1, GFP_KERNEL);
+-		pData += n + 1;
+-
+-		if (pFirmware->mnDriverVersion >= PPC_WITH_APPMODE_VERSION) {
+-			pProgram->mnAppMode = pData[0];
+-			pData++;
+-
+-			pProgram->mnBoost = (pData[0] << 8) + pData[1];
+-			pData += 2;
+-		} else {
+-			/* invalid appmode and boost */
+-			pProgram->mnAppMode = 0xff;
+-			pProgram->mnBoost = 0xffff;
+-		}
+-
+-		n = fw_parse_data(pTAS2555, pFirmware, &(pProgram->mData), pData);
+-		pData += n;
++	if (reader->error)
++		return NULL;
++	terminator = memchr(reader->data, '\0', reader->remaining);
++	if (!terminator) {
++		reader->error = -EBADMSG;
++		return NULL;
+ 	}
+-
+-end:
+-
+-	return pData - pDataStart;
++	length = terminator - reader->data + 1;
++	data = fw_take(reader, length);
++	description = kmemdup(data, length, GFP_KERNEL);
++	if (!description)
++		reader->error = -ENOMEM;
++	return description;
+ }
+ 
+-static int fw_parse_configuration_data(struct tas2555_priv *pTAS2555,
+-	struct TFirmware *pFirmware, unsigned char *pData)
++static void *fw_array(struct tas2555_fw_reader *reader, unsigned int count,
++	size_t element_size, size_t minimum_bytes)
+ {
+-	unsigned char *pDataStart = pData;
+-	unsigned int n;
+-	unsigned int nConfiguration;
+-	struct TConfiguration *pConfiguration;
+-
+-	pFirmware->mnConfigurations = (pData[0] << 8) + pData[1];
+-	pData += 2;
++	void *array;
+ 
+-	if (pFirmware->mnConfigurations == 0)
+-		goto end;
+-
+-	pFirmware->mpConfigurations =
+-		kmalloc(sizeof(struct TConfiguration) * pFirmware->mnConfigurations,
+-		GFP_KERNEL);
+-	for (nConfiguration = 0; nConfiguration < pFirmware->mnConfigurations;
+-		nConfiguration++) {
+-		pConfiguration = &(pFirmware->mpConfigurations[nConfiguration]);
+-		memcpy(pConfiguration->mpName, pData, 64);
+-		pData += 64;
+-
+-		n = strlen(pData);
+-		pConfiguration->mpDescription = kmemdup(pData, n + 1, GFP_KERNEL);
+-		pData += n + 1;
+-
+-		pConfiguration->mnProgram = pData[0];
+-		pData++;
+-
+-		pConfiguration->mnPLL = pData[0];
+-		pData++;
+-
+-		pConfiguration->mnSamplingRate = fw_convert_number(pData);
+-		pData += 4;
+-
+-		n = fw_parse_data(pTAS2555, pFirmware, &(pConfiguration->mData), pData);
+-		pData += n;
++	if (reader->error || !count)
++		return NULL;
++	if (count > reader->remaining / minimum_bytes) {
++		reader->error = -EBADMSG;
++		return NULL;
+ 	}
+-
+-end:
+-
+-	return pData - pDataStart;
++	array = kcalloc(count, element_size, GFP_KERNEL);
++	if (!array)
++		reader->error = -ENOMEM;
++	return array;
+ }
+ 
+-static int fw_parse_calibration_data(struct tas2555_priv *pTAS2555,
+-	struct TFirmware *pFirmware, unsigned char *pData)
++static int fw_commands_valid(const unsigned char *data, unsigned int count)
+ {
+-	unsigned char *pDataStart = pData;
+-	unsigned int n;
+-	unsigned int nCalibration;
+-	struct TCalibration *pCalibration;
+-
+-	pFirmware->mnCalibrations = (pData[0] << 8) + pData[1];
+-	pData += 2;
+-
+-	if (pFirmware->mnCalibrations == 0)
+-		goto end;
++	unsigned int command = 0;
+ 
+-	pFirmware->mpCalibrations =
+-		kmalloc(sizeof(struct TCalibration) * pFirmware->mnCalibrations, GFP_KERNEL);
+-	for (nCalibration = 0;
+-		nCalibration < pFirmware->mnCalibrations;
+-		nCalibration++) {
+-		pCalibration = &(pFirmware->mpCalibrations[nCalibration]);
+-		memcpy(pCalibration->mpName, pData, 64);
+-		pData += 64;
+-
+-		n = strlen(pData);
+-		pCalibration->mpDescription = kmemdup(pData, n + 1, GFP_KERNEL);
+-		pData += n + 1;
++	while (command < count) {
++		const unsigned char *entry = data + (size_t)command * 4;
++		unsigned int length;
++		unsigned int records;
+ 
+-		pCalibration->mnProgram = pData[0];
+-		pData++;
+-
+-		pCalibration->mnConfiguration = pData[0];
+-		pData++;
+-
+-		n = fw_parse_block_data(pTAS2555, pFirmware, &(pCalibration->mBlock), pData);
+-		pData += n;
++		command++;
++		if (entry[2] != 0x85)
++			continue;
++		length = ((unsigned int)entry[0] << 8) | entry[1];
++		if (!length)
++			return -EBADMSG;
++		records = (length + 6) / 4;
++		if (records > count - command || entry[6] > 0x7f)
++			return -EBADMSG;
++		command += records;
+ 	}
+-
+-end:
+-
+-	return pData - pDataStart;
++	return 0;
+ }
+ 
+-static int fw_parse(struct tas2555_priv *pTAS2555,
+-	struct TFirmware * pFirmware,
+-	unsigned char *pData,
+-	unsigned int nSize)
++static void fw_block(struct tas2555_fw_reader *reader,
++	struct TFirmware *firmware, struct TBlock *block)
+ {
+-	int nPosition = 0;
++	const unsigned char *data;
++	size_t length;
+ 
+-	nPosition = fw_parse_header(pTAS2555, pFirmware, pData, nSize);
+-	if (nPosition < 0) {
+-		dev_err(pTAS2555->dev, "Firmware: Wrong Header");
+-		return FW_ERR_HEADER;
++	block->mnType = fw_integer(reader, 4);
++	if (firmware->mnDriverVersion >= PPC_WITH_CHKSUM_VERSION) {
++		block->mbPChkSumPresent = fw_integer(reader, 1);
++		block->mnPChkSum = fw_integer(reader, 1);
++		block->mbYChkSumPresent = fw_integer(reader, 1);
++		block->mnYChkSum = fw_integer(reader, 1);
+ 	}
+-
+-	if (nPosition >= nSize) {
+-		dev_err(pTAS2555->dev, "Firmware: Too short");
+-		return FW_ERR_SIZE;
++	block->mnCommands = fw_integer(reader, 4);
++	if (reader->error)
++		return;
++	if (block->mnCommands > reader->remaining / 4 ||
++		block->mnCommands > UINT_MAX / 4) {
++		reader->error = -EBADMSG;
++		return;
++	}
++	length = (size_t)block->mnCommands * 4;
++	data = fw_take(reader, length);
++	reader->error = fw_commands_valid(data, block->mnCommands);
++	if (reader->error || !length)
++		return;
++	block->mpData = kmemdup(data, length, GFP_KERNEL);
++	if (!block->mpData)
++		reader->error = -ENOMEM;
++}
++
++static void fw_image(struct tas2555_fw_reader *reader,
++	struct TFirmware *firmware, struct TData *image)
++{
++	unsigned int index;
++
++	fw_name(reader, image->mpName);
++	image->mpDescription = fw_description(reader);
++	image->mnBlocks = fw_integer(reader, 2);
++	image->mpBlocks = fw_array(reader, image->mnBlocks,
++		sizeof(*image->mpBlocks), 8);
++	for (index = 0; index < image->mnBlocks && !reader->error; index++)
++		fw_block(reader, firmware, &image->mpBlocks[index]);
++}
++
++static int fw_parse(struct tas2555_priv *device, struct TFirmware *firmware,
++	unsigned char *data, size_t size)
++{
++	struct tas2555_fw_reader reader = { data, size, 0 };
++	const unsigned char magic[] = { 0x35, 0x35, 0x35, 0x32 };
++	const unsigned char *signature;
++	unsigned int index;
++
++	signature = fw_take(&reader, sizeof(magic));
++	if (!signature || memcmp(signature, magic, sizeof(magic)))
++		return -EBADMSG;
++	firmware->mnFWSize = fw_integer(&reader, 4);
++	firmware->mnChecksum = fw_integer(&reader, 4);
++	firmware->mnPPCVersion = fw_integer(&reader, 4);
++	firmware->mnFWVersion = fw_integer(&reader, 4);
++	if (firmware->mnPPCVersion >= PPC_WITH_DRIVER_VERSION)
++		firmware->mnDriverVersion = fw_integer(&reader, 4);
++	firmware->mnTimeStamp = fw_integer(&reader, 4);
++	fw_name(&reader, firmware->mpDDCName);
++	firmware->mpDescription = fw_description(&reader);
++	firmware->mnDeviceFamily = fw_integer(&reader, 4);
++	firmware->mnDevice = fw_integer(&reader, 4);
++	if (reader.error)
++		goto failed;
++
++	firmware->mnPLLs = fw_integer(&reader, 2);
++	firmware->mpPLLs = fw_array(&reader, firmware->mnPLLs,
++		sizeof(*firmware->mpPLLs), 73);
++	for (index = 0; index < firmware->mnPLLs && !reader.error; index++) {
++		struct TPLL *pll = &firmware->mpPLLs[index];
++
++		fw_name(&reader, pll->mpName);
++		pll->mpDescription = fw_description(&reader);
++		fw_block(&reader, firmware, &pll->mBlock);
++	}
++
++	firmware->mnPrograms = fw_integer(&reader, 2);
++	firmware->mpPrograms = fw_array(&reader, firmware->mnPrograms,
++		sizeof(*firmware->mpPrograms), 132);
++	for (index = 0; index < firmware->mnPrograms && !reader.error; index++) {
++		struct TProgram *program = &firmware->mpPrograms[index];
++
++		fw_name(&reader, program->mpName);
++		program->mpDescription = fw_description(&reader);
++		if (firmware->mnDriverVersion >= PPC_WITH_APPMODE_VERSION) {
++			program->mnAppMode = fw_integer(&reader, 1);
++			program->mnBoost = fw_integer(&reader, 2);
++		} else {
++			program->mnAppMode = 0xff;
++			program->mnBoost = 0xffff;
++		}
++		fw_image(&reader, firmware, &program->mData);
+ 	}
+ 
+-	pData += nPosition;
+-	nSize -= nPosition;
+-	nPosition = 0;
+-
+-	nPosition = fw_parse_pll_data(pTAS2555, pFirmware, pData);
+-
+-	pData += nPosition;
+-	nSize -= nPosition;
+-	nPosition = 0;
+-
+-	nPosition = fw_parse_program_data(pTAS2555, pFirmware, pData);
+-
+-	pData += nPosition;
+-	nSize -= nPosition;
+-	nPosition = 0;
+-
+-	nPosition = fw_parse_configuration_data(pTAS2555, pFirmware, pData);
+-
+-	pData += nPosition;
+-	nSize -= nPosition;
+-	nPosition = 0;
+-
+-	if (nSize > 64)
+-		nPosition = fw_parse_calibration_data(pTAS2555, pFirmware, pData);
++	firmware->mnConfigurations = fw_integer(&reader, 2);
++	firmware->mpConfigurations = fw_array(&reader, firmware->mnConfigurations,
++		sizeof(*firmware->mpConfigurations), 138);
++	for (index = 0; index < firmware->mnConfigurations && !reader.error; index++) {
++		struct TConfiguration *configuration = &firmware->mpConfigurations[index];
++
++		fw_name(&reader, configuration->mpName);
++		configuration->mpDescription = fw_description(&reader);
++		configuration->mnProgram = fw_integer(&reader, 1);
++		configuration->mnPLL = fw_integer(&reader, 1);
++		configuration->mnSamplingRate = fw_integer(&reader, 4);
++		fw_image(&reader, firmware, &configuration->mData);
++		if (!reader.error &&
++			(configuration->mnProgram >= firmware->mnPrograms ||
++			 configuration->mnPLL >= firmware->mnPLLs))
++			reader.error = -EBADMSG;
++	}
++
++	if (!reader.error && reader.remaining) {
++		firmware->mnCalibrations = fw_integer(&reader, 2);
++		firmware->mpCalibrations = fw_array(&reader, firmware->mnCalibrations,
++			sizeof(*firmware->mpCalibrations), 75);
++		for (index = 0; index < firmware->mnCalibrations && !reader.error; index++) {
++			struct TCalibration *calibration = &firmware->mpCalibrations[index];
++
++			fw_name(&reader, calibration->mpName);
++			calibration->mpDescription = fw_description(&reader);
++			calibration->mnProgram = fw_integer(&reader, 1);
++			calibration->mnConfiguration = fw_integer(&reader, 1);
++			fw_block(&reader, firmware, &calibration->mBlock);
++		}
++	}
++	if (!reader.error && reader.remaining)
++		reader.error = -EBADMSG;
++	if (!reader.error) {
++		fw_print_header(device, firmware);
++		return 0;
++	}
+ 
+-	return 0;
++failed:
++	tas2555_clear_firmware(firmware);
++	return reader.error;
+ }
+ 
+ static const unsigned char crc8_lookup_table[CRC8_TABLE_SIZE] = {
+@@ -1621,7 +1533,7 @@
+ 	if (pFirmware->mpDescription)
+ 		kfree(pFirmware->mpDescription);
+ 
+-	if (pFirmware->mnPLLs) {
++	if (pFirmware->mpPLLs) {
+ 		for (n = 0; n < pFirmware->mnPLLs; n++) {
+ 			kfree(pFirmware->mpPLLs[n].mpDescription);
+ 			kfree(pFirmware->mpPLLs[n].mBlock.mpData);
+@@ -1629,29 +1541,31 @@
+ 		kfree(pFirmware->mpPLLs);
+ 	}
+ 
+-	if (pFirmware->mnPrograms) {
++	if (pFirmware->mpPrograms) {
+ 		for (n = 0; n < pFirmware->mnPrograms; n++) {
+ 			kfree(pFirmware->mpPrograms[n].mpDescription);
+ 			kfree(pFirmware->mpPrograms[n].mData.mpDescription);
+-			for (nn = 0; nn < pFirmware->mpPrograms[n].mData.mnBlocks; nn++)
++			for (nn = 0; pFirmware->mpPrograms[n].mData.mpBlocks &&
++				nn < pFirmware->mpPrograms[n].mData.mnBlocks; nn++)
+ 				kfree(pFirmware->mpPrograms[n].mData.mpBlocks[nn].mpData);
+ 			kfree(pFirmware->mpPrograms[n].mData.mpBlocks);
+ 		}
+ 		kfree(pFirmware->mpPrograms);
+ 	}
+ 
+-	if (pFirmware->mnConfigurations) {
++	if (pFirmware->mpConfigurations) {
+ 		for (n = 0; n < pFirmware->mnConfigurations; n++) {
+ 			kfree(pFirmware->mpConfigurations[n].mpDescription);
+ 			kfree(pFirmware->mpConfigurations[n].mData.mpDescription);
+-			for (nn = 0; nn < pFirmware->mpConfigurations[n].mData.mnBlocks; nn++)
++			for (nn = 0; pFirmware->mpConfigurations[n].mData.mpBlocks &&
++				nn < pFirmware->mpConfigurations[n].mData.mnBlocks; nn++)
+ 				kfree(pFirmware->mpConfigurations[n].mData.mpBlocks[nn].mpData);
+ 			kfree(pFirmware->mpConfigurations[n].mData.mpBlocks);
+ 		}
+ 		kfree(pFirmware->mpConfigurations);
+ 	}
+ 
+-	if (pFirmware->mnCalibrations) {
++	if (pFirmware->mpCalibrations) {
+ 		for (n = 0; n < pFirmware->mnCalibrations; n++) {
+ 			kfree(pFirmware->mpCalibrations[n].mpDescription);
+ 			kfree(pFirmware->mpCalibrations[n].mBlock.mpData);
+--- a/tas2555-regmap.c
++++ b/tas2555-regmap.c
+@@ -400,6 +400,14 @@
+ 	cancel_delayed_work_sync(&device->irq_work);
+ }
+ 
++static void tas2555_firmware_cleanup(void *context)
++{
++	struct tas2555_priv *device = context;
++
++	tas2555_clear_firmware(device->mpFirmware);
++	tas2555_clear_firmware(device->mpCalFirmware);
++}
++
+ static int tas2555_i2c_probe(struct i2c_client *pClient)
+ {
+ 	struct tas2555_priv *pTAS2555;
+@@ -472,6 +480,11 @@
+ 	if (!pTAS2555->mpCalFirmware)
+ 		return -ENOMEM;
+ 
++	nResult = devm_add_action_or_reset(&pClient->dev,
++		tas2555_firmware_cleanup, pTAS2555);
++	if (nResult)
++		return nResult;
++
+ 	if (gpio_is_valid(pTAS2555->mnGpioINT)) {
+ 		int irq;

@@ -1,5 +1,8 @@
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
+inherit jaguar-screen-tas2555
+do_compile[prefuncs] += "jaguar_screen_tas2555_header"
+
 SRC_URI:append:imx8mm-jaguar-sentai = " \
         file://imx8mm-jaguar-sentai.dts \
         ${@bb.utils.contains('MACHINE_FEATURES', 'xm125-radar', 'file://imx8mm-jaguar-sentai-xm125-radar.dtso', '', d)} \
@@ -19,6 +22,8 @@ SRC_URI:append:imx8mm-jaguar-inst = " \
 "
 SRC_URI:append:imx8mm-jaguar-screen = " \
         file://imx8mm-jaguar-screen.dts \
+        file://imx8mm-jaguar-screen-tas2555.h \
+        file://imx8mm-jaguar-screen-tas2555.dtsi \
         file://imx8mm-sw_pad_ctl.h \
         file://imx8mm-sw_pad_ctl-fields.h \
 "

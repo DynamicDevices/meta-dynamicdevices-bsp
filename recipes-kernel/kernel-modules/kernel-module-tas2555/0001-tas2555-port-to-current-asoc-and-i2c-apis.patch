@@ -1,0 +1,1080 @@
+Subject: [PATCH] tas2555: port to current ASoC and I2C APIs
+
+Use component registration and synchronous firmware loading, update I2C
+callbacks and calibration reads, and manage reset/IRQ resources. Disable
+the Android tuning interface in the production module build.
+
+Upstream-Status: Pending
+
+diff --git a/tas2555-codec.c b/tas2555-codec.c
+index e41bfd7..fc08aad 100755
+--- a/tas2555-codec.c
++++ b/tas2555-codec.c
+@@ -41,7 +41,7 @@
+ #include <linux/slab.h>
+ #include <linux/syscalls.h>
+ #include <linux/fcntl.h>
+-#include <asm/uaccess.h>
++#include <linux/uaccess.h>
+ #include <sound/core.h>
+ #include <sound/pcm.h>
+ #include <sound/pcm_params.h>
+@@ -61,10 +61,10 @@ static struct tas2555_register register_addr = { 0 };
+         (page >= 0) && (page <= 255) &&\
+         (reg >= 0) && (reg <= 127))
+ 
+-static unsigned int tas2555_codec_read(struct snd_soc_codec *pCodec,
++static unsigned int tas2555_codec_read(struct snd_soc_component *pCodec,
+ 	unsigned int nRegister)
+ {
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(pCodec);
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(pCodec);
+ 	int ret = 0;
+ 	unsigned int Value = 0;
+ 
+@@ -77,10 +77,10 @@ static unsigned int tas2555_codec_read(struct snd_soc_codec *pCodec,
+ 		return Value;
+ }
+ 
+-static int tas2555_codec_write(struct snd_soc_codec *pCodec, unsigned int nRegister,
++static int tas2555_codec_write(struct snd_soc_component *pCodec, unsigned int nRegister,
+ 	unsigned int nValue)
+ {
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(pCodec);
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(pCodec);
+ 	int ret = 0;
+ 
+ 	ret = pTAS2555->write(pTAS2555, nRegister, nValue);
+@@ -115,8 +115,8 @@ static const struct snd_soc_dapm_route tas2555_audio_map[] = {
+ static int tas2555_startup(struct snd_pcm_substream *substream,
+ 	struct snd_soc_dai *dai)
+ {
+-	struct snd_soc_codec *codec = dai->codec;
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct snd_soc_component *codec = dai->component;
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 	
+ 	dev_dbg(pTAS2555->dev, "%s\n", __func__);
+ 
+@@ -126,28 +126,26 @@ static int tas2555_startup(struct snd_pcm_substream *substream,
+ static void tas2555_shutdown(struct snd_pcm_substream *substream,
+ 	struct snd_soc_dai *dai)
+ {
+-	struct snd_soc_codec *codec = dai->codec;
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct snd_soc_component *codec = dai->component;
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 
+ 	dev_dbg(pTAS2555->dev, "%s\n", __func__);
+ }
+ 
+-static int tas2555_mute(struct snd_soc_dai *dai, int mute)
++static int tas2555_mute(struct snd_soc_dai *dai, int mute, int stream)
+ {
+-	struct snd_soc_codec *codec = dai->codec;
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct snd_soc_component *codec = dai->component;
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 
+ 	dev_dbg(pTAS2555->dev, "%s\n", __func__);
+-	tas2555_enable(pTAS2555, !mute);
+-
+-	return 0;
++	return tas2555_enable(pTAS2555, !mute);
+ }
+ 
+ static int tas2555_set_dai_sysclk(struct snd_soc_dai *pDAI,
+ 	int nClkID, unsigned int nFreqency, int nDir)
+ {
+-	struct snd_soc_codec *pCodec = pDAI->codec;
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(pCodec);
++	struct snd_soc_component *pCodec = pDAI->component;
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(pCodec);
+ 
+ 	dev_dbg(pTAS2555->dev, "tas2555_set_dai_sysclk: freq = %u\n", nFreqency);
+ 
+@@ -157,70 +155,73 @@ static int tas2555_set_dai_sysclk(struct snd_soc_dai *pDAI,
+ static int tas2555_hw_params(struct snd_pcm_substream *pSubstream,
+ 	struct snd_pcm_hw_params *pParams, struct snd_soc_dai *pDAI)
+ {
+-	struct snd_soc_codec *pCodec = pDAI->codec;
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(pCodec);
++	struct snd_soc_component *pCodec = pDAI->component;
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(pCodec);
+ 
+ 	dev_dbg(pCodec->dev, "%s\n", __func__);
+ 
+-	tas2555_set_sampling_rate(pTAS2555, params_rate(pParams));
+-
+-	return 0;
++	return tas2555_set_sampling_rate(pTAS2555, params_rate(pParams));
+ }
+ 
+ static int tas2555_set_dai_fmt(struct snd_soc_dai *pDAI, unsigned int nFormat)
+ {
+-	struct snd_soc_codec *codec = pDAI->codec;
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct snd_soc_component *codec = pDAI->component;
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 
+ 	dev_dbg(pTAS2555->dev, "%s\n", __func__);
+ 
++	if ((nFormat & SND_SOC_DAIFMT_FORMAT_MASK) != SND_SOC_DAIFMT_I2S ||
++		(nFormat & SND_SOC_DAIFMT_INV_MASK) != SND_SOC_DAIFMT_NB_NF ||
++		(nFormat & SND_SOC_DAIFMT_CLOCK_PROVIDER_MASK) !=
++		SND_SOC_DAIFMT_CBC_CFC)
++		return -EINVAL;
++
+ 	return 0;
+ }
+ 
+ static int tas2555_prepare(struct snd_pcm_substream *pSubstream,
+ 	struct snd_soc_dai *pDAI)
+ {
+-	struct snd_soc_codec *codec = pDAI->codec;
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct snd_soc_component *codec = pDAI->component;
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 
+ 	dev_dbg(pTAS2555->dev, "%s\n", __func__);
+ 
+ 	return 0;
+ }
+ 
+-static int tas2555_set_bias_level(struct snd_soc_codec *pCodec,
++static int tas2555_set_bias_level(struct snd_soc_component *pCodec,
+ 	enum snd_soc_bias_level eLevel)
+ {
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(pCodec);
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(pCodec);
+ 
+ 	dev_dbg(pTAS2555->dev, "%s: %d\n", __func__, eLevel);
+ 
+ 	return 0;
+ }
+ 
+-static int tas2555_codec_probe(struct snd_soc_codec *pCodec)
++static int tas2555_codec_probe(struct snd_soc_component *pCodec)
+ {
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(pCodec);
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(pCodec);
+ 
+ 	dev_info(pTAS2555->dev, "%s\n", __func__);
+ 
+ 	return 0;
+ }
+ 
+-static int tas2555_codec_remove(struct snd_soc_codec *pCodec)
++static void tas2555_codec_remove(struct snd_soc_component *pCodec)
+ {
+-	return 0;
+ }
+ 
+ static int tas2555_get_reg_addr(struct snd_kcontrol *pKcontrol,
+ 	struct snd_ctl_elem_value *pUcontrol)
+ {
+ #ifdef KCONTROL_CODEC
+-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(pKcontrol);
+ #else
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
++	struct snd_soc_component *codec = snd_kcontrol_chip(pKcontrol);
+ #endif
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 
+ 	pUcontrol->value.integer.value[0] = register_addr.book;
+ 	pUcontrol->value.integer.value[1] = register_addr.page;
+@@ -236,11 +237,11 @@ static int tas2555_put_reg_addr(struct snd_kcontrol *pKcontrol,
+ 	struct snd_ctl_elem_value *pUcontrol)
+ {
+ #ifdef KCONTROL_CODEC
+-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(pKcontrol);
+ #else
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
++	struct snd_soc_component *codec = snd_kcontrol_chip(pKcontrol);
+ #endif
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 
+ 	register_addr.book = pUcontrol->value.integer.value[0];
+ 	register_addr.page = pUcontrol->value.integer.value[1];
+@@ -256,11 +257,11 @@ static int tas2555_get_reg_value(struct snd_kcontrol *pKcontrol,
+ 	struct snd_ctl_elem_value *pUcontrol)
+ {
+ #ifdef KCONTROL_CODEC
+-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(pKcontrol);
+ #else
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
++	struct snd_soc_component *codec = snd_kcontrol_chip(pKcontrol);
+ #endif
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 	unsigned int reg;
+ 	unsigned int nValue;
+ 
+@@ -287,11 +288,11 @@ static int tas2555_put_reg_value(struct snd_kcontrol *pKcontrol,
+ 	struct snd_ctl_elem_value *pUcontrol)
+ {
+ #ifdef KCONTROL_CODEC
+-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(pKcontrol);
+ #else
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
++	struct snd_soc_component *codec = snd_kcontrol_chip(pKcontrol);
+ #endif
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 	unsigned int reg;
+ 
+ 	if (TAS2555_REG_IS_VALID(register_addr.book,
+@@ -315,11 +316,11 @@ static int tas2555_power_ctrl_get(struct snd_kcontrol *pKcontrol,
+ 	struct snd_ctl_elem_value *pValue)
+ {
+ #ifdef KCONTROL_CODEC
+-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(pKcontrol);
+ #else
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
++	struct snd_soc_component *codec = snd_kcontrol_chip(pKcontrol);
+ #endif
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 
+ 	pValue->value.integer.value[0] = pTAS2555->mnPowerCtrl;
+ 	dev_dbg(pTAS2555->dev, "tas2555_power_ctrl_get = %d\n",
+@@ -332,11 +333,11 @@ static int tas2555_power_ctrl_put(struct snd_kcontrol *pKcontrol,
+ 	struct snd_ctl_elem_value *pValue)
+ {
+ #ifdef KCONTROL_CODEC
+-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(pKcontrol);
+ #else
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
++	struct snd_soc_component *codec = snd_kcontrol_chip(pKcontrol);
+ #endif
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 
+ 	pTAS2555->mnPowerCtrl = pValue->value.integer.value[0];
+ 
+@@ -355,11 +356,11 @@ static int tas2555_fs_get(struct snd_kcontrol *pKcontrol,
+ 	struct snd_ctl_elem_value *pValue)
+ {
+ #ifdef KCONTROL_CODEC
+-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(pKcontrol);
+ #else
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
++	struct snd_soc_component *codec = snd_kcontrol_chip(pKcontrol);
+ #endif
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 	int nFS = 48000;
+ 
+ 	if (pTAS2555->mpFirmware->mnConfigurations)
+@@ -375,11 +376,11 @@ static int tas2555_fs_put(struct snd_kcontrol *pKcontrol,
+ 	struct snd_ctl_elem_value *pValue)
+ {
+ #ifdef KCONTROL_CODEC
+-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(pKcontrol);
+ #else
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
++	struct snd_soc_component *codec = snd_kcontrol_chip(pKcontrol);
+ #endif
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 	int ret = 0;
+ 	int nFS = pValue->value.integer.value[0];
+ 
+@@ -394,11 +395,11 @@ static int tas2555_nRe_get(struct snd_kcontrol *pKcontrol,
+ 	struct snd_ctl_elem_value *pValue)
+ {
+ #ifdef KCONTROL_CODEC
+-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(pKcontrol);
+ #else
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
++	struct snd_soc_component *codec = snd_kcontrol_chip(pKcontrol);
+ #endif
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 	unsigned int nRe = 0;
+ 	int ret = 0;
+ 
+@@ -418,11 +419,11 @@ static int tas2555_nRe_put(struct snd_kcontrol *pKcontrol,
+ 	struct snd_ctl_elem_value *pValue)
+ {
+ #ifdef KCONTROL_CODEC
+-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(pKcontrol);
+ #else
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
++	struct snd_soc_component *codec = snd_kcontrol_chip(pKcontrol);
+ #endif
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 
+ 	dev_dbg(pTAS2555->dev, "ignore tas2555_nRe_put\n");
+ 	return 0;
+@@ -432,11 +433,11 @@ static int tas2555_errcode_get(struct snd_kcontrol *pKcontrol,
+ 	struct snd_ctl_elem_value *pValue)
+ {
+ #ifdef KCONTROL_CODEC
+-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(pKcontrol);
+ #else
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
++	struct snd_soc_component *codec = snd_kcontrol_chip(pKcontrol);
+ #endif
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 	unsigned int errCode = 0;
+ 	int nResult;
+ 
+@@ -452,11 +453,11 @@ static int tas2555_errcode_put(struct snd_kcontrol *pKcontrol,
+ 	struct snd_ctl_elem_value *pValue)
+ {
+ #ifdef KCONTROL_CODEC
+-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(pKcontrol);
+ #else
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
++	struct snd_soc_component *codec = snd_kcontrol_chip(pKcontrol);
+ #endif
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 
+ 	dev_dbg(pTAS2555->dev, "ignore tas2555_errcode_put\n");
+ 	return 0;
+@@ -466,11 +467,11 @@ static int tas2555_program_get(struct snd_kcontrol *pKcontrol,
+ 	struct snd_ctl_elem_value *pValue)
+ {
+ #ifdef KCONTROL_CODEC
+-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(pKcontrol);
+ #else
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
++	struct snd_soc_component *codec = snd_kcontrol_chip(pKcontrol);
+ #endif
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 
+ 	pValue->value.integer.value[0] = pTAS2555->mnCurrentProgram;
+ 	dev_dbg(pTAS2555->dev, "tas2555_program_get = %d\n",
+@@ -482,11 +483,11 @@ static int tas2555_program_put(struct snd_kcontrol *pKcontrol,
+ 	struct snd_ctl_elem_value *pValue)
+ {
+ #ifdef KCONTROL_CODEC
+-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(pKcontrol);
+ #else
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
++	struct snd_soc_component *codec = snd_kcontrol_chip(pKcontrol);
+ #endif
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 	unsigned int nProgram = pValue->value.integer.value[0];
+ 	int ret = 0;
+ 
+@@ -498,11 +499,11 @@ static int tas2555_configuration_get(struct snd_kcontrol *pKcontrol,
+ 	struct snd_ctl_elem_value *pValue)
+ {
+ #ifdef KCONTROL_CODEC
+-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(pKcontrol);
+ #else
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
++	struct snd_soc_component *codec = snd_kcontrol_chip(pKcontrol);
+ #endif
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 
+ 	pValue->value.integer.value[0] = pTAS2555->mnCurrentConfiguration;
+ 	dev_dbg(pTAS2555->dev, "tas2555_configuration_get = %d\n",
+@@ -514,11 +515,11 @@ static int tas2555_configuration_put(struct snd_kcontrol *pKcontrol,
+ 	struct snd_ctl_elem_value *pValue)
+ {
+ #ifdef KCONTROL_CODEC
+-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(pKcontrol);
+ #else
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
++	struct snd_soc_component *codec = snd_kcontrol_chip(pKcontrol);
+ #endif
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 	unsigned int nConfiguration = pValue->value.integer.value[0];
+ 	int ret = 0;
+ 
+@@ -530,11 +531,11 @@ static int tas2555_calibration_get(struct snd_kcontrol *pKcontrol,
+ 	struct snd_ctl_elem_value *pValue)
+ {
+ #ifdef KCONTROL_CODEC
+-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(pKcontrol);
+ #else
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
++	struct snd_soc_component *codec = snd_kcontrol_chip(pKcontrol);
+ #endif
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 
+ 	pValue->value.integer.value[0] = pTAS2555->mnCurrentCalibration;
+ 	dev_info(pTAS2555->dev,
+@@ -547,11 +548,11 @@ static int tas2555_calibration_put(struct snd_kcontrol *pKcontrol,
+ 	struct snd_ctl_elem_value *pValue)
+ {
+ #ifdef KCONTROL_CODEC
+-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(pKcontrol);
+ #else
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
++	struct snd_soc_component *codec = snd_kcontrol_chip(pKcontrol);
+ #endif
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 	unsigned int nCalibration = pValue->value.integer.value[0];
+ 	int ret = 0;
+ 
+@@ -564,11 +565,11 @@ static int tas2555_nReDelta_get(struct snd_kcontrol *pKcontrol,
+ 	struct snd_ctl_elem_value *pValue)
+ {
+ #ifdef KCONTROL_CODEC
+-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(pKcontrol);
+ #else
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
++	struct snd_soc_component *codec = snd_kcontrol_chip(pKcontrol);
+ #endif
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 
+ 	pValue->value.integer.value[0] = pTAS2555->mnReDelta;
+ 
+@@ -580,11 +581,11 @@ static int tas2555_nReDelta_put(struct snd_kcontrol *pKcontrol,
+ 	struct snd_ctl_elem_value *pValue)
+ {
+ #ifdef KCONTROL_CODEC
+-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(pKcontrol);
+ #else
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
++	struct snd_soc_component *codec = snd_kcontrol_chip(pKcontrol);
+ #endif
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 	unsigned int ReDelata = pValue->value.integer.value[0];
+ 
+ 	pTAS2555->mnReDelta = ReDelata;
+@@ -596,11 +597,11 @@ static int tas2555_fail_safe_get(struct snd_kcontrol *pKcontrol,
+ 	struct snd_ctl_elem_value *pValue)
+ {
+ #ifdef KCONTROL_CODEC
+-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(pKcontrol);
+ #else
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
++	struct snd_soc_component *codec = snd_kcontrol_chip(pKcontrol);
+ #endif
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 
+ 	pValue->value.integer.value[0] = ((pTAS2555->mnErrorCode & TAS2555_ERROR_FAILSAFE) != 0);
+ 	dev_dbg(pTAS2555->dev, "tas2555_fail_safe_get = 0x%x\n",
+@@ -613,11 +614,11 @@ static int tas2555_fail_safe_put(struct snd_kcontrol *pKcontrol,
+ 	struct snd_ctl_elem_value *pValue)
+ {
+ #ifdef KCONTROL_CODEC
+-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(pKcontrol);
+ #else
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
++	struct snd_soc_component *codec = snd_kcontrol_chip(pKcontrol);
+ #endif
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 	int nFailsafe = pValue->value.integer.value[0];
+ 
+ 	dev_dbg(pTAS2555->dev, "tas2555_fail_safe_put = %d\n",
+@@ -633,11 +634,11 @@ static int tas2555_DieTemp_DeltaT_get(struct snd_kcontrol *pKcontrol,
+ 	struct snd_ctl_elem_value *pValue)
+ {
+ #ifdef KCONTROL_CODEC
+-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(pKcontrol);
+ #else
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
++	struct snd_soc_component *codec = snd_kcontrol_chip(pKcontrol);
+ #endif
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 	int nResult = 0, nDeltaT;
+ 
+ 	nResult = tas2555_get_die_delta_temperature(pTAS2555, &nDeltaT);
+@@ -654,11 +655,11 @@ static int tas2555_DieTemp_DeltaT_put(struct snd_kcontrol *pKcontrol,
+ 	struct snd_ctl_elem_value *pValue)
+ {
+ #ifdef KCONTROL_CODEC
+-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(pKcontrol);
+ #else
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
++	struct snd_soc_component *codec = snd_kcontrol_chip(pKcontrol);
+ #endif
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 
+ 	dev_dbg(pTAS2555->dev, "tas2555_DieTemp_DeltaT_put = bypass\n");
+ 
+@@ -669,11 +670,11 @@ static int tas2555_fw_load_get(struct snd_kcontrol *pKcontrol,
+ 	struct snd_ctl_elem_value *pValue)
+ {
+ #ifdef KCONTROL_CODEC
+-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(pKcontrol);
+ #else
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
++	struct snd_soc_component *codec = snd_kcontrol_chip(pKcontrol);
+ #endif
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 	int nResult = 0;
+ 
+ 	if ((pTAS2555->mpFirmware->mnConfigurations > 0)
+@@ -691,16 +692,15 @@ static int tas2555_fw_load_put(struct snd_kcontrol *pKcontrol,
+ 	struct snd_ctl_elem_value *pValue)
+ {
+ #ifdef KCONTROL_CODEC
+-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
++	struct snd_soc_component *codec = snd_soc_kcontrol_component(pKcontrol);
+ #else
+-	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
++	struct snd_soc_component *codec = snd_kcontrol_chip(pKcontrol);
+ #endif
+-	struct tas2555_priv *pTAS2555 = snd_soc_codec_get_drvdata(codec);
++	struct tas2555_priv *pTAS2555 = snd_soc_component_get_drvdata(codec);
+ 	int nReload = pValue->value.integer.value[0];
+ 
+ 	if (nReload)
+-		request_firmware_nowait(THIS_MODULE, 1, TAS2555_FW_NAME,
+-			pTAS2555->dev, GFP_KERNEL, pTAS2555, tas2555_fw_ready);
++		return tas2555_request_firmware(pTAS2555);
+ 
+ 	dev_dbg(pTAS2555->dev, "%s, %d\n", __func__, nReload);
+ 
+@@ -712,11 +712,26 @@ static int tas2555_fw_load_put(struct snd_kcontrol *pKcontrol,
+  */
+ static DECLARE_TLV_DB_SCALE(dac_tlv, 0, 100, 0);
+ 
++static int tas2555_reg_addr_info(struct snd_kcontrol *control,
++	struct snd_ctl_elem_info *info)
++{
++	info->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
++	info->count = 3;
++	info->value.integer.min = 0;
++	info->value.integer.max = 255;
++	return 0;
++}
++
+ static const struct snd_kcontrol_new tas2555_snd_controls[] = {
+ 	SOC_SINGLE_TLV("DAC Playback Volume", TAS2555_SPK_CTRL_REG, 3, 0x0f, 0,
+ 		dac_tlv),
+-	SOC_SINGLE_MULTI_EXT("Reg Addr", 0, 0, INT_MAX, 0, 3, tas2555_get_reg_addr,
+-		tas2555_put_reg_addr),
++	{
++		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
++		.name = "Reg Addr",
++		.info = tas2555_reg_addr_info,
++		.get = tas2555_get_reg_addr,
++		.put = tas2555_put_reg_addr,
++	},
+ 	SOC_SINGLE_EXT("Reg Value", SND_SOC_NOPM, 0, 0xFFFF, 0,
+ 		tas2555_get_reg_value, tas2555_put_reg_value),
+ 	SOC_SINGLE_EXT("PowerCtrl", SND_SOC_NOPM, 0, 0x0001, 0,
+@@ -743,13 +758,13 @@ static const struct snd_kcontrol_new tas2555_snd_controls[] = {
+ 		tas2555_DieTemp_DeltaT_get, tas2555_DieTemp_DeltaT_put),
+ };
+ 
+-static struct snd_soc_codec_driver soc_codec_driver_tas2555 = {
++static struct snd_soc_component_driver soc_codec_driver_tas2555 = {
+ 	.probe = tas2555_codec_probe,
+ 	.remove = tas2555_codec_remove,
+ 	.read = tas2555_codec_read,
+ 	.write = tas2555_codec_write,
+ 	.set_bias_level = tas2555_set_bias_level,
+-	.idle_bias_off = true,
++	.idle_bias_on = false,
+ 	//.ignore_pmdown_time = true,
+ 	.controls = tas2555_snd_controls,
+ 	.num_controls = ARRAY_SIZE(tas2555_snd_controls),
+@@ -762,7 +777,8 @@ static struct snd_soc_codec_driver soc_codec_driver_tas2555 = {
+ static struct snd_soc_dai_ops tas2555_dai_ops = {
+ 	.startup = tas2555_startup,
+ 	.shutdown = tas2555_shutdown,
+-	.digital_mute = tas2555_mute,
++	.mute_stream = tas2555_mute,
++	.no_capture_mute = 1,
+ 	.hw_params = tas2555_hw_params,
+ 	.prepare = tas2555_prepare,
+ 	.set_sysclk = tas2555_set_dai_sysclk,
+@@ -783,7 +799,7 @@ static struct snd_soc_dai_driver tas2555_dai_driver[] = {
+ 				.formats = TAS2555_FORMATS,
+ 			},
+ 		.ops = &tas2555_dai_ops,
+-		.symmetric_rates = 1,
++		.symmetric_rate = 1,
+ 	},
+ 	{
+ 		.name = "tas2555 ASI2",
+@@ -796,7 +812,7 @@ static struct snd_soc_dai_driver tas2555_dai_driver[] = {
+ 				.formats = TAS2555_FORMATS,
+ 			},
+ 		.ops = &tas2555_dai_ops,
+-		.symmetric_rates = 1,
++		.symmetric_rate = 1,
+ 	},
+ 	{
+ 		.name = "tas2555 ASIM",
+@@ -809,7 +825,7 @@ static struct snd_soc_dai_driver tas2555_dai_driver[] = {
+ 				.formats = TAS2555_FORMATS,
+ 			},
+ 		.ops = &tas2555_dai_ops,
+-		.symmetric_rates = 1,
++		.symmetric_rate = 1,
+ 	},
+ };
+ 
+@@ -819,7 +835,7 @@ int tas2555_register_codec(struct tas2555_priv *pTAS2555)
+ 
+ 	dev_info(pTAS2555->dev, "%s, enter\n", __FUNCTION__);
+ 	  
+-	nResult = snd_soc_register_codec(pTAS2555->dev, 
++	nResult = devm_snd_soc_register_component(pTAS2555->dev,
+ 		&soc_codec_driver_tas2555,
+ 		tas2555_dai_driver, ARRAY_SIZE(tas2555_dai_driver));
+ 
+@@ -828,12 +844,11 @@ int tas2555_register_codec(struct tas2555_priv *pTAS2555)
+ 
+ int tas2555_deregister_codec(struct tas2555_priv *pTAS2555)
+ {
+-	snd_soc_unregister_codec(pTAS2555->dev);
+ 
+ 	return 0;
+ }
+ 
+ MODULE_AUTHOR("Texas Instruments Inc.");
+ MODULE_DESCRIPTION("TAS2555 ALSA SOC Smart Amplifier driver");
+-MODULE_LICENSE("GPLv2");
++MODULE_LICENSE("GPL v2");
+ #endif
+diff --git a/tas2555-core.c b/tas2555-core.c
+index 79fe354..3be0969 100755
+--- a/tas2555-core.c
++++ b/tas2555-core.c
+@@ -37,10 +37,10 @@
+ #include <linux/of.h>
+ #include <linux/of_gpio.h>
+ #include <linux/slab.h>
+-#include <linux/syscalls.h>
++#include <linux/fs.h>
+ #include <linux/fcntl.h>
+ #include <linux/crc8.h>
+-#include <asm/uaccess.h>
++#include <linux/uaccess.h>
+ 
+ #include "tas2555.h"
+ #include "tas2555-core.h"
+@@ -439,12 +439,12 @@ int tas2555_get_die_delta_temperature(struct tas2555_priv *pTAS2555, int *pDelta
+ 	return nResult;
+ }
+ 
+-int tas2555_configIRQ(struct tas2555_priv *pTAS2555)
++static int tas2555_configIRQ(struct tas2555_priv *pTAS2555)
+ {
+ 	return tas2555_dev_load_data(pTAS2555, p_tas2555_irq_config);
+ }
+ 
+-int tas2555_load_platdata(struct tas2555_priv *pTAS2555)
++static int tas2555_load_platdata(struct tas2555_priv *pTAS2555)
+ {
+ 	int nResult = 0;
+ 
+@@ -468,7 +468,7 @@ int tas2555_load_default(struct tas2555_priv *pTAS2555)
+ 	return nResult;
+ }
+ 
+-int tas2555_pwr_startup(struct tas2555_priv *pTAS2555)
++static int tas2555_pwr_startup(struct tas2555_priv *pTAS2555)
+ {
+ 	int nResult = 0;
+ 	struct TProgram *pProgram;
+@@ -923,7 +923,7 @@ end:
+ 	return pData - pDataStart;
+ }
+ 
+-int fw_parse_calibration_data(struct tas2555_priv *pTAS2555,
++static int fw_parse_calibration_data(struct tas2555_priv *pTAS2555,
+ 	struct TFirmware *pFirmware, unsigned char *pData)
+ {
+ 	unsigned char *pDataStart = pData;
+@@ -1665,50 +1665,32 @@ void tas2555_clear_firmware(struct TFirmware *pFirmware)
+ static int tas2555_load_calibration(struct tas2555_priv *pTAS2555,
+ 	char *pFileName)
+ {
+-	int nResult;
+-	int nFile;
+-	mm_segment_t fs;
+-	unsigned char pBuffer[512];
+-	int nSize = 0;
+-
+-	dev_dbg(pTAS2555->dev, "%s:\n", __func__);
+-
+-	fs = get_fs();
+-	set_fs(KERNEL_DS);
+-	nFile = sys_open(pFileName, O_RDONLY, 0);
+-
+-	dev_info(pTAS2555->dev, "TAS2555 calibration file = %s, handle = %d\n",
+-		pFileName, nFile);
+-
+-	if (nFile >= 0) {
+-		nSize = sys_read(nFile, pBuffer, 512);
+-		sys_close(nFile);
+-	} else {
+-		dev_err(pTAS2555->dev, "TAS2555 cannot open calibration file: %s\n",
+-			pFileName);
+-	}
+-
+-	set_fs(fs);
+-
+-	if (!nSize)
+-		return -1;
++	struct file *calibration_file;
++	loff_t position = 0;
++	unsigned char calibration_data[512];
++	ssize_t calibration_size;
++	int result;
++
++	calibration_file = filp_open(pFileName, O_RDONLY, 0);
++	if (IS_ERR(calibration_file))
++		return PTR_ERR(calibration_file);
++
++	calibration_size = kernel_read(calibration_file, calibration_data,
++		sizeof(calibration_data), &position);
++	filp_close(calibration_file, NULL);
++	if (calibration_size <= 0)
++		return calibration_size ? calibration_size : -EINVAL;
+ 
+ 	tas2555_clear_firmware(pTAS2555->mpCalFirmware);
+-		
+-	dev_info(pTAS2555->dev, "TAS2555 calibration file size = %d\n", nSize);
+-	nResult = fw_parse(pTAS2555, pTAS2555->mpCalFirmware, pBuffer, nSize);
+-
+-	if (nResult) {
+-		dev_err(pTAS2555->dev, "TAS2555 calibration file is corrupt\n");
+-		return -1;
+-	}
++	result = fw_parse(pTAS2555, pTAS2555->mpCalFirmware,
++		calibration_data, calibration_size);
++	if (result)
++		return result;
+ 
+-	dev_info(pTAS2555->dev, "TAS2555 calibration: %d calibrations\n",
+-		pTAS2555->mpCalFirmware->mnCalibrations);
+-		
+ 	return 0;
+ }
+ 
++
+ void tas2555_fw_ready(const struct firmware *pFW, void *pContext)
+ {
+ 	struct tas2555_priv *pTAS2555 = (struct tas2555_priv *) pContext;
+@@ -1954,6 +1936,23 @@ int tas2555_set_calibration(struct tas2555_priv *pTAS2555,
+ 	return nResult;
+ }
+ 
++int tas2555_request_firmware(struct tas2555_priv *device)
++{
++	const struct firmware *firmware;
++	int result;
++
++	result = request_firmware(&firmware, TAS2555_FW_NAME, device->dev);
++	if (result)
++		return result;
++
++	tas2555_fw_ready(firmware, device);
++	if (!device->mpFirmware->mnPrograms ||
++		!device->mpFirmware->mnConfigurations)
++		return -EINVAL;
++
++	return 0;
++}
++
+ int tas2555_parse_dt(struct device *dev, struct tas2555_priv *pTAS2555)
+ {
+ 	struct device_node *np = dev->of_node;
+@@ -1963,17 +1962,18 @@ int tas2555_parse_dt(struct device *dev, struct tas2555_priv *pTAS2555)
+ 	if (pTAS2555->mnResetGPIO < 0) {
+ 		dev_err(pTAS2555->dev, "Looking up %s property in node %s failed %d\n",
+ 			"ti,cdc-reset-gpio", np->full_name, pTAS2555->mnResetGPIO);
+-		ret = -EINVAL;
++		ret = pTAS2555->mnResetGPIO;
+ 		pTAS2555->mnErrorCode |= TAS2555_ERROR_INVALIDPARAM;
+ 	} else
+ 		dev_dbg(pTAS2555->dev, "ti,cdc-reset-gpio=%d\n", pTAS2555->mnResetGPIO);
+ 
+ 	if (ret >= 0) {
+ 		pTAS2555->mnGpioINT = of_get_named_gpio(np, "ti,irq-gpio", 0);
+-		if (pTAS2555->mnGpioINT < 0)
++		if (pTAS2555->mnGpioINT < 0) {
+ 			dev_err(pTAS2555->dev, "Looking up %s property in node %s failed %d\n",
+ 				"ti,irq-gpio", np->full_name, pTAS2555->mnGpioINT);
+-		else
++			ret = pTAS2555->mnGpioINT;
++		} else
+ 			dev_dbg(pTAS2555->dev, "ti,irq-gpio=%d\n", pTAS2555->mnGpioINT);
+ 	}
+ 
+@@ -1982,4 +1982,4 @@ int tas2555_parse_dt(struct device *dev, struct tas2555_priv *pTAS2555)
+ 
+ MODULE_AUTHOR("Texas Instruments Inc.");
+ MODULE_DESCRIPTION("TAS2555 common functions for Android Linux");
+-MODULE_LICENSE("GPLv2");
++MODULE_LICENSE("GPL v2");
+diff --git a/tas2555-core.h b/tas2555-core.h
+index 7f6cf99..6b7f532 100755
+--- a/tas2555-core.h
++++ b/tas2555-core.h
+@@ -59,6 +59,7 @@ int tas2555_set_config(struct tas2555_priv *pTAS2555, int config);
+ void tas2555_load_fs_firmware(struct tas2555_priv *pTAS2555,
+ 	char *pFileName);
+ void tas2555_fw_ready(const struct firmware *pFW, void *pContext);
++int tas2555_request_firmware(struct tas2555_priv *device);
+ int tas2555_set_program(struct tas2555_priv *pTAS2555, unsigned int nProgram, int nConfig);
+ int tas2555_set_calibration(struct tas2555_priv *pTAS2555,
+ 	int nCalibration);
+diff --git a/tas2555-regmap.c b/tas2555-regmap.c
+index 2216764..bcdb940 100755
+--- a/tas2555-regmap.c
++++ b/tas2555-regmap.c
+@@ -41,7 +41,7 @@
+ #include <linux/slab.h>
+ #include <linux/syscalls.h>
+ #include <linux/fcntl.h>
+-#include <asm/uaccess.h>
++#include <linux/uaccess.h>
+ #include "tas2555.h"
+ #include "tas2555-core.h"
+ 
+@@ -53,7 +53,6 @@
+ #include "tas2555-misc.h"
+ #endif
+ 
+-#define ENABLE_TILOAD			//only enable this for in-system tuning or debug, not for production systems
+ #ifdef ENABLE_TILOAD
+ #include "tiload.h"
+ #endif
+@@ -267,8 +266,7 @@ static void tas2555_hw_reset(struct tas2555_priv *pTAS2555)
+ {
+ #ifdef ENABLE_GPIO_RESET
+ 	if (gpio_is_valid(pTAS2555->mnResetGPIO)) {
+-		devm_gpio_request_one(pTAS2555->dev, pTAS2555->mnResetGPIO,
+-			GPIOF_OUT_INIT_LOW, "TAS2555_RST");
++		gpio_set_value_cansleep(pTAS2555->mnResetGPIO, 0);
+ 		msleep(10);
+ 		gpio_set_value_cansleep(pTAS2555->mnResetGPIO, 1);
+ 		udelay(1000);
+@@ -276,11 +274,14 @@ static void tas2555_hw_reset(struct tas2555_priv *pTAS2555)
+ #endif
+ }
+ 
+-int tas2555_enableIRQ(struct tas2555_priv *pTAS2555, bool enable, bool clear)
++static int tas2555_enableIRQ(struct tas2555_priv *pTAS2555, bool enable, bool clear)
+ {
+ 	unsigned int nValue;
+ 	int nResult = 0;
+ 
++	if (enable && READ_ONCE(pTAS2555->stopping))
++		return 0;
++
+ 	if (enable) {
+ 		if (clear) {
+ 			nResult = pTAS2555->read(pTAS2555, TAS2555_FLAGS_1, &nValue);
+@@ -361,6 +362,9 @@ static irqreturn_t tas2555_irq_handler(int irq, void *dev_id)
+ {
+ 	struct tas2555_priv *pTAS2555 = (struct tas2555_priv *)dev_id;
+ 
++	if (READ_ONCE(pTAS2555->stopping))
++		return IRQ_HANDLED;
++
+ 	tas2555_enableIRQ(pTAS2555, false, false);
+ 	/* get IRQ status after 100 ms */
+ 	schedule_delayed_work(&pTAS2555->irq_work, msecs_to_jiffies(100));
+@@ -386,8 +390,17 @@ static const struct regmap_config tas2555_i2c_regmap = {
+ 	.max_register = 128,
+ };
+ 
+-static int tas2555_i2c_probe(struct i2c_client *pClient,
+-	const struct i2c_device_id *pID)
++static void tas2555_irq_cleanup(void *context)
++{
++	struct tas2555_priv *device = context;
++
++	WRITE_ONCE(device->stopping, true);
++	tas2555_enableIRQ(device, false, false);
++	synchronize_irq(device->mnIRQ);
++	cancel_delayed_work_sync(&device->irq_work);
++}
++
++static int tas2555_i2c_probe(struct i2c_client *pClient)
+ {
+ 	struct tas2555_priv *pTAS2555;
+ 	unsigned int n;
+@@ -403,8 +416,17 @@ static int tas2555_i2c_probe(struct i2c_client *pClient,
+ 	i2c_set_clientdata(pClient, pTAS2555);
+ 	dev_set_drvdata(&pClient->dev, pTAS2555);
+ 
+-	if (pClient->dev.of_node)
+-		tas2555_parse_dt(&pClient->dev, pTAS2555);
++	if (!pClient->dev.of_node)
++		return -EINVAL;
++
++	nResult = tas2555_parse_dt(&pClient->dev, pTAS2555);
++	if (nResult)
++		return nResult;
++
++	nResult = devm_gpio_request_one(&pClient->dev, pTAS2555->mnResetGPIO,
++		GPIOF_OUT_INIT_LOW, "TAS2555_RST");
++	if (nResult)
++		return nResult;
+ 
+ 	tas2555_hw_reset(pTAS2555);
+ 
+@@ -451,7 +473,11 @@ static int tas2555_i2c_probe(struct i2c_client *pClient,
+ 		return -ENOMEM;
+ 
+ 	if (gpio_is_valid(pTAS2555->mnGpioINT)) {
+-		nResult = gpio_request(pTAS2555->mnGpioINT, "TAS2555-IRQ");
++		int irq;
++
++		INIT_DELAYED_WORK(&pTAS2555->irq_work, irq_work_routine);
++		nResult = devm_gpio_request_one(&pClient->dev, pTAS2555->mnGpioINT,
++			GPIOF_IN, "TAS2555-IRQ");
+ 		if (nResult < 0) {
+ 			dev_err(pTAS2555->dev,
+ 				"%s: GPIO %d request INT error\n",
+@@ -459,11 +485,14 @@ static int tas2555_i2c_probe(struct i2c_client *pClient,
+ 			goto fail;
+ 		}
+ 
+-		gpio_direction_input(pTAS2555->mnGpioINT);
+-		pTAS2555->mnIRQ = gpio_to_irq(pTAS2555->mnGpioINT);
++		irq = gpio_to_irq(pTAS2555->mnGpioINT);
++		if (irq < 0)
++			return irq;
++		pTAS2555->mnIRQ = irq;
+ 		dev_dbg(pTAS2555->dev, "irq = %d\n", pTAS2555->mnIRQ);
+-		nResult = request_threaded_irq(pTAS2555->mnIRQ, tas2555_irq_handler,
+-				NULL, IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
++		nResult = devm_request_threaded_irq(&pClient->dev, pTAS2555->mnIRQ,
++				tas2555_irq_handler, NULL,
++				IRQF_TRIGGER_HIGH | IRQF_ONESHOT | IRQF_NO_AUTOEN,
+ 				pClient->name, pTAS2555);
+ 		if (nResult < 0) {
+ 			dev_err(pTAS2555->dev,
+@@ -471,16 +500,27 @@ static int tas2555_i2c_probe(struct i2c_client *pClient,
+ 			goto fail;
+ 		}
+ 
+-		INIT_DELAYED_WORK(&pTAS2555->irq_work, irq_work_routine);
++		nResult = devm_add_action_or_reset(&pClient->dev,
++			tas2555_irq_cleanup, pTAS2555);
++		if (nResult)
++			return nResult;
+ 	}
+ 
+ 	nResult = tas2555_dev_read(pTAS2555, TAS2555_REV_PGID_REG, &n);
++	if (nResult < 0)
++		return nResult;
+ 	dev_info(&pClient->dev, "TAS2555 PGID: 0x%02x\n", n);
+ 
+ 	pTAS2555->mbTILoadActive = false;
+ 
++	nResult = tas2555_request_firmware(pTAS2555);
++	if (nResult)
++		return nResult;
++
+ #ifdef CONFIG_TAS2555_CODEC	
+-	tas2555_register_codec(pTAS2555);
++	nResult = tas2555_register_codec(pTAS2555);
++	if (nResult)
++		return nResult;
+ #endif
+ 
+ #ifdef CONFIG_TAS2555_MISC	
+@@ -492,20 +532,19 @@ static int tas2555_i2c_probe(struct i2c_client *pClient,
+ 	tiload_driver_init(pTAS2555);
+ #endif
+ 
+-	nResult = request_firmware_nowait(THIS_MODULE, 1, TAS2555_FW_NAME,
+-		pTAS2555->dev, GFP_KERNEL, pTAS2555, tas2555_fw_ready);
+-
+ fail:
+ 
+ 	return nResult;
+ }
+ 
+-static int tas2555_i2c_remove(struct i2c_client *pClient)
++static void tas2555_i2c_remove(struct i2c_client *pClient)
+ {
+ 	struct tas2555_priv *pTAS2555 = i2c_get_clientdata(pClient);
+ 
+ 	dev_info(pTAS2555->dev, "%s\n", __FUNCTION__);
+ 
++	tas2555_enable(pTAS2555, false);
++
+ #ifdef CONFIG_TAS2555_CODEC		
+ 	tas2555_deregister_codec(pTAS2555);
+ #endif
+@@ -515,7 +554,6 @@ static int tas2555_i2c_remove(struct i2c_client *pClient)
+ 	mutex_destroy(&pTAS2555->file_lock);
+ #endif
+ 
+-	return 0;
+ }
+ 
+ static const struct i2c_device_id tas2555_i2c_id[] = {
+@@ -551,5 +589,5 @@ module_i2c_driver(tas2555_i2c_driver);
+ 
+ MODULE_AUTHOR("Texas Instruments Inc.");
+ MODULE_DESCRIPTION("TAS2555 I2C Smart Amplifier driver");
+-MODULE_LICENSE("GPLv2");
+-#endif
+\ No newline at end of file
++MODULE_LICENSE("GPL v2");
++#endif
+diff --git a/tas2555.h b/tas2555.h
+index 3d50402..e3737dc 100755
+--- a/tas2555.h
++++ b/tas2555.h
+@@ -26,7 +26,8 @@
+ #ifndef _TAS2555_H
+ #define _TAS2555_H
+ 
+-#include <linux/switch.h>
++#include <linux/workqueue.h>
++#include <linux/mutex.h>
+ 
+ /* Page Control Register */
+ #define TAS2555_PAGECTL_REG			0
+@@ -416,6 +417,7 @@ struct tas2555_priv {
+ 	struct delayed_work irq_work;
+ 	unsigned int mnIRQ;
+ 	bool mbIRQEnable;
++	bool stopping;
+ 
+ 	int (*read)(struct tas2555_priv * pTAS2555, unsigned int reg,
+ 		unsigned int *pValue);

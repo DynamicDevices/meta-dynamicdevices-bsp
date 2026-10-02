@@ -1,0 +1,3 @@
+#ifndef TAS2555_ENABLED
+#define TAS2555_ENABLED 0
+#endif

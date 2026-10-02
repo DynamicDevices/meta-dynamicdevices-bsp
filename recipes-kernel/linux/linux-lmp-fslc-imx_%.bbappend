@@ -3,6 +3,10 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 FILESEXTRAPATHS:prepend:imx8mm-jaguar-dt510 := "${THISDIR}/../../recipes-bsp/device-tree/lmp-device-tree:"
 FILESEXTRAPATHS:prepend:imx8mm-jaguar-screen := "${THISDIR}/../../recipes-bsp/device-tree/lmp-device-tree:"
 
+inherit jaguar-screen-tas2555
+do_configure[prefuncs] += "jaguar_screen_tas2555_header"
+SRC_URI:append = "${@bb.utils.contains('MACHINE_FEATURES', 'tas2555', ' file://tas2555-driver.cfg', '', d)}"
+
 # Fix buildpaths QA warnings by ensuring debug prefix mapping is applied to kernel builds
 # This prevents TMPDIR references from being embedded in debug information
 DEBUG_PREFIX_MAP:append = " -fdebug-prefix-map=${TMPDIR}=/usr/src/debug/tmpdir"
@@ -120,6 +124,8 @@ SRC_URI:append:imx8mm-jaguar-screen = " \
                 file://usb-modem-support.cfg \
 		file://gpio-keys.cfg \
 		file://imx8mm-jaguar-screen.dts \
+		file://imx8mm-jaguar-screen-tas2555.h \
+		file://imx8mm-jaguar-screen-tas2555.dtsi \
 		file://0003-wireless-wilc1000-disable-scan-progress-message.patch \
 		file://0004-dts-imx8mm-evkb-fix-duplicate-label.patch \
 		file://usb-gadgets.cfg \
@@ -135,6 +141,7 @@ SRC_URI:append:imx8mm-jaguar-screen = " \
 		file://imx8mm-jaguar-screen/hx8279-mipi-dsi.cfg \
 		file://imx8mm-jaguar-screen/imx56-ipu-video-disable.cfg \
 		file://imx8mm-jaguar-screen/bluetooth-disable.cfg \
+		file://imx8mm-jaguar-screen/wm8524-disable.cfg \
 "
 
 # NOTE: This DTB file is created as a default for use with local development
@@ -151,6 +158,8 @@ do_configure:append:imx8mm-jaguar-inst(){
 do_configure:append:imx8mm-jaguar-screen(){
  if [ -f ${WORKDIR}/imx8mm-jaguar-screen.dts ]; then
      cp ${WORKDIR}/imx8mm-jaguar-screen.dts ${S}/arch/arm64/boot/dts
+     cp ${WORKDIR}/imx8mm-jaguar-screen-tas2555.h ${S}/arch/arm64/boot/dts
+     cp ${WORKDIR}/imx8mm-jaguar-screen-tas2555.dtsi ${S}/arch/arm64/boot/dts
      cp ${WORKDIR}/imx8mm-sw_pad_ctl.h ${S}/arch/arm64/boot/dts
      cp ${WORKDIR}/imx8mm-sw_pad_ctl-fields.h ${S}/arch/arm64/boot/dts
      echo "dtb-y += imx8mm-jaguar-screen.dtb" >> ${S}/arch/arm64/boot/dts/Makefile

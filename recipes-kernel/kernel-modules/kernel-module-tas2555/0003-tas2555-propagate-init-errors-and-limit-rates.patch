@@ -1,0 +1,104 @@
+Subject: [PATCH] tas2555: propagate initialization failures and limit rates
+
+Return parsing and device-programming failures to probe and ALSA firmware
+reload callers instead of reporting successful registration after an I2C
+failure. Advertise the documented input sample-rate range.
+
+Upstream-Status: Pending
+
+--- a/tas2555-core.c
++++ b/tas2555-core.c
+@@ -1613,6 +1613,8 @@
+ 	int nConfiguration = 0;
+ 	unsigned int nSampleRate = 0;
+ 
++	pTAS2555->firmware_result = -EINVAL;
++
+ 	dev_info(pTAS2555->dev, "%s:\n", __func__);
+ 
+ 	if (unlikely(!pFW) || unlikely(!pFW->data)) {
+@@ -1632,6 +1634,7 @@
+ 	
+ 	nResult = fw_parse(pTAS2555, pTAS2555->mpFirmware, 
+ 		(unsigned char *) (pFW->data), pFW->size);
++	pTAS2555->firmware_result = nResult;
+ 
+ 	release_firmware(pFW);
+ 
+@@ -1642,12 +1645,14 @@
+ 	}
+ 
+ 	if (!pTAS2555->mpFirmware->mnPrograms) {
++		pTAS2555->firmware_result = -EINVAL;
+ 		pTAS2555->mnErrorCode |= TAS2555_ERROR_FWFORMAT;
+ 		dev_err(pTAS2555->dev, "firmware contains no programs\n");
+ 		return;
+ 	}
+ 
+ 	if (!pTAS2555->mpFirmware->mnConfigurations) {
++		pTAS2555->firmware_result = -EINVAL;
+ 		dev_err(pTAS2555->dev, 
+ 			"firmware contains no configurations\n");
+ 		pTAS2555->mnErrorCode |= TAS2555_ERROR_FWFORMAT;
+@@ -1676,7 +1681,8 @@
+ 			nConfiguration = -1;
+ 	}
+ 
+-	tas2555_set_program(pTAS2555, nProgram, nConfiguration);
++	pTAS2555->firmware_result =
++		tas2555_set_program(pTAS2555, nProgram, nConfiguration);
+ }
+ 
+ int tas2555_set_program(struct tas2555_priv *pTAS2555, unsigned int nProgram, int nConfig)
+@@ -1860,11 +1866,7 @@
+ 		return result;
+ 
+ 	tas2555_fw_ready(firmware, device);
+-	if (!device->mpFirmware->mnPrograms ||
+-		!device->mpFirmware->mnConfigurations)
+-		return -EINVAL;
+-
+-	return 0;
++	return device->firmware_result;
+ }
+ 
+ int tas2555_parse_dt(struct device *dev, struct tas2555_priv *pTAS2555)
+--- a/tas2555.h
++++ b/tas2555.h
+@@ -418,6 +418,7 @@
+ 	unsigned int mnIRQ;
+ 	bool mbIRQEnable;
+ 	bool stopping;
++	int firmware_result;
+ 
+ 	int (*read)(struct tas2555_priv * pTAS2555, unsigned int reg,
+ 		unsigned int *pValue);
+--- a/tas2555-codec.c
++++ b/tas2555-codec.c
+@@ -795,7 +795,7 @@
+ 				.stream_name = "ASI1 Playback",
+ 				.channels_min = 2,
+ 				.channels_max = 2,
+-				.rates = SNDRV_PCM_RATE_8000_192000,
++				.rates = SNDRV_PCM_RATE_8000_96000,
+ 				.formats = TAS2555_FORMATS,
+ 			},
+ 		.ops = &tas2555_dai_ops,
+@@ -808,7 +808,7 @@
+ 				.stream_name = "ASI2 Playback",
+ 				.channels_min = 2,
+ 				.channels_max = 2,
+-				.rates = SNDRV_PCM_RATE_8000_192000,
++				.rates = SNDRV_PCM_RATE_8000_96000,
+ 				.formats = TAS2555_FORMATS,
+ 			},
+ 		.ops = &tas2555_dai_ops,
+@@ -821,7 +821,7 @@
+ 				.stream_name = "ASIM Playback",
+ 				.channels_min = 2,
+ 				.channels_max = 2,
+-				.rates = SNDRV_PCM_RATE_8000_192000,
++				.rates = SNDRV_PCM_RATE_8000_96000,
+ 				.formats = TAS2555_FORMATS,
+ 			},
+ 		.ops = &tas2555_dai_ops,

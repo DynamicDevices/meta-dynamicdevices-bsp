@@ -1,0 +1,43 @@
+Subject: [PATCH] tas2555: reject runtime firmware reload
+
+Firmware metadata is shared with ALSA callbacks and interrupt work.
+Do not free it via the legacy reload control while those users are live.
+Firmware is loaded synchronously during probe; replacing it requires
+unbinding the device first. Also release empty firmware and clear all
+previously allocated metadata before parsing.
+
+Upstream-Status: Inappropriate [board integration policy]
+
+--- a/tas2555-codec.c
++++ b/tas2555-codec.c
+@@ -700,7 +700,7 @@
+ 	int nReload = pValue->value.integer.value[0];
+ 
+ 	if (nReload)
+-		return tas2555_request_firmware(pTAS2555);
++		return -EOPNOTSUPP;
+ 
+ 	dev_dbg(pTAS2555->dev, "%s, %d\n", __func__, nReload);
+ 
+--- a/tas2555-core.c
++++ b/tas2555-core.c
+@@ -1620,6 +1620,7 @@
+ 	if (unlikely(!pFW) || unlikely(!pFW->data)) {
+ 		dev_err(pTAS2555->dev, "%s firmware is not loaded\n", TAS2555_FW_NAME);
+ 		pTAS2555->mnErrorCode |= TAS2555_ERROR_FWNOTLOAD;
++		release_firmware(pFW);
+ 		return;
+ 	}
+ 
+@@ -1627,10 +1628,7 @@
+ 	nSampleRate = pTAS2555->mnCurrentSampleRate;
+ 	nConfiguration = pTAS2555->mnCurrentConfiguration;
+ 
+-	if (pTAS2555->mpFirmware->mpConfigurations) {
+-		dev_dbg(pTAS2555->dev, "clear current firmware\n");
+-		tas2555_clear_firmware(pTAS2555->mpFirmware);
+-	}
++	tas2555_clear_firmware(pTAS2555->mpFirmware);
+ 	
+ 	nResult = fw_parse(pTAS2555, pTAS2555->mpFirmware, 
+ 		(unsigned char *) (pFW->data), pFW->size);

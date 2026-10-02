@@ -28,6 +28,10 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/leds/common.h>
+#include "imx8mm-jaguar-screen-tas2555.h"
+#if TAS2555_ENABLED
+#include "imx8mm-jaguar-screen-tas2555.dtsi"
+#endif
 
 / {
 	model = "i.MX8MM Jaguar SCREEN board";
@@ -35,6 +39,8 @@
 
 	/* EVKB Bluetooth PCM endpoint is not fitted on the Screen product. */
 	/delete-node/ sound-bt-sco;
+	/delete-node/ sound-wm8524;
+	/delete-node/ audio-codec;
 
 	/* The EVKB AKM audio daughterboard is not fitted on the Screen product. */
 	/delete-node/ sound-ak4458;

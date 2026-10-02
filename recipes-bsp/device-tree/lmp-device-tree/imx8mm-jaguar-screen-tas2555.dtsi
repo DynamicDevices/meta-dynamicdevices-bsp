@@ -1,0 +1,66 @@
+/ {
+	sound-tas2555 {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "tas2555audio";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&tas2555_cpu_dai>;
+		simple-audio-card,frame-master = <&tas2555_cpu_dai>;
+
+		tas2555_cpu_dai: simple-audio-card,cpu {
+			sound-dai = <&sai2>;
+			dai-tdm-slot-num = <2>;
+			dai-tdm-slot-width = <32>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&tas2555 0>;
+		};
+	};
+};
+
+&i2c1 {
+	tas2555: amplifier@TAS2555_UNIT_ADDRESS {
+		compatible = "ti,tas2555";
+		reg = <TAS2555_I2C_ADDRESS>;
+		#sound-dai-cells = <1>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_tas2555_gpio>;
+		ti,cdc-reset-gpio = <&gpio3 19 GPIO_ACTIVE_LOW>;
+		ti,irq-gpio = <&gpio3 25 GPIO_ACTIVE_HIGH>;
+		status = "okay";
+	};
+};
+
+&sai2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_screen_sai2>;
+	fsl,sai-mclk-direction-output;
+	status = "okay";
+};
+
+&sai5 {
+	status = "disabled";
+};
+
+&micfil {
+	status = "disabled";
+};
+
+&iomuxc {
+	pinctrl_screen_sai2: screensai2grp {
+		fsl,pins = <
+			MX8MM_IOMUXC_SAI2_TXC_SAI2_TX_BCLK 0xd6
+			MX8MM_IOMUXC_SAI2_TXFS_SAI2_TX_SYNC 0xd6
+			MX8MM_IOMUXC_SAI2_RXD0_SAI2_RX_DATA0 0xd6
+			MX8MM_IOMUXC_SAI2_TXD0_SAI2_TX_DATA0 0xd6
+			MX8MM_IOMUXC_SAI2_MCLK_SAI2_MCLK 0xd6
+		>;
+	};
+
+	pinctrl_tas2555_gpio: tas2555gpiogrp {
+		fsl,pins = <
+			MX8MM_IOMUXC_SAI5_MCLK_GPIO3_IO25 0x1c4
+			MX8MM_IOMUXC_SAI5_RXFS_GPIO3_IO19 0x16
+		>;
+	};
+};

@@ -1,0 +1,40 @@
+From 3af26e8ddcb1c1cc2a1ba6ceef1a369e4e8ff7f0 Mon Sep 17 00:00:00 2001
+From: Dynamic Devices Ltd <support@dynamicdevices.co.uk>
+Date: Fri, 2 Oct 2026 13:00:00 +0100
+Subject: [PATCH] tas2555: fix boost-off startup selection
+
+The ROM1 and ROM2/tuning startup branches tested mnAppMode when deciding
+whether boost was disabled.  Since BOOST_MODE_OFF describes mnBoost, valid
+boost-off firmware could never select either no-boost startup sequence.
+
+Test the boost field in both branches.  This is also required before any
+conservative unprotected ROM1 development mode can deliberately keep the
+boost converter disabled.
+
+Signed-off-by: Dynamic Devices Ltd <support@dynamicdevices.co.uk>
+---
+ tas2555-core.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/tas2555-core.c b/tas2555-core.c
+index 676f683..a12e1ea 100755
+--- a/tas2555-core.c
++++ b/tas2555-core.c
+@@ -485,6 +485,6 @@ int tas2555_enable(struct tas2555_priv *pTAS2555, bool bEnable)
+ 			dev_dbg(pTAS2555->dev, "load startup_with_boost_rom1_data\n");
+ 			nResult = tas2555_dev_load_data(pTAS2555, p_tas2555_startup_with_boost_rom1_data);
+-		} else if (pProgram->mnAppMode == BOOST_MODE_OFF) {
++		} else if (pProgram->mnBoost == BOOST_MODE_OFF) {
+ 			dev_dbg(pTAS2555->dev, "load startup_wo_boost_rom1_data\n");
+ 			nResult = tas2555_dev_load_data(pTAS2555, p_tas2555_startup_wo_boost_rom1_data);
+ 		} else {
+@@ -498,6 +498,6 @@ int tas2555_enable(struct tas2555_priv *pTAS2555, bool bEnable)
+ 			dev_dbg(pTAS2555->dev, "load startup_with_boost_data\n");
+ 			nResult = tas2555_dev_load_data(pTAS2555, p_tas2555_startup_with_boost_data);
+-		} else if (pProgram->mnAppMode == BOOST_MODE_OFF) {
++		} else if (pProgram->mnBoost == BOOST_MODE_OFF) {
+ 			dev_dbg(pTAS2555->dev, "load startup_wo_boost_data\n");
+ 			nResult = tas2555_dev_load_data(pTAS2555, p_tas2555_startup_wo_boost_data);
+ 		} else {
+-- 
+2.43.0
