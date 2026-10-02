@@ -11,6 +11,10 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
     file://imx8mm-jaguar-dt510/asound.conf \
 "
 
+SRC_URI:append:imx8mm-jaguar-screen = " \
+    file://imx8mm-jaguar-screen/asound.conf \
+"
+
 inherit systemd
 
 SYSTEMD_SERVICE:${PN}:imx8mm-jaguar-sentai = "tas2563-init.service"
@@ -47,6 +51,13 @@ do_install:append:imx8mm-jaguar-dt510() {
     # Canonical copy for AVM docker-compose bind-mount (never touched by Docker auto-mkdir).
     install -d ${D}${datadir}/dynamicdevices
     install -m 0644 ${WORKDIR}/imx8mm-jaguar-dt510/asound.conf ${D}${datadir}/dynamicdevices/dt510-asound.conf
+}
+
+do_install:append:imx8mm-jaguar-screen() {
+    if ${@bb.utils.contains('MACHINE_FEATURES', 'tas2555', 'true', 'false', d)}; then
+        install -d ${D}${sysconfdir}
+        install -m 0644 ${WORKDIR}/imx8mm-jaguar-screen/asound.conf ${D}${sysconfdir}/asound.conf
+    fi
 }
 
 FILES:${PN}:append:imx8mm-jaguar-dt510 = " \

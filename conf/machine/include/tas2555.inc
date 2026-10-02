@@ -1,4 +1,4 @@
-MACHINE_EXTRA_RDEPENDS:append = "${@bb.utils.contains('MACHINE_FEATURES', 'tas2555', ' kernel-module-snd-soc-tas2555', '', d)}"
+MACHINE_EXTRA_RDEPENDS:append = "${@bb.utils.contains('MACHINE_FEATURES', 'tas2555', ' kernel-module-tas2555', '', d)}"
 
 # The imported driver fails probe unless this speaker/device configuration is
 # available.  Keep module and DT development possible, but fail image creation

@@ -247,8 +247,10 @@ The selected kernel base is
 `19bc8bd74baf1b5e3385962db31a45ad868c14b6`.
 
 The ARM64 module advertises the `ti,tas2555` OF and `i2c:tas2555` aliases
-and `6.6.52-lmp-standard` vermagic. Runtime package data provides
-`kernel-module-snd-soc-tas2555`, matching the machine dependency. Its
+and `6.6.52-lmp-standard` vermagic. The machine depends on the stable
+external-module recipe package `kernel-module-tas2555`; that package depends
+on the kernel-versioned runtime package (for example
+`kernel-module-snd-soc-tas2555-6.6.52-lmp-standard`) containing the `.ko`. Its
 empty module dependency list is consistent with built-in ASoC/I2C/regmap
 providers in this kernel. The built Screen DTB contains `tas2555audio`
 and amplifier address `0x4c`, with the specified reset and interrupt GPIOs
@@ -336,10 +338,29 @@ package QA tasks all passed. The installed ARM64 module has SHA-256
 The temporary AppArmor user-namespace relaxation used by the build was restored
 to its original value after completion.
 
-This is component evidence, not an image or playback acceptance. Before target
-use, build and verify an image carrying the exact DEV tuple, then begin with a
-very low-amplitude 48 kHz signal and DPX capture. The board must remain labelled
-as running unprotected ROM1 audio throughout that experiment.
+The subsequent full Cog/audio factory image attempted 10,175 tasks and all
+succeeded. The stable `kernel-module-tas2555` recipe package is the machine
+dependency; it pulls in the kernel-versioned package containing
+`snd-soc-tas2555.ko`. Jaguar Screen's TAS2555 default now belongs to the
+existing `alsa-state` package rather than either browser provider, avoiding a
+rootfs file-ownership clash while preserving the exact board policy. Its
+`/etc/asound.conf` selects `tas2555audio` through ALSA's plug layer at 48 kHz.
+
+The image timestamp is `20261002135738`; its OSTree commit is
+`24ceffd0d1225ca9b6dcee34c7eadfc339427ac43a9e04fe1f6a363ade1c357e`.
+The WIC gzip SHA-256 is
+`54db1450a41dcc804f3ff40d46a5023c82544d2164363b16de798cbeb37efe1d`;
+the OTA ext4 gzip SHA-256 is
+`5106df888e982b2b77b47b37dd32489ff04e22ea84eaab7cad7b7b8636a05a2d`;
+and the OTA tar.xz SHA-256 is
+`784519267fd9205911431874ece77e273181c0a05e1f7267150a0b416b28a60f`.
+The provider-aware verifier passed the staged rootfs, OTA deployment checkout,
+OTA OSTree commit, WIC boot FAT and byte-identical WIC/OTA root partition with
+no required or forbidden payload findings. AppArmor was restored to `1`.
+
+This is complete image evidence, not playback acceptance. Before target use,
+begin with a very low-amplitude 48 kHz signal and DPX capture. The board must
+remain labelled as running unprotected ROM1 audio throughout that experiment.
 
 Full runtime behavior still requires review and target validation.
 No changes have been deployed and no TAS2555 playback has been verified.
@@ -348,8 +369,9 @@ Do not deploy this staging implementation as accepted production support.
 The address for the tested unit is established as the bring-up value `0x4c`,
 and Michael has confirmed the codec-side ASI1 connection. Before enabling the
 protected `MACHINE_FEATURES:append = " tas2555"` path, obtain and review the
-speaker-specific `tas2555_uCDSP.bin` configuration. The driver currently
-requires that firmware; unprotected ROM fallback is not implemented. The
+speaker-specific `tas2555_uCDSP.bin` configuration. The protected driver path
+still requires that firmware; the separately gated DEV-only ROM1 fallback is
+implemented but is not production protection. The
 arbitrary untuned 4 ohm development speaker is suitable only for a separately
 gated, conservative DEV ROM1 experiment after its register sequence is derived
 and reviewed.
