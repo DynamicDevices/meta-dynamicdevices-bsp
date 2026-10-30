@@ -1,5 +1,39 @@
 # Jaguar screen TAS2555 audio
 
+## DEV ROM1 clock correction, 2026-10-30
+
+The temporary board test identified a clock-tree problem, not microphone
+background noise: playback generated moving images at `n * 1500 +/- input`
+Hz. Using the dedicated MCLK alone was insufficient. TI's coherent ROM1
+PLL/DSP/DAC block made 440 Hz the strongest recorded tone and reduced the
+1940/2560 Hz images by 36–41 dB. No clipping was observed in that test.
+
+Patch `0007-tas2555-fix-dev-rom1-pll-clock-tree.patch` programs this block
+before DSP power-up on every DEV ROM1 startup. MCLK is 12.288 MHz; PLL
+P=1/J=7/D=0 gives 86.016 MHz, N=7 and MDAC=4 give a 3.072 MHz DAC clock
+(64 times 48 kHz). It retains ROM mode `0x21`, boost/I-V disable, 0 dB
+DAC gain and the existing data-pin and mute configuration. Firmware-backed
+startup and production selection are unchanged.
+
+Reference: TI's [ROM1 clock script](https://e2e.ti.com/cfs-filesystemfile/__key/communityserver-discussions-components-files/6/DINtoDOUTTestROM1.txt)
+in [TAS2555 E2E discussion 1192205](https://e2e.ti.com/support/audio-group/audio/f/audio-forum/1192205/tas2555-tas2555evm).
+
+The original experiment restored all saved registers afterward; it did not
+install this fix. Its post-stop retention assertion also reported an error:
+normal TI shutdown deliberately selects the internal oscillator
+(`PLL_CLKIN=0x0F`). Active playback clocks were verified before the tone.
+Do not treat post-stop clock selection as the active playback configuration.
+
+Source checks (no local BitBake): apply the recipe patches in order to
+`SRCREV`, then run `python3 scripts/test_tas2555_rom1_clocks.py DRIVER_DIR`
+and `python3 scripts/test_screen_tas2555.py`. They check the complete clock
+block, power/unmute ordering, shutdown/restart and DEV/production selection.
+These checks do not replace compilation or installed-image playback testing.
+
+Delivery status: source correction prepared; new Foundries build, deployment
+and corrected-image playback verification are still pending. The arbitrary
+4 ohm/5 W speaker remains unprotected; playback must be attended and bounded.
+
 ## Hardware basis
 
 Alex's instructions on 2026-09-30 identify the screen codec as TAS2555,
