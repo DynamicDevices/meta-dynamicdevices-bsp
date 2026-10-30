@@ -1,4 +1,9 @@
 MACHINE_EXTRA_RDEPENDS:append = "${@bb.utils.contains('MACHINE_FEATURES', 'tas2555', ' kernel-module-tas2555', '', d)}"
+KERNEL_MODULE_AUTOLOAD:append = "${@bb.utils.contains('MACHINE_FEATURES', 'tas2555', ' snd-soc-tas2555', '', d)}"
+
+# Protected playback requires this board/speaker's DSP configuration. The
+# separately gated development ROM1 mode deliberately does not use firmware.
+MACHINE_EXTRA_RDEPENDS:append = "${@' tas2555-firmware' if 'tas2555' in (d.getVar('MACHINE_FEATURES') or '').split() and 'tas2555-rom1-dev' not in (d.getVar('MACHINE_FEATURES') or '').split() else ''}"
 
 # The imported driver fails probe unless this speaker/device configuration is
 # available.  Keep module and DT development possible, but fail image creation

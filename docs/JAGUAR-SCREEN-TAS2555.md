@@ -74,9 +74,35 @@ unchanged.
 
 ## TAS2555 integration status
 
-The feature name is `tas2555`. The Screen machine includes its runtime
-dependency wiring, but does not enable the feature by default while the
-usable device configuration remains unconfirmed.
+The feature name is `tas2555`. It is enabled by default for
+`imx8mm-jaguar-screen` only, selecting the existing SAI2/I2C1 integration,
+driver and `tas2555audio` ALSA defaults. Other machines are unchanged.
+When `DEV_MODE=1`, this machine additionally selects `tas2555-rom1-dev`:
+firmware-free ROM1 playback at 48 kHz, boost off and 0 dB DAC gain. It starts
+muted and does not use the Lenovo firmware or downloaded SmartAmp tuning.
+ROM1 lacks SmartAmp thermal/excursion protection; it is not selected for
+production. Outside development mode, image creation still requires the
+speaker-specific `tas2555_uCDSP.bin` and fails if it is missing or empty.
+Neither source selection establishes audible playback on the board.
+
+Run the focused source regression checks without BitBake:
+
+```sh
+python3 scripts/test_screen_tas2555.py
+```
+
+### Current delivery boundary
+
+The local source changes enable the Screen feature and development ROM1,
+retain the stable module recipe dependency and add autoload, retain production firmware packaging
+and remove the kiosk distro's competing WM8524 defaults. Alex selected ROM
+playback after forwarding Michael's confirmation of non-SmartAmp operation;
+the connected speaker is 4 ohm, 5 W. The Lenovo firmware trial is abandoned.
+Source checks are not a Yocto build or hardware acceptance. The Screen
+manifest has not yet been advanced and no audio image has been built or
+deployed in this change. Development ROM1 does not require a downloaded
+binary; production protected mode still requires the correct speaker-specific
+configuration. Physical speaker validation remains pending.
 
 The separately named `tas2555-rom1-dev` modifier is valid only alongside the
 base `tas2555` feature and only when `DEV_MODE=1`. The Screen device-tree and
@@ -87,8 +113,19 @@ explicit `ti,rom1-dev` property and rootfs construction may omit
 relaxation of the normal `tas2555` firmware gate. The driver must explicitly
 support that property before the mode can produce playback.
 
-The feature selects the `kernel-module-snd-soc-tas2555` package and kernel
-dependencies. Screen's generated header enables the SAI2/I2C1 DTS
+The feature selects the stable `kernel-module-tas2555` recipe package.
+Yocto's module class makes it depend on the kernel-versioned runtime package
+containing `snd-soc-tas2555.ko`; that actual module name is used for autoload.
+The stable recipe dependency was already correct. Protected mode also
+requires the BSP's `tas2555-firmware`
+package. Supply the approved `tas2555_uCDSP.bin` under
+`recipes-bsp/tas2555-firmware/files/`, or via a private layer's
+`FILESEXTRAPATHS`. No binary is bundled: its absence fails fetch, and an
+empty file fails installation. Confirm speaker/board compatibility, provenance
+and redistribution rights before supplying it; renaming another product's
+binary is not sufficient. The rootfs firmware gate remains in place.
+
+Screen's generated header enables the SAI2/I2C1 DTS
 integration only when the feature is selected. `TAS2555_I2C_ADDRESS`
 defaults to TI's both-straps-low example, `0x4c`, and remains overridable
 within the seven-bit range `0x4c`–`0x4f`. AUD_RST# uses GPIO3_IO19 and AUD_INT uses GPIO3_IO25 with
@@ -101,8 +138,9 @@ and interrupt pads. Both are already disabled in the current Screen DTS;
 the feature include makes that ownership explicit if the EVK defaults
 change later.
 
-The kiosk distro recipe selects ALSA card `tas2555audio` only when the
-feature is enabled, replacing its former WM8524-specific default.
+The BSP's `alsa-state` append selects ALSA card `tas2555audio` only when
+the feature is enabled. The kiosk distro must not install competing hardware
+defaults; it retains responsibility only for the browser's audio backend.
 
 TI's `tas2555sw-android/tas2555-android-driver` repository at commit
 `0468cf54e49f57163e17998846b62dc941130929` supplies a `ti,tas2555` driver.
@@ -132,12 +170,13 @@ A bounded read-only check of target 2991 on 2026-10-01 found no TAS2555,
 uCDSP or PurePath firmware file, package or OSTree-deployment path. The
 deployed board therefore does not contain a recoverable vendor tuning asset.
 
-TI's end-system integration guide (SLAA952) describes the required flow as
-speaker characterization, PurePath Console 3 tuning, end-system integration
-and factory calibration. TI's TAS2555 EVM guide (SLOU408) states that a device
-configuration must be created before the device functions. These sources
-confirm that an arbitrary firmware blob from another speaker product is not a
-valid substitute for the Screen assembly's configuration.
+TAS2555 datasheet SLASE69B section 9.4.3.3 states that SmartAmp mode loads
+PurePath Console files containing speaker models, equalization and additional
+configuration. Sections 9.4.3.1-2 separately describe ROM playback without
+those downloaded files. An arbitrary other-product firmware is not a verified
+Screen SmartAmp configuration, but no such file is needed for ROM1 playback.
+The earlier SLAA952 citation was incorrect for this device: that guide is for
+TAS2563 and is not evidence of a TAS2555 firmware requirement.
 
 The `tas2555` machine include therefore adds an image-construction gate. When
 the feature is enabled, rootfs post-processing requires the non-empty file
