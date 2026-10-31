@@ -7,6 +7,18 @@ inherit jaguar-screen-tas2555
 do_configure[prefuncs] += "jaguar_screen_tas2555_header"
 SRC_URI:append = "${@bb.utils.contains('MACHINE_FEATURES', 'tas2555', ' file://tas2555-driver.cfg', '', d)}"
 
+# Mesa/Etnaviv userspace cannot accelerate through the proprietary Galcore
+# driver. Bind Etnaviv at boot, rather than leaving it modular behind Galcore.
+# Scope both the fragment and final-config gate to the selected Screen backend.
+SRC_URI:append:imx8mm-jaguar-screen:dd-graphics-etnaviv = " file://imx8mm-jaguar-screen/etnaviv-gpu.cfg"
+
+do_compile:prepend:imx8mm-jaguar-screen:dd-graphics-etnaviv() {
+    grep -qx 'CONFIG_DRM_ETNAVIV=y' ${B}/.config || \
+        bbfatal "Screen Mesa GPU stack requires built-in Etnaviv"
+    grep -qx '# CONFIG_MXC_GPU_VIV is not set' ${B}/.config || \
+        bbfatal "Screen Mesa GPU stack must not let Galcore claim the GPU"
+}
+
 # Fix buildpaths QA warnings by ensuring debug prefix mapping is applied to kernel builds
 # This prevents TMPDIR references from being embedded in debug information
 DEBUG_PREFIX_MAP:append = " -fdebug-prefix-map=${TMPDIR}=/usr/src/debug/tmpdir"
