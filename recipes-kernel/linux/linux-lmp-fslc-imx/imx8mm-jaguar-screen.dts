@@ -32,6 +32,10 @@
 #if TAS2555_ENABLED
 #include "imx8mm-jaguar-screen-tas2555.dtsi"
 #endif
+#include "imx8mm-jaguar-screen-graphics.h"
+#if JAGUAR_SCREEN_ETNAVIV
+#include "imx8mm-jaguar-screen-etnaviv.dtsi"
+#endif
 
 / {
 	model = "i.MX8MM Jaguar SCREEN board";

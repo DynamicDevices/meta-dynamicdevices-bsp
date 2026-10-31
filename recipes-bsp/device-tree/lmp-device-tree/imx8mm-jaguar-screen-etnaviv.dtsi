@@ -1,0 +1,33 @@
+/*
+ * The NXP SoC tree combines both cores in the Galcore binding. Etnaviv probes
+ * individual vivante,gc nodes, using reg/bus/core/shader clock names. Keep the
+ * existing 3D node's assigned clocks and shared GPU power domain unchanged.
+ */
+&gpu {
+	compatible = "vivante,gc";
+	reg = <0x0 0x38000000 0x0 0x8000>;
+	/delete-property/ reg-names;
+	interrupts = <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>;
+	/delete-property/ interrupt-names;
+	clocks = <&clk IMX8MM_CLK_GPU_AHB>,
+		 <&clk IMX8MM_CLK_GPU_BUS_ROOT>,
+		 <&clk IMX8MM_CLK_GPU3D_ROOT>,
+		 <&clk IMX8MM_CLK_GPU3D_ROOT>;
+	clock-names = "reg", "bus", "core", "shader";
+	/delete-property/ throttle,max_state;
+	status = "okay";
+};
+
+/ {
+	gpu_2d_etnaviv: gpu@38008000 {
+		compatible = "vivante,gc";
+		reg = <0x0 0x38008000 0x0 0x8000>;
+		interrupts = <GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8MM_CLK_GPU_AHB>,
+			 <&clk IMX8MM_CLK_GPU_BUS_ROOT>,
+			 <&clk IMX8MM_CLK_GPU2D_ROOT>;
+		clock-names = "reg", "bus", "core";
+		power-domains = <&pgc_gpu>;
+		status = "okay";
+	};
+};

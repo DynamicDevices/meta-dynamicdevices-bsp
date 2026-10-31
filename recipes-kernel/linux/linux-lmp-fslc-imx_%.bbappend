@@ -5,6 +5,8 @@ FILESEXTRAPATHS:prepend:imx8mm-jaguar-screen := "${THISDIR}/../../recipes-bsp/de
 
 inherit jaguar-screen-tas2555
 do_configure[prefuncs] += "jaguar_screen_tas2555_header"
+inherit jaguar-screen-graphics
+do_configure[prefuncs] += "jaguar_screen_graphics_header"
 SRC_URI:append = "${@bb.utils.contains('MACHINE_FEATURES', 'tas2555', ' file://tas2555-driver.cfg', '', d)}"
 
 # Mesa/Etnaviv userspace cannot accelerate through the proprietary Galcore
@@ -138,6 +140,8 @@ SRC_URI:append:imx8mm-jaguar-screen = " \
 		file://imx8mm-jaguar-screen.dts \
 		file://imx8mm-jaguar-screen-tas2555.h \
 		file://imx8mm-jaguar-screen-tas2555.dtsi \
+		file://imx8mm-jaguar-screen-graphics.h \
+		file://imx8mm-jaguar-screen-etnaviv.dtsi \
 		file://0003-wireless-wilc1000-disable-scan-progress-message.patch \
 		file://0004-dts-imx8mm-evkb-fix-duplicate-label.patch \
 		file://usb-gadgets.cfg \
@@ -172,6 +176,8 @@ do_configure:append:imx8mm-jaguar-screen(){
      cp ${WORKDIR}/imx8mm-jaguar-screen.dts ${S}/arch/arm64/boot/dts
      cp ${WORKDIR}/imx8mm-jaguar-screen-tas2555.h ${S}/arch/arm64/boot/dts
      cp ${WORKDIR}/imx8mm-jaguar-screen-tas2555.dtsi ${S}/arch/arm64/boot/dts
+     cp ${WORKDIR}/imx8mm-jaguar-screen-graphics.h ${S}/arch/arm64/boot/dts
+     cp ${WORKDIR}/imx8mm-jaguar-screen-etnaviv.dtsi ${S}/arch/arm64/boot/dts
      cp ${WORKDIR}/imx8mm-sw_pad_ctl.h ${S}/arch/arm64/boot/dts
      cp ${WORKDIR}/imx8mm-sw_pad_ctl-fields.h ${S}/arch/arm64/boot/dts
      echo "dtb-y += imx8mm-jaguar-screen.dtb" >> ${S}/arch/arm64/boot/dts/Makefile
