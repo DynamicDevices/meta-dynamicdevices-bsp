@@ -1,0 +1,36 @@
+Subject: [PATCH] drm/bridge: lt9611: preserve the configured I2C address in sleep
+
+The sleep sequence hardcodes the software I2C address to 0x76 (8-bit),
+then enables that override. DT510 straps the plain LT9611 to 0x39 (7-bit).
+Enabling the override moves it to 0x3b, making subsequent register
+accesses at 0x39 fail with -ENXIO until the bridge is reset.
+
+An adapter-scoped trace on build 682 shows the writes to 0x8024 and
+0x8023 followed by failed transfers at 0x39 during display-master-only
+unbind/rebind. Full bridge reset/reprobe restores video and valid EDID.
+
+Derive the 8-bit software address from the existing I2C client instead
+of selecting a different device address. Retain the vendor sleep
+sequence and ADDR pin configuration; no startup delay is introduced.
+This fixes the address mismatch, not yet the unisolated boot EDID issue.
+
+Selected only for imx8mm-jaguar-dt510 pending broader validation.
+
+Upstream-Status: Pending
+Assisted-by: Briar
+---
+ drivers/gpu/drm/bridge/lontium-lt9611.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/bridge/lontium-lt9611.c b/drivers/gpu/drm/bridge/lontium-lt9611.c
+--- a/drivers/gpu/drm/bridge/lontium-lt9611.c
++++ b/drivers/gpu/drm/bridge/lontium-lt9611.c
+@@ -468,7 +468,7 @@
+ static void lt9611_sleep_setup(struct lt9611 *lt9611)
+ {
+ 	const struct reg_sequence sleep_setup[] = {
+-		{ 0x8024, 0x76 },
++		{ 0x8024, lt9611->client->addr << 1 },
+ 		{ 0x8023, 0x01 },
+ 		{ 0x8157, 0x03 }, /* set addr pin as output */
+ 		{ 0x8149, 0x0b },

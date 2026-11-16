@@ -18,6 +18,7 @@ FILES = BSP / "recipes-kernel/linux/linux-lmp-fslc-imx/imx8mm-jaguar-dt510"
 PATCHES = (
     "0031-drm-bridge-lt9611-fix-dt510-active-low-reset.patch",
     "0032-drm-bridge-lt9611-dt510-host-and-irq.patch",
+    "0033-drm-bridge-lt9611-preserve-i2c-address-in-sleep.patch",
 )
 
 
@@ -36,6 +37,65 @@ def function(source, name):
     if not match:
         raise RuntimeError(f"Missing function: {name}")
     return match.group(0)
+
+
+def check_sleep_address(source, work):
+    # Compile the actual sleep function against a model of the documented
+    # software address registers. The old hardcoded address must fail the model.
+    harness = r'''
+#include <assert.h>
+#include <stdbool.h>
+#include <stddef.h>
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
+struct i2c_client { unsigned short addr; };
+struct reg_sequence { unsigned int reg, def; };
+struct regmap { unsigned int client_addr, device_addr, soft_addr, writes; int error; };
+struct lt9611 { struct i2c_client *client; struct regmap *regmap; bool sleep; };
+static int regmap_multi_reg_write(struct regmap *m, const struct reg_sequence *s, size_t n)
+{
+    for (size_t i = 0; i < n; i++) {
+        if (m->client_addr != m->device_addr) return m->error = -6;
+        m->writes++;
+        if (s[i].reg == 0x8024) m->soft_addr = s[i].def;
+        if (s[i].reg == 0x8023 && (s[i].def & 1)) m->device_addr = m->soft_addr >> 1;
+    }
+    return 0;
+}
+'''
+    sleep = function(source, "lt9611_sleep_setup")
+    legacy = sleep.replace("lt9611_sleep_setup(", "legacy_sleep_setup(").replace(
+        "lt9611->client->addr << 1", "0x76")
+    assert legacy != sleep
+    harness += sleep + "\n" + legacy + r'''
+int main(void)
+{
+    const unsigned int addresses[] = {0x39, 0x3b};
+    for (size_t i = 0; i < ARRAY_SIZE(addresses); i++) {
+        struct i2c_client c = { .addr = addresses[i] };
+        struct regmap m = { .client_addr = c.addr, .device_addr = c.addr };
+        struct lt9611 d = { .client = &c, .regmap = &m };
+        for (int cycle = 0; cycle < 3; cycle++) {
+            d.sleep = false;
+            lt9611_sleep_setup(&d);
+            assert(d.sleep && !m.error && m.device_addr == c.addr);
+            assert(m.soft_addr == (unsigned int)c.addr << 1);
+            assert(m.writes == 8 * (unsigned int)(cycle + 1));
+        }
+    }
+    struct i2c_client c = { .addr = 0x39 };
+    struct regmap m = { .client_addr = c.addr, .device_addr = c.addr };
+    struct lt9611 d = { .client = &c, .regmap = &m };
+    legacy_sleep_setup(&d);
+    assert(m.error == -6 && m.writes == 2 && m.device_addr == 0x3b);
+    return 0;
+}
+'''
+    path = work / "sleep-address-test.c"
+    path.write_text(harness)
+    binary = work / "sleep-address-test"
+    run(["cc", "-Wall", "-Wextra", "-Werror", "-std=c11", str(path), "-o", str(binary)])
+    run([str(binary)])
+    print("PASS: compiled actual sleep sequence preserves 0x39/0x3b across three modelled cycles; old sequence reproduces address loss after two writes. Model test, not hardware validation.")
 
 
 def check_functions(source, work):
@@ -332,8 +392,9 @@ def main():
                 checked = run(["patch", "--dry-run", "--fuzz=0", "--batch", "-p1", "-i", patch], cwd=work, text=True)
                 assert not checked.stderr and "offset" not in checked.stdout and "fuzz" not in checked.stdout, checked.stdout + checked.stderr
                 run(["patch", "--fuzz=0", "--batch", "-p1", "-i", patch], cwd=work)
-            print("PASS: both DT510-only patches apply in order to the pinned kernel without offsets/fuzz.")
+            print(f"PASS: all {len(PATCHES)} DT510-only patches apply in order to the pinned kernel without offsets/fuzz.")
             source = (work / DRIVER).read_text()
+            check_sleep_address(source, work)
             check_functions(source, work)
         check_dt(work)
     recipe = (BSP / "recipes-kernel/linux/linux-lmp-fslc-imx_%.bbappend").read_text()
