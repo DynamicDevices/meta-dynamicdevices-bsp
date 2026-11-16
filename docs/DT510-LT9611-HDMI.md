@@ -4,14 +4,18 @@ Updated 16 November 2026 at Alex's request. Briar helped draft this.
 
 ## Current state
 
-Foundries development build **684** passed, booted on Michael's DT510 and
-finalized successfully. It contains the sleep-address fix and diagnostic/media
-packages, but cold startup still failed EDID (`access not done`) with the TV on.
-Ordered display-controller/LT9611 rebind recovered a visible 1080p console and
+Foundries development build **685** passed, booted on Michael's DT510 and
+finalized successfully. Its checked power-on path exposed `-EAGAIN` (`-11`)
+before EDID, leaving HDMI disconnected with zero EDID bytes. It contains the
+LCDIF bridge-state and EDID-handling changes as well as the sleep-address fix.
+On 684, ordered display-controller/LT9611 rebind recovered a visible 1080p console and
 valid 256-byte EDID. Video playback exposed DRM bridge-state warnings and a
 black picture despite GStreamer reporting PLAYING. Video is not an accepted pass.
-The next candidate corrects LCDIF modeset-check ordering and hardens EDID polling
-and error handling. Neither change is hardware-validated yet.
+A single later `detect` reprobe on 685, without reset or rebind, read a valid
+256-byte EDID. The adapter-2 trace recorded 6068 events, zero failed transfers
+and zero overruns. Detection recovered; scanout was still disabled, so this
+alone is not visible-output acceptance. Patch 0036 targets retryable power-on
+arbitration errors; underlying electrical/arbitration causation is not proven.
 The part is the plain **LT9611**, not LT9611UXC or LT9611UXD. Michael Hull
 confirmed four DSI data lanes wired to **MIPI port A** and correct board power
 sequencing; Alex relayed that **RSTn is active-low**. The hardware Google Doc
@@ -114,12 +118,12 @@ architecture. DT510 factory configuration must explicitly select `alsa` and
 under its new minimal defaults. Direct KMS diagnostics need no `display`/Weston
 bundle. Do not silently drop existing audio while adding video diagnostics.
 
-**Delivery status:** build 684 is the confirmed active board image, OSTree
-`114da47a503dc56bf5b545a3f781ad9a57c39908ea05d8ff5b79aa8f1110e7b1`,
-manifest `e99869486016602e24cb171350f31f7f02a44299`, BSP
-`3b4ae327f2967be5f685d134c4f6a5bb6161c8c0`. Build 683 failed at an optional
+**Delivery status:** build 685 is the confirmed active board image, OSTree
+`22e9bb6d5edcc5fba162e7830a5f3cf6aea985c3dc28f38299e6302eca4cbdf2`,
+manifest `e67baa6d855143b0e3b783f3d95957e2713c3052`, BSP
+`c58688db8b67d2364924a3b13f4e723c8f667dd5`. Build 683 failed at an optional
 Godot append; distro repair in 684 fixed that parse failure. Patches 0034/0035
-are next-build candidates, not yet deployed fixes. No successful startup or
+are deployed in 685; patch 0036 is a next-build candidate. No successful startup or
 visible-video acceptance is claimed from pipeline state or frame counts alone.
 
 ## Hardware recovery evidence — 16 November 2026
@@ -255,6 +259,16 @@ Linux 6.6.52 at `e0f9e2afd4cff3f02d71891244b4aa5899dfc786`.
   Native tests exercise the actual reader with delayed completion, timeout,
   NACK/arbitration errors, each transfer failing and cleanup error precedence.
   Physical DDC/startup behaviour still requires testing on the new image.
+- `0036-drm-bridge-lt9611-retry-power-on-arbitration-loss.patch`: retry only
+  `-EAGAIN` in the idempotent power-on register sequence, at most three total
+  attempts with 1–2 ms backoff after retryable failures. The pinned i.MX adapter
+  leaves `retries` zero-initialized; the core therefore makes just one attempt
+  unless another user explicitly changes that setting. Other errors still fail
+  immediately; exhausted retries leave `power_on=false`. Recovery is logged.
+  The actual compiled function is tested with errors at every sequence position,
+  recovery on attempts two/three, exhaustion, cached success, later reprobe and
+  permanent errors. This is bounded handling of a proven returned error, not
+  proof that three attempts cover every physical startup failure.
 
 On 684, the first warning was at boot monotonic time 1203.27 s in
 `drm_atomic_bridge_chain_disable`, from `videotestsrc0:s`; subsequent video

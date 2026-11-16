@@ -1,0 +1,47 @@
+Subject: [PATCH] drm/bridge: lt9611: retry transient arbitration loss on power-on
+
+Build685 exposed -EAGAIN from the initial power-on sequence. A later connector
+reprobe without reset or rebind retrieved valid EDID with no transfer errors.
+The pinned i.MX I2C adapter leaves retries at its zero-initialised default.
+
+Retry the idempotent power-on configuration sequence only for -EAGAIN, up to
+three total attempts with 1-2 ms backoff after a retryable failure. Preserve
+immediate failure for permanent errors and power_on=false on exhaustion.
+Log successful recovery. This is not a blind startup sleep or rebind service;
+cold/warm boot reliability remains a hardware acceptance requirement.
+
+Upstream-Status: Pending
+
+--- a/drivers/gpu/drm/bridge/lontium-lt9611.c
++++ b/drivers/gpu/drm/bridge/lontium-lt9611.c
+@@ -486,7 +486,7 @@
+ 
+ static int lt9611_power_on(struct lt9611 *lt9611)
+ {
+-	int ret;
++	int ret, attempt;
+ 	const struct reg_sequence seq[] = {
+ 		/* LT9611_System_Init */
+ 		{ 0x8101, 0x18 }, /* sel xtal clock */
+@@ -515,9 +515,20 @@
+ 	if (lt9611->power_on)
+ 		return 0;
+ 
+-	ret = regmap_multi_reg_write(lt9611->regmap, seq, ARRAY_SIZE(seq));
++	/* The i.MX adapter defaults to no arbitration-loss retries. */
++	for (attempt = 0; attempt < 3; attempt++) {
++		ret = regmap_multi_reg_write(lt9611->regmap, seq, ARRAY_SIZE(seq));
++		if (ret != -EAGAIN || attempt == 2)
++			break;
++
++		dev_dbg(lt9611->dev, "power-on arbitration loss, retry %d\n",
++			attempt + 1);
++		usleep_range(1000, 2000);
++	}
+ 	if (!ret)
+ 		lt9611->power_on = true;
++	if (!ret && attempt)
++		dev_info(lt9611->dev, "power-on recovered after %d retries\n", attempt);
+ 
+ 	return ret;
+ }
