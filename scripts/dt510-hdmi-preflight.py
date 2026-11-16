@@ -13,12 +13,16 @@ import tempfile
 PIN = "e0f9e2afd4cff3f02d71891244b4aa5899dfc786"
 DRIVER = "drivers/gpu/drm/bridge/lontium-lt9611.c"
 CONNECTOR = "drivers/gpu/drm/drm_bridge_connector.c"
+LCDIF_KMS = "drivers/gpu/drm/imx/lcdif/lcdif-kms.c"
+LCDIF_PLANE = "drivers/gpu/drm/imx/lcdif/lcdif-plane.c"
 BSP = Path(__file__).resolve().parents[1]
 FILES = BSP / "recipes-kernel/linux/linux-lmp-fslc-imx/imx8mm-jaguar-dt510"
 PATCHES = (
     "0031-drm-bridge-lt9611-fix-dt510-active-low-reset.patch",
     "0032-drm-bridge-lt9611-dt510-host-and-irq.patch",
     "0033-drm-bridge-lt9611-preserve-i2c-address-in-sleep.patch",
+    "0034-drm-imx-lcdif-check-fb-modeset-before-bridges.patch",
+    "0035-drm-bridge-lt9611-poll-edid-and-check-i2c-errors.patch",
 )
 
 
@@ -371,12 +375,222 @@ def check_dt(work):
             print(line.split(": Warning", 1)[-1][:400])
 
 
+def check_lcdif_state(source, plane_source, legacy_plane_source, work):
+    # Compile the actual new check. Model the generic helper's ordering and
+    # use the exact old late-modeset block to reproduce missing bridge states.
+    assert ".atomic_check  = lcdif_drm_atomic_check" in source
+    assert "mode_changed = true" not in plane_source
+    match = re.search(r"\tif \(old_fb && likely\(!crtc_state->mode_changed\)\) \{.*?\n\t\}",
+                      legacy_plane_source, re.S)
+    assert match
+    harness = r'''
+#include <assert.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stddef.h>
+#define likely(x) (x)
+#define IS_ERR(x) ((intptr_t)(x) < 0)
+#define PTR_ERR(x) ((int)(intptr_t)(x))
+struct drm_format_info { unsigned int format; };
+struct drm_framebuffer { unsigned int pitches[1]; const struct drm_format_info *format; };
+struct drm_crtc { int unused; };
+struct drm_crtc_state { bool mode_changed; };
+struct drm_plane { int unused; };
+struct drm_plane_state { struct drm_framebuffer *fb; struct drm_crtc *crtc; };
+struct drm_device { int unused; };
+struct drm_atomic_state {
+    struct drm_plane planes[2];
+    struct drm_plane_state old[2], next[2];
+    struct drm_crtc_state crtc;
+    int count, get_error, helper_error, helper_calls;
+    bool bridge_states, legacy;
+};
+#define for_each_oldnew_plane_in_state(s,p,o,n,i) \
+    for ((i)=0; (i)<(s)->count && \
+         ((p)=&(s)->planes[i], (void)(p), (o)=&(s)->old[i], \
+          (n)=&(s)->next[i], true); (i)++)
+static struct drm_crtc_state *drm_atomic_get_crtc_state(struct drm_atomic_state *s,
+                                                       struct drm_crtc *crtc)
+{
+    assert(crtc);
+    if (s->get_error) return (void *)(intptr_t)s->get_error;
+    return &s->crtc;
+}
+static int drm_atomic_helper_check(struct drm_device *dev, struct drm_atomic_state *s)
+{
+    (void)dev;
+    s->helper_calls++;
+    /* Generic helper: check_modeset collects bridges BEFORE check_planes. */
+    s->bridge_states = s->crtc.mode_changed;
+    if (s->legacy) {
+        struct drm_framebuffer *old_fb = s->old[0].fb, *fb = s->next[0].fb;
+        struct drm_crtc_state *crtc_state = &s->crtc;
+'''
+    harness += match.group(0) + r'''
+    }
+    return s->helper_error;
+}
+'''
+    harness += function(source, "lcdif_drm_atomic_check") + r'''
+int main(void)
+{
+    struct drm_device dev = {0};
+    struct drm_crtc crtc = {0};
+    const struct drm_format_info rgb = {1}, yuv = {2};
+    struct drm_framebuffer a = {{7680}, &rgb}, b = {{7680}, &yuv};
+    struct drm_framebuffer padded = {{8192}, &rgb};
+    struct drm_atomic_state base = {.count=1};
+    base.old[0] = (struct drm_plane_state){&a, &crtc};
+    base.next[0] = (struct drm_plane_state){&b, &crtc};
+    struct drm_atomic_state s = base;
+    s.legacy = true;
+    assert(!drm_atomic_helper_check(&dev, &s));
+    assert(s.crtc.mode_changed && !s.bridge_states); /* old bug */
+    s = base;
+    assert(!lcdif_drm_atomic_check(&dev, &s));
+    assert(s.crtc.mode_changed && s.bridge_states && s.helper_calls == 1);
+    s = base; s.next[0].fb = &padded;
+    assert(!lcdif_drm_atomic_check(&dev, &s) && s.bridge_states);
+    s = base; s.next[0].fb = &a;
+    assert(!lcdif_drm_atomic_check(&dev, &s));
+    assert(!s.crtc.mode_changed && !s.bridge_states && s.helper_calls == 1);
+    s = base; s.old[0].fb = NULL; s.crtc.mode_changed = true;
+    assert(!lcdif_drm_atomic_check(&dev, &s) && s.bridge_states);
+    s = base; s.next[0].fb = NULL; s.next[0].crtc = NULL;
+    assert(!lcdif_drm_atomic_check(&dev, &s) && s.helper_calls == 1);
+    s = base; s.next[0].crtc = NULL;
+    assert(!lcdif_drm_atomic_check(&dev, &s) && !s.crtc.mode_changed);
+    s = base; s.get_error = -35;
+    assert(lcdif_drm_atomic_check(&dev, &s) == -35 && !s.helper_calls);
+    s = base; s.helper_error = -22;
+    assert(lcdif_drm_atomic_check(&dev, &s) == -22);
+    s = base; s.count=2; s.next[0].fb=&a;
+    s.old[1]=base.old[0]; s.next[1]=base.next[0];
+    assert(!lcdif_drm_atomic_check(&dev, &s) && s.bridge_states);
+    return 0;
+}
+'''
+    path = work / "lcdif-state-test.c"
+    path.write_text(harness)
+    binary = work / "lcdif-state-test"
+    run(["cc", "-Wall", "-Wextra", "-Werror", "-std=c11", str(path), "-o", str(binary)])
+    run([str(binary)])
+    print("PASS: actual LCDIF check models format/stride bridge-state collection, unchanged flips, enable/disable, multiple planes and error propagation; original late check reproduces missing state. Not a kernel/hardware test.")
+
+
+def check_edid(source, work):
+    harness = r'''
+#include <assert.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <string.h>
+#include <errno.h>
+#define ARRAY_SIZE(x) (sizeof(x)/sizeof((x)[0]))
+#define EDID_LEN 32
+#define EDID_LOOP 8
+#define KEY_DDC_ACCS_DONE 2
+#define DDC_NO_ACK 0x50
+#define dev_err(...) ((void)0)
+struct reg_sequence { unsigned int reg, def; };
+struct regmap {
+    int calls, fail_at, cleanup_calls, reads, delay, status_reads;
+    unsigned int fifo, status;
+    bool stuck, cleanup_fail;
+};
+struct lt9611 { struct regmap *regmap; void *dev; unsigned char edid_buf[256]; };
+static void usleep_range(unsigned int min, unsigned int max)
+{
+    assert(min==5000 && max==10000);
+}
+static int regmap_write(struct regmap *m, unsigned int reg, unsigned int value)
+{
+    m->calls++;
+    if (reg == 0x8507 && value == 0x1f) m->cleanup_calls++;
+    if (m->calls == m->fail_at) return -ENXIO;
+    if (reg == 0x8507 && value == 0x1f && m->cleanup_fail) return -EIO;
+    if (reg == 0x8507 && value == 0x37) m->reads=0;
+    return 0;
+}
+static int regmap_multi_reg_write(struct regmap *m, const struct reg_sequence *s, size_t n)
+{
+    for (size_t i=0; i<n; i++) {
+        int ret=regmap_write(m,s[i].reg,s[i].def);
+        if (ret) return ret;
+    }
+    return 0;
+}
+static int regmap_read(struct regmap *m, unsigned int reg, unsigned int *value)
+{
+    m->calls++;
+    if (m->calls == m->fail_at) return -ENXIO;
+    if (reg == 0x8540) {
+        m->status_reads++;
+        *value=(m->stuck || m->reads++ < m->delay) ? 0 : m->status;
+    } else {
+        assert(reg == 0x8583);
+        *value=m->fifo++;
+    }
+    return 0;
+}
+/* Model elapsed-time polling with no real sleep; exact API/exit semantics. */
+#define regmap_read_poll_timeout(m,r,v,condition,interval,budget) ({ \
+    int poll_ret=0; unsigned int elapsed=0; \
+    for (;;) { \
+        poll_ret=regmap_read(m,r,&(v)); \
+        if (poll_ret || (condition)) break; \
+        if (elapsed >= (budget)) {poll_ret=-ETIMEDOUT; break;} \
+        elapsed += (interval); \
+    } \
+    poll_ret; \
+})
+'''
+    harness += function(source, "lt9611_read_edid") + r'''
+int main(void)
+{
+    struct regmap m = {.status=KEY_DDC_ACCS_DONE};
+    struct lt9611 d = {.regmap=&m};
+    assert(!lt9611_read_edid(&d));
+    assert(m.fifo==256 && m.cleanup_calls==1 && m.status_reads==8);
+    for (int i=0;i<256;i++) assert(d.edid_buf[i]==i);
+    int normal_calls=m.calls;
+    m=(struct regmap){.status=KEY_DDC_ACCS_DONE,.delay=3};
+    assert(!lt9611_read_edid(&d) && m.status_reads==32 && m.fifo==256);
+    m=(struct regmap){.stuck=true};
+    assert(lt9611_read_edid(&d)==-ETIMEDOUT && m.fifo==0 && m.status_reads==21);
+    assert(m.cleanup_calls==1);
+    const unsigned int bad_statuses[]={0x10,0x40,0x12,0x42};
+    for (size_t i=0;i<ARRAY_SIZE(bad_statuses);i++) {
+        m=(struct regmap){.status=bad_statuses[i]};
+        assert(lt9611_read_edid(&d)==-EIO && m.fifo==0 && m.cleanup_calls==1);
+    }
+    /* Inject a bus failure at every setup/request/status/FIFO/release op. */
+    for (int i=1;i<=normal_calls;i++) {
+        m=(struct regmap){.status=KEY_DDC_ACCS_DONE,.fail_at=i};
+        assert(lt9611_read_edid(&d)==-ENXIO && m.cleanup_calls==1);
+    }
+    m=(struct regmap){.status=KEY_DDC_ACCS_DONE,.cleanup_fail=true};
+    assert(lt9611_read_edid(&d)==-EIO);
+    m=(struct regmap){.status=KEY_DDC_ACCS_DONE,.fail_at=1,.cleanup_fail=true};
+    assert(lt9611_read_edid(&d)==-ENXIO); /* preserve first failure */
+    return 0;
+}
+'''
+    path = work / "edid-test.c"
+    path.write_text(harness)
+    binary = work / "edid-test"
+    run(["cc", "-Wall", "-Wextra", "-Werror", "-std=gnu11", str(path), "-o", str(binary)])
+    run([str(binary)])
+    get_edid = re.search(r"static struct edid \*lt9611_bridge_get_edid\(.*?\n\}", source, re.S).group(0)
+    assert get_edid.index("ret = lt9611_power_on") < get_edid.index("if (ret)") < get_edid.index("return NULL") < get_edid.index("return drm_do_get_edid")
+    print("PASS: actual EDID reader models immediate/delayed completion, bounded timeout, NACK/arbitration errors including done+error, every transfer failure and release/first-error handling. Power-on guard source-checked; no physical DDC proof.")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--kernel-git", required=True, help="Existing local kernel Git repository/git-dir")
     parser.add_argument("--only-dt", action="store_true", help="Recheck only a failed device-tree prerequisite/check")
     args = parser.parse_args()
-    paths = [DRIVER, CONNECTOR, "include/drm/drm_bridge_connector.h",
+    paths = [DRIVER, CONNECTOR, LCDIF_KMS, LCDIF_PLANE, "include/drm/drm_bridge_connector.h",
              "include/dt-bindings", "include/uapi/linux/input-event-codes.h"]
     paths += ["arch/arm64/boot/dts/freescale/" + name for name in
               ("imx8mm-evkb.dts", "imx8mm-evk.dtsi", "imx8mm.dtsi", "imx8mm-pinfunc.h")]
@@ -386,6 +600,7 @@ def main():
         with tarfile.open(fileobj=io.BytesIO(archive)) as bundle:
             bundle.extractall(work, filter="data")
         if not args.only_dt:
+            legacy_plane_source = (work / LCDIF_PLANE).read_text()
             for name in PATCHES:
                 patch = str(FILES / name)
                 run(["harness-git", "-C", directory, "apply", "--check", "--whitespace=error", patch])
@@ -396,6 +611,9 @@ def main():
             source = (work / DRIVER).read_text()
             check_sleep_address(source, work)
             check_functions(source, work)
+            check_lcdif_state((work / LCDIF_KMS).read_text(),
+                              (work / LCDIF_PLANE).read_text(), legacy_plane_source, work)
+            check_edid(source, work)
         check_dt(work)
     recipe = (BSP / "recipes-kernel/linux/linux-lmp-fslc-imx_%.bbappend").read_text()
     blocks = re.findall(r'SRC_URI:append:([^ =]+)\s*=\s*"(.*?)"', recipe, re.S)

@@ -4,10 +4,14 @@ Updated 16 November 2026 at Alex's request. Briar helped draft this.
 
 ## Current state
 
-Foundries development build **682** passed and reached Michael's DT510.
-HDMI console video has been observed on the TV, but boot/reboot reliability is
-not established: a later boot produced a black display, recovered by ordered
-display-controller and LT9611 driver rebind without rebooting the board.
+Foundries development build **684** passed, booted on Michael's DT510 and
+finalized successfully. It contains the sleep-address fix and diagnostic/media
+packages, but cold startup still failed EDID (`access not done`) with the TV on.
+Ordered display-controller/LT9611 rebind recovered a visible 1080p console and
+valid 256-byte EDID. Video playback exposed DRM bridge-state warnings and a
+black picture despite GStreamer reporting PLAYING. Video is not an accepted pass.
+The next candidate corrects LCDIF modeset-check ordering and hardens EDID polling
+and error handling. Neither change is hardware-validated yet.
 The part is the plain **LT9611**, not LT9611UXC or LT9611UXD. Michael Hull
 confirmed four DSI data lanes wired to **MIPI port A** and correct board power
 sequencing; Alex relayed that **RSTn is active-low**. The hardware Google Doc
@@ -110,10 +114,13 @@ architecture. DT510 factory configuration must explicitly select `alsa` and
 under its new minimal defaults. Direct KMS diagnostics need no `display`/Weston
 bundle. Do not silently drop existing audio while adding video diagnostics.
 
-**Delivery status:** build 682 is the last confirmed board image. The sleep fix
-and new diagnostic/media packages are local next-build candidates, not deployed
-features. A replacement Foundries build has been requested but has not yet been
-triggered; the earlier publication attempt failed before a remote update.
+**Delivery status:** build 684 is the confirmed active board image, OSTree
+`114da47a503dc56bf5b545a3f781ad9a57c39908ea05d8ff5b79aa8f1110e7b1`,
+manifest `e99869486016602e24cb171350f31f7f02a44299`, BSP
+`3b4ae327f2967be5f685d134c4f6a5bb6161c8c0`. Build 683 failed at an optional
+Godot append; distro repair in 684 fixed that parse failure. Patches 0034/0035
+are next-build candidates, not yet deployed fixes. No successful startup or
+visible-video acceptance is claimed from pipeline state or frame counts alone.
 
 ## Hardware recovery evidence — 16 November 2026
 
@@ -190,7 +197,7 @@ was not separately probed.
 
 Candidate patch 0033 derives the software address from `client->addr << 1`,
 preserving the configured address while retaining the rest of the sleep sequence.
-It is local only: not deployed to build 682, and not yet hardware-validated.
+It was absent from 682 and is deployed in 684; it did not resolve cold-start EDID.
 The preflight regression compiles the actual patched sleep function against a
 register-address model, checks repeated sequences at both strap addresses and
 requires the old hardcoded sequence to reproduce loss of `0x39` after two writes.
@@ -232,8 +239,31 @@ Linux 6.6.52 at `e0f9e2afd4cff3f02d71891244b4aa5899dfc786`.
   takes the existing regulator cleanup path.
 - `0033-drm-bridge-lt9611-preserve-i2c-address-in-sleep.patch`: use the configured
   client address instead of moving the bridge from `0x39` to `0x3b` during sleep.
-  Local candidate only; hardware sleep/wake, warm reboot and cold boot remain
-  acceptance checks. No arbitrary timing delay or rebind service is added.
+  Deployed in 684; startup remains unresolved. No automatic rebind is installed.
+- `0034-drm-imx-lcdif-check-fb-modeset-before-bridges.patch`: decide format/stride
+  full-modeset requirements before `drm_atomic_helper_check`, not in its later
+  plane-check stage. The late decision omitted connector/bridge atomic states,
+  triggering WARN_ON in bridge disable/post-disable/pre-enable/enable on 684.
+  Native regression compiles the actual new check and reproduces the old ordering
+  failure. It covers unchanged flips, format/stride transitions, multiple planes,
+  enable/disable and error propagation; it is not a full kernel or hardware test.
+- `0035-drm-bridge-lt9611-poll-edid-and-check-i2c-errors.patch`: retain the vendor
+  5–10 ms command-settle time, then poll completion/error at 5 ms intervals with
+  a 100 ms polling budget per 32-byte chunk. This budget is a software bound, not
+  a vendor-specified maximum or proof of the original failure cause. Check setup,
+  request, status, FIFO, release and power-on errors; reject done-with-DDC-error.
+  Native tests exercise the actual reader with delayed completion, timeout,
+  NACK/arbitration errors, each transfer failing and cleanup error precedence.
+  Physical DDC/startup behaviour still requires testing on the new image.
+
+On 684, the first warning was at boot monotonic time 1203.27 s in
+`drm_atomic_bridge_chain_disable`, from `videotestsrc0:s`; subsequent video
+threads triggered the same missing-old-bridge-state assertion. The trace reaches
+`drm_atomic_helper_update_plane` / `drm_mode_setplane` through LCDIF commit.
+The exact pinned LCDIF plane check sets `mode_changed` on format/stride changes
+after the generic modeset check has already collected affected bridge states.
+The board remained responsive; these were kernel WARN stack traces, not evidence
+of a fatal panic. They are nevertheless a failed display test, not harmless noise.
 
 Independent review also found a circular probe dependency: the NXP host is
 registered only during component bind, while LT9611 previously needed that host

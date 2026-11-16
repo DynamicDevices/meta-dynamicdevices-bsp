@@ -1,0 +1,139 @@
+Subject: [PATCH] drm/bridge: lt9611: poll EDID completion and propagate bus errors
+
+Keep the vendor 5-10 ms command-settle time, then poll completion/error
+instead of failing on one status sample. Bound polling to 100 ms per
+32-byte chunk. This is a software probe budget, not a vendor-specified
+deadline or proof of the boot failure cause.
+Check setup, requests, status, FIFO and cleanup errors rather than reporting
+uninitialised status as an incomplete DDC transaction. Reject done-with-error.
+Propagate power-on failure before attempting EDID.
+
+Upstream-Status: Pending
+
+--- a/drivers/gpu/drm/bridge/lontium-lt9611.c
++++ b/drivers/gpu/drm/bridge/lontium-lt9611.c
+@@ -604,55 +604,76 @@
+ 
+ static int lt9611_read_edid(struct lt9611 *lt9611)
+ {
+-	unsigned int temp;
+-	int ret = 0;
++	const struct reg_sequence setup[] = {
++		{ 0x8503, 0xc9 },
++		{ 0x8504, 0xa0 }, /* EDID device address */
++		{ 0x8506, EDID_LEN },
++		{ 0x8514, 0x7f },
++	};
++	unsigned int temp = 0;
++	int ret, cleanup_ret;
+ 	int i, j;
+ 
+ 	/* memset to clear old buffer, if any */
+ 	memset(lt9611->edid_buf, 0, sizeof(lt9611->edid_buf));
+ 
+-	regmap_write(lt9611->regmap, 0x8503, 0xc9);
+-
+-	/* 0xA0 is EDID device address */
+-	regmap_write(lt9611->regmap, 0x8504, 0xa0);
+-	/* 0x00 is EDID offset address */
+-	regmap_write(lt9611->regmap, 0x8505, 0x00);
+-
+-	/* length for read */
+-	regmap_write(lt9611->regmap, 0x8506, EDID_LEN);
+-	regmap_write(lt9611->regmap, 0x8514, 0x7f);
++	ret = regmap_multi_reg_write(lt9611->regmap, setup, ARRAY_SIZE(setup));
++	if (ret) {
++		dev_err(lt9611->dev, "EDID setup failed: %d\n", ret);
++		goto end;
++	}
+ 
+ 	for (i = 0; i < EDID_LOOP; i++) {
+-		/* offset address */
+-		regmap_write(lt9611->regmap, 0x8505, i * EDID_LEN);
+-		regmap_write(lt9611->regmap, 0x8507, 0x36);
+-		regmap_write(lt9611->regmap, 0x8507, 0x31);
+-		regmap_write(lt9611->regmap, 0x8507, 0x37);
+-		usleep_range(5000, 10000);
+-
+-		regmap_read(lt9611->regmap, 0x8540, &temp);
++		const struct reg_sequence request[] = {
++			{ 0x8505, i * EDID_LEN },
++			{ 0x8507, 0x36 },
++			{ 0x8507, 0x31 },
++			{ 0x8507, 0x37 },
++		};
+ 
+-		if (temp & KEY_DDC_ACCS_DONE) {
+-			for (j = 0; j < EDID_LEN; j++) {
+-				regmap_read(lt9611->regmap, 0x8583, &temp);
+-				lt9611->edid_buf[i * EDID_LEN + j] = temp;
+-			}
+-
+-		} else if (temp & DDC_NO_ACK) { /* DDC No Ack or Abitration lost */
+-			dev_err(lt9611->dev, "read edid failed: no ack\n");
+-			ret = -EIO;
++		ret = regmap_multi_reg_write(lt9611->regmap, request,
++					    ARRAY_SIZE(request));
++		if (ret) {
++			dev_err(lt9611->dev, "EDID request %d failed: %d\n", i, ret);
+ 			goto end;
++		}
+ 
+-		} else {
+-			dev_err(lt9611->dev, "read edid failed: access not done\n");
++		/* Keep the vendor command-settle time before sampling status. */
++		usleep_range(5000, 10000);
++		/* Bound completion polling to a further 100 ms per chunk. */
++		temp = 0;
++		ret = regmap_read_poll_timeout(lt9611->regmap, 0x8540, temp,
++					       temp & (KEY_DDC_ACCS_DONE | DDC_NO_ACK),
++					       5000, 100000);
++		if (ret) {
++			dev_err(lt9611->dev,
++				"EDID wait %d failed: status=%#x error=%d\n",
++				i, temp, ret);
++			goto end;
++		}
++		if (temp & DDC_NO_ACK) {
++			dev_err(lt9611->dev, "EDID DDC error: chunk=%d status=%#x\n",
++				i, temp);
+ 			ret = -EIO;
+ 			goto end;
+ 		}
++
++		for (j = 0; j < EDID_LEN; j++) {
++			ret = regmap_read(lt9611->regmap, 0x8583, &temp);
++			if (ret) {
++				dev_err(lt9611->dev, "EDID FIFO byte %d failed: %d\n",
++					i * EDID_LEN + j, ret);
++				goto end;
++			}
++			lt9611->edid_buf[i * EDID_LEN + j] = temp;
++		}
+ 	}
+ 
+ end:
+-	regmap_write(lt9611->regmap, 0x8507, 0x1f);
+-	return ret;
++	cleanup_ret = regmap_write(lt9611->regmap, 0x8507, 0x1f);
++	if (cleanup_ret)
++		dev_err(lt9611->dev, "EDID release failed: %d\n", cleanup_ret);
++	return ret ? ret : cleanup_ret;
+ }
+ 
+ static int
+@@ -918,8 +939,13 @@
+ 					   struct drm_connector *connector)
+ {
+ 	struct lt9611 *lt9611 = bridge_to_lt9611(bridge);
++	int ret;
+ 
+-	lt9611_power_on(lt9611);
++	ret = lt9611_power_on(lt9611);
++	if (ret) {
++		dev_err(lt9611->dev, "EDID power-on failed: %d\n", ret);
++		return NULL;
++	}
+ 	return drm_do_get_edid(connector, lt9611_get_edid_block, lt9611);
+ }
+ 
