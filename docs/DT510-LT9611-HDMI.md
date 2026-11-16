@@ -4,7 +4,7 @@ Updated 16 November 2026 at Alex's request. Briar helped draft this.
 
 ## Current state
 
-Foundries development build **685** passed, booted on Michael's DT510 and
+Foundries development build **686** passed, booted on Michael's DT510 and
 finalized successfully. Its checked power-on path exposed `-EAGAIN` (`-11`)
 before EDID, leaving HDMI disconnected with zero EDID bytes. It contains the
 LCDIF bridge-state and EDID-handling changes as well as the sleep-address fix.
@@ -14,8 +14,9 @@ black picture despite GStreamer reporting PLAYING. Video is not an accepted pass
 A single later `detect` reprobe on 685, without reset or rebind, read a valid
 256-byte EDID. The adapter-2 trace recorded 6068 events, zero failed transfers
 and zero overruns. Detection recovered; scanout was still disabled, so this
-alone is not visible-output acceptance. Patch 0036 targets retryable power-on
-arbitration errors; underlying electrical/arbitration causation is not proven.
+alone is not visible-output acceptance. Patch 0036 is deployed in 686, but its
+three power-on attempts still fail at boot. More retries are not an established
+fix; underlying electrical/arbitration causation is not proven.
 The part is the plain **LT9611**, not LT9611UXC or LT9611UXD. Michael Hull
 confirmed four DSI data lanes wired to **MIPI port A** and correct board power
 sequencing; Alex relayed that **RSTn is active-low**. The hardware Google Doc
@@ -118,13 +119,69 @@ architecture. DT510 factory configuration must explicitly select `alsa` and
 under its new minimal defaults. Direct KMS diagnostics need no `display`/Weston
 bundle. Do not silently drop existing audio while adding video diagnostics.
 
-**Delivery status:** build 685 is the confirmed active board image, OSTree
-`22e9bb6d5edcc5fba162e7830a5f3cf6aea985c3dc28f38299e6302eca4cbdf2`,
-manifest `e67baa6d855143b0e3b783f3d95957e2713c3052`, BSP
-`c58688db8b67d2364924a3b13f4e723c8f667dd5`. Build 683 failed at an optional
+**Delivery status:** build 686 is the confirmed active board image, OSTree
+`43d5513d2994a926b92edad4206acaa207f4c485a19b25a6197d4640f4dc574d`,
+manifest `f769808d2815d8e008508a15ecaba7b11965f4da`, BSP
+`9ffafdaff3dbf5787673cca7d3e1c9e9603e9df1`. Build 683 failed at an optional
 Godot append; distro repair in 684 fixed that parse failure. Patches 0034/0035
-are deployed in 685; patch 0036 is a next-build candidate. No successful startup or
+are deployed in 685; patch 0036 is deployed in 686. No successful startup or
 visible-video acceptance is claimed from pipeline state or frame counts alone.
+
+### Boot-time clock-switch trace and next controlled candidate
+
+Build 686 reproduces `EDID power-on failed: -11` after software reboots as well
+as its original boot. On boot `40898ee5-df3d-4fef-ae79-58e9e01c25d9`, kernel
+I2C tracepoints captured the first adapter-2 `-EAGAIN` and stopped tracing.
+There were 94 adapter-2 write/result records and zero overruns:
+
+| Operation | Kernel time (seconds) | Result |
+| --- | --- | --- |
+| Select LT9611 page `0x81` | 2.675249–2.677330 | success |
+| Write `0x8101 = 0x18` (select crystal clock) | 2.677333–3.179947 | reported success, **502.614 ms** |
+| Read page selector (`0xff`) | 3.179951–3.180120 | **`-EAGAIN`** |
+
+The pinned i.MX controller's STOP path waits up to 500 ms for an idle bus but
+does not propagate that wait's error. The observed duration is consistent with
+that timeout; the trace alone does not prove the controller status bits or an
+electrical cause. The first error precedes the DDC/EDID command sequence, so an
+EDID completion delay does not repair this failure.
+
+A later ordered display/bridge rebind on the same boot completed the identical
+clock-switch write in **0.279 ms**, with zero failed transfers and zero trace
+overruns; connector detection and 256-byte EDID recovered. This is recovery,
+not a boot or visible-video acceptance pass. Both temporary boot-option changes
+were restored, and tracing was disabled. Boot and rebind traces were retained
+under `/var/lib/dt510-hdmi-debug/` on the development board. An earlier capture
+stopped on the switch's initial `-ENXIO`, so it is not HDMI failure evidence.
+
+The next controlled candidate restores shared I2C3 to **100 kHz**, instead of
+its experimental 400 kHz DT request. The pinned controller already implements
+ERR007805's 384 kHz limit, so the old request must not be described as proof
+that the wire actually ran at 400 kHz or that this erratum fix was absent.
+The LT9611 sequence/retry count, other bus clients and all other pins remain
+unchanged. Compiled-DTB preflight checks the new frequency and LT9611 parent.
+This tests bus-timing sensitivity; **100 kHz is not yet a demonstrated fix**.
+Acceptance requires a boot trace without the long clock-switch transfer or
+I2C errors, valid EDID, actual picture, repeated cold/warm boots, and the existing
+mode/format/hotplug tests. If it persists, inspect crystal readiness and the
+controller's STOP/idle state rather than lengthening EDID polling.
+
+Public sources checked during this investigation:
+
+- [Upstream sleep-address proposal](https://lkml.iu.edu/hypermail/linux/kernel/2601.3/03089.html)
+  and [independent bench confirmation](https://lkml.rescloud.iu.edu/2601.3/08811.html).
+  These concern resume/replug address loss, not proof of this startup cause.
+- [i.MX single-master bus-polling change](https://github.com/torvalds/linux/commit/6692694aca86ddf6831e2be86e5089258c2789bf)
+  and its [STOP-condition correction](https://github.com/torvalds/linux/commit/768776dd4efc681cdca33a79e29bb508d6de9bc0).
+  Neither is imported blindly: single-master topology must be verified, and
+  skipping STOP polling would reproduce a known upstream regression.
+- [ERR007805 frequency-limit implementation](https://github.com/torvalds/linux/commit/39c025721d706eb4fa8a5a7a376c93a3162b71bc),
+  already present in our pinned controller driver.
+
+The pinned controller also returns from its pre-transfer idle-error path
+without balancing a successful runtime-PM get. This is a source-level defect
+for follow-up, not evidence that it caused the first failed transfer; no broad
+controller or power-management change is included in this candidate.
 
 ## Hardware recovery evidence — 16 November 2026
 

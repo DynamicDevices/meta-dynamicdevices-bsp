@@ -359,6 +359,8 @@ def check_dt(work):
     get(symbol("mipi_dsi_out"), "attach-bridge")
     assert get(symbol("lt9611"), "reset-gpios", "x").split()[1:] == ["b", "1"]
     assert get(symbol("lt9611"), "interrupts", "x") == "6 4"
+    assert get(symbol("i2c3"), "clock-frequency", "u") == "100000"
+    assert symbol("lt9611").rsplit("/", 1)[0] == symbol("i2c3")
     assert get(symbol("lt9611"), "vdd-supply", "x") == get(symbol("reg_lt9611_vdd_1v8"), "phandle", "x")
     assert get(symbol("lt9611"), "vcc-supply", "x") == get(symbol("reg_vddext_3v3"), "phandle", "x")
     children = run(["fdtget", "-l", dtb, symbol("i2c2")], text=True).stdout.splitlines()
@@ -370,7 +372,7 @@ def check_dt(work):
                      if "Warning" in line and any(term in line for term in
                         ("lt9611", "hdmi-connector", "mipi_dsi", "dsim_", "lcdif"))]
     assert not hdmi_warnings, "\n".join(hdmi_warnings)[:2000]
-    print(f"PASS: compiled DTB and checked enabled LCDIF/DSI/LT9611, graph, lanes, GPIOs, supplies and EVK removal; {warnings.count('Warning')} other DT warnings.")
+    print(f"PASS: compiled DTB and checked enabled LCDIF/DSI/LT9611, graph, lanes, GPIOs, supplies, shared I2C3 at 100 kHz and EVK removal; {warnings.count('Warning')} other DT warnings.")
     for line in warnings.splitlines():
         if "Warning" in line:
             print(line.split(": Warning", 1)[-1][:400])

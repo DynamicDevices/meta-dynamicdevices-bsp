@@ -1037,10 +1037,11 @@
 
 &i2c3 {
 	/*
-	 * EVK default is often 100 kHz on this adapter; raise to Fast-mode (400 kHz) for
-	 * experiments (KSZ9896 MIB / charger share this bus — confirm signal integrity).
+	 * Keep the shared LT9611 / KSZ9896 / charger bus at Standard-mode while
+	 * qualifying LT9611 startup. Fast-mode clock-switch transfers stalled at
+	 * boot; a slower bus is a controlled candidate, not a proved startup fix.
 	 */
-	clock-frequency = <400000>;
+	clock-frequency = <100000>;
 
 	/* Strip EVK audio/camera/gpio-expander children not fitted on DT510. */
 	/delete-node/ ak4458@10;
