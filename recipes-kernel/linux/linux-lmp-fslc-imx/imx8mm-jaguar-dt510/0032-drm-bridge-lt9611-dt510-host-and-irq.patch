@@ -1,0 +1,274 @@
+Subject: [PATCH] drm/bridge: lt9611: integrate DT510 SEC DSIM and active-high IRQ
+
+NXP SEC DSIM registers its DSI host only during component binding and
+unregisters it when a downstream bridge defers. Advertising the LT9611
+bridge only after its probe attaches to a DSI host creates a circular
+probe dependency. Publish the bridge without requiring the host and move
+DSI attachment into bridge attach, matching the pinned ADV7535 pattern.
+Use explicit DSI registration with symmetric detach/unregister on errors,
+bridge detach and device removal so deferred retries cannot leak devices.
+
+The NXP host expects its downstream bridge to create a DRM connector,
+whereas display-connector requires NO_CONNECTOR. Attach the terminal bridge
+with that flag and create one bridge connector only when the parent needs
+it. Keep the DRM core's connector reference on success, holding a separate
+reference until bridge detach. Disconnect its bridge callbacks before bridge
+removal so deferred connector destruction cannot use a removed bridge or its
+destroyed HPD mutex. Preserve modern NO_CONNECTOR ownership.
+
+The vendor register manual supplied by Michael Hull documents 0x8210 bit 0
+(RGD_INT_POL_SEL): reset default 0 is active-low, 1 selects active-high.
+Program it before requesting DT510's level-high IRQ, with error cleanup.
+Only imx8mm-jaguar-dt510 includes this patch. No vendor code is imported.
+
+Upstream-Status: Inappropriate [DT510 integration with NXP's downstream DSI host]
+Assisted-by: Briar
+---
+diff --git a/drivers/gpu/drm/bridge/lontium-lt9611.c b/drivers/gpu/drm/bridge/lontium-lt9611.c
+--- a/drivers/gpu/drm/bridge/lontium-lt9611.c
++++ b/drivers/gpu/drm/bridge/lontium-lt9611.c
+@@ -18,6 +18,8 @@
+ 
+ #include <drm/drm_atomic_helper.h>
+ #include <drm/drm_bridge.h>
++#include <drm/drm_bridge_connector.h>
++#include <drm/drm_connector.h>
+ #include <drm/drm_mipi_dsi.h>
+ #include <drm/drm_of.h>
+ #include <drm/drm_print.h>
+@@ -35,6 +37,7 @@
+ 	struct device *dev;
+ 	struct drm_bridge bridge;
+ 	struct drm_bridge *next_bridge;
++	struct drm_connector *connector;
+ 
+ 	struct regmap *regmap;
+ 
+@@ -763,7 +766,7 @@
+ 	if (!host)
+ 		return ERR_PTR(dev_err_probe(lt9611->dev, -EPROBE_DEFER, "failed to find dsi host\n"));
+ 
+-	dsi = devm_mipi_dsi_device_register_full(dev, host, &info);
++	dsi = mipi_dsi_device_register_full(host, &info);
+ 	if (IS_ERR(dsi)) {
+ 		dev_err(lt9611->dev, "failed to create dsi device\n");
+ 		return dsi;
+@@ -774,22 +777,89 @@
+ 	dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_SYNC_PULSE |
+ 			  MIPI_DSI_MODE_VIDEO_HSE;
+ 
+-	ret = devm_mipi_dsi_attach(dev, dsi);
++	ret = mipi_dsi_attach(dsi);
+ 	if (ret < 0) {
+ 		dev_err(dev, "failed to attach dsi to host\n");
++		mipi_dsi_device_unregister(dsi);
+ 		return ERR_PTR(ret);
+ 	}
+ 
+ 	return dsi;
++}
++
++static void lt9611_bridge_detach(struct drm_bridge *bridge)
++{
++	struct lt9611 *lt9611 = bridge_to_lt9611(bridge);
++
++	if (lt9611->connector) {
++		drm_bridge_connector_disconnect(lt9611->connector);
++		drm_connector_put(lt9611->connector);
++		lt9611->connector = NULL;
++	}
++	if (lt9611->dsi1) {
++		mipi_dsi_detach(lt9611->dsi1);
++		mipi_dsi_device_unregister(lt9611->dsi1);
++		lt9611->dsi1 = NULL;
++	}
++	if (lt9611->dsi0) {
++		mipi_dsi_detach(lt9611->dsi0);
++		mipi_dsi_device_unregister(lt9611->dsi0);
++		lt9611->dsi0 = NULL;
++	}
+ }
+ 
+ static int lt9611_bridge_attach(struct drm_bridge *bridge,
+ 				enum drm_bridge_attach_flags flags)
+ {
+ 	struct lt9611 *lt9611 = bridge_to_lt9611(bridge);
+-
+-	return drm_bridge_attach(bridge->encoder, lt9611->next_bridge,
+-				 bridge, flags);
++	struct mipi_dsi_device *dsi;
++	struct drm_connector *connector;
++	int ret;
++
++	/* NXP registers the DSI host only while binding this bridge chain. */
++	dsi = lt9611_attach_dsi(lt9611, lt9611->dsi0_node);
++	if (IS_ERR(dsi))
++		return PTR_ERR(dsi);
++	lt9611->dsi0 = dsi;
++
++	if (lt9611->dsi1_node) {
++		dsi = lt9611_attach_dsi(lt9611, lt9611->dsi1_node);
++		if (IS_ERR(dsi)) {
++			ret = PTR_ERR(dsi);
++			goto err_detach;
++		}
++		lt9611->dsi1 = dsi;
++	}
++
++	/* NXP SEC DSIM expects its downstream bridge to create a connector. */
++	ret = drm_bridge_attach(bridge->encoder, lt9611->next_bridge,
++			       bridge, flags | DRM_BRIDGE_ATTACH_NO_CONNECTOR);
++	if (ret)
++		goto err_detach;
++	if (flags & DRM_BRIDGE_ATTACH_NO_CONNECTOR)
++		return 0;
++
++	connector = drm_bridge_connector_init(bridge->dev, bridge->encoder);
++	if (IS_ERR(connector)) {
++		ret = PTR_ERR(connector);
++		goto err_detach;
++	}
++	ret = drm_connector_attach_encoder(connector, bridge->encoder);
++	if (ret) {
++		drm_bridge_connector_disconnect(connector);
++		drm_connector_put(connector);
++		goto err_detach;
++	}
++
++	/* The initial reference belongs to DRM mode_config cleanup. */
++	drm_connector_get(connector);
++	lt9611->connector = connector;
++
++	return 0;
++
++err_detach:
++	lt9611_bridge_detach(bridge);
++	return ret;
+ }
+ 
+ static enum drm_mode_status lt9611_bridge_mode_valid(struct drm_bridge *bridge,
+@@ -888,6 +958,7 @@
+ 
+ static const struct drm_bridge_funcs lt9611_bridge_funcs = {
+ 	.attach = lt9611_bridge_attach,
++	.detach = lt9611_bridge_detach,
+ 	.mode_valid = lt9611_bridge_mode_valid,
+ 	.detect = lt9611_bridge_detect,
+ 	.get_edid = lt9611_bridge_get_edid,
+@@ -1102,6 +1173,11 @@
+ 		goto err_disable_regulators;
+ 	}
+ 
++	/* DT510 HDMI_INT is active-high; reset defaults RGD_INT_POL_SEL to 0. */
++	ret = regmap_update_bits(lt9611->regmap, 0x8210, 0x01, 0x01);
++	if (ret)
++		goto err_disable_regulators;
++
+ 	ret = devm_request_threaded_irq(dev, client->irq, NULL,
+ 					lt9611_irq_thread_handler,
+ 					IRQF_ONESHOT, "lt9611", lt9611);
+@@ -1118,34 +1194,15 @@
+ 			     DRM_BRIDGE_OP_HPD | DRM_BRIDGE_OP_MODES;
+ 	lt9611->bridge.type = DRM_MODE_CONNECTOR_HDMIA;
+ 
+-	drm_bridge_add(&lt9611->bridge);
+-
+-	/* Attach primary DSI */
+-	lt9611->dsi0 = lt9611_attach_dsi(lt9611, lt9611->dsi0_node);
+-	if (IS_ERR(lt9611->dsi0)) {
+-		ret = PTR_ERR(lt9611->dsi0);
+-		goto err_remove_bridge;
+-	}
+-
+-	/* Attach secondary DSI, if specified */
+-	if (lt9611->dsi1_node) {
+-		lt9611->dsi1 = lt9611_attach_dsi(lt9611, lt9611->dsi1_node);
+-		if (IS_ERR(lt9611->dsi1)) {
+-			ret = PTR_ERR(lt9611->dsi1);
+-			goto err_remove_bridge;
+-		}
+-	}
+-
+-	lt9611_enable_hpd_interrupts(lt9611);
+-
+ 	ret = lt9611_audio_init(dev, lt9611);
+ 	if (ret)
+-		goto err_remove_bridge;
++		goto err_disable_regulators;
++
++	lt9611_enable_hpd_interrupts(lt9611);
++	/* Publish only after probe is complete, without requiring a DSI host. */
++	drm_bridge_add(&lt9611->bridge);
+ 
+ 	return 0;
+-
+-err_remove_bridge:
+-	drm_bridge_remove(&lt9611->bridge);
+ 
+ err_disable_regulators:
+ 	regulator_bulk_disable(ARRAY_SIZE(lt9611->supplies), lt9611->supplies);
+@@ -1164,6 +1221,7 @@
+ 	disable_irq(client->irq);
+ 	lt9611_audio_exit(lt9611);
++	lt9611_bridge_detach(&lt9611->bridge);
+ 	drm_bridge_remove(&lt9611->bridge);
+ 
+ 	regulator_bulk_disable(ARRAY_SIZE(lt9611->supplies), lt9611->supplies);
+ 
+diff --git a/drivers/gpu/drm/drm_bridge_connector.c b/drivers/gpu/drm/drm_bridge_connector.c
+--- a/drivers/gpu/drm/drm_bridge_connector.c
++++ b/drivers/gpu/drm/drm_bridge_connector.c
+@@ -207,6 +207,9 @@
+ 	struct drm_encoder *encoder = bridge_connector->encoder;
+ 	struct drm_bridge *bridge;
+ 
++	if (!encoder)
++		return;
++
+ 	list_for_each_entry(bridge, &encoder->bridge_chain, chain_node) {
+ 		if (bridge->funcs->debugfs_init)
+ 			bridge->funcs->debugfs_init(bridge, root);
+@@ -391,3 +394,33 @@
+ 	return connector;
+ }
+ EXPORT_SYMBOL_GPL(drm_bridge_connector_init);
++
++/**
++ * drm_bridge_connector_disconnect - Stop a connector using its bridge chain
++ * @connector: connector created by drm_bridge_connector_init()
++ *
++ * Unregister the connector and stop HPD before clearing bridge references.
++ * The caller must serialize this with bridge-chain teardown. The DRM core
++ * retains its initial connector reference; this does not release references.
++ * Remaining references may safely outlive bridge removal.
++ */
++void drm_bridge_connector_disconnect(struct drm_connector *connector)
++{
++	struct drm_bridge_connector *bridge_connector =
++		to_drm_bridge_connector(connector);
++
++	drm_connector_unregister(connector);
++	/* Do not hold mode_config.mutex: an in-flight HPD callback needs it. */
++	if (bridge_connector->bridge_hpd)
++		drm_bridge_hpd_disable(bridge_connector->bridge_hpd);
++
++	mutex_lock(&connector->dev->mode_config.mutex);
++	connector->polled = 0;
++	bridge_connector->bridge_hpd = NULL;
++	bridge_connector->bridge_detect = NULL;
++	bridge_connector->bridge_edid = NULL;
++	bridge_connector->bridge_modes = NULL;
++	bridge_connector->encoder = NULL;
++	mutex_unlock(&connector->dev->mode_config.mutex);
++}
++EXPORT_SYMBOL_GPL(drm_bridge_connector_disconnect);
+diff --git a/include/drm/drm_bridge_connector.h b/include/drm/drm_bridge_connector.h
+--- a/include/drm/drm_bridge_connector.h
++++ b/include/drm/drm_bridge_connector.h
+@@ -12,5 +12,6 @@
+ 
+ struct drm_connector *drm_bridge_connector_init(struct drm_device *drm,
+ 						struct drm_encoder *encoder);
++void drm_bridge_connector_disconnect(struct drm_connector *connector);
+ 
+ #endif /* __DRM_BRIDGE_CONNECTOR_H__ */

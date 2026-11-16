@@ -61,6 +61,8 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
 		file://gpio-keys.cfg \
 		file://imx8mm-jaguar-dt510/video-disable.cfg \
 		file://imx8mm-jaguar-dt510/lt9611-hdmi.cfg \
+		file://imx8mm-jaguar-dt510/0031-drm-bridge-lt9611-fix-dt510-active-low-reset.patch \
+		file://imx8mm-jaguar-dt510/0032-drm-bridge-lt9611-dt510-host-and-irq.patch \
 		${@bb.utils.contains('MACHINE_FEATURES', 'tas2563', 'file://imx8mm-jaguar-dt510/tas2562-audio-codec.cfg', '', d)} \
 		${@bb.utils.contains('MACHINE_FEATURES', 'tas6424', 'file://imx8mm-jaguar-dt510/tas6424-audio-codec.cfg file://imx8mm-jaguar-dt510/0026-asoc-tas6424-rename-passenger-tannoy-controls.patch', '', d)} \
 		file://imx8mm-jaguar-dt510/0028-asoc-fsl-sai-sai5-capture-tx-sync-frame.patch \

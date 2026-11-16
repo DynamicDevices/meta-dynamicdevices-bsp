@@ -87,7 +87,7 @@ Lab status = Dynamic Devices on **interim DT510 boards** (May 2026). **Prototype
 | Schematic block | Ref / key nets | Status | What we know |
 |-----------------|----------------|--------|--------------|
 | Battery charger | BQ25792, I²C3 `0x6B`; `CHGR_INT#` | **Partly** | Hardware described; **full charger driver** tied to factory kernel release |
-| HDMI bridge | LT9611, I²C3 `0x39` | **Staged / disabled** | DSI→LT9611→HDMI graph + `CONFIG_DRM_LONTIUM_LT9611=m` landed; nodes disabled until BOM I²C + 1.8 V VDD confirm |
+| HDMI bridge | LT9611, I²C3 `0x39` | **Enabled in local sources; untested on hardware** | Four-lane port A, built-in display path, DT510 reset/connector/IRQ patches; compiled DT and helper tests pass. Full build and bench acceptance pending; [integration notes](DT510-LT9611-HDMI.md) |
 | HDMI fault / sideband | `HDMI2C1` etc. | **Partial** | Fault gpio-key muxed; enable with LT9611 |
 | Secure element | SE050, I²C4 `0x48`, SoC **D13/E13** | **Partly** | OpTEE path documented; pinout errata in [`DT510-SE050.md`](DT510-SE050.md); provisioning TBD |
 
@@ -114,7 +114,7 @@ Everything else in the table above is **have** or **partly have**. These are the
 | 5 | **Battery charger** | Kernel driver completion on factory release |
 | 6 | **Driver speaker** | Acoustic / level sign-off |
 | 7 | **Low-power MCU** | Production programming workflow |
-| 8 | **HDMI** | Graph + driver CFG staged; enable when BOM proves LT9611 @ `0x39` and 1.8 V VDD |
+| 8 | **HDMI** | Enabled in local sources (2026-11-16); full build, revision probe, EDID/video/hot-plug and supply mapping remain pending |
 | 9 | **Prototype boards** | Re-walk this table when final BOM hardware lands |
 
 **Manufacturing (not a missing feature):** RS‑485 on **U13** needs a **one-time** CP2108 configuration per assembled board before system test—procedure is written down.

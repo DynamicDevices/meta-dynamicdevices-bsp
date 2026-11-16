@@ -1,0 +1,41 @@
+Subject: [PATCH] drm/bridge: lt9611: release the DT510 active-low reset
+
+DT510 connects GPIO2_IO11 to the plain LT9611 RSTn input and correctly
+describes the line as GPIO_ACTIVE_LOW. The legacy reset sequence uses
+logical 1, 0, 1, leaving this active-low line physically low and the chip
+held in reset before the driver reads its revision.
+
+Use logical 0, 1, 0 to preserve the intended physical high, low, high
+sequence and its 20/20/100 ms delays. Keep GPIOD_OUT_HIGH at acquisition:
+logical 1 initially asserts the active-low reset while power is enabled.
+
+Apply this patch only through the imx8mm-jaguar-dt510 SRC_URI override.
+Other machine builds retain their legacy reset convention; do not apply
+this unconditionally to boards using GPIO_ACTIVE_HIGH in their DT.
+
+Upstream-Status: Inappropriate [DT510-only adaptation of legacy GPIO semantics]
+Assisted-by: Briar
+---
+ drivers/gpu/drm/bridge/lontium-lt9611.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/bridge/lontium-lt9611.c b/drivers/gpu/drm/bridge/lontium-lt9611.c
+--- a/drivers/gpu/drm/bridge/lontium-lt9611.c
++++ b/drivers/gpu/drm/bridge/lontium-lt9611.c
+@@ -532,13 +532,13 @@
+ 
+ static void lt9611_reset(struct lt9611 *lt9611)
+ {
+-	gpiod_set_value_cansleep(lt9611->reset_gpio, 1);
++	gpiod_set_value_cansleep(lt9611->reset_gpio, 0);
+ 	msleep(20);
+ 
+-	gpiod_set_value_cansleep(lt9611->reset_gpio, 0);
++	gpiod_set_value_cansleep(lt9611->reset_gpio, 1);
+ 	msleep(20);
+ 
+-	gpiod_set_value_cansleep(lt9611->reset_gpio, 1);
++	gpiod_set_value_cansleep(lt9611->reset_gpio, 0);
+ 	msleep(100);
+ }
+ 
