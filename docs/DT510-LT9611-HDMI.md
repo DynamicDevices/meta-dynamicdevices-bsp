@@ -30,6 +30,91 @@ No HDMI audio DAI routing has been added. Michael confirmed on 16 November 2026
 that the audio interface is not connected, so TV audio cannot be enabled through
 software alone on this wiring.
 
+### Display cropping resolved: TV overscan
+
+Michael reported that the first visible 16-pixel bands in the native 1080p
+overscan pattern were orange at left/right and red at top/bottom. This was
+consistent with roughly 32–47 source pixels cropped horizontally at each edge
+and 16–31 vertically. Michael then confirmed that TV overscan was enabled;
+after disabling it, his report was **"It's perfect now"**. The apparent console
+offset/clipping was therefore a TV picture-setting issue, not evidence that the
+framebuffer needs an offset or underscan workaround. Do not compensate for it
+by changing board timing or framebuffer geometry. This does not resolve the
+separate sleep/re-enable or boot reliability defect.
+
+### Manual diagnostics included in the next image candidate
+
+The new DT510-only `dt510-hdmi-test` package includes the exact bench-tested
+image, `/usr/share/dt510-hdmi-test/overscan-1920x1080.png`, a compressed BGRX copy
+and a manual framebuffer utility:
+
+```sh
+sudo dt510-hdmi-test info
+sudo dt510-hdmi-test show
+sudo dt510-hdmi-test restore
+sudo dt510-hdmi-test console
+sudo dt510-hdmi-test restore
+```
+
+The helper requires the existing native 1920×1080 XRGB8888 scanout, refuses
+userspace DRM owners, saves the console in a private root-owned `/run` directory
+and prevents text overwrites until restoration. It does not change modes, force
+HPD, reload a driver or start at boot. Restore before attempting any KMS playback.
+Other resolutions/formats are deliberately refused. The installed PNG can also
+be used by another viewer. The white outer band must reach all four edges;
+each subsequent coloured band is 16 source pixels wide. The companion source
+generator and host tests check image/raw agreement, edge colours, payload lengths
+and geometry rejection. Assets are generated on the host, not during Yocto or on
+the board; Pillow and font files are not runtime dependencies.
+
+The `console` action is a real text-console test, not a rendered screenshot:
+it saves `/dev/vcsaN` (character cells, attributes and cursor), fills every row
+and column with a known repeating `0–9A–Z` sequence, marks corners `TL/TR/BL/BR`
+and labels intermediate row edges `Lnnn/Rnnn`. Direct character-cell writes avoid
+bottom-row wrap/scroll. `restore` puts back the original cells and cursor. Restore
+an active graphical test before starting it. Verify the first/last characters
+and every edge row marker, including the bottom-right corner. Host tests check
+exact row/column lengths, corner markers and payload layout; hardware results
+must be recorded separately.
+
+The next DT510 image candidate also requests GStreamer KMS output (`kmssink`),
+H.264 parsing/FFmpeg decoding, MP4 demux, playback/typefinding, video conversion,
+test-pattern generation and direct HTTP media support. These are explicit image
+packages, not a browser/YouTube player. No music/video content is bundled or
+automatically fetched, and no HDMI audio routing is invented. The existing distro
+already accepts the `commercial` license flag used by its FFmpeg/libav recipes;
+this change does not broaden that license policy. Software H.264 decoding is a
+functional fallback; its usable resolution/frame rate must be measured on target.
+
+After deploying the candidate, verify the elements exist and try a silent local
+or authorised direct MP4 stream, for example:
+
+```sh
+# First restore the manual framebuffer test if it is active.
+sudo dt510-hdmi-test restore
+sudo gst-launch-1.0 -e playbin uri=file:///absolute/path/test.mp4 \
+  video-sink="kmssink force-modesetting=true" audio-sink=fakesink
+```
+
+The restore command is needed only if the pattern is active. Do not start playback
+over another DRM owner. KMS mode switching is a pending acceptance check, not a
+claimed pass: on build 682, a native 1280×720@60 test was accepted by KMS but the
+camera showed black video. Ordered full rebind restored 1080p and the pattern.
+The connector advertised 1080p at 60/50/30/25/24 Hz and 720p at 60/50 Hz; repeat
+native 720p and 1080p geometry tests after deploying the sleep-address correction.
+No 4K support is claimed.
+
+The batched next-build candidate also pins the published distro product-feature
+architecture. DT510 factory configuration must explicitly select `alsa` and
+`usb-gadget` in `DD_PRODUCT_FEATURES` to preserve existing codec/gadget support
+under its new minimal defaults. Direct KMS diagnostics need no `display`/Weston
+bundle. Do not silently drop existing audio while adding video diagnostics.
+
+**Delivery status:** build 682 is the last confirmed board image. The sleep fix
+and new diagnostic/media packages are local next-build candidates, not deployed
+features. A replacement Foundries build has been requested but has not yet been
+triggered; the earlier publication attempt failed before a remote update.
+
 ## Hardware recovery evidence — 16 November 2026
 
 Alex explicitly designated Michael's DT510 as development hardware and requested
