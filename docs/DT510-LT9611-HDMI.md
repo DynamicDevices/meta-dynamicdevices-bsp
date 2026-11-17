@@ -1,8 +1,25 @@
 # DT510 LT9611 HDMI bring-up
 
-Updated 16 November 2026 at Alex's request. Briar helped draft this.
+Updated 17 November 2026 at Alex's request. Briar helped draft this.
 
 ## Current state
+
+Build **689** passed, was installed by OTA after re-registration, booted and
+finalized. Its first HDMI attempt still failed: revision `0xe1` at 2.722348 s,
+then `EDID power-on failed: -6` at 3.359272 s, with disconnected/disabled HDMI
+and zero EDID bytes. The single-master candidate did **not** fix startup.
+Later on the same boot, HDMI disconnect/connect interrupts at 641.865001 s and
+643.152842 s were accompanied by framebuffer-console creation. Without a driver
+reload/rebind by Briar, the connector subsequently reported connected/enabled,
+256 EDID bytes and active 1920x1080 scanout. This is not repeated-startup or
+camera-confirmed visible-output acceptance; the external cause of those HPD
+events has not been established.
+
+The next diagnostic image disables **only** `ksz9896_sw` on I2C3. It is a
+temporary isolation test requested by Alex, not a production Ethernet change or
+a demonstrated HDMI fix. See the experiment and acceptance criteria below.
+
+### Earlier results
 
 Foundries development build **686** passed, booted on Michael's DT510 and
 finalized successfully. Its checked power-on path exposed `-EAGAIN` (`-11`)
@@ -247,7 +264,7 @@ without balancing a successful runtime-PM get. This is a source-level defect
 for follow-up, not evidence that it caused the first failed transfer; no broad
 controller or power-management change was included in the 100 kHz candidate.
 
-### Current source candidate: confirmed single-master I2C3
+### Single-master I2C3: deployed in 689, startup still fails
 
 Alex confirmed on 17 November 2026 that i.MX is the only master on I2C3;
 the LT9611, KSZ9896 and BQ25792 share that bus as targets. The KSZ9896C data
@@ -275,14 +292,43 @@ of STOP errors through the existing void STOP function. Existing HDMI/EDID,
 LCDIF, reset/lifecycle and retry tests also pass. Two pre-existing non-HDMI DT
 warnings remain. No local Yocto/kernel build was run.
 
-This is an unbuilt, undeployed candidate, **not a proved startup fix**. Acceptance
-must include EDID with valid checksums and a real picture on repeated cold/warm
-starts without manual detect/rebind, absence of the earlier long clock-switch
-stall/arbitration error, and no regression of the switch/charger on this shared
-bus. Preserve the working video pipeline's existing mode separately. Heartbeats
-continues on the unchanged build-688 board while source work proceeds; do not
-interrupt playback, reboot, deploy or edit boot settings without checking with
-Alex first.
+Build 689 deployed this candidate and still failed on initial power-on, now with
+`-ENXIO` (`-6`, an I2C NACK) rather than `-EAGAIN`. The failure is before the
+EDID/DDC read. Its exact register and address-versus-data phase are not captured.
+The earlier 500 ms STOP wait remains a suspect, not a proved cause on 689.
+
+### Temporary KSZ9896 startup-isolation experiment
+
+On the same 689 boot the KSZ driver failed its chip-ID read at I2C address
+`0x5f` with `-ENXIO` at 2.527889 s, before the LT9611 revision read succeeded
+at `0x39`. These distinct addresses do not collide. Linux serializes I2C
+transfers, so shared-bus use alone does not establish a software race. An
+electrical/shared-controller disturbance or switch-reset effect is unproved.
+
+For one diagnostic build, set only `ksz9896_sw` to `status = "disabled"`.
+Retain the FEC node and its pinctrl, I2C3 at 100 kHz with `single-master`, the
+charger, all HDMI nodes and all seven existing patches. This prevents the KSZ
+driver's boot probe and its reset writes; it does not electrically isolate the
+switch, guarantee a reset-pin level or rule out passive loading/power effects.
+Ethernet DSA ports are unavailable in this image. Restore the switch node and
+its diagnostic preflight expectation after the experiment; do not ship this
+temporary setting as the product fix.
+
+Acceptance: verify the deployed image identity and live disabled switch node,
+absence of the KSZ probe, and the **first** LT9611 power-on/EDID/scanout result
+without reload, rebind or cable/TV changes. Compare like-for-like warm starts
+with 689; subsequent cold starts remain required before claiming reliability.
+A pass implicates the removed probe/reset activity, but does not distinguish
+its individual effects or prove that the switch is electrically faulty. A
+failure excludes those driver actions as a sufficient explanation for that
+attempt, not every possible hardware interaction. Do not add HDMI retries,
+delays, driver fixes or boot-option edits to this isolation image.
+
+Source review also found unchecked HPD/sleep/wake I2C errors and discarded
+i.MX STOP errors. They remain separate follow-up findings, not changes in this
+experiment. The connector uses HPD-only notification, so a failed initial
+detection can remain stale until another event. First-failure ACK/STOP capture
+is still needed to identify the underlying bus/register failure.
 
 ## Hardware recovery evidence — 16 November 2026
 

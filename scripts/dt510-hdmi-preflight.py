@@ -352,6 +352,9 @@ def check_dt(work):
 
     for label in ("lt9611", "mipi_dsi", "lcdif"):
         assert get(symbol(label), "status") == "okay", label
+    # Temporary diagnostic image: exclude the KSZ probe, not the shared bus.
+    assert get(symbol("ksz9896_sw"), "status") == "disabled"
+    assert get(symbol("fec1"), "status") == "okay"
     for left, right in (("lcdif_to_dsim", "dsim_from_lcdif"),
                         ("mipi_dsi_out", "lt9611_in"),
                         ("lt9611_out", "hdmi_connector_in")):
@@ -378,7 +381,7 @@ def check_dt(work):
                      if "Warning" in line and any(term in line for term in
                         ("lt9611", "hdmi-connector", "mipi_dsi", "dsim_", "lcdif"))]
     assert not hdmi_warnings, "\n".join(hdmi_warnings)[:2000]
-    print(f"PASS: compiled DTB and checked enabled LCDIF/DSI/LT9611, graph, lanes, GPIOs, supplies, only I2C3 single-master at 100 kHz and EVK removal; {warnings.count('Warning')} other DT warnings.")
+    print(f"PASS: compiled DTB and checked disabled KSZ switch with FEC retained, enabled LCDIF/DSI/LT9611, graph, lanes, GPIOs, supplies, only I2C3 single-master at 100 kHz and EVK removal; {warnings.count('Warning')} other DT warnings.")
     for line in warnings.splitlines():
         if "Warning" in line:
             print(line.split(": Warning", 1)[-1][:400])

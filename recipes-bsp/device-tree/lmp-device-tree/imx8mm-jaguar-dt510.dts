@@ -1057,6 +1057,8 @@
 	ksz9896_sw: switch@5f {
 		compatible = "microchip,ksz9896";
 		reg = <0x5f>;
+		/* Temporary HDMI startup isolation: omit the switch probe/reset only. */
+		status = "disabled";
 		/* ENET_RST_N# — SAI1_RXC → GPIO4_IO1; active-low reset output from SoC */
 		reset-gpios = <&gpio4 1 GPIO_ACTIVE_LOW>;
 		interrupt-parent = <&gpio4>;
