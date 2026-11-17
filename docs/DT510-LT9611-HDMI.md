@@ -4,7 +4,68 @@ Updated 17 November 2026 at Alex's request. Briar helped draft this.
 
 ## Current state
 
-Build **690** is booted on the board with OSTree
+Build **691** passed and automatically booted on the board as version
+`5.0.9-691-96`, OSTree
+`b14052eb2e1b4797a2d2879a1c3c84175dc60c8d0200cfa88e524dc25b930bee`,
+boot ID `2c3bdd33-7498-40f8-b270-6bdf53fa2afb`. Read-only inspection found
+disconnected/disabled HDMI and zero EDID bytes. No manual recovery was performed.
+Target: <https://app.foundries.io/factories/vixdt/targets/691/>; manifest
+`5f7591da9c2b04dfb5333e276a7eb27222701da9`, BSP
+`87b3b5eb1d2b612815937610c8c6e7ff4c81bde7`.
+
+The diagnostic image identifies this order on its first startup:
+
+| Boot time | Observation |
+| --- | --- |
+| 2.619234 s | LT9611 revision `0xe1` reads successfully. |
+| 3.238612 s | STOP/idle wait times out after 504 ms; I2SR `0xa0` has IBB set. |
+| 3.246039 s | Controller confirms STOP timeout `-110`, still ignored by 691. |
+| 3.254110 s | Next address-ACK check fails `-6`; I2SR `0x91`, I2CR `0xd8`. |
+| 3.263536–3.277938 s | Selector read `0xff` fails while selecting page `0x82` for write `0x821b=0x69`. |
+| 3.285010 s | Power-on fails before the TV's EDID is read. |
+
+`0x91` includes both RXAK and arbitration-loss IAL; I2CR has lost MSTA.
+This is not proof of a clean target-address NACK. The first STOP stall follows
+the crystal-clock-selection write, consistent with the earlier boot trace.
+Electrical cause and crystal readiness remain unproved without a waveform.
+
+### STOP recovery correction candidate (not deployed)
+
+Patch **0039** retains STOP errors from write, PIO-read and DMA-read completion,
+disables the controller, and attempts standard GPIO bus recovery once when
+configured and non-atomic. It returns the original transfer error (or STOP
+error when bytes otherwise succeeded); it never reports recovery as transfer
+success or replays arbitrary client messages. Read STOP results are saved to
+avoid another 500 ms wait. DT510 supplies the I2C3-only GPIO recovery state on
+SCL GPIO5_IO18 and SDA GPIO5_IO19, preserving the default pad settings.
+The existing Linux recovery path restores the I2C pinmux before returning.
+
+LT9611 power-on may retry `-ETIMEDOUT` as well as `-EAGAIN` within its existing
+three-attempt budget, replaying only its idempotent initialization sequence.
+Permanent errors still return immediately. No boot-option, reset, regulator,
+clock-selection value, delay or Ethernet-isolation change is made.
+This corrects the confirmed hidden STOP failure and supplies a bounded bus-clear
+path, but hardware must show whether it restores startup. It does not establish
+why the clock transition stalls, nor justify hiding persistent electrical faults.
+
+Native tests compile the actual STOP and transfer wrapper through 64 fault
+combinations, including original-error precedence, failed recovery, no replay,
+and atomic exclusion. Actual read STOP placement is source-checked rather than
+whole-path compiled. DT compilation checks the GPIO phandles, lines, mux/pad
+cells and restoration state. All nine patches and existing checks pass, with
+two pre-existing unrelated DTC warnings. No local kernel/Yocto build was run.
+Independent review, publication, Foundries compilation and hardware tests remain
+required before acceptance. Keep 0038 diagnostics for this comparison.
+
+Acceptance must distinguish a clean first startup from a recovered one: retain
+any STOP/recovery log, validate EDID checksums, scanout and visible output, then
+test cleaned-up cold/warm starts and Ethernet/charger/network/update behaviour.
+Reassess 0039 and its GPIO configuration against those results; do not remove
+a demonstrated necessary correction just because it began as a test candidate.
+
+### Previous controlled baseline: build 690
+
+Build **690** was booted on the board with OSTree
 `8d914c045f907c952b80591dedb709e4f76f4f6782b7fef7dc451dbc7050fc2a`
 and boot ID `73b7ae02-5d78-479c-afb8-9a6ac2546aca`. It was already running
 when Briar began the approved deployment/test, so no duplicate installation or
@@ -34,8 +95,8 @@ record any external intervention rather than treating it as spontaneous recovery
 | T2: late detection only | With a private adapter-2 trace, perform exactly one connector `detect`, without reset, rebind or player. Bound capture/action duration and check overruns. | Identify logical-register/page-selector transfers, first failed message/errno and timing, or establish that this late sequence succeeds. Record EDID/checksums, connector and scanout separately. A late pass is not boot acceptance. | Complete: late detection succeeds without reset; valid EDID, enabled connector and active scanout. Detailed evidence below. |
 | T3: recovery comparison | If T2 is insufficient, use the same capture around one previously established ordered display-master/LT9611 rebind; do not add other variables. | Compare equivalent clock-switch and page-selection transfers with T2 and retained boot evidence. Rebind success alone does not identify the underlying cause. | Not repeated: T2 already recovers without reset, and earlier successful rebind evidence remains valid. Revisit only for a named unresolved recovery question. |
 | T3b: controller-specific rebind | Alex explicitly requested an I2C driver reload. As `CONFIG_I2C_IMX=y`, detach the idle display master, unbind/rebind only controller `30a40000.i2c`, then reattach the display, with a private adapter-2 trace. | Reinitialise I2C3 and its bridge/charger clients without reboot or touching the PMIC buses; distinguish a late successful reinitialisation from cold-start acceptance. | Complete: bindings restored, valid EDID, connected/enabled HDMI and active scanout, no captured transfer errors or new kernel faults. Details below. |
-| T4: first-startup capture | Electrical capture would distinguish address/data NACK and STOP waveforms, but Alex confirms there is no logic analyser. Alex approved preparing and triggering a diagnostic-only build: error-only register/page, PIO phase and STOP/status instrumentation. | Locate the first failure at startup, not only its late successful counterpart. Software cannot establish the electrical waveform. | Candidate prepared and native tests passed; independent review/publication/build pending. No deployment or reboot included in this build step. |
-| T5: demonstrated-cause correction | Choose the smallest correction supported by T2–T4, test the complete affected transfer/state path, independently review, and request a build explicitly. Treat HPD/sleep/wake error handling as separate findings unless evidence links them to the initiating failure. | Real hardware shows the relevant fault removed, not merely a successful mocked helper or hidden retry. | Not started; no new fix selected. |
+| T4: first-startup capture | Electrical capture would distinguish address/data NACK and STOP waveforms, but Alex confirms there is no logic analyser. Alex approved preparing and triggering a diagnostic-only build: error-only register/page, PIO phase and STOP/status instrumentation. | Locate the first failure at startup, not only its late successful counterpart. Software cannot establish the electrical waveform. | Complete on 691: STOP timeout, followed by address-ACK failure with IAL set during page selection; details above. |
+| T5: demonstrated-cause correction | Choose the smallest correction supported by T2–T4, test the complete affected transfer/state path and independently review. Treat HPD/sleep/wake error handling as separate findings unless evidence links them to the initiating failure. | Real hardware shows the relevant fault removed, not merely a successful mocked helper or hidden retry. | Alex said to carry on after 691 evidence. Candidate 0039 addresses hidden STOP errors and missing bus recovery; native checks pass, review/build/hardware pending. |
 | T6: cleaned-up acceptance | Restore diagnostic settings as below, then test like-for-like warm and cold starts, TV present at boot, later hotplug, native console edges, supported modes and existing-mode video. Record each attempt and visual confirmation. | First-start valid EDID/checksums and visible output without manual recovery; no I2C faults, kernel oops or Ethernet/charger/WiFi/update regression. Do not claim reliability from one pass. | After a demonstrated correction and cleanup. |
 
 Cleanup is part of acceptance, not an optional follow-up: restore KSZ status and

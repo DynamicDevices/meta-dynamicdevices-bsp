@@ -28,6 +28,7 @@ PATCHES = (
     "0036-drm-bridge-lt9611-retry-power-on-arbitration-loss.patch",
     "0037-i2c-imx-support-single-master-with-stop-polling.patch",
     "0038-dt510-lt9611-startup-diagnostics.patch",
+    "0039-i2c-imx-propagate-stop-and-recover-bus.patch",
 )
 
 
@@ -368,6 +369,12 @@ def check_dt(work):
     assert get(symbol("lt9611"), "interrupts", "x") == "6 4"
     assert get(symbol("i2c3"), "clock-frequency", "u") == "100000"
     get(symbol("i2c3"), "single-master")
+    assert get(symbol("i2c3"), "pinctrl-names") == "default gpio"
+    assert get(symbol("i2c3"), "pinctrl-1", "x") == get(symbol("pinctrl_dt510_i2c3_gpio"), "phandle", "x")
+    for prop, line in (("scl-gpios", "12"), ("sda-gpios", "13")):
+        assert get(symbol("i2c3"), prop, "x").split() == [get(symbol("gpio5"), "phandle", "x"), line, "0"]
+    pins = get(symbol("pinctrl_dt510_i2c3_gpio"), "fsl,pins", "x").split()
+    assert pins == ["224", "48c", "0", "5", "0", "400001c3", "228", "490", "0", "5", "0", "400001c3"]
     for label in ("i2c1", "i2c2", "i2c4"):
         properties = run(["fdtget", "-p", dtb, symbol(label)], text=True).stdout.splitlines()
         assert "single-master" not in properties, label
@@ -650,7 +657,13 @@ int main(void)
     assert(sleeps==2 && !recoveries);
     m=(struct regmap){0};
     assert(!lt9611_power_on(&d) && d.power_on); /* later successful reprobe */
-    const int errors[]={-ENXIO,-EIO,-ETIMEDOUT};
+    m=(struct regmap){.fail_attempts=1,.error=-ETIMEDOUT}; d.power_on=false;
+    sleeps=recoveries=0;
+    assert(!lt9611_power_on(&d) && d.power_on && m.attempts==2 && sleeps==1);
+    m=(struct regmap){.fail_attempts=3,.error=-ETIMEDOUT}; d.power_on=false;
+    sleeps=recoveries=0;
+    assert(lt9611_power_on(&d)==-ETIMEDOUT && !d.power_on && m.attempts==3 && sleeps==2);
+    const int errors[]={-ENXIO,-EIO};
     for (size_t i=0;i<ARRAY_SIZE(errors);i++) {
         m=(struct regmap){.fail_attempts=1,.error=errors[i]}; d.power_on=false;
         sleeps=recoveries=0;
@@ -665,7 +678,7 @@ int main(void)
     binary = work / "power-on-retry-test"
     run(["cc", "-Wall", "-Wextra", "-Werror", "-std=c11", str(path), "-o", str(binary)])
     run([str(binary)])
-    print("PASS: actual power-on retries EAGAIN at every sequence position, recovers on second/third attempt, bounds exhaustion, keeps failed state false and permanent errors immediate; model, not boot proof.")
+    print("PASS: actual power-on bounds EAGAIN/ETIMEDOUT retries, keeps failed state false and permanent errors immediate; model, not boot proof.")
 
 
 def check_startup_diagnostics(i2c, regmap, work):
@@ -691,7 +704,7 @@ static char record[256];
 #define dev_err(dev,fmt,...) do { (void)(dev); logs++; snprintf(record,sizeof(record),fmt,__VA_ARGS__); } while(0)
 struct imx_i2c_struct {
     struct { int nr, dev; } adapter;
-    int stopped, disable_delay; void *dma;
+    int stopped, stop_result, disable_delay; void *dma;
     struct { unsigned int i2cr_ien_opcode; } *hwdata;
 };
 struct i2c_msg { unsigned short addr, flags, len; unsigned char *buf; };
@@ -743,12 +756,12 @@ int main(void)
     typeof(*i.hwdata) hw={.i2cr_ien_opcode=I2CR_IEN}; i.hwdata=&hw;
     for(int atomic=0;atomic<2;atomic++) for(int err=0;err<2;err++) {
         i.stopped=0; cr=I2CR_MSTA|I2CR_MTX; stop_ret=err?-ETIMEDOUT:0;
-        reads=writes=logs=polls=0; i2c_imx_stop(&i,atomic);
+        reads=writes=logs=polls=0; assert(i2c_imx_stop(&i,atomic)==stop_ret);
         assert(reads==1 && writes==2 && polls==1 && last_write==0 && logs==err);
     }
     i.stopped=1; reads=writes=logs=polls=0; i2c_imx_stop(&i,false);
     assert(!reads && writes==1 && !polls && !logs);
-    puts("PASS: actual PIO write/error/STOP diagnostics preserve success, address/data ACK/completion faults, byte positions, scope, atomic paths and legacy STOP behaviour.");
+    puts("PASS: actual PIO write/error/STOP diagnostics preserve success, address/data faults, byte positions, scope and atomic paths; STOP errors returned.");
 }
 '''
     test = work / "i2c-diagnostics.c"
@@ -821,6 +834,107 @@ int main(void)
     page = function(regmap, "_regmap_select_page")
     assert page.index("if (ret && map->dev") < page.index("if (ret != 0)")
     assert '"DT510-DIAG page-select logical=' in page
+
+
+def check_stop_recovery(source, work):
+    # Compile the actual STOP and complete transfer wrapper, not a model of
+    # error precedence. Peripheral byte completion and bus clear are injected.
+    harness = r'''
+#include <assert.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <errno.h>
+#include <stdio.h>
+#define I2C_M_RD 1
+#define I2C_M_DMA_SAFE 0x200
+#define DMA_THRESHOLD 16
+#define IMX_I2C_I2CR 1
+#define I2CR_MSTA 0x20
+#define I2CR_MTX 0x10
+#define I2CR_DMAEN 2
+#define I2CR_IEN 0x80
+#define I2CR_RSTA 4
+#define dev_dbg(...) ((void)0)
+#define dev_err(...) ((void)0)
+#define dev_warn(dev,fmt,stop,ret) ((void)(dev),(void)(fmt),(void)(stop),(void)(ret))
+struct i2c_adapter { int nr, dev; void *bus_recovery_info; };
+struct i2c_msg { unsigned short flags, len; };
+struct imx_i2c_struct {
+    struct i2c_adapter adapter;
+    int stopped, stop_result, disable_delay;
+    void *dma, *slave;
+    struct { unsigned int i2cr_ien_opcode; } *hwdata;
+};
+static struct imx_i2c_struct *target;
+static unsigned int cr;
+static int poll_result, polls, recovery_result, recoveries, transfers;
+static int transfer_result, read_stop_result, starts, start_error;
+static unsigned int imx_i2c_read_reg(struct imx_i2c_struct *i, int r)
+{ assert(i==target && r==IMX_I2C_I2CR); return cr; }
+static void imx_i2c_write_reg(unsigned int v, struct imx_i2c_struct *i, int r)
+{ assert(i==target && r==IMX_I2C_I2CR); cr=v; }
+static bool is_imx1_i2c(struct imx_i2c_struct *i) { (void)i; return false; }
+static void udelay(int n) { (void)n; assert(0); }
+static int i2c_imx_bus_busy(struct imx_i2c_struct *i, int busy, bool atomic)
+{ (void)atomic; assert(i==target); if(busy)return 0; polls++; return poll_result; }
+static int i2c_recover_bus(struct i2c_adapter *a)
+{ assert(a==&target->adapter && cr==0); recoveries++; return recovery_result; }
+static struct imx_i2c_struct *i2c_get_adapdata(struct i2c_adapter *a)
+{ assert(a==&target->adapter); return target; }
+static int i2c_imx_start(struct imx_i2c_struct *i, bool atomic)
+{ (void)atomic; starts++; i->stop_result=0; cr=I2CR_MSTA|I2CR_MTX; return start_error; }
+static int i2c_imx_write(struct imx_i2c_struct *i, struct i2c_msg *m, bool a)
+{ (void)i; (void)m; (void)a; transfers++; return transfer_result; }
+static int i2c_imx_dma_write(struct imx_i2c_struct *i, struct i2c_msg *m)
+{ return i2c_imx_write(i,m,false); }
+static int i2c_imx_read(struct imx_i2c_struct *i, struct i2c_msg *m, bool last, bool a)
+{ (void)last; i->stop_result=read_stop_result; return i2c_imx_write(i,m,a); }
+static void i2c_imx_slave_init(struct imx_i2c_struct *i) { (void)i; }
+'''
+    harness += function(source, "i2c_imx_stop")
+    harness += function(source, "i2c_imx_xfer_common")
+    harness += r'''
+int main(void)
+{
+    struct imx_i2c_struct d={.adapter.nr=2}; target=&d;
+    typeof(*d.hwdata) hw={.i2cr_ien_opcode=I2CR_IEN}; d.hwdata=&hw;
+    struct i2c_msg m={.len=2};
+    for(int atomic=0;atomic<2;atomic++) for(int info=0;info<2;info++)
+    for(int read=0;read<2;read++) for(int bad=0;bad<2;bad++)
+    for(int original=0;original<2;original++) for(int recovery_bad=0;recovery_bad<2;recovery_bad++) {
+        d.adapter.bus_recovery_info=info?&d:NULL; d.stopped=0;
+        poll_result=bad?-ETIMEDOUT:0; read_stop_result=read?poll_result:0;
+        transfer_result=original?-ENXIO:0; recovery_result=recovery_bad?-EBUSY:0;
+        recoveries=polls=starts=transfers=0; m.flags=read?I2C_M_RD:0;
+        int expected=original?-ENXIO:bad?-ETIMEDOUT:1;
+        assert(i2c_imx_xfer_common(&d.adapter,&m,1,atomic)==expected);
+        assert(cr==0 && transfers==1 && starts==1);
+        assert(recoveries==(bad && info && !atomic));
+        /* A failed read's existing STOP wait must not be repeated. */
+        assert(polls==(read && bad?0:1));
+    }
+    poll_result=read_stop_result=transfer_result=start_error=0;
+    m=(struct i2c_msg){.len=32,.flags=I2C_M_DMA_SAFE}; d.dma=&d;
+    d.adapter.bus_recovery_info=&d; d.stopped=0; recoveries=transfers=0;
+    assert(i2c_imx_xfer_common(&d.adapter,&m,1,false)==1 && transfers==1 && !recoveries);
+    /* A start failure takes only the existing bounded recovery/restart. */
+    start_error=-EAGAIN; recoveries=transfers=starts=0;
+    /* Existing start-failure recovery occurs while enabled, unlike STOP. */
+    d.adapter.bus_recovery_info=NULL;
+    assert(i2c_imx_xfer_common(&d.adapter,&m,1,false)==-EAGAIN && !transfers && starts==1);
+    puts("PASS: actual transfer/STOP paths: timeout propagation, original-error precedence, controller disabled before one recovery, recovery-failure handling, no message replay, atomic exclusion and read STOP preservation (64 combinations).");
+    return 0;
+}
+'''
+    path = work / "stop-recovery.c"
+    path.write_text(harness)
+    binary = work / "stop-recovery"
+    run(["cc", "-Wall", "-Wextra", "-Werror", "-Wno-sign-compare", "-std=gnu11", str(path), "-o", str(binary)])
+    run([str(binary)])
+    assert "i2c_imx->stop_result = 0;" in function(source, "i2c_imx_start")
+    for name, atomic in (("i2c_imx_read", "atomic"), ("i2c_imx_dma_read", "false")):
+        assert f"i2c_imx->stop_result = i2c_imx_bus_busy(i2c_imx, 0, {atomic});" in function(source, name)
+    print("PASS: actual STOP/transfer wrapper: 64 fault combinations, timeout/error precedence, one recovery after disable, no client replay, atomic exclusion and saved read-STOP results; read placement source-checked.")
 
 
 def check_i2c_single_master(source, work):
@@ -937,6 +1051,7 @@ def main():
             check_power_on_retry(source, work)
             check_i2c_single_master((work / I2C_IMX).read_text(), work)
             check_startup_diagnostics((work / I2C_IMX).read_text(), (work / REGMAP).read_text(), work)
+            check_stop_recovery((work / I2C_IMX).read_text(), work)
         check_dt(work)
     recipe = (BSP / "recipes-kernel/linux/linux-lmp-fslc-imx_%.bbappend").read_text()
     blocks = re.findall(r'SRC_URI:append:([^ =]+)\s*=\s*"(.*?)"', recipe, re.S)
