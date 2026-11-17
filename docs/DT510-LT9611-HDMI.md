@@ -95,20 +95,49 @@ already accepts the `commercial` license flag used by its FFmpeg/libav recipes;
 this change does not broaden that license policy. Software H.264 decoding is a
 functional fallback; its usable resolution/frame rate must be measured on target.
 
-After deploying the candidate, verify the elements exist and try a silent local
-or authorised direct MP4 stream, for example:
+Build 688 has the required elements. The following **silent local H.264 MP4**
+pipeline was visually confirmed by Alex on 17 November 2026. First establish an
+enabled connector with an existing display mode; a connected connector and valid
+EDID alone are insufficient. Do not start playback over another DRM owner.
 
 ```sh
 # First restore the manual framebuffer test if it is active.
 sudo dt510-hdmi-test restore
-sudo gst-launch-1.0 -e playbin uri=file:///absolute/path/test.mp4 \
-  video-sink="kmssink force-modesetting=true" audio-sink=fakesink
+sudo gst-launch-1.0 -e \
+  filesrc location=/absolute/path/test.mp4 \
+  ! qtdemux ! h264parse ! avdec_h264 max-threads=4 \
+  ! queue max-size-buffers=3 ! videoconvert \
+  ! video/x-raw,format=BGRx \
+  ! kmssink driver-name=imx-drm force-modesetting=false
 ```
 
-The restore command is needed only if the pattern is active. Do not start playback
-over another DRM owner. KMS mode switching is a pending acceptance check, not a
-claimed pass: on build 682, a native 1280×720@60 test was accepted by KMS but the
-camera showed black video. Ordered full rebind restored 1080p and the pattern.
+The restore command is needed only if the pattern is active. Audio is deliberately
+not linked. No media file is bundled in the image.
+
+**Preserve the existing mode: `force-modesetting=false` is intentional.** On
+build 688, `force-modesetting=true` reached GStreamer's `PLAYING` state but left
+the CRTC disabled with no framebuffer attached. A simple SMPTE test pattern
+also failed through that forced-modesetting path, ruling out H.264 decoding as
+the sole cause. An ordered live rebind restored an enabled connector, but forcing
+a new mode blanked it again. Stopping that player restored the existing mode;
+the pipeline above then produced visible video. DRM reported CRTC 33 active,
+plane 31 attached with framebuffer 39, XR24 format and 1920×1080@60 scanout.
+This is not proof of native 24 Hz output: the source file is 1080p at 24000/1001
+frames/s, displayed in the existing 60 Hz mode. No new kernel fault markers
+occurred. The precise forced-modesetting defect remains unresolved.
+
+For an explicitly requested loop, run the same pipeline in a transient systemd
+unit with `Restart=on-success`, `RestartSec=1`, `KillSignal=SIGINT` and
+`TimeoutStopSec=5`. It restarts after normal EOS, stops on playback errors, and
+is not enabled at boot. The live unit on build 688 is `dt510-shake-loop.service`;
+stop it with `sudo systemctl stop dt510-shake-loop.service`. Startup was verified
+active/running with HDMI enabled; a completed repeat is not yet separately
+observed. Do not install an automatic driver-rebind or player startup service as
+a substitute for repairing HDMI startup.
+
+KMS mode switching remains a pending acceptance check, not a claimed pass:
+on build 682, a native 1280×720@60 test was accepted by KMS but the camera showed
+black video. Ordered full rebind restored 1080p and the pattern.
 The connector advertised 1080p at 60/50/30/25/24 Hz and 720p at 60/50 Hz; repeat
 native 720p and 1080p geometry tests after deploying the sleep-address correction.
 No 4K support is claimed.
@@ -119,13 +148,30 @@ architecture. DT510 factory configuration must explicitly select `alsa` and
 under its new minimal defaults. Direct KMS diagnostics need no `display`/Weston
 bundle. Do not silently drop existing audio while adding video diagnostics.
 
-**Delivery status:** build 686 is the confirmed active board image, OSTree
-`43d5513d2994a926b92edad4206acaa207f4c485a19b25a6197d4640f4dc574d`,
-manifest `f769808d2815d8e008508a15ecaba7b11965f4da`, BSP
-`9ffafdaff3dbf5787673cca7d3e1c9e9603e9df1`. Build 683 failed at an optional
+**Delivery status (17 November 2026):** build 688 is the confirmed active board
+image following a successful full UUU flash, OSTree
+`46f0503279885af4b569d2366432803df1c6cb68c0743712734970904142f989`,
+version `5.0.9-688-96`, manifest
+`6ca81f8bcbdfcedc786a89e94b8830de98d6dc5e`, BSP
+`50dde762ffa25592c37f65b1c4a3f8b29ab32968`. Build 688 intentionally rebuilds
+687's unchanged source pins. Build 683 failed at an optional
 Godot append; distro repair in 684 fixed that parse failure. Patches 0034/0035
-are deployed in 685; patch 0036 is deployed in 686. No successful startup or
-visible-video acceptance is claimed from pipeline state or frame counts alone.
+are deployed since 685; patch 0036 is deployed since 686. The 100 kHz I2C3
+candidate shipped in 687/688 but **did not fix startup**. Build 688 boot
+`35401d64-d1ef-425b-825c-75c2ad345047` reported `EDID power-on failed: -11` at
+3.324152 seconds, with an initially disconnected/disabled connector and no EDID.
+One later live `detect` request recovered 256-byte EDID and modes without reset,
+rebind or reboot: 3,076 I2C trace records were retained with no overruns and
+zero failed transfer results. Actual visible playback subsequently required the
+ordered display-master/bridge rebind and existing-mode pipeline described above.
+Alex confirmed that picture; reliable cold/warm startup remains unproved.
+
+**Boot safety:** the clean image boots with `root=/dev/mmcblk2p2` and no injected
+tracing options. Later live boot-option tracing edits on 687 preceded a boot
+failure; their exact parsing failure was not proved. Do not edit BLS entries,
+`/boot/loader/uEnv.txt`, bootloader environment or kernel command-line options
+for further HDMI diagnosis. Use scoped live tracing only; do not reboot merely
+to collect diagnostics. The successful 688 live tests kept the boot ID unchanged.
 
 ### Boot-time clock-switch trace and next controlled candidate
 
@@ -154,7 +200,7 @@ were restored, and tracing was disabled. Boot and rebind traces were retained
 under `/var/lib/dt510-hdmi-debug/` on the development board. An earlier capture
 stopped on the switch's initial `-ENXIO`, so it is not HDMI failure evidence.
 
-The next controlled candidate restores shared I2C3 to **100 kHz**, instead of
+The 687/688 controlled candidate restored shared I2C3 to **100 kHz**, instead of
 its experimental 400 kHz DT request. The pinned controller already implements
 ERR007805's 384 kHz limit, so the old request must not be described as proof
 that the wire actually ran at 400 kHz or that this erratum fix was absent.
@@ -165,6 +211,24 @@ Acceptance requires a boot trace without the long clock-switch transfer or
 I2C errors, valid EDID, actual picture, repeated cold/warm boots, and the existing
 mode/format/hotplug tests. If it persists, inspect crystal readiness and the
 controller's STOP/idle state rather than lengthening EDID polling.
+
+**17 November follow-up:** 687/688 reproduced the startup failure at 100 kHz;
+do not describe that candidate as an outstanding untested fix. Michael's register
+manual (`LT1702_Register_List_Preliminary-cover LT9611.pdf`, printed page 12,
+register `0x8101`) defines bit 4 as ring/crystal system-clock selection; reset
+value is `0x08`, and writing `0x18` selects crystal without changing the low
+ring-bias bits. The supplied `lt9611_v1.6.c` writes page `0x81`, register `0x01`
+value `0x18`, then immediately selects page `0x82`; it specifies no intervening
+clock-settle sleep. This confirms the operation being investigated, not a cause
+or an endorsement of a different delay.
+
+The next distinguishing evidence is the first failing transaction's controller
+STOP/idle/arbitration state and, ideally, SCL/SDA plus crystal readiness at the
+bridge. A long STOP wait followed by `-EAGAIN` cannot by itself distinguish an
+electrical clock-switch disturbance from controller recovery behaviour. Do not
+introduce a longer blind sleep, another unchanged factory retry, or unsafe early
+boot tracing options to bridge that evidence gap. An electrical capture needs
+Michael's physical probe access; no such capture has been obtained.
 
 Public sources checked during this investigation:
 
@@ -181,7 +245,44 @@ Public sources checked during this investigation:
 The pinned controller also returns from its pre-transfer idle-error path
 without balancing a successful runtime-PM get. This is a source-level defect
 for follow-up, not evidence that it caused the first failed transfer; no broad
-controller or power-management change is included in this candidate.
+controller or power-management change was included in the 100 kHz candidate.
+
+### Current source candidate: confirmed single-master I2C3
+
+Alex confirmed on 17 November 2026 that i.MX is the only master on I2C3;
+the LT9611, KSZ9896 and BQ25792 share that bus as targets. The KSZ9896C data
+sheet DS00002390C, section 4.9.2, describes its management interface as an I2C
+slave. Do not infer this topology for other buses or boards.
+
+Patch `0037-i2c-imx-support-single-master-with-stop-polling.patch` adapts
+upstream `6692694aca86ddf6831e2be86e5089258c2789bf` together with correction
+`768776dd4efc681cdca33a79e29bb508d6de9bc0` to the pinned NXP driver. Its
+intermediate upstream version must not be used: skipping the polling helper
+entirely loses STOP generation and leaves the stopped flag stale. This combined
+version skips arbitration/start-busy checks only on explicitly single-master
+controllers, clears stopped on START, and retains IBB idle/STOP polling.
+The pinned NXP transfer-completion function has no separate IAL check, so no
+nonexistent upstream transfer-completion hunk is added. Controllers without
+`single-master` retain the existing multi-master path. Only DT510 selects this
+patch, and only its I2C3 gains the property; its bus speed remains 100 kHz.
+
+Source/native validation passes: all seven HDMI/controller patches apply to
+the pinned kernel without offsets/fuzz; the actual patched bus-polling function
+passes 22 compiled single/multi-master, START/STOP, stale-IAL, stuck-bus timeout
+and atomic/sleep-path cases. The compiled DTB has `single-master` only on I2C3.
+These tests verify the polling helper, not physical bus recovery or propagation
+of STOP errors through the existing void STOP function. Existing HDMI/EDID,
+LCDIF, reset/lifecycle and retry tests also pass. Two pre-existing non-HDMI DT
+warnings remain. No local Yocto/kernel build was run.
+
+This is an unbuilt, undeployed candidate, **not a proved startup fix**. Acceptance
+must include EDID with valid checksums and a real picture on repeated cold/warm
+starts without manual detect/rebind, absence of the earlier long clock-switch
+stall/arbitration error, and no regression of the switch/charger on this shared
+bus. Preserve the working video pipeline's existing mode separately. Heartbeats
+continues on the unchanged build-688 board while source work proceeds; do not
+interrupt playback, reboot, deploy or edit boot settings without checking with
+Alex first.
 
 ## Hardware recovery evidence — 16 November 2026
 

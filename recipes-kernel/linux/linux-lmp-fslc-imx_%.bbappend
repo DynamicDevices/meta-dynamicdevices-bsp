@@ -67,6 +67,7 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
 		file://imx8mm-jaguar-dt510/0034-drm-imx-lcdif-check-fb-modeset-before-bridges.patch \
 		file://imx8mm-jaguar-dt510/0035-drm-bridge-lt9611-poll-edid-and-check-i2c-errors.patch \
 		file://imx8mm-jaguar-dt510/0036-drm-bridge-lt9611-retry-power-on-arbitration-loss.patch \
+		file://imx8mm-jaguar-dt510/0037-i2c-imx-support-single-master-with-stop-polling.patch \
 		${@bb.utils.contains('MACHINE_FEATURES', 'tas2563', 'file://imx8mm-jaguar-dt510/tas2562-audio-codec.cfg', '', d)} \
 		${@bb.utils.contains('MACHINE_FEATURES', 'tas6424', 'file://imx8mm-jaguar-dt510/tas6424-audio-codec.cfg file://imx8mm-jaguar-dt510/0026-asoc-tas6424-rename-passenger-tannoy-controls.patch', '', d)} \
 		file://imx8mm-jaguar-dt510/0028-asoc-fsl-sai-sai5-capture-tx-sync-frame.patch \

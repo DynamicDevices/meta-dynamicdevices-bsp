@@ -1,0 +1,71 @@
+Subject: [PATCH] i2c: imx: support single-master without losing STOP polling
+
+Backport the single-master bus-busy/arbitration handling from upstream
+6692694aca86ddf6831e2be86e5089258c2789bf together with its STOP correction
+768776dd4efc681cdca33a79e29bb508d6de9bc0. Do not take the intermediate
+implementation which skipped STOP polling and left stopped set across transfers.
+
+The pinned NXP driver has no arbitration check in i2c_imx_trx_complete(), so
+that upstream hunk does not apply. Preserve its transfer/ISR behaviour. Default
+to the existing multi-master behaviour unless the controller has single-master.
+On an opted-in bus, still poll IBB for idle/STOP, and clear stopped on START.
+
+DT510's I2C3 is confirmed single-master by Alex on 17 November 2026. Its first
+LT9611 crystal-clock selection stalls for roughly the controller's 500 ms STOP
+budget, followed by -EAGAIN; later live access works. This backport is a
+controlled controller-behaviour candidate, not a demonstrated startup fix.
+Include only for DT510; do not change boot arguments or error/retry budgets.
+
+Upstream-Status: Backport [6692694aca86ddf6831e2be86e5089258c2789bf and 768776dd4efc681cdca33a79e29bb508d6de9bc0]
+Assisted-by: Briar
+---
+--- a/drivers/i2c/busses/i2c-imx.c
++++ b/drivers/i2c/busses/i2c-imx.c
+@@ -284,6 +284,8 @@
+ 	struct i2c_client	*slave;
+ 	enum i2c_slave_event last_slave_event;
+ 
++	bool			multi_master;
++
+ 	/* For checking slave events. */
+ 	spinlock_t     slave_lock;
+ 	struct hrtimer slave_timer;
+@@ -565,22 +567,23 @@
+ static int i2c_imx_bus_busy(struct imx_i2c_struct *i2c_imx, int for_busy, bool atomic)
+ {
++	bool multi_master = i2c_imx->multi_master;
+ 	unsigned long orig_jiffies = jiffies;
+ 	unsigned int temp;
+ 
+ 	while (1) {
+ 		temp = imx_i2c_read_reg(i2c_imx, IMX_I2C_I2SR);
+ 
+ 		/* check for arbitration lost */
+-		if (temp & I2SR_IAL) {
++		if (multi_master && (temp & I2SR_IAL)) {
+ 			i2c_imx_clear_irq(i2c_imx, I2SR_IAL);
+ 			return -EAGAIN;
+ 		}
+ 
+-		if (for_busy && (temp & I2SR_IBB)) {
++		if (for_busy && (!multi_master || (temp & I2SR_IBB))) {
+ 			i2c_imx->stopped = 0;
+ 			break;
+ 		}
+ 		if (!for_busy && !(temp & I2SR_IBB)) {
+ 			i2c_imx->stopped = 1;
+ 			break;
+ 		}
+@@ -1755,6 +1758,12 @@
+ 		goto rpm_disable;
+ 	}
+ 
++	/*
++	 * Keep legacy multi-master behaviour unless the board opts in.
++	 */
++	i2c_imx->multi_master = !of_property_read_bool(pdev->dev.of_node,
++						      "single-master");
++
+ 	/* Set up clock divider */
+ 	i2c_imx->bitrate = I2C_MAX_STANDARD_MODE_FREQ;
+ 	ret = of_property_read_u32(pdev->dev.of_node,

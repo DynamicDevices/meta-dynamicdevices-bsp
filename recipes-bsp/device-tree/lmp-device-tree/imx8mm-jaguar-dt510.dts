@@ -1042,6 +1042,8 @@
 	 * boot; a slower bus is a controlled candidate, not a proved startup fix.
 	 */
 	clock-frequency = <100000>;
+	/* Alex confirms i.MX is the sole master on this shared bus (2026-11-17). */
+	single-master;
 
 	/* Strip EVK audio/camera/gpio-expander children not fitted on DT510. */
 	/delete-node/ ak4458@10;

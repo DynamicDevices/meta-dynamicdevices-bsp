@@ -15,6 +15,7 @@ DRIVER = "drivers/gpu/drm/bridge/lontium-lt9611.c"
 CONNECTOR = "drivers/gpu/drm/drm_bridge_connector.c"
 LCDIF_KMS = "drivers/gpu/drm/imx/lcdif/lcdif-kms.c"
 LCDIF_PLANE = "drivers/gpu/drm/imx/lcdif/lcdif-plane.c"
+I2C_IMX = "drivers/i2c/busses/i2c-imx.c"
 BSP = Path(__file__).resolve().parents[1]
 FILES = BSP / "recipes-kernel/linux/linux-lmp-fslc-imx/imx8mm-jaguar-dt510"
 PATCHES = (
@@ -24,6 +25,7 @@ PATCHES = (
     "0034-drm-imx-lcdif-check-fb-modeset-before-bridges.patch",
     "0035-drm-bridge-lt9611-poll-edid-and-check-i2c-errors.patch",
     "0036-drm-bridge-lt9611-retry-power-on-arbitration-loss.patch",
+    "0037-i2c-imx-support-single-master-with-stop-polling.patch",
 )
 
 
@@ -360,6 +362,10 @@ def check_dt(work):
     assert get(symbol("lt9611"), "reset-gpios", "x").split()[1:] == ["b", "1"]
     assert get(symbol("lt9611"), "interrupts", "x") == "6 4"
     assert get(symbol("i2c3"), "clock-frequency", "u") == "100000"
+    get(symbol("i2c3"), "single-master")
+    for label in ("i2c1", "i2c2", "i2c4"):
+        properties = run(["fdtget", "-p", dtb, symbol(label)], text=True).stdout.splitlines()
+        assert "single-master" not in properties, label
     assert symbol("lt9611").rsplit("/", 1)[0] == symbol("i2c3")
     assert get(symbol("lt9611"), "vdd-supply", "x") == get(symbol("reg_lt9611_vdd_1v8"), "phandle", "x")
     assert get(symbol("lt9611"), "vcc-supply", "x") == get(symbol("reg_vddext_3v3"), "phandle", "x")
@@ -372,7 +378,7 @@ def check_dt(work):
                      if "Warning" in line and any(term in line for term in
                         ("lt9611", "hdmi-connector", "mipi_dsi", "dsim_", "lcdif"))]
     assert not hdmi_warnings, "\n".join(hdmi_warnings)[:2000]
-    print(f"PASS: compiled DTB and checked enabled LCDIF/DSI/LT9611, graph, lanes, GPIOs, supplies, shared I2C3 at 100 kHz and EVK removal; {warnings.count('Warning')} other DT warnings.")
+    print(f"PASS: compiled DTB and checked enabled LCDIF/DSI/LT9611, graph, lanes, GPIOs, supplies, only I2C3 single-master at 100 kHz and EVK removal; {warnings.count('Warning')} other DT warnings.")
     for line in warnings.splitlines():
         if "Warning" in line:
             print(line.split(": Warning", 1)[-1][:400])
@@ -657,12 +663,93 @@ int main(void)
     print("PASS: actual power-on retries EAGAIN at every sequence position, recovers on second/third attempt, bounds exhaustion, keeps failed state false and permanent errors immediate; model, not boot proof.")
 
 
+def check_i2c_single_master(source, work):
+    # Compile the actual patched polling function, not a rewritten model.
+    harness = r'''
+#include <assert.h>
+#include <stdbool.h>
+#include <errno.h>
+#include <stdio.h>
+#define I2SR_IAL 0x10
+#define I2SR_IBB 0x20
+#define IMX_I2C_I2SR 0
+#define dev_dbg(...) ((void)0)
+#define msecs_to_jiffies(ms) ((unsigned long)(ms))
+#define time_after(a, b) ((long)((b) - (a)) < 0)
+static unsigned long jiffies;
+struct imx_i2c_struct { bool multi_master; int stopped; };
+static const unsigned int *statuses;
+static unsigned int status_count, reads, clears, waits;
+static unsigned int imx_i2c_read_reg(struct imx_i2c_struct *i, int reg)
+{
+    (void)i; (void)reg;
+    assert(reads < 1000);
+    unsigned int pos = reads++;
+    return statuses[pos < status_count ? pos : status_count - 1];
+}
+static void i2c_imx_clear_irq(struct imx_i2c_struct *i, unsigned int mask)
+{ (void)i; assert(mask == I2SR_IAL); clears++; }
+static void schedule(void) { jiffies++; waits++; }
+static void udelay(int us) { assert(us == 100); jiffies++; waits++; }
+'''
+    harness += function(source, "i2c_imx_bus_busy")
+    harness += r'''
+static void check(bool multi, bool atomic, int busy,
+                  const unsigned int *seq, unsigned int count,
+                  int expected, int stopped, unsigned int expected_reads,
+                  unsigned int expected_clears)
+{
+    struct imx_i2c_struct i = { .multi_master = multi, .stopped = !stopped };
+    statuses = seq; status_count = count;
+    reads = clears = waits = 0; jiffies = 0;
+    assert(i2c_imx_bus_busy(&i, busy, atomic) == expected);
+    if (!expected) assert(i.stopped == stopped);
+    assert(reads == expected_reads && clears == expected_clears);
+}
+int main(void)
+{
+    const unsigned int idle[] = {0}, active[] = {I2SR_IBB};
+    const unsigned int ial[] = {I2SR_IAL};
+    const unsigned int delayed_start[] = {0, I2SR_IBB};
+    const unsigned int delayed_stop[] = {I2SR_IBB, 0};
+    const unsigned int stale_ial_stop[] = {I2SR_IBB | I2SR_IAL, I2SR_IAL};
+    for (int a = 0; a < 2; a++) {
+        check(false, a, 1, idle, 1, 0, 0, 1, 0);
+        check(false, a, 1, ial, 1, 0, 0, 1, 0);
+        check(false, a, 0, delayed_stop, 2, 0, 1, 2, 0);
+        assert(waits == 1);
+        check(false, a, 0, stale_ial_stop, 2, 0, 1, 2, 0);
+        check(false, a, 0, active, 1, -ETIMEDOUT, 1, 502, 0);
+        check(true, a, 1, delayed_start, 2, 0, 0, 2, 0);
+        check(true, a, 0, delayed_stop, 2, 0, 1, 2, 0);
+        check(true, a, 1, ial, 1, -EAGAIN, 0, 1, 1);
+        check(true, a, 0, ial, 1, -EAGAIN, 1, 1, 1);
+        check(true, a, 1, idle, 1, -ETIMEDOUT, 0, 502, 0);
+        check(true, a, 0, active, 1, -ETIMEDOUT, 1, 502, 0);
+    }
+    puts("PASS: actual i2c_imx_bus_busy: single/multi-master, START/STOP, stale IAL, stuck-bus timeouts, atomic/sleep paths (22 cases).");
+}
+'''
+    test = work / "i2c-single-master.c"
+    test.write_text(harness)
+    binary = work / "i2c-single-master"
+    run(["cc", "-std=gnu11", "-Wall", "-Wextra", "-Werror", str(test), "-o", str(binary)])
+    print(run([str(binary)], text=True).stdout.strip())
+    probe = function(source, "i2c_imx_probe")
+    assert re.search(r'multi_master\s*=\s*!of_property_read_bool\([^;]+"single-master"\)', probe)
+    # Preserve the pinned NXP STOP call and timeout; do not add the broken
+    # intermediate upstream early return that skipped STOP polling entirely.
+    stop = function(source, "i2c_imx_stop")
+    assert "i2c_imx_bus_busy(i2c_imx, 0, atomic)" in stop
+    assert "if (!i2c_imx->multi_master)" not in function(source, "i2c_imx_bus_busy")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--kernel-git", required=True, help="Existing local kernel Git repository/git-dir")
     parser.add_argument("--only-dt", action="store_true", help="Recheck only a failed device-tree prerequisite/check")
     args = parser.parse_args()
-    paths = [DRIVER, CONNECTOR, LCDIF_KMS, LCDIF_PLANE, "include/drm/drm_bridge_connector.h",
+    paths = [DRIVER, CONNECTOR, LCDIF_KMS, LCDIF_PLANE, I2C_IMX, "include/drm/drm_bridge_connector.h",
              "include/dt-bindings", "include/uapi/linux/input-event-codes.h"]
     paths += ["arch/arm64/boot/dts/freescale/" + name for name in
               ("imx8mm-evkb.dts", "imx8mm-evk.dtsi", "imx8mm.dtsi", "imx8mm-pinfunc.h")]
@@ -687,6 +774,7 @@ def main():
                               (work / LCDIF_PLANE).read_text(), legacy_plane_source, work)
             check_edid(source, work)
             check_power_on_retry(source, work)
+            check_i2c_single_master((work / I2C_IMX).read_text(), work)
         check_dt(work)
     recipe = (BSP / "recipes-kernel/linux/linux-lmp-fslc-imx_%.bbappend").read_text()
     blocks = re.findall(r'SRC_URI:append:([^ =]+)\s*=\s*"(.*?)"', recipe, re.S)
