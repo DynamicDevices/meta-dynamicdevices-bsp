@@ -4,6 +4,161 @@ Updated 17 November 2026 at Alex's request. Briar helped draft this.
 
 ## Current state
 
+Build **690** is booted on the board with OSTree
+`8d914c045f907c952b80591dedb709e4f76f4f6782b7fef7dc451dbc7050fc2a`
+and boot ID `73b7ae02-5d78-479c-afb8-9a6ac2546aca`. It was already running
+when Briar began the approved deployment/test, so no duplicate installation or
+extra reboot was performed. The live KSZ node is `disabled`, no switch driver
+is bound, and this boot has no KSZ probe event. Nevertheless LT9611 revision
+`0xe1` at 2.602908 s is followed by `EDID power-on failed: -6` at 3.227082 s.
+Read-only inspection found disconnected/disabled HDMI, zero EDID bytes and an
+inactive CRTC with no framebuffer. No driver reload/rebind or boot-option edit
+was performed. This reproduces the failure without KSZ driver probe/reset
+activity; it does not electrically isolate the switch or identify the first
+failing I2C phase. The diagnostic image is **not** a startup fix.
+
+### Startup investigation test plan (17 November)
+
+Alex requested a testing plan and execution. Diagnose the first bridge-control
+failure separately from stale connector state and pixel-output recovery. Do not
+add another speculative build, boot arguments, arbitrary startup sleeps or an
+automatic rebind service. Each live capture is finite and scoped; stop on its
+result, retain reduced evidence, and remove only tracing created by this test.
+Keep the TV input, cable and picture settings unchanged during comparisons;
+record any external intervention rather than treating it as spontaneous recovery.
+
+| Test | Action and controlled input | Decision / observable evidence | Status |
+| --- | --- | --- | --- |
+| T0: baseline | Reuse identified 690 boot, live disabled KSZ, initial failure and source review. Read current state only as prerequisite to the next action. | Identify build/boot and whether HDMI is still failed; never call a later recovery a startup pass. | Initial 690 failure captured above; KSZ probe/reset not required to reproduce it. |
+| T1: capture readiness | Read available I2C tracepoints, filters and optional controller debug facilities. No register scan/read, boot edit or tracing reconfiguration yet. | Determine the smallest supported live capture and preserve existing tracing settings. | Complete: adapter-filtered private tracepoints available; global tracer `nop`, tracing on; left unchanged. Controller debug available but not enabled. |
+| T2: late detection only | With a private adapter-2 trace, perform exactly one connector `detect`, without reset, rebind or player. Bound capture/action duration and check overruns. | Identify logical-register/page-selector transfers, first failed message/errno and timing, or establish that this late sequence succeeds. Record EDID/checksums, connector and scanout separately. A late pass is not boot acceptance. | Complete: late detection succeeds without reset; valid EDID, enabled connector and active scanout. Detailed evidence below. |
+| T3: recovery comparison | If T2 is insufficient, use the same capture around one previously established ordered display-master/LT9611 rebind; do not add other variables. | Compare equivalent clock-switch and page-selection transfers with T2 and retained boot evidence. Rebind success alone does not identify the underlying cause. | Not repeated: T2 already recovers without reset, and earlier successful rebind evidence remains valid. Revisit only for a named unresolved recovery question. |
+| T3b: controller-specific rebind | Alex explicitly requested an I2C driver reload. As `CONFIG_I2C_IMX=y`, detach the idle display master, unbind/rebind only controller `30a40000.i2c`, then reattach the display, with a private adapter-2 trace. | Reinitialise I2C3 and its bridge/charger clients without reboot or touching the PMIC buses; distinguish a late successful reinitialisation from cold-start acceptance. | Complete: bindings restored, valid EDID, connected/enabled HDMI and active scanout, no captured transfer errors or new kernel faults. Details below. |
+| T4: first-startup capture | Electrical capture would distinguish address/data NACK and STOP waveforms, but Alex confirms there is no logic analyser. Alex approved preparing and triggering a diagnostic-only build: error-only register/page, PIO phase and STOP/status instrumentation. | Locate the first failure at startup, not only its late successful counterpart. Software cannot establish the electrical waveform. | Candidate prepared and native tests passed; independent review/publication/build pending. No deployment or reboot included in this build step. |
+| T5: demonstrated-cause correction | Choose the smallest correction supported by T2–T4, test the complete affected transfer/state path, independently review, and request a build explicitly. Treat HPD/sleep/wake error handling as separate findings unless evidence links them to the initiating failure. | Real hardware shows the relevant fault removed, not merely a successful mocked helper or hidden retry. | Not started; no new fix selected. |
+| T6: cleaned-up acceptance | Restore diagnostic settings as below, then test like-for-like warm and cold starts, TV present at boot, later hotplug, native console edges, supported modes and existing-mode video. Record each attempt and visual confirmation. | First-start valid EDID/checksums and visible output without manual recovery; no I2C faults, kernel oops or Ethernet/charger/WiFi/update regression. Do not claim reliability from one pass. | After a demonstrated correction and cleanup. |
+
+Cleanup is part of acceptance, not an optional follow-up: restore KSZ status and
+its temporary preflight expectation; reassess the experimental 100 kHz bus,
+single-master patch/property and EAGAIN-only retry independently against the final
+cause; remove diagnostic patch 0038, its recipe/test integration, temporary
+capture instances/debug settings and transient players.
+Retain fixes with independent correctness evidence (reset polarity, address
+preservation and DRM state/lifecycle fixes) unless review establishes otherwise.
+Do not blanket-revert all patches, copy live boot options or remove product
+diagnostic test images. Keep development-image results distinct from the final
+Ethernet-enabled product configuration. No deployment/build is authorised merely
+by a pending plan row; apply Alex's actual current instruction and live coverage.
+
+#### T2 execution evidence
+
+Baseline: same build-690 boot ID `73b7ae02-5d78-479c-afb8-9a6ac2546aca`,
+disconnected/disabled connector and zero EDID bytes. Exactly one write of
+`detect` to the connector status was traced, with an 8-second action timeout,
+private 512 KiB-per-CPU trace buffers, adapter-2 filtering and a 30-second
+overall remote command bound. It exited successfully. No reset, driver rebind,
+reboot, player, dynamic-debug change or boot-option edit was used.
+
+The capture contains 3,094 I2C events and 959 completed transfers, none reporting
+an error; per-CPU overrun/commit-overrun/drop counters sum to zero. Two message
+events at the capture tail lack their completion record and are excluded from
+error/timing claims. The successful crystal-select write `0x8101 = 0x18` starts
+at monotonic 648.818750 s and completes in **0.496 ms**; the longest completed
+transfer is 0.687 ms. This is late access, not proof about the initiating boot
+failure or its precise STOP/ACK phase. Compare with the retained earlier
+502.614 ms failing-boot clock-switch evidence without equating different builds.
+
+The saved 256-byte EDID has the expected header, extension count and zero modulo
+256 checksum for both 128-byte blocks. During immediate post-action sampling,
+the connector's enabled flag was still disabled while the CRTC had become
+active; a subsequent completion check on the same boot found connected/enabled
+HDMI and 256 EDID bytes. Active 1080p scanout was observed during T2. This is not
+camera-confirmed picture acceptance. The test trace instance was removed;
+global `nop`/tracing-on settings remain unchanged, and no player was started.
+
+Raw private evidence is retained on the board at
+`/var/lib/dt510-hdmi-debug/t2-690-detect.YQZOuZ/` (trace, per-CPU stats, EDID and
+metadata), with local copy `/tmp/dt510-690-t2.kLs6MT/`. Trace SHA-256:
+`8f484f2273e21b92c8d3409f0197594a41f0f42b2689cc1c298e18489b1e48f4`.
+The local reducer `/tmp/dt510-i2c-summary.py` uses parsed adapter/transfer fields
+and fixed success/failure/interleaved/no-match fixtures; it reports incomplete
+tails rather than treating them as successful transfers.
+
+#### T3b: I2C3 controller rebind requested by Alex
+
+`CONFIG_I2C_IMX=y`: a module unload is not possible. One controller-specific
+unbind/rebind was performed instead on the same 690 boot. The display master
+was detached first, controller `30a40000.i2c` was detached/recreated, and the
+display master was reattached. This also removes/reprobes LT9611 and BQ25792;
+it is not an isolated reset of the controller hardware with unchanged clients.
+There were no userspace DRM clients, and SSH used `wlan0`. The PMIC controller
+`30a20000.i2c` and other controller `30a30000.i2c` remained bound. No module
+unload, reboot, boot edit, raw register write or player was used.
+
+All three I2C3/bridge/charger bindings were restored. HDMI was connected/enabled,
+scanout active with framebuffer 37, and the saved 256-byte EDID had the correct
+header, extension count and both block checksums zero modulo 256. The same
+scoped reducer found 1,482 completed transfers with no errors, no trace drops,
+a maximum completed-transfer duration of 0.985 ms and a crystal-select write
+of 0.502 ms in the display-attach phase. Two trailing message events had no
+completion and are excluded. No new kernel warning/oops/panic/trace headers
+were found in the action's kernel-log window. The private trace instance was
+removed and global tracing settings were unchanged.
+
+This proves a late full I2C3 reinitialisation can work; it does not prove which
+first-startup condition differs or that reloading is an acceptable product fix.
+Trace phases use the trace `mono` clock; do not assume exact raw timestamp
+equivalence with kernel printk timestamps. Raw evidence:
+`/var/lib/dt510-hdmi-debug/t3-690-i2c3-rebind.3EM8CX/`, local copy
+`/tmp/dt510-690-t3.dMsmDm/`; trace SHA-256
+`95575719fe8848c30f44da631101bbe85e6d7d5139c3ba0c586b05df55b16282`.
+
+#### Diagnostic-only startup image: patch 0038
+
+Alex approved one diagnostic build after confirming no logic analyser is
+available. Keep the KSZ-disabled tree, all other pins and patches unchanged.
+Temporary `0038-dt510-lt9611-startup-diagnostics.patch` adds error-only kernel
+messages prefixed `DT510-DIAG`:
+
+- Regmap errors on device `2-0039` include the full logical read/write register
+  and, for failed writes, its intended value. Page-selection errors include
+  the logical register, selector and requested page. Existing regmap locking
+  and register sequences are unchanged; errors may produce nested context.
+- Adapter-2/`0x39` short PIO transfers identify address completion versus ACK,
+  data completion versus ACK, and the zero-based data-byte position (address
+  phase uses `-1`). Read-address failures are covered too. Error-time I2SR/I2CR
+  MMIO snapshots are printed. DMA data phases are not instrumented; the initial
+  bridge register accesses are short PIO transfers.
+- Adapter-2 bus-wait timeouts include idle/busy direction, stopped state, the
+  existing status sample and elapsed milliseconds. STOP failures are logged
+  explicitly, but their result remains ignored as in the legacy driver.
+
+No new I2C transactions, successful-transfer logging, retries, delays, timeouts,
+error-return changes, recovery service or boot-option edits are added. The
+diagnostics are selected only by the DT510 recipe. Logging and two error-time
+controller MMIO reads may alter timing **after** the first observed failure;
+status samples are not proof of electrical waveforms. A later successful boot
+with instrumentation is therefore not automatically a demonstrated fix.
+
+Native preflight applies all eight patches to the pinned kernel without
+offsets/fuzz. It compiles the actual error helper, PIO writer, STOP function and
+regmap read/write functions against fault-injection mocks: success stays quiet,
+returns and bus-operation counts are unchanged, address/data phases and bytes
+are correct, unrelated devices are quiet and failed-read output remains intact.
+Read-address and page-selection diagnostic placement are source-checked, not a
+complete compiled kernel-path test. Existing polling, EDID, lifecycle, reset,
+address, LCDIF and compiled-DT checks pass. No local Yocto/kernel build is run.
+
+On the first authorised deployment, collect the boot ID, artifact identity and
+the first chronological `DT510-DIAG` records with their surrounding LT9611
+revision/power-on messages **before** detect/rebind or TV/cable intervention.
+Record zero/absent messages as insufficient evidence, not a startup pass.
+Do not fix the ignored STOP error, add retries or restore Ethernet in this
+same diagnostic candidate. Remove 0038 and its integration after diagnosis;
+restore the final intended Ethernet/controller settings before acceptance.
+
+### Build 689 baseline
+
 Build **689** passed, was installed by OTA after re-registration, booted and
 finalized. Its first HDMI attempt still failed: revision `0xe1` at 2.722348 s,
 then `EDID power-on failed: -6` at 3.359272 s, with disconnected/disabled HDMI
@@ -15,9 +170,9 @@ reload/rebind by Briar, the connector subsequently reported connected/enabled,
 camera-confirmed visible-output acceptance; the external cause of those HPD
 events has not been established.
 
-The next diagnostic image disables **only** `ksz9896_sw` on I2C3. It is a
-temporary isolation test requested by Alex, not a production Ethernet change or
-a demonstrated HDMI fix. See the experiment and acceptance criteria below.
+Diagnostic build 690 disables **only** `ksz9896_sw` on I2C3. It is a temporary
+isolation test requested by Alex, not a production Ethernet change or a
+demonstrated HDMI fix. See its failed result above and the experiment below.
 
 ### Earlier results
 

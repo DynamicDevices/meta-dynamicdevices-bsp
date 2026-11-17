@@ -16,6 +16,7 @@ CONNECTOR = "drivers/gpu/drm/drm_bridge_connector.c"
 LCDIF_KMS = "drivers/gpu/drm/imx/lcdif/lcdif-kms.c"
 LCDIF_PLANE = "drivers/gpu/drm/imx/lcdif/lcdif-plane.c"
 I2C_IMX = "drivers/i2c/busses/i2c-imx.c"
+REGMAP = "drivers/base/regmap/regmap.c"
 BSP = Path(__file__).resolve().parents[1]
 FILES = BSP / "recipes-kernel/linux/linux-lmp-fslc-imx/imx8mm-jaguar-dt510"
 PATCHES = (
@@ -26,6 +27,7 @@ PATCHES = (
     "0035-drm-bridge-lt9611-poll-edid-and-check-i2c-errors.patch",
     "0036-drm-bridge-lt9611-retry-power-on-arbitration-loss.patch",
     "0037-i2c-imx-support-single-master-with-stop-polling.patch",
+    "0038-dt510-lt9611-startup-diagnostics.patch",
 )
 
 
@@ -666,6 +668,161 @@ int main(void)
     print("PASS: actual power-on retries EAGAIN at every sequence position, recovers on second/third attempt, bounds exhaustion, keeps failed state false and permanent errors immediate; model, not boot proof.")
 
 
+def check_startup_diagnostics(i2c, regmap, work):
+    # Compile actual helpers: injected faults must not change the return code,
+    # bus-write count or STOP sequence. Logging is absent on successful transfers.
+    harness = r'''
+#include <assert.h>
+#include <stdbool.h>
+#include <errno.h>
+#include <stdio.h>
+#include <string.h>
+#define IMX_I2C_I2SR 0
+#define IMX_I2C_I2CR 1
+#define IMX_I2C_I2DR 2
+#define I2CR_MSTA 0x20
+#define I2CR_MTX 0x10
+#define I2CR_DMAEN 0x02
+#define I2CR_IEN 0x80
+#define dev_dbg(...) ((void)0)
+static int logs, reads, writes, steps, fail_at, fail_ret, stop_ret, polls;
+static unsigned int cr, last_write;
+static char record[256];
+#define dev_err(dev,fmt,...) do { (void)(dev); logs++; snprintf(record,sizeof(record),fmt,__VA_ARGS__); } while(0)
+struct imx_i2c_struct {
+    struct { int nr, dev; } adapter;
+    int stopped, disable_delay; void *dma;
+    struct { unsigned int i2cr_ien_opcode; } *hwdata;
+};
+struct i2c_msg { unsigned short addr, flags, len; unsigned char *buf; };
+static unsigned int imx_i2c_read_reg(struct imx_i2c_struct *i, int reg)
+{ (void)i; reads++; return reg==IMX_I2C_I2CR ? cr : 0x31; }
+static void imx_i2c_write_reg(unsigned int v, struct imx_i2c_struct *i, int reg)
+{ (void)i; (void)reg; writes++; last_write=v; }
+static int i2c_8bit_addr_from_msg(struct i2c_msg *m) { return m->addr<<1; }
+static int i2c_imx_trx_complete(struct imx_i2c_struct *i, bool a)
+{ (void)i; (void)a; return ++steps==fail_at ? fail_ret : 0; }
+static int i2c_imx_acked(struct imx_i2c_struct *i)
+{ (void)i; return ++steps==fail_at ? fail_ret : 0; }
+static int i2c_imx_bus_busy(struct imx_i2c_struct *i, int busy, bool a)
+{ (void)i; (void)a; assert(!busy); polls++; return stop_ret; }
+static bool is_imx1_i2c(struct imx_i2c_struct *i) { (void)i; return false; }
+static void udelay(int delay) { (void)delay; assert(0); }
+'''
+    harness += function(i2c, "i2c_imx_diag_error")
+    harness += function(i2c, "i2c_imx_write")
+    harness += function(i2c, "i2c_imx_stop")
+    harness += r'''
+int main(void)
+{
+    unsigned char data[]={0x01,0x18};
+    struct i2c_msg m={.addr=0x39,.len=2,.buf=data};
+    struct imx_i2c_struct i={.adapter.nr=2};
+    const char *phases[]={"write-address-complete","write-address-ack",
+        "write-data-complete","write-data-ack","write-data-complete","write-data-ack"};
+    for(int atomic=0;atomic<2;atomic++) {
+        fail_at=0; logs=reads=writes=steps=0;
+        assert(i2c_imx_write(&i,&m,atomic)==0);
+        assert(writes==3 && steps==6 && !logs && !reads);
+        for(int error=0;error<2;error++) for(int pos=1;pos<=6;pos++) {
+            fail_at=pos; fail_ret=error ? -ETIMEDOUT : -ENXIO;
+            logs=reads=writes=steps=0;
+            assert(i2c_imx_write(&i,&m,atomic)==fail_ret);
+            assert(writes==(pos+1)/2 && steps==pos && reads==2 && logs==1);
+            assert(strstr(record,phases[pos-1]));
+            assert(strstr(record,pos<=2?"byte=-1":pos<=4?"byte=0":"byte=1"));
+        }
+    }
+    for(int scope=0;scope<2;scope++) {
+        i.adapter.nr=scope?2:1; m.addr=scope?0x6b:0x39;
+        fail_at=2; fail_ret=-ENXIO; logs=reads=writes=steps=0;
+        assert(i2c_imx_write(&i,&m,false)==-ENXIO && !logs && !reads && writes==1);
+    }
+    i.adapter.nr=2; logs=reads=0;
+    i2c_imx_diag_error(&i,&m,"none",0,0); assert(!logs && !reads);
+    typeof(*i.hwdata) hw={.i2cr_ien_opcode=I2CR_IEN}; i.hwdata=&hw;
+    for(int atomic=0;atomic<2;atomic++) for(int err=0;err<2;err++) {
+        i.stopped=0; cr=I2CR_MSTA|I2CR_MTX; stop_ret=err?-ETIMEDOUT:0;
+        reads=writes=logs=polls=0; i2c_imx_stop(&i,atomic);
+        assert(reads==1 && writes==2 && polls==1 && last_write==0 && logs==err);
+    }
+    i.stopped=1; reads=writes=logs=polls=0; i2c_imx_stop(&i,false);
+    assert(!reads && writes==1 && !polls && !logs);
+    puts("PASS: actual PIO write/error/STOP diagnostics preserve success, address/data ACK/completion faults, byte positions, scope, atomic paths and legacy STOP behaviour.");
+}
+'''
+    test = work / "i2c-diagnostics.c"
+    test.write_text(harness)
+    binary = work / "i2c-diagnostics"
+    run(["cc", "-std=gnu11", "-Wall", "-Wextra", "-Werror", str(test), "-o", str(binary)])
+    print(run([str(binary)], text=True).stdout.strip())
+    # Read-address branches are source-checked; no DMA data-phase claim.
+    read = function(i2c, "i2c_imx_read")
+    assert '"read-address-complete", -1, result' in read
+    assert '"read-address-ack", -1, result' in read
+    harness = r'''
+#include <assert.h>
+#include <stdbool.h>
+#include <errno.h>
+#include <stdio.h>
+#include <string.h>
+static int logs, bus_calls, error, caches; static char record[256];
+struct device { const char *name; };
+struct regmap {
+    struct device *dev; bool cache_bypass, defer_caching, cache_only, cache_dirty;
+    int (*reg_write)(void *,unsigned int,unsigned int);
+    int (*reg_read)(void *,unsigned int,unsigned int *);
+};
+static const char *dev_name(struct device *d) { return d->name; }
+#define dev_err(dev,fmt,...) do { (void)(dev); logs++; snprintf(record,sizeof(record),fmt,__VA_ARGS__); } while(0)
+#define dev_info(...) ((void)0)
+#define trace_regmap_reg_write(...) ((void)0)
+#define trace_regmap_reg_read(...) ((void)0)
+static void *_regmap_map_get_context(struct regmap *m) { return m; }
+static bool regmap_writeable(struct regmap *m,unsigned int r) { (void)m; (void)r; return true; }
+static bool regmap_readable(struct regmap *m,unsigned int r) { return regmap_writeable(m,r); }
+static bool regmap_should_log(struct regmap *m) { (void)m; return false; }
+static int regcache_write(struct regmap *m,unsigned int r,unsigned int v)
+{ (void)m; (void)r; (void)v; caches++; return 0; }
+static int regcache_read(struct regmap *m,unsigned int r,unsigned int *v)
+{ (void)m; (void)r; (void)v; return -ENOENT; }
+static int wr(void *m,unsigned int r,unsigned int v)
+{ (void)m; assert(r==0x821b && v==0x69); bus_calls++; return error; }
+static int rd(void *m,unsigned int r,unsigned int *v)
+{ (void)m; assert(r==0x825e); bus_calls++; if(!error) *v=5; return error; }
+'''
+    harness += re.search(r"int _regmap_write\(.*?\n\}", regmap, re.S).group(0)
+    harness += function(regmap, "_regmap_read")
+    harness += r'''
+int main(void)
+{
+    struct device d={"2-0039"};
+    struct regmap m={.dev=&d,.cache_bypass=true,.reg_write=wr,.reg_read=rd};
+    const int errors[]={0,-ENXIO,-EAGAIN,-ETIMEDOUT};
+    for(int scope=0;scope<3;scope++) for(int n=0;n<4;n++) {
+        d.name=scope==1?"1-0039":"2-0039"; m.dev=scope==2?NULL:&d;
+        error=errors[n]; logs=bus_calls=caches=0;
+        assert(_regmap_write(&m,0x821b,0x69)==error && bus_calls==1);
+        assert(logs==((n && !scope)?1:0));
+        if(logs) assert(strstr(record,"logical=821b") && strstr(record,"value=69"));
+        unsigned int v=0xfeed; logs=bus_calls=0;
+        assert(_regmap_read(&m,0x825e,&v)==error && bus_calls==1);
+        assert(v==(error?0xfeed:5) && logs==((n && !scope)?1:0));
+        if(logs) assert(strstr(record,"logical=825e"));
+    }
+    puts("PASS: actual regmap read/write diagnostics retain logical addresses, values, failure returns, untouched failed-read output and device scope; no extra bus calls.");
+}
+'''
+    test = work / "regmap-diagnostics.c"
+    test.write_text(harness)
+    binary = work / "regmap-diagnostics"
+    run(["cc", "-std=gnu11", "-Wall", "-Wextra", "-Werror", str(test), "-o", str(binary)])
+    print(run([str(binary)], text=True).stdout.strip())
+    page = function(regmap, "_regmap_select_page")
+    assert page.index("if (ret && map->dev") < page.index("if (ret != 0)")
+    assert '"DT510-DIAG page-select logical=' in page
+
+
 def check_i2c_single_master(source, work):
     # Compile the actual patched polling function, not a rewritten model.
     harness = r'''
@@ -677,10 +834,11 @@ def check_i2c_single_master(source, work):
 #define I2SR_IBB 0x20
 #define IMX_I2C_I2SR 0
 #define dev_dbg(...) ((void)0)
+#define dev_err(...) ((void)0)
 #define msecs_to_jiffies(ms) ((unsigned long)(ms))
 #define time_after(a, b) ((long)((b) - (a)) < 0)
 static unsigned long jiffies;
-struct imx_i2c_struct { bool multi_master; int stopped; };
+struct imx_i2c_struct { bool multi_master; int stopped; struct { int nr; } adapter; };
 static const unsigned int *statuses;
 static unsigned int status_count, reads, clears, waits;
 static unsigned int imx_i2c_read_reg(struct imx_i2c_struct *i, int reg)
@@ -752,7 +910,7 @@ def main():
     parser.add_argument("--kernel-git", required=True, help="Existing local kernel Git repository/git-dir")
     parser.add_argument("--only-dt", action="store_true", help="Recheck only a failed device-tree prerequisite/check")
     args = parser.parse_args()
-    paths = [DRIVER, CONNECTOR, LCDIF_KMS, LCDIF_PLANE, I2C_IMX, "include/drm/drm_bridge_connector.h",
+    paths = [DRIVER, CONNECTOR, LCDIF_KMS, LCDIF_PLANE, I2C_IMX, REGMAP, "include/drm/drm_bridge_connector.h",
              "include/dt-bindings", "include/uapi/linux/input-event-codes.h"]
     paths += ["arch/arm64/boot/dts/freescale/" + name for name in
               ("imx8mm-evkb.dts", "imx8mm-evk.dtsi", "imx8mm.dtsi", "imx8mm-pinfunc.h")]
@@ -778,6 +936,7 @@ def main():
             check_edid(source, work)
             check_power_on_retry(source, work)
             check_i2c_single_master((work / I2C_IMX).read_text(), work)
+            check_startup_diagnostics((work / I2C_IMX).read_text(), (work / REGMAP).read_text(), work)
         check_dt(work)
     recipe = (BSP / "recipes-kernel/linux/linux-lmp-fslc-imx_%.bbappend").read_text()
     blocks = re.findall(r'SRC_URI:append:([^ =]+)\s*=\s*"(.*?)"', recipe, re.S)
