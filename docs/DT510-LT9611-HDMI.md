@@ -4,6 +4,39 @@ Updated 18 November 2026 at Alex's request. Briar helped draft this.
 
 ## Current state
 
+Build **695 passed but did not fix natural startup**. It runs as
+`5.0.9-695-96`, OSTree
+`85e839fb46a6c0839b6a9cffc65769a5771b6de1ad14ede6e5e35a66a0d4e793`.
+On the latest observed boot `5aa2e0d0-42cd-4259-9ab4-4d38c6859a08`, the
+original probe and its reset retry failed with STOP `-110`, recovery `-16`,
+around 3.14/3.89 seconds. A single diagnostic reprobe at 12.81 seconds restored
+connected/enabled HDMI with 256-byte EDID and both checksums valid. Its crystal
+selection took 0.542 ms, with three completion waits of 112–118 microseconds
+and all three controller interrupts handled. No matched new kernel faults or
+trace overruns. This is recovery, not natural-startup acceptance or a verified
+physical picture. An earlier 11.25-second reprobe also worked but took 205 ms
+for that transfer; the slow event did not recur under phase tracing. Late live
+reload also worked (0.756 ms). These traces cannot establish what happens in
+the original pre-userspace failing probe or rule out early IRQ/controller faults.
+
+All temporary timing/reprobe services were disabled and removed after capture;
+their original units and full results remain in private diagnostic archives.
+Tracer settings were restored. No bootarg, PM/CPU setting or new startup
+workaround was installed. Updater is enabled and running.
+
+The next diagnostic candidate **0043** retains0042 and adds bounded in-memory
+START/byte-wait/IRQ/STOP samples for adapter2/address0x39 writes matching
+`01 18`, printing only after each matching transfer finishes. The byte pattern
+alone does not establish the current register bank; correlate with existing
+logical-register diagnostics. Three waits and four IRQ records are retained,
+with total counts reported. IRQ snapshots/final copies use the existing lock.
+Return values, controller register writes, timeout/retry/delay policy and boot
+settings are unchanged; added timestamp/status reads can perturb the failure.
+This candidate is instrumentation, NOT a startup fix. Review/build/hardware
+results remain outstanding; do not infer deployment from source preparation.
+
+### Earlier build 692 evidence
+
 Build **692** passed and automatically booted as `5.0.9-692-96`, OSTree
 `4329d616c377837ba7e6589f9934b6eab2cba97d82bbd253a7699b633098a7b8`,
 boot ID `d46286f2-97ac-4fb7-b8c6-b5b18a01ec58`. HDMI remains disconnected,

@@ -8,6 +8,7 @@ import re
 import subprocess
 import tarfile
 import tempfile
+from dt510_hdmi_controller_test import check_controller_diagnostics
 
 
 PIN = "e0f9e2afd4cff3f02d71891244b4aa5899dfc786"
@@ -30,6 +31,7 @@ PATCHES = (
     "0038-dt510-lt9611-startup-diagnostics.patch",
     "0039-i2c-imx-propagate-stop-and-recover-bus.patch",
     "0042-drm-bridge-lt9611-boot-reset-recovery.patch",
+    "0043-i2c-imx-trace-lt9611-clock-switch.patch",
 )
 
 
@@ -985,6 +987,15 @@ static int i2c_imx_read(struct imx_i2c_struct *i, struct i2c_msg *m, bool last, 
 { (void)last; i->stop_result=read_stop_result; return i2c_imx_write(i,m,a); }
 static void i2c_imx_slave_init(struct imx_i2c_struct *i) { (void)i; }
 '''
+    # Include the actual bounded diagnostic state; exercise legacy recovery
+    # with diagnostics inactive, without weakening its existing assertions.
+    diag = re.search(r"struct imx_i2c_dt510_diag \{.*?\n\};", source, re.S).group()
+    harness = harness.replace("struct imx_i2c_struct {", """
+typedef unsigned long long u64;
+#define READ_ONCE(v) (v)
+#define IMX_I2C_I2SR 0
+static u64 ktime_get_ns(void) { return 1; }
+""" + diag + "\nstruct imx_i2c_struct {\n    struct imx_i2c_dt510_diag dt510_diag;")
     harness += function(source, "i2c_imx_stop")
     harness += function(source, "i2c_imx_xfer_common")
     harness += r'''
@@ -1147,6 +1158,7 @@ def main():
             check_i2c_single_master((work / I2C_IMX).read_text(), work)
             check_startup_diagnostics((work / I2C_IMX).read_text(), (work / REGMAP).read_text(), work)
             check_stop_recovery((work / I2C_IMX).read_text(), work)
+            check_controller_diagnostics((work / I2C_IMX).read_text(), work, run)
         check_dt(work)
     recipe = (BSP / "recipes-kernel/linux/linux-lmp-fslc-imx_%.bbappend").read_text()
     assert "0040-drm-bridge-lt9611-test-ring-clock.patch" not in recipe
