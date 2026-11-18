@@ -22,7 +22,60 @@ were no matched kernel warning/oops/panic headers in this read. Error propagatio
 works, but attempted bus recovery does not establish a startup fix. `-EBUSY`
 does not by itself identify the electrical fault or the device holding a line.
 
-### Temporary internal-clock comparison (18 November)
+### Next comparison: delayed crystal selection (18 November)
+
+Alex requested a build of the crystal-settling experiment. Active patch **0041**
+replaces **0040** in the DT510 recipe (0040 remains a historical file). Applied
+directly after 0039, it adds `msleep(1000)` after the already-powered guard and
+before the existing first write `0x8101=0x18`. The full wait is once per power-on
+sequence, not per retry; existing retry bounds and STOP/error propagation remain.
+All other register values, reset, rails, controller, Ethernet comparison and boot
+options remain unchanged. This is a diagnostic interval, not a vendor-specified
+startup time or production fix. Reset release already waits 100 ms.
+
+Build 693 booted as `5.0.9-693-96`, OSTree
+`3dfe6a51790bad9c4d3a7bb6fc9e12a11461c2a376a75df2ee6de1d38849ad2d`,
+boot ID `6ba6aaee-df19-41e7-b426-6497c6c78e58`. Read-only inspection after the
+requested warm reboot found connected/enabled HDMI and active scanout, with no
+matched STOP/EDID-power-on failures or fault headers. A DPX USB-camera capture
+independently showed the console. Alex subsequently relayed Michael's successful
+cold-power-cycle display observation; that cold boot was not independently
+inspected. These are startup observations, not timing or lifetime qualification.
+
+Michael suggests oscillator startup time. Upstream and public vendor-derived
+plain-LT9611 code select the crystal without an explicit settling interval;
+searches found no verified fix for this exact failure. UXC/UXD reports are not
+plain-LT9611 evidence. Vendor-derived Chip_ID code selects the crystal before
+System_Init, so a claim that analog-power-first is the vendor fix is unsupported.
+Hardware guide revision 0.4 section 1.5 specifies a 27 MHz reference under 50 ppm
+for system clock and HDMI pixel-clock recovery. The externally supplied register
+list is titled LT1702 despite its filename; do not derive new oscillator-control
+bits from it without LT9611 confirmation.
+
+The newly supplied `202600r1.pdf` is drawing 202600 rev1, HDMI sheet18 of25,
+but the file contains only that single sheet. Static extraction and a private
+byte-for-byte archive are complete under the workspace's local hardware-reference
+directory; MemPalace indexing remains pending its unavailable service. It shows
+U44 plain LT9611, passive 27 MHz X5 (12 pF annotation), two 18 pF loading
+capacitors, and a 2 kOhm 1% REXT resistor. No independent clock-enable signal is
+shown. Capacitor values alone do not demonstrate incorrect loading; no physical
+startup/clock measurement has been made. The proprietary drawing is not published.
+
+Acceptance for the next comparison: identify the new target and boot, observe
+the first clock write and subsequent I2C/STOP errors, EDID, scanout and camera
+without reload/forced detection. Repeat cold/warm starts only as requested.
+A pass supports timing sensitivity, not a defective crystal or minimum safe
+delay. A failure shows this elapsed-time delay was inadequate; do not blindly
+increase delays or suppress errors. Retain 693 as the identified working
+comparison; qualify modes/video and restore development-only comparisons before
+production acceptance. No manual deployment/reboot is part of this build request.
+
+Reference code checked:
+
+- <https://github.com/torvalds/linux/blob/master/drivers/gpu/drm/bridge/lontium-lt9611.c>
+- <https://github.com/sipeed/MaixCDK/blob/main/components/3rd_party/sophgo-middleware/sophgo-middleware/v2/sample/mipi_tx/lt9611/lt9611.c>
+
+### Temporary internal-clock comparison: build 693 (18 November)
 
 Alex requested the build after the clock-source investigation. Patch **0040**
 changes only the first system-clock write from `0x8101=0x18` to `0x08`:
@@ -34,9 +87,9 @@ boot options, reset, supply or manual board operations are included.
 This is **not a production fix**. The frequency-meter constants and display/DDC
 timings are not qualified against the ring oscillator. The vendor reference
 drivers select the crystal with `0x18`, without a documented settling delay.
-The hardware guide requires a 27 MHz reference at pin 18; the local spec does
-not document the fitted oscillator/crystal circuit. No DT510 HDMI schematic
-page or physical clock measurement was available for this investigation.
+The hardware guide requires a 27 MHz reference at pin 18. At preparation time,
+no HDMI schematic was available; the subsequently supplied sheet is described
+above. There is still no physical clock measurement.
 
 Compare first startup against 692: identify the exact image/boot, inspect the
 first `0x8101` transfer and STOP/recovery errors, then report EDID and scanout

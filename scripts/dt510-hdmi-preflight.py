@@ -29,7 +29,7 @@ PATCHES = (
     "0037-i2c-imx-support-single-master-with-stop-polling.patch",
     "0038-dt510-lt9611-startup-diagnostics.patch",
     "0039-i2c-imx-propagate-stop-and-recover-bus.patch",
-    "0040-drm-bridge-lt9611-test-ring-clock.patch",
+    "0041-drm-bridge-lt9611-test-crystal-settle.patch",
 )
 
 
@@ -614,19 +614,24 @@ def check_power_on_retry(source, work):
 #include <stddef.h>
 #include <errno.h>
 #define ARRAY_SIZE(x) (sizeof(x)/sizeof((x)[0]))
-static int sleeps, recoveries;
+static int sleeps, recoveries, settle_waits;
 #define dev_dbg(...) ((void)0)
 #define dev_info(...) (recoveries++)
 struct reg_sequence { unsigned int reg, def; };
 struct regmap { int attempts, writes, fail_at, error, fail_attempts; size_t seq_len; };
 struct lt9611 { struct regmap *regmap; void *dev; bool power_on; };
+static void msleep(unsigned int ms)
+{
+    assert(ms==1000); settle_waits++;
+}
 static void usleep_range(unsigned int min, unsigned int max)
 {
     assert(min==1000 && max==2000); sleeps++;
 }
 static int regmap_multi_reg_write(struct regmap *m, const struct reg_sequence *seq, size_t n)
 {
-    assert(seq && n && seq[0].reg==0x8101 && seq[0].def==0x08);
+    assert(settle_waits==1); /* once BEFORE the first write, not per retry */
+    assert(seq && n==15 && seq[0].reg==0x8101 && seq[0].def==0x18);
     m->seq_len=n; m->attempts++;
     if (m->attempts<=m->fail_attempts) return m->error;
     for (size_t i=0;i<n;i++) {
@@ -640,38 +645,44 @@ static int regmap_multi_reg_write(struct regmap *m, const struct reg_sequence *s
 int main(void)
 {
     struct regmap m={0}; struct lt9611 d={.regmap=&m};
-    assert(!lt9611_power_on(&d) && d.power_on && m.attempts==1 && !sleeps);
-    assert(!lt9611_power_on(&d) && m.attempts==1); /* cached success */
+    assert(!lt9611_power_on(&d) && d.power_on && m.attempts==1 && !sleeps && settle_waits==1);
+    assert(!lt9611_power_on(&d) && m.attempts==1 && settle_waits==1); /* cached success */
     int count=(int)m.seq_len;
     for (int i=1;i<=count;i++) {
         m=(struct regmap){.fail_at=i,.error=-EAGAIN}; d.power_on=false;
-        sleeps=recoveries=0;
+        sleeps=recoveries=settle_waits=0;
         assert(!lt9611_power_on(&d) && d.power_on && m.attempts==2);
         assert(sleeps==1 && recoveries==1 && m.writes==i+count);
     }
     m=(struct regmap){.fail_attempts=2,.error=-EAGAIN}; d.power_on=false;
-    sleeps=recoveries=0;
+    sleeps=recoveries=settle_waits=0;
     assert(!lt9611_power_on(&d) && d.power_on && m.attempts==3 && sleeps==2);
     assert(recoveries==1);
     m=(struct regmap){.fail_attempts=3,.error=-EAGAIN}; d.power_on=false;
-    sleeps=recoveries=0;
+    sleeps=recoveries=settle_waits=0;
     assert(lt9611_power_on(&d)==-EAGAIN && !d.power_on && m.attempts==3);
     assert(sleeps==2 && !recoveries);
     m=(struct regmap){0};
+    settle_waits=0;
     assert(!lt9611_power_on(&d) && d.power_on); /* later successful reprobe */
     m=(struct regmap){.fail_attempts=1,.error=-ETIMEDOUT}; d.power_on=false;
-    sleeps=recoveries=0;
+    sleeps=recoveries=settle_waits=0;
     assert(!lt9611_power_on(&d) && d.power_on && m.attempts==2 && sleeps==1);
     m=(struct regmap){.fail_attempts=3,.error=-ETIMEDOUT}; d.power_on=false;
-    sleeps=recoveries=0;
+    sleeps=recoveries=settle_waits=0;
     assert(lt9611_power_on(&d)==-ETIMEDOUT && !d.power_on && m.attempts==3 && sleeps==2);
-    const int errors[]={-ENXIO,-EIO};
+    const int errors[]={-ENXIO,-EIO,-EBUSY};
     for (size_t i=0;i<ARRAY_SIZE(errors);i++) {
         m=(struct regmap){.fail_attempts=1,.error=errors[i]}; d.power_on=false;
-        sleeps=recoveries=0;
+        sleeps=recoveries=settle_waits=0;
         assert(lt9611_power_on(&d)==errors[i] && !d.power_on);
         assert(m.attempts==1 && !sleeps && !recoveries);
     }
+    m=(struct regmap){0}; d.power_on=true;
+    settle_waits=0;
+    assert(!lt9611_power_on(&d) && !settle_waits && !m.attempts);
+    d.power_on=false;
+    assert(!lt9611_power_on(&d) && settle_waits==1 && m.attempts==1);
     return 0;
 }
 '''
@@ -680,7 +691,7 @@ int main(void)
     binary = work / "power-on-retry-test"
     run(["cc", "-Wall", "-Wextra", "-Werror", "-std=c11", str(path), "-o", str(binary)])
     run([str(binary)])
-    print("PASS: actual power-on bounds EAGAIN/ETIMEDOUT retries, keeps failed state false and permanent errors immediate; model, not boot proof.")
+    print("PASS: actual power-on waits 1000 ms before crystal selection, skips wait when already on, waits again after power-off, bounds EAGAIN/ETIMEDOUT retries and propagates permanent errors; model, not oscillator/boot proof.")
 
 
 def check_startup_diagnostics(i2c, regmap, work):
@@ -1056,6 +1067,7 @@ def main():
             check_stop_recovery((work / I2C_IMX).read_text(), work)
         check_dt(work)
     recipe = (BSP / "recipes-kernel/linux/linux-lmp-fslc-imx_%.bbappend").read_text()
+    assert "0040-drm-bridge-lt9611-test-ring-clock.patch" not in recipe
     blocks = re.findall(r'SRC_URI:append:([^ =]+)\s*=\s*"(.*?)"', recipe, re.S)
     for name in PATCHES:
         assert [machine for machine, body in blocks if name in body] == ["imx8mm-jaguar-dt510"]
