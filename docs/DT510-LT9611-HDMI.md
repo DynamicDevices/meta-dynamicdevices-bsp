@@ -22,7 +22,62 @@ were no matched kernel warning/oops/panic headers in this read. Error propagatio
 works, but attempted bus recovery does not establish a startup fix. `-EBUSY`
 does not by itself identify the electrical fault or the device holding a line.
 
-### Next comparison: delayed crystal selection (18 November)
+### Next candidate: clock initialization before publication, one reset recovery
+
+Build **694 passed but did not fix startup**. It booted as `5.0.9-694-96`,
+OSTree `a70508b65f7713a6396e73c99c34aaf8a79b290c77464c32444f92f247ed3990`,
+boot ID `8bfe1377-b5f3-442e-9081-bade2ecc900a`. The first clock selection
+still returned `-110` after a 504 ms STOP wait, bus recovery returned `-16`,
+then address/page operations returned `-6` and EDID power-on failed. Initial
+HDMI was disconnected/disabled with no EDID or active scanout. The extra second
+is not a demonstrated correction and is removed from the active recipe.
+
+Alex requested a better fix and then explicitly requested integration, review
+and a build of the reset/reinitialization candidate. Active patch **0042** now
+replaces 0041, applied directly after 0039; 0040/0041 remain historical files.
+It initializes clock/power during probe, before HPD IRQ registration and DRM
+bridge publication. On eligible clock transport errors (`-EAGAIN`,
+`-ETIMEDOUT`, `-ENXIO`), it makes at most one further attempt starting from a
+complete hardware reset and revision/I2C initialization. Revision failures and
+other errors are returned immediately; a final failure follows the existing
+probe cleanup rather than publishing a broken bridge. The existing power-on
+transport retries remain bounded: at most six setup calls across two hardware
+initializations. There is no infinite deferred-probe loop, new delay, reset from
+an active DRM callback, rail/DT change, or boot-option edit. Subsequent EDID
+calls retain the successfully initialized power-on state.
+
+This follows observed recovery, not a proven root cause. In bounded live tests
+on 694, DRM master was detached before the LT9611 driver and raw I2C was used
+only while the bridge was unbound, with no forced busy-address override.
+Verified target/boot, live reset phandle/line/polarity, GPIO controller and
+always-on rail guards preceded writes. Both ring-setup-then-crystal and a
+crystal-first control read back `0x18` and revision `0xe1` after hardware reset.
+Both tests explicitly wrote/read the ring value first and used userspace I2C
+subprocesses, unlike the exact early kernel path. The ~7.4/7.5 ms command times
+include process overhead, not measured wire timing. The control also passed,
+so reordering is NOT a demonstrated fix and these tests do not distinguish
+elapsed time, reset or transaction spacing. The initial GPIO harness attempt
+aborted before raw I2C because a completed toggle exits normally; hold handling
+was corrected before the successful tests. Both driver bindings were restored
+after each attempt.
+
+After final restoration, the same 694 boot had connected/enabled HDMI, 256 EDID
+bytes and active scanout (fb37). This is late recovery, not startup acceptance.
+The camera was busy in another application and was not interrupted or visually
+checked. No reboot, system startup service or boot-option change was made.
+
+The new combined actual-C tests cover reset/revision/setup order, cache state,
+one reset replay, exhausted transfer attempts, permanent errors and revision
+errors on either attempt. Source checks place initialization before HPD polarity,
+IRQ registration and bridge publication, and retain cleanup on failure. These
+are native mock/source checks, not a full kernel build or hardware boot proof.
+An immediate early reset may still fail even though late reset worked. Require
+exact new image/boot identity, initialization/recovery logs, EDID/scanout and
+visible output without manual intervention, then repeated cold/warm starts.
+693 remains the successful ring-clock startup comparison; restore unrelated
+development comparisons and qualify modes/hotplug/network before production.
+
+### Previous comparison: delayed crystal selection, build 694 (18 November)
 
 Alex requested a build of the crystal-settling experiment. Active patch **0041**
 replaces **0040** in the DT510 recipe (0040 remains a historical file). Applied

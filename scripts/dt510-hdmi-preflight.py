@@ -29,7 +29,7 @@ PATCHES = (
     "0037-i2c-imx-support-single-master-with-stop-polling.patch",
     "0038-dt510-lt9611-startup-diagnostics.patch",
     "0039-i2c-imx-propagate-stop-and-recover-bus.patch",
-    "0041-drm-bridge-lt9611-test-crystal-settle.patch",
+    "0042-drm-bridge-lt9611-boot-reset-recovery.patch",
 )
 
 
@@ -614,23 +614,18 @@ def check_power_on_retry(source, work):
 #include <stddef.h>
 #include <errno.h>
 #define ARRAY_SIZE(x) (sizeof(x)/sizeof((x)[0]))
-static int sleeps, recoveries, settle_waits;
+static int sleeps, recoveries;
 #define dev_dbg(...) ((void)0)
 #define dev_info(...) (recoveries++)
 struct reg_sequence { unsigned int reg, def; };
 struct regmap { int attempts, writes, fail_at, error, fail_attempts; size_t seq_len; };
 struct lt9611 { struct regmap *regmap; void *dev; bool power_on; };
-static void msleep(unsigned int ms)
-{
-    assert(ms==1000); settle_waits++;
-}
 static void usleep_range(unsigned int min, unsigned int max)
 {
     assert(min==1000 && max==2000); sleeps++;
 }
 static int regmap_multi_reg_write(struct regmap *m, const struct reg_sequence *seq, size_t n)
 {
-    assert(settle_waits==1); /* once BEFORE the first write, not per retry */
     assert(seq && n==15 && seq[0].reg==0x8101 && seq[0].def==0x18);
     m->seq_len=n; m->attempts++;
     if (m->attempts<=m->fail_attempts) return m->error;
@@ -645,44 +640,42 @@ static int regmap_multi_reg_write(struct regmap *m, const struct reg_sequence *s
 int main(void)
 {
     struct regmap m={0}; struct lt9611 d={.regmap=&m};
-    assert(!lt9611_power_on(&d) && d.power_on && m.attempts==1 && !sleeps && settle_waits==1);
-    assert(!lt9611_power_on(&d) && m.attempts==1 && settle_waits==1); /* cached success */
+    assert(!lt9611_power_on(&d) && d.power_on && m.attempts==1 && !sleeps);
+    assert(!lt9611_power_on(&d) && m.attempts==1); /* cached success */
     int count=(int)m.seq_len;
     for (int i=1;i<=count;i++) {
         m=(struct regmap){.fail_at=i,.error=-EAGAIN}; d.power_on=false;
-        sleeps=recoveries=settle_waits=0;
+        sleeps=recoveries=0;
         assert(!lt9611_power_on(&d) && d.power_on && m.attempts==2);
         assert(sleeps==1 && recoveries==1 && m.writes==i+count);
     }
     m=(struct regmap){.fail_attempts=2,.error=-EAGAIN}; d.power_on=false;
-    sleeps=recoveries=settle_waits=0;
+    sleeps=recoveries=0;
     assert(!lt9611_power_on(&d) && d.power_on && m.attempts==3 && sleeps==2);
     assert(recoveries==1);
     m=(struct regmap){.fail_attempts=3,.error=-EAGAIN}; d.power_on=false;
-    sleeps=recoveries=settle_waits=0;
+    sleeps=recoveries=0;
     assert(lt9611_power_on(&d)==-EAGAIN && !d.power_on && m.attempts==3);
     assert(sleeps==2 && !recoveries);
     m=(struct regmap){0};
-    settle_waits=0;
     assert(!lt9611_power_on(&d) && d.power_on); /* later successful reprobe */
     m=(struct regmap){.fail_attempts=1,.error=-ETIMEDOUT}; d.power_on=false;
-    sleeps=recoveries=settle_waits=0;
+    sleeps=recoveries=0;
     assert(!lt9611_power_on(&d) && d.power_on && m.attempts==2 && sleeps==1);
     m=(struct regmap){.fail_attempts=3,.error=-ETIMEDOUT}; d.power_on=false;
-    sleeps=recoveries=settle_waits=0;
+    sleeps=recoveries=0;
     assert(lt9611_power_on(&d)==-ETIMEDOUT && !d.power_on && m.attempts==3 && sleeps==2);
     const int errors[]={-ENXIO,-EIO,-EBUSY};
     for (size_t i=0;i<ARRAY_SIZE(errors);i++) {
         m=(struct regmap){.fail_attempts=1,.error=errors[i]}; d.power_on=false;
-        sleeps=recoveries=settle_waits=0;
+        sleeps=recoveries=0;
         assert(lt9611_power_on(&d)==errors[i] && !d.power_on);
         assert(m.attempts==1 && !sleeps && !recoveries);
     }
     m=(struct regmap){0}; d.power_on=true;
-    settle_waits=0;
-    assert(!lt9611_power_on(&d) && !settle_waits && !m.attempts);
+    assert(!lt9611_power_on(&d) && !m.attempts);
     d.power_on=false;
-    assert(!lt9611_power_on(&d) && settle_waits==1 && m.attempts==1);
+    assert(!lt9611_power_on(&d) && m.attempts==1);
     return 0;
 }
 '''
@@ -691,7 +684,95 @@ int main(void)
     binary = work / "power-on-retry-test"
     run(["cc", "-Wall", "-Wextra", "-Werror", "-std=c11", str(path), "-o", str(binary)])
     run([str(binary)])
-    print("PASS: actual power-on waits 1000 ms before crystal selection, skips wait when already on, waits again after power-off, bounds EAGAIN/ETIMEDOUT retries and propagates permanent errors; model, not oscillator/boot proof.")
+    print("PASS: actual power-on selects crystal, bounds EAGAIN/ETIMEDOUT retries, caches success and propagates permanent errors without the ineffective settling delay; model, not oscillator/boot proof.")
+
+
+def check_boot_init(source, work):
+    # Compile BOTH actual functions: a failed target must receive a hardware
+    # reset and revision/I2C initialization before another power-on sequence.
+    harness = r'''
+#include <assert.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <errno.h>
+#define ARRAY_SIZE(x) (sizeof(x)/sizeof((x)[0]))
+#define dev_dbg(...) ((void)0)
+#define dev_info(...) ((void)0)
+#define dev_warn(...) (warnings++)
+struct reg_sequence { unsigned int reg, def; };
+struct regmap { int stage, attempts[2], errors[2], rev_fail_stage, rev_error; bool ready; };
+struct lt9611 { struct regmap *regmap; void *dev; bool power_on, sleep; };
+static int resets, revisions, warnings, sleeps;
+static void lt9611_reset(struct lt9611 *d)
+{
+    assert(resets<2); d->regmap->stage=resets++; d->regmap->ready=false;
+}
+static int lt9611_read_device_rev(struct lt9611 *d)
+{
+    assert(!d->power_on && !d->sleep && resets==revisions+1);
+    revisions++;
+    if (resets==d->regmap->rev_fail_stage) return d->regmap->rev_error;
+    d->regmap->ready=true; return 0;
+}
+static void usleep_range(unsigned int lo, unsigned int hi)
+{ assert(lo==1000 && hi==2000); sleeps++; }
+static int regmap_multi_reg_write(struct regmap *m,
+                                  const struct reg_sequence *seq, size_t n)
+{
+    assert(m->ready && revisions==resets);
+    assert(n==15 && seq[0].reg==0x8101 && seq[0].def==0x18);
+    assert(m->stage>=0 && m->stage<2);
+    m->attempts[m->stage]++;
+    return m->errors[m->stage];
+}
+'''
+    harness += function(source, "lt9611_power_on") + "\n"
+    harness += function(source, "lt9611_boot_init") + r'''
+static void check(int first, int second, int rev_fail, int expected,
+                  int reset_count, int attempts0, int attempts1, int backoffs)
+{
+    struct regmap m={.errors={first,second},.rev_fail_stage=rev_fail,.rev_error=-EIO};
+    struct lt9611 d={.regmap=&m,.power_on=true,.sleep=true};
+    resets=revisions=warnings=sleeps=0;
+    assert(lt9611_boot_init(&d)==expected);
+    assert(resets==reset_count && revisions==reset_count);
+    assert(m.attempts[0]==attempts0 && m.attempts[1]==attempts1);
+    assert(sleeps==backoffs && warnings==(reset_count==2));
+    assert(d.power_on==(!expected) && !d.sleep);
+    if (!expected) {
+        assert(!lt9611_power_on(&d)); /* subsequent EDID: no rewrite/reset */
+        assert(resets==reset_count && m.attempts[0]==attempts0 && m.attempts[1]==attempts1);
+    }
+}
+int main(void)
+{
+    check(0,0,0,0,1,1,0,0);
+    check(-ENXIO,0,0,0,2,1,1,0);
+    check(-ENXIO,-ENXIO,0,-ENXIO,2,1,1,0);
+    check(-EAGAIN,0,0,0,2,3,1,2);
+    check(-ETIMEDOUT,0,0,0,2,3,1,2);
+    check(-EAGAIN,-EAGAIN,0,-EAGAIN,2,3,3,4);
+    check(-ETIMEDOUT,-ETIMEDOUT,0,-ETIMEDOUT,2,3,3,4);
+    check(-ENXIO,-EIO,0,-EIO,2,1,1,0);
+    check(-EIO,0,0,-EIO,1,1,0,0);
+    check(-EBUSY,0,0,-EBUSY,1,1,0,0);
+    check(0,0,1,-EIO,1,0,0,0);
+    check(-ENXIO,0,2,-EIO,2,1,0,0);
+    return 0;
+}
+'''
+    path = work / "boot-init-test.c"
+    path.write_text(harness)
+    binary = work / "boot-init-test"
+    run(["cc", "-Wall", "-Wextra", "-Werror", "-std=c11", str(path), "-o", str(binary)])
+    run([str(binary)])
+    probe = function(source, "lt9611_probe")
+    assert source.count("lt9611_boot_init(") == 2
+    assert probe.index("lt9611_regulator_enable(") < probe.index("lt9611_boot_init(")
+    for later in ("0x8210", "devm_request_threaded_irq(", "drm_bridge_add("):
+        assert probe.index("lt9611_boot_init(") < probe.index(later)
+    assert re.search(r"ret = lt9611_boot_init\(lt9611\);\s*if \(ret\) \{[^}]*goto err_disable_regulators;", probe)
+    print("PASS: actual boot-init + power-on: one hardware-reset replay, revision/state restored, bounded transfer retries, final/permanent/revision errors, cached EDID path; source checks IRQ/DRM publication order. Not physical reset or boot proof.")
 
 
 def check_startup_diagnostics(i2c, regmap, work):
@@ -1062,12 +1143,14 @@ def main():
                               (work / LCDIF_PLANE).read_text(), legacy_plane_source, work)
             check_edid(source, work)
             check_power_on_retry(source, work)
+            check_boot_init(source, work)
             check_i2c_single_master((work / I2C_IMX).read_text(), work)
             check_startup_diagnostics((work / I2C_IMX).read_text(), (work / REGMAP).read_text(), work)
             check_stop_recovery((work / I2C_IMX).read_text(), work)
         check_dt(work)
     recipe = (BSP / "recipes-kernel/linux/linux-lmp-fslc-imx_%.bbappend").read_text()
     assert "0040-drm-bridge-lt9611-test-ring-clock.patch" not in recipe
+    assert "0041-drm-bridge-lt9611-test-crystal-settle.patch" not in recipe
     blocks = re.findall(r'SRC_URI:append:([^ =]+)\s*=\s*"(.*?)"', recipe, re.S)
     for name in PATCHES:
         assert [machine for machine, body in blocks if name in body] == ["imx8mm-jaguar-dt510"]
