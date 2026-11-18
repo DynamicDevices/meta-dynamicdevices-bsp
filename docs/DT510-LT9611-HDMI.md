@@ -4,7 +4,88 @@ Updated 18 November 2026 at Alex's request. Briar helped draft this.
 
 ## Current state
 
-Build **696 passed but did not fix natural startup**. The last observed image
+Build **697 passed but did not fix natural startup**. The last observed image
+is `5.0.9-697-96`, OSTree
+`64ef9e12b3e5500113c82034261b5472c1cc621d0fff806964495139b406106d`,
+boot `ffaef5e6-8537-4505-98e8-c41893ecd2f3`.
+Target: <https://app.foundries.io/factories/vixdt/targets/697/>.
+After a controlled warm reboot from working HDMI, both clock-select attempts
+again had three ACKs and three IRQs. A measured 51.338 ms pre-STOP delay did
+not prevent the roughly 513 ms STOP timeout, recovery `-16`, and later address
+NACK. The LT9611 remained unbound and no HDMI connector appeared. The board
+was left running without manual recovery. This is not only a cold-power symptom.
+
+Earlier on 697, late normal reprobes succeeded with both 50 ms and zero added
+pre-STOP delay (STOP 26.125 and 13.125 microseconds respectively). These do not
+prove a startup fix or distinguish elapsed time from bridge/bus state. The
+upstream i.MX single-master STOP fix is already present. Recovery evidence
+indicates SDA read low during recovery, not which device held it or a measured
+crystal fault. Do not keep increasing blind delays.
+
+### Optional U-Boot AESL HDMI splash — implementation, not hardware proof
+
+Alex requested testing initialization before Linux, reusing the Jaguar Screen
+splash approach. This is a hardware-specific **MACHINE_FEATURES** switch,
+`hdmi-boot-splash`, enabled by default on DT510, not a DISTRO_FEATURES switch.
+Disable it in subscriber configuration with:
+
+```bitbake
+MACHINE_FEATURES:remove:imx8mm-jaguar-dt510 = " hdmi-boot-splash"
+```
+
+The feature is removed for `lmp-mfgtool`; manufacturing/recovery U-Boot stays
+on its original path. Other boards are unchanged. U-Boot proper (not SPL)
+uses a separate control DT, plain LT9611 on I2C3 address 0x39, active-low
+GPIO2_IO11 reset, four DSI lanes on port A, fixed CEA-4 1280x720p60 RGB888.
+EDID negotiation, HDMI audio and Linux takeover are not implemented here.
+
+NXP SEC DSIM requires a panel-class endpoint even though the device is an I2C
+bridge. Its panel-enable callback attaches DSI and configures the bridge with
+HDMI TX disabled. SEC DSIM's host-enable function is a no-op in this pin:
+LCDIF starts the pixel stream later. An LT9611-only LCDIF completion hook then
+calls the DSIM bridge again (100 rather than the initial 80); only this final
+call waits 500 ms and enables TX. Other panels do not get the extra call.
+Output-enable failure removes the bridge and stops LCDIF, preserving the first
+error. Every I2C write/read and reset operation propagates its
+first error. Crystal selection still uses the standard `0x8101=0x18`; it could
+fail in U-Boot too. Success messages are not proof of a visible picture.
+
+The signed boot script loads at most 2,764,854 bytes to the EVK's existing
+0x50000000 splash scratch address. It checks exact size and SHA-256 before
+`bmp display`. Missing/corrupt artwork or display failure is non-fatal. The
+renderer also fails the build if its output does not match that digest, so
+Pillow/rendering drift cannot silently ship an unusable splash. The
+original boot/update body is unchanged apart from this optional fragment;
+no root arguments, BLS, persistent environment or partition layout is changed.
+The WIC boot partition receives the BMP. A normal OS update alone does not
+prove the installed bootloader or artwork has been updated; programming and
+the initial hardware test remain separate, explicitly authorized steps.
+
+Inputs: meta-lmp `4dffdff79b4df49c683c9a7faea406595cb7e9ca` selects U-Boot
+`imx-2024.04`, source `adbe53791d8f3cc2d7ecf2a3f308494d561def9e`.
+The existing screen artwork comes from BSP
+`bcc4b64876191901c1cd4a897e30c2d9511becc6`; its PNG SHA-256 is
+`70469b3d038df99f829b0ed0fc3f09b8a16ed05a85f6d03ad2a382418a5bd67e`.
+It is fitted without stretching into a landscape 1280x720 24-bit BMP, SHA-256
+`64b2f36f6305a8012d9dbab4ec2a266aba9f023bb4f4294eb30754dd37573da3`.
+Earlier screen work supplies packaging/artwork, not proof of a hardware-tested
+U-Boot splash on either board.
+
+Validation: native actual-source driver tests with ASan/UBSan, per-operation
+I2C/GPIO/attach faults, actual LCDIF plus NXP callback ordering/cleanup (including
+the no-op host-enable behavior) and feature-off behavior,
+actual recipe unpack-hook tests, non-fatal script paths and bitmap checks.
+Direct U-Boot cross-compilation passes with pinned Foundries common/EVK and
+current DT510 fragments. This is not a complete BitBake image/signing build.
+Run `scripts/dt510-uboot-splash-test.py --uboot-source /path/to/patched/u-boot`
+to include the actual NXP callback regression. Independent review, factory
+build and physical splash/cold/warm startup tests are still required. Linux
+currently resets/reinitializes the bridge: a U-Boot picture would not establish
+seamless handover or resolve the Linux startup problem by itself.
+
+### Previous 696 evidence
+
+The earlier image
 is `5.0.9-696-96`, OSTree
 `cac16a3446c559f925cfe92ef6224d54a65fc529536b705e01864449c84811c1`,
 boot `de154364-f7dd-4fb7-a1e2-62b3e7dcf602`.
@@ -38,7 +119,7 @@ physical picture was not checked in this pass. Temporary test services were
 removed, PM auto and tracing restored, updater left running. No boot options
 were changed. Private captures are retained in the existing diagnostic work record.
 
-### Next experiment: post-final-ACK/pre-STOP settling (0044)
+### Failed experiment: post-final-ACK/pre-STOP settling (0044 / 697)
 
 Patch **0044** retains0042/0043 and adds a sleepable **50 ms** delay after the
 successful final ACK of page `0x81`, register `0x01`, value `0x18`, before the

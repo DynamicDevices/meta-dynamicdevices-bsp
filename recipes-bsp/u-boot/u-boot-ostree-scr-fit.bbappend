@@ -8,7 +8,23 @@ SRC_URI:append:imx8mm-jaguar-sentai = " \
 
 SRC_URI:append:imx8mm-jaguar-dt510 = " \
     file://boot.cmd \
+    ${@bb.utils.contains('MACHINE_FEATURES', 'hdmi-boot-splash', 'file://hdmi-splash.cmd', '', d)} \
 "
+
+# Expand during unpack so the existing LmP IMX/common compile hooks stay intact.
+# Unpack refreshes the source template when the feature changes.
+python do_unpack:append:imx8mm-jaguar-dt510() {
+    from pathlib import Path
+    source = Path(d.getVar('WORKDIR')) / 'boot.cmd'
+    marker = '@@DT510_HDMI_SPLASH@@\n'
+    text = source.read_text()
+    if text.count(marker) != 1:
+        bb.fatal('DT510 splash marker missing or duplicated')
+    enabled = bb.utils.contains('MACHINE_FEATURES', 'hdmi-boot-splash', True, False, d)
+    fragment = (source.parent / 'hdmi-splash.cmd').read_text() if enabled else ''
+    source.write_text(text.replace(marker, fragment))
+}
+do_unpack[vardeps] += "MACHINE_FEATURES"
 
 SRC_URI:append:imx8mm-jaguar-inst = " \
     file://boot.cmd \

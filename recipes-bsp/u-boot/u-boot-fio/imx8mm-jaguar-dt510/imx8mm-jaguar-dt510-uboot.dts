@@ -1,0 +1,8 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+#include "imx8mm-evk.dts"
+#include "dt510-hdmi.dtsi"
+
+/ {
+	model = "Dynamic Devices DT510 (U-Boot HDMI splash)";
+	compatible = "fsl,imx8mm-jaguar-dt510", "fsl,imx8mm-evk", "fsl,imx8mm";
+};

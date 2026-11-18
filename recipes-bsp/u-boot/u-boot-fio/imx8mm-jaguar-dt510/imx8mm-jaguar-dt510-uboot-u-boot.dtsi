@@ -1,0 +1,3 @@
+// SPDX-License-Identifier: GPL-2.0+
+/* Preserve original MMC aliases, USB recovery and pre-RAM boot annotations. */
+#include "imx8mm-evk-u-boot.dtsi"

@@ -1,0 +1,47 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/* U-Boot control DT only. Linux's DT and boot arguments are unchanged. */
+/ {
+	/delete-node/ rm67199_panel;
+};
+
+&i2c2 {
+	/delete-node/ adv7535@3d;
+};
+
+&i2c3 {
+	clock-frequency = <100000>;
+	/* Remove the EVK expander, which is not fitted on DT510. */
+	/delete-node/ gpio@20;
+
+	lt9611_boot: lt9611@39 {
+		compatible = "lontium,lt9611";
+		reg = <0x39>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_dt510_hdmi_reset>;
+		reset-gpios = <&gpio2 11 GPIO_ACTIVE_LOW>;
+		dsi-lanes = <4>;
+		status = "okay";
+
+		port {
+			lt9611_boot_in: endpoint {
+				remote-endpoint = <&dsim_to_lt9611_boot>;
+			};
+		};
+	};
+};
+
+&mipi_dsi {
+	/delete-node/ port@1;
+	/delete-node/ port@2;
+	port@1 {
+		dsim_to_lt9611_boot: endpoint {
+			remote-endpoint = <&lt9611_boot_in>;
+		};
+	};
+};
+
+&iomuxc {
+	pinctrl_dt510_hdmi_reset: dt510-hdmi-reset-grp {
+		fsl,pins = <MX8MM_IOMUXC_SD1_STROBE_GPIO2_IO11 0x116>;
+	};
+};

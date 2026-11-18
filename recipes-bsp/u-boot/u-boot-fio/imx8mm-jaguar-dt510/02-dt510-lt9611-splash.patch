@@ -1,0 +1,90 @@
+From: Briar <ajlennon@dynamicdevices.co.uk>
+Subject: [PATCH] video: add optional DT510 plain LT9611 splash
+
+Configure LT9611 before LCDIF starts; enable HDMI output afterwards.
+SEC DSIM host enable is a no-op at this pin. Other panels are unchanged.
+Driver and control DT sources are recipe-installed.
+
+Assisted-by: Briar
+
+--- a/drivers/video/Kconfig
++++ b/drivers/video/Kconfig
+@@ -521,6 +521,14 @@
+ 	Say Y here if you want to enable support for Orise Technology
+ 	otm8009a 480x800 dsi 2dl panel.
+ 
++config VIDEO_LT9611_DT510
++	bool "DT510 plain LT9611 HDMI boot splash"
++	depends on VIDEO && DM_I2C && DM_GPIO
++	select VIDEO_MIPI_DSI
++	help
++	  Fixed 1280x720p60 four-lane port-A RGB888 output through plain LT9611.
++	  Not compatible with LT9611UXC/UXD; no EDID, audio or seamless handover.
++
+ config VIDEO_LCD_RAYDIUM_RM68200
+ 	bool "RM68200 DSI LCD panel support"
+ 	select VIDEO_MIPI_DSI
+--- a/drivers/video/Makefile
++++ b/drivers/video/Makefile
+@@ -59,6 +59,7 @@
+ obj-$(CONFIG_VIDEO_LCD_HIMAX_HX8394) += himax-hx8394.o
+ obj-$(CONFIG_VIDEO_LCD_HITACHI_TX18D42VM) += hitachi_tx18d42vm_lcd.o
+ obj-$(CONFIG_VIDEO_LCD_ORISETECH_OTM8009A) += orisetech_otm8009a.o
++obj-$(CONFIG_VIDEO_LT9611_DT510) += lt9611-dt510.o
+ obj-$(CONFIG_VIDEO_LCD_RAYDIUM_RM68200) += raydium-rm68200.o
+ obj-$(CONFIG_VIDEO_LCD_RAYDIUM_RM67191) += raydium-rm67191.o
+ obj-$(CONFIG_VIDEO_LCD_RAYDIUM_RM692C9) += raydium-rm692c9.o
+--- a/arch/arm/dts/Makefile
++++ b/arch/arm/dts/Makefile
+@@ -1116,6 +1116,8 @@
+ 	imx8ulp-9x9-evk-i3c.dtb \
+ 	imx8ulp-watch.dtb
+ 
++dtb-$(CONFIG_VIDEO_LT9611_DT510) += imx8mm-jaguar-dt510-uboot.dtb
++
+ dtb-$(CONFIG_ARCH_IMX8M) += \
+ 	imx8mm-data-modul-edm-sbc.dtb \
+ 	imx8mm-ddr4-evk.dtb \
+--- a/drivers/video/nxp/imx/sec_dsim_imx.c
++++ b/drivers/video/nxp/imx/sec_dsim_imx.c
+@@ -89,6 +89,17 @@
+ 		return ret;
+ 	}
+ 
++	/* MXS calls 80 before LCDIF starts, then 100 after it starts for LT9611. */
++	if (IS_ENABLED(CONFIG_VIDEO_LT9611_DT510) && percent == 100 &&
++	    device_is_compatible(priv->panel, "lontium,lt9611")) {
++		ret = panel_set_backlight(priv->panel, 100);
++		if (ret) {
++			dev_err(dev, "LT9611 output enable failed: %d\n", ret);
++			dsi_host_disable(priv->dsi_host);
++			return ret;
++		}
++	}
++
+ 	return 0;
+ }
+ 
+--- a/drivers/video/mxsfb.c
++++ b/drivers/video/mxsfb.c
+@@ -428,6 +428,21 @@
+ 	video_set_flush_dcache(dev, true);
+ 	gd->fb_base = plat->base;
+ 
++	/* SEC DSIM host enable is a no-op: LCDIF above starts the pixel stream. */
++	if (IS_ENABLED(CONFIG_VIDEO_LT9611_DT510) && priv->disp_dev &&
++	    device_is_compatible(priv->disp_dev, "fsl,imx8mm-mipi-dsim")) {
++		struct udevice *panel = video_link_get_next_device(priv->disp_dev);
++
++		if (panel && device_is_compatible(panel, "lontium,lt9611")) {
++			ret = video_bridge_set_backlight(priv->disp_dev, 100);
++			if (ret) {
++				device_remove(priv->disp_dev, DM_REMOVE_NORMAL);
++				mxs_remove_common(priv->reg_base, plat->base);
++				return ret;
++			}
++		}
++	}
++
+ 	return ret;
+ }

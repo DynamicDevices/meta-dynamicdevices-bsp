@@ -11,6 +11,7 @@ setenv rootpart 2
 setenv fdt_file_final imx8mm-jaguar-dt510.dtb
 setenv fit_addr ${initrd_addr}
 
+@@DT510_HDMI_SPLASH@@
 # Boot firmware updates
 
 # Offsets are in blocks (512KB each)
