@@ -72,6 +72,7 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
 		file://imx8mm-jaguar-dt510/0039-i2c-imx-propagate-stop-and-recover-bus.patch \
 		file://imx8mm-jaguar-dt510/0042-drm-bridge-lt9611-boot-reset-recovery.patch \
 		file://imx8mm-jaguar-dt510/0043-i2c-imx-trace-lt9611-clock-switch.patch \
+		file://imx8mm-jaguar-dt510/0044-i2c-imx-test-lt9611-post-ack-stop-delay.patch \
 		${@bb.utils.contains('MACHINE_FEATURES', 'tas2563', 'file://imx8mm-jaguar-dt510/tas2562-audio-codec.cfg', '', d)} \
 		${@bb.utils.contains('MACHINE_FEATURES', 'tas6424', 'file://imx8mm-jaguar-dt510/tas6424-audio-codec.cfg file://imx8mm-jaguar-dt510/0026-asoc-tas6424-rename-passenger-tannoy-controls.patch', '', d)} \
 		file://imx8mm-jaguar-dt510/0028-asoc-fsl-sai-sai5-capture-tx-sync-frame.patch \

@@ -32,6 +32,7 @@ PATCHES = (
     "0039-i2c-imx-propagate-stop-and-recover-bus.patch",
     "0042-drm-bridge-lt9611-boot-reset-recovery.patch",
     "0043-i2c-imx-trace-lt9611-clock-switch.patch",
+    "0044-i2c-imx-test-lt9611-post-ack-stop-delay.patch",
 )
 
 
@@ -794,7 +795,7 @@ def check_startup_diagnostics(i2c, regmap, work):
 #define I2CR_DMAEN 0x02
 #define I2CR_IEN 0x80
 #define dev_dbg(...) ((void)0)
-static int logs, reads, writes, steps, fail_at, fail_ret, stop_ret, polls;
+static int logs, reads, writes, steps, fail_at, fail_ret, stop_ret, polls, settles;
 static unsigned int cr, last_write;
 static char record[256];
 #define dev_err(dev,fmt,...) do { (void)(dev); logs++; snprintf(record,sizeof(record),fmt,__VA_ARGS__); } while(0)
@@ -817,6 +818,8 @@ static int i2c_imx_bus_busy(struct imx_i2c_struct *i, int busy, bool a)
 { (void)i; (void)a; assert(!busy); polls++; return stop_ret; }
 static bool is_imx1_i2c(struct imx_i2c_struct *i) { (void)i; return false; }
 static void udelay(int delay) { (void)delay; assert(0); }
+static void i2c_imx_dt510_settle(struct imx_i2c_struct *i, struct i2c_msg *m, bool a)
+{ (void)i; (void)m; (void)a; assert(steps==6); settles++; }
 '''
     harness += function(i2c, "i2c_imx_diag_error")
     harness += function(i2c, "i2c_imx_write")
@@ -830,14 +833,14 @@ int main(void)
     const char *phases[]={"write-address-complete","write-address-ack",
         "write-data-complete","write-data-ack","write-data-complete","write-data-ack"};
     for(int atomic=0;atomic<2;atomic++) {
-        fail_at=0; logs=reads=writes=steps=0;
+        fail_at=0; logs=reads=writes=steps=settles=0;
         assert(i2c_imx_write(&i,&m,atomic)==0);
-        assert(writes==3 && steps==6 && !logs && !reads);
+        assert(writes==3 && steps==6 && !logs && !reads && settles==1);
         for(int error=0;error<2;error++) for(int pos=1;pos<=6;pos++) {
             fail_at=pos; fail_ret=error ? -ETIMEDOUT : -ENXIO;
-            logs=reads=writes=steps=0;
+            logs=reads=writes=steps=settles=0;
             assert(i2c_imx_write(&i,&m,atomic)==fail_ret);
-            assert(writes==(pos+1)/2 && steps==pos && reads==2 && logs==1);
+            assert(writes==(pos+1)/2 && steps==pos && reads==2 && logs==1 && !settles);
             assert(strstr(record,phases[pos-1]));
             assert(strstr(record,pos<=2?"byte=-1":pos<=4?"byte=0":"byte=1"));
         }
