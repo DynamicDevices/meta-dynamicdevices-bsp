@@ -29,6 +29,7 @@ PATCHES = (
     "0037-i2c-imx-support-single-master-with-stop-polling.patch",
     "0038-dt510-lt9611-startup-diagnostics.patch",
     "0039-i2c-imx-propagate-stop-and-recover-bus.patch",
+    "0040-drm-bridge-lt9611-test-ring-clock.patch",
 )
 
 
@@ -625,7 +626,8 @@ static void usleep_range(unsigned int min, unsigned int max)
 }
 static int regmap_multi_reg_write(struct regmap *m, const struct reg_sequence *seq, size_t n)
 {
-    assert(seq && n); m->seq_len=n; m->attempts++;
+    assert(seq && n && seq[0].reg==0x8101 && seq[0].def==0x08);
+    m->seq_len=n; m->attempts++;
     if (m->attempts<=m->fail_attempts) return m->error;
     for (size_t i=0;i<n;i++) {
         m->writes++;

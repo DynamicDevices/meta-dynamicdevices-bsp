@@ -1,8 +1,53 @@
 # DT510 LT9611 HDMI bring-up
 
-Updated 17 November 2026 at Alex's request. Briar helped draft this.
+Updated 18 November 2026 at Alex's request. Briar helped draft this.
 
 ## Current state
+
+Build **692** passed and automatically booted as `5.0.9-692-96`, OSTree
+`4329d616c377837ba7e6589f9934b6eab2cba97d82bbd253a7699b633098a7b8`,
+boot ID `d46286f2-97ac-4fb7-b8c6-b5b18a01ec58`. HDMI remains disconnected,
+disabled, with zero EDID bytes and inactive scanout. This observation made no
+manual reboot, detect, driver reload or boot-option change.
+Target: <https://app.foundries.io/factories/vixdt/targets/692/>; manifest
+`9ed64a3ba39433f1db1c532c5d76929d7fa93661`, BSP
+`202fc0deb70b6bcdbf7d4ec42b8fe36ae733b607`.
+
+At 3.241915 s, STOP waits 504 ms and fails `-110`; standard bus recovery
+returns `-16` (`-EBUSY`) at 3.254505 s. Crucially, the driver now reports the
+failed write as **logical `0x8101`, value `0x18`, return `-110`**. Initialization
+retries, but the page-selector address-ACK check fails `-6`, with I2SR `0x91`
+and I2CR `0xd8`. Power-on fails at 3.300738 s before reading TV EDID. There
+were no matched kernel warning/oops/panic headers in this read. Error propagation
+works, but attempted bus recovery does not establish a startup fix. `-EBUSY`
+does not by itself identify the electrical fault or the device holding a line.
+
+### Temporary internal-clock comparison (18 November)
+
+Alex requested the build after the clock-source investigation. Patch **0040**
+changes only the first system-clock write from `0x8101=0x18` to `0x08`:
+bit 4 stays on the internal ring oscillator and bias bits remain `0x8`.
+All prior patches, diagnostics, recovery, 100 kHz/single-master settings and
+KSZ-disabled configuration remain unchanged. No new sleeps, retry counts,
+boot options, reset, supply or manual board operations are included.
+
+This is **not a production fix**. The frequency-meter constants and display/DDC
+timings are not qualified against the ring oscillator. The vendor reference
+drivers select the crystal with `0x18`, without a documented settling delay.
+The hardware guide requires a 27 MHz reference at pin 18; the local spec does
+not document the fitted oscillator/crystal circuit. No DT510 HDMI schematic
+page or physical clock measurement was available for this investigation.
+
+Compare first startup against 692: identify the exact image/boot, inspect the
+first `0x8101` transfer and STOP/recovery errors, then report EDID and scanout
+separately. I2C surviving on the ring clock would isolate dependence on the
+clock-source transition; it would not prove a bad/missing crystal. Failure on
+both selections would weaken that hypothesis and retain controller/shared-bus
+causes. Do not accept video timing or a late manual recovery as startup proof.
+Remove 0040 and its preflight expectation after the comparison, retain all
+independently justified fixes, and complete Ethernet-enabled product tests.
+
+### Previous diagnostic baseline: build 691
 
 Build **691** passed and automatically booted on the board as version
 `5.0.9-691-96`, OSTree
