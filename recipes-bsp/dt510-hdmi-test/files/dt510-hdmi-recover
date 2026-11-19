@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+"""Manually rebind DT510 Linux HDMI; never a boot service or U-Boot fix.
+
+Restore any dt510-hdmi-test image first and stop graphical clients explicitly.
+The display briefly disappears. No reboot, raw I2C or persistent settings.
+"""
+import fcntl
+from contextlib import contextmanager
+import os
+from pathlib import Path
+import signal
+import sys
+
+
+@contextmanager
+def deferred_interrupts():
+    # Block before the first detach, not just on entering finally: Python can
+    # dispatch a signal between any two cleanup statements. Pending signals
+    # are delivered only after both restoration attempts, with the old mask.
+    previous = signal.pthread_sigmask(signal.SIG_BLOCK,
+                                     {signal.SIGHUP, signal.SIGINT, signal.SIGTERM})
+    failure = None
+    try:
+        yield
+    except BaseException as error:
+        failure = error
+        raise
+    finally:
+        try:
+            signal.pthread_sigmask(signal.SIG_SETMASK, previous)
+        except InterruptedError as interruption:
+            if failure is not None:
+                raise RuntimeError(str(failure) + '; ' + str(interruption)) from failure
+            raise
+
+
+def write_node(path, value):
+    with path.open('w') as node:
+        if node.write(value) != len(value):
+            raise OSError('Incomplete sysfs write: ' + str(path))
+
+
+def recover(root=Path('/'), writer=write_node):
+    master = root / 'sys/bus/platform/drivers/imx-drm'
+    bridge = root / 'sys/bus/i2c/drivers/lt9611'
+    master_dev = root / 'sys/bus/platform/devices/display-subsystem'
+    bridge_dev = root / 'sys/bus/i2c/devices/2-0039'
+    if not os.uname().nodename.startswith('imx8mm-jaguar-dt510-'):
+        raise RuntimeError('Expected a DT510 hostname; no changes attempted')
+    if (bridge_dev / 'of_node/compatible').read_bytes() != b'lontium,lt9611\0':
+        raise RuntimeError('Expected the plain LT9611 on I2C3/0x39')
+    for device, driver in ((master_dev, master), (bridge_dev, bridge)):
+        if not (device / 'driver').is_symlink() or (device / 'driver').resolve() != driver.resolve():
+            raise RuntimeError('Expected original driver binding: ' + str(device))
+    state = root / 'run/dt510-hdmi-test'
+    if any((state / name).exists() for name in ('state.json', 'console.bin')):
+        raise RuntimeError('Restore the saved test first: sudo dt510-hdmi-test restore')
+    clients = list((root / 'sys/kernel/debug/dri').glob('*/clients'))
+    if not clients or any(len(path.read_text().strip().splitlines()) != 1 for path in clients):
+        raise RuntimeError('Cannot confirm idle DRM; stop graphical clients explicitly first')
+
+    print('Detaching display master, then LT9611; restoring bridge, then master.', flush=True)
+    failure = None
+    with deferred_interrupts():
+        try:
+            writer(master / 'unbind', 'display-subsystem')
+            writer(bridge / 'unbind', '2-0039')
+        except (OSError, RuntimeError) as error:
+            failure = error
+        finally:
+            # Inspect actual ownership, including a failed/partial unbind. One
+            # bind attempt per missing device; no reset or shared-bus unbind.
+            errors = []
+            for device, driver, name in ((bridge_dev, bridge, '2-0039'),
+                                         (master_dev, master, 'display-subsystem')):
+                try:
+                    if not (device / 'driver').exists():
+                        writer(driver / 'bind', name)
+                    if (device / 'driver').resolve() != driver.resolve():
+                        raise RuntimeError('Original binding not restored: ' + name)
+                except (OSError, RuntimeError) as error:
+                    errors.append(str(error))
+            if errors:
+                detail = ('Initial failure: ' + str(failure) + '; ') if failure else ''
+                raise RuntimeError(detail + 'Recovery incomplete: ' + '; '.join(errors))
+    if failure is not None:
+        raise RuntimeError('Detach failed; original bindings restored: ' + str(failure))
+    print('Both drivers rebound. Check the TV; this does not prove startup reliability.')
+
+
+def main():
+    if len(sys.argv) != 1:
+        raise RuntimeError('Usage: sudo dt510-hdmi-recover (no arguments)')
+    if os.geteuid() != 0:
+        raise RuntimeError('Run explicitly as root: sudo dt510-hdmi-recover')
+    def interrupted(signum, frame):
+        raise InterruptedError('Recovery interrupted by signal ' + str(signum))
+    for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        signal.signal(sig, interrupted)
+    fd = os.open('/run/lock/dt510-hdmi-experiment.lock',
+                 os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, 'r+b') as lock:
+        if os.fstat(lock.fileno()).st_uid != 0:
+            raise RuntimeError('Experiment lock must be root-owned')
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        recover()
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (OSError, RuntimeError) as error:
+        sys.exit('dt510-hdmi-recover: ' + str(error))

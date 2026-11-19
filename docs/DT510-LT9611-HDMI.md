@@ -86,6 +86,55 @@ remain required. Linux, device tree, boot arguments, persistent environment and
 update/recovery behavior are unchanged. The separately requested graphical
 distro remains pending and is not included in this repair.
 
+### Build 701 watched retest and next correction
+
+Build **701 passed** and completed its primary firmware update to
+`a9f929508c9995771498bc6114e4d3b4`. The fresh serial capture shows successful
+four-lane DSIM preparation at 74.25 MHz pixel/445.5 MHz bit clocks, but the
+LT9611 input check read 3840 active bytes, **55 active lines**, 745 total lines
+and 600 horizontal system-clock units. TX stayed disabled and the splash was
+skipped. Linux booted successfully but Alex saw no picture. Its connector
+reported connected/enabled; that status did not prove a physical image.
+
+Alex requested a live test without a full build. With no graphical client,
+detaching the `imx-drm` display master, then the LT9611 bridge, and rebinding
+bridge first/master second completed successfully without changing the boot ID.
+The packaged native 1080p edge pattern was displayed and **Alex confirmed it
+was visible**. This proves live Linux recovery on that boot, not reliable
+startup or a working U-Boot splash. The running edge image is intentionally
+left displayed while source work continues.
+
+Source comparison found an actual polarity mismatch: pinned Linux
+`drivers/gpu/drm/bridge/sec-dsim.c` explicitly requires active-high DE, whereas
+U-Boot `drivers/video/mxsfb.c` forcibly clears `DISPLAY_FLAGS_DE_HIGH` for SEC
+DSIM. The next candidate preserves high DE only for the optional DT510/plain
+LT9611 path and declares the flag in its fixed timing. Other panels and
+feature-off behavior remain unchanged. An actual-source regression fails with
+the old polarity override and passes with the correction; the real LCDIF
+initialization and register definitions are also tested. This explains a real
+source discrepancy, but whether it corrects the measured line counts and TV
+output still requires the next watched hardware test. The existing input gate
+and nonfatal Linux continuation remain; no speculative PLL bits are added.
+
+The image candidate also packages **manual-only** `dt510-hdmi-recover` in the
+existing DT510 test package. It follows the successful detach/rebind order,
+checks driver/chip/board identity, refuses saved display tests and active or
+unverifiable DRM clients, and attempts restoration after partial failures or
+handled interruption. It never writes raw I2C, reloads a shared adapter, reboots,
+changes boot settings or runs at startup. Explicit recovery can fail; inspect
+the result and stop rather than retrying blindly.
+
+```sh
+sudo dt510-hdmi-test restore  # only if a saved image/console test is active
+sudo dt510-hdmi-recover
+sudo dt510-hdmi-test show
+```
+
+Helper tests cover ordering, wrong board/chip/binding, saved tests, active or
+missing DRM-client information, partial detach and failed restoration. No
+automatic rebind service is installed. Factory packaging and physical U-Boot
+acceptance remain pending for this candidate.
+
 ### Historical build 697 — before the hardware repair
 
 Build **697 passed but did not fix natural startup**. The last observed image

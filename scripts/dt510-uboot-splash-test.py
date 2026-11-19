@@ -37,6 +37,7 @@ typedef uint8_t u8; typedef uint16_t u16;
 #define ARRAY_SIZE(x) (sizeof(x)/sizeof((x)[0]))
 #define DISPLAY_FLAGS_HSYNC_HIGH 1
 #define DISPLAY_FLAGS_VSYNC_HIGH 2
+#define DISPLAY_FLAGS_DE_HIGH 4
 #define MIPI_DSI_FMT_RGB888 3
 #define MIPI_DSI_MODE_VIDEO 1
 #define MIPI_DSI_MODE_VIDEO_SYNC_PULSE 2
@@ -98,6 +99,7 @@ int main(void)
  assert(t.pixelclock.typ==74250000 && t.hactive.typ==1280 && t.vactive.typ==720);
  assert(t.hactive.typ+t.hfront_porch.typ+t.hback_porch.typ+t.hsync_len.typ==1650);
  assert(t.vactive.typ+t.vfront_porch.typ+t.vback_porch.typ+t.vsync_len.typ==750);
+ assert(t.flags==(DISPLAY_FLAGS_HSYNC_HIGH|DISPLAY_FLAGS_VSYNC_HIGH|DISPLAY_FLAGS_DE_HIGH));
  assert(dsi.lanes==4 && dsi.format==MIPI_DSI_FMT_RGB888 && dsi.mode_flags==7);
  reset_model();assert(lt9611_set_backlight(&dev,100)==-EPIPE && !bus_calls);
  assert(lt9611_set_backlight(&dev,50)==-EINVAL && !bus_calls);
@@ -476,7 +478,10 @@ static struct udevice *video_link_get_next_device(struct udevice *d)
 static int video_bridge_attach(struct udevice *d) { (void)d;return 0; }
 static int video_bridge_set_backlight(struct udevice *d,int p);
 static int mxs_probe_common(struct udevice *d,struct display_timing *t,u32 bpp,unsigned long fb,bool bridge)
-{ (void)d;(void)t;(void)fb;assert(bpp==24 && bridge && !stream && !tx_calls);common_calls++;if(!common_ret)stream=true;return common_ret; }
+{ (void)d;(void)fb;assert(bpp==24 && bridge && !stream && !tx_calls);
+  struct imx_sec_dsim_priv *p=((struct mxsfb_priv *)d->priv)->disp_dev->priv;
+  assert(!!(t->flags & DISPLAY_FLAGS_DE_HIGH)==(FEATURE && !strcmp(p->panel->compatible,"lontium,lt9611")));
+  common_calls++;if(!common_ret)stream=true;return common_ret; }
 static int device_remove(struct udevice *d,int f) { (void)d;(void)f;removed++;return -EBUSY; }
 static void mxs_remove_common(unsigned long reg,unsigned long fb)
 { (void)reg;(void)fb;stopped++;stream=false; }
@@ -517,6 +522,69 @@ int main(void) {
         run(['cc','-Wall','-Wextra','-Werror',f'-DFEATURE={enabled}','-fsanitize=address,undefined',str(src),'-o',str(binary)])
         run([str(binary)])
     print('PASS actual LCDIF + NXP callbacks: host enable is a no-op; TX only after mxs_probe_common starts pixels; LCDIF/host/TX faults, cleanup, feature-off and other panels.')
+
+
+def lcdif_registers(work, source_root):
+    """Compile actual LCDIF init and register definitions, not a timing model."""
+    lcdif = (source_root/'drivers/video/mxsfb.c').read_text()
+    init = 'static void mxs_lcd_init(' + lcdif.split('static void mxs_lcd_init(')[1].split('\nstatic int mxs_probe_common')[0]
+    headers = source_root/'arch/arm/include/asm/mach-imx'
+    common = re.sub(r'^#include.*\n', '', (headers/'regs-common.h').read_text(), flags=re.M)
+    regs = re.sub(r'^#include.*\n', '', (headers/'regs-lcdif.h').read_text(), flags=re.M)
+    driver = (FILES/'lt9611-dt510.c').read_text()
+    timing = 'static const struct display_timing lt9611_timing' + driver.split('static const struct display_timing lt9611_timing')[1].split('\nstatic int lt9611_page')[0]
+    preamble = r'''
+#include <assert.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <string.h>
+typedef uint32_t u32;
+#define CONFIG_IMX8M 1
+#define CONFIG_IS_ENABLED(x) 0
+enum display_flags { DISPLAY_FLAGS_HSYNC_HIGH=1, DISPLAY_FLAGS_VSYNC_HIGH=2,
+ DISPLAY_FLAGS_DE_HIGH=4, DISPLAY_FLAGS_PIXDATA_NEGEDGE=8 };
+struct timing_entry { unsigned int min,typ,max; };
+struct display_timing {
+ struct timing_entry pixelclock,hactive,hfront_porch,hback_porch,hsync_len;
+ struct timing_entry vactive,vfront_porch,vback_porch,vsync_len; enum display_flags flags;
+};
+struct mxsfb_priv { uintptr_t reg_base; };
+struct udevice { struct mxsfb_priv *priv; };
+static void *dev_get_priv(struct udevice *d) { return d->priv; }
+static void mxs_set_lcdclk(uintptr_t base,unsigned int khz) { assert(base && khz==74250); }
+static void mxsfb_system_setup(void) {}
+static void writel(uint32_t value,uint32_t *addr) { *addr=value; }
+static void setbits_le32(uint32_t *addr,uint32_t mask) { *addr|=mask; }
+'''
+    body = r'''
+static void mxs_reset_block(struct mxs_register_32 *r) { memset(r,0,sizeof(*r)); }
+'''
+    tests = r'''
+int main(void) {
+ struct mxs_lcdif_regs regs={0};
+ struct mxsfb_priv priv={.reg_base=(uintptr_t)&regs};struct udevice dev={.priv=&priv};
+ struct display_timing t=lt9611_timing;
+ mxs_lcd_init(&dev,0x80000000,&t,24,true);
+ assert(regs.hw_lcdif_vdctrl0 & LCDIF_VDCTRL0_ENABLE_POL);
+ assert(regs.hw_lcdif_vdctrl0 & LCDIF_VDCTRL0_HSYNC_POL);
+ assert(regs.hw_lcdif_vdctrl0 & LCDIF_VDCTRL0_VSYNC_POL);
+ assert(regs.hw_lcdif_transfer_count==((720U<<16)|1280U));
+ assert(regs.hw_lcdif_vdctrl1==750);
+ assert((regs.hw_lcdif_vdctrl2 & 0x3ffff)==1650);
+ assert(regs.hw_lcdif_vdctrl3==((260U<<16)|25U));
+ assert(regs.hw_lcdif_vdctrl4 & LCDIF_VDCTRL4_SYNC_SIGNALS_ON);
+ assert(regs.hw_lcdif_ctrl_set==LCDIF_CTRL_RUN);
+ t.flags &= ~DISPLAY_FLAGS_DE_HIGH;
+ mxs_lcd_init(&dev,0x80000000,&t,24,true);
+ assert(!(regs.hw_lcdif_vdctrl0 & LCDIF_VDCTRL0_ENABLE_POL));
+ return 0;
+}
+'''
+    path, binary = work/'lcdif-registers.c', work/'lcdif-registers'
+    path.write_text(preamble+common+regs+body+timing+init+tests)
+    run(['cc','-Wall','-Wextra','-Werror','-fsanitize=address,undefined',str(path),'-o',str(binary)])
+    run([str(binary)])
+    print('PASS actual LCDIF init/registers: active-high DE/H/V, 1280x720, 1650x750, waits, sync and RUN; low-DE negative control.')
 
 
 def control_dt(build):
@@ -565,6 +633,7 @@ if __name__ == '__main__':
             host_attach_errors(Path(tmp), args.uboot_source, args.uboot_git)
             host_order(Path(tmp), args.uboot_source)
             lcdif_order(Path(tmp), args.uboot_source)
+            lcdif_registers(Path(tmp), args.uboot_source)
         if args.uboot_git:
             patch_stack(Path(tmp), args.uboot_git)
         if args.uboot_build:

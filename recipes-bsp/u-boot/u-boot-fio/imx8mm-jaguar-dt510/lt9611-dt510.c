@@ -34,7 +34,9 @@ static const struct display_timing lt9611_timing = {
 	.vfront_porch = { 5, 5, 5 },
 	.vback_porch = { 20, 20, 20 },
 	.vsync_len = { 5, 5, 5 },
-	.flags = DISPLAY_FLAGS_HSYNC_HIGH | DISPLAY_FLAGS_VSYNC_HIGH,
+	/* Match SEC DSIM's active-high DE input; the DT510 MXS path preserves it. */
+	.flags = DISPLAY_FLAGS_HSYNC_HIGH | DISPLAY_FLAGS_VSYNC_HIGH |
+		 DISPLAY_FLAGS_DE_HIGH,
 };
 
 static int lt9611_page(struct udevice *dev, u16 reg)

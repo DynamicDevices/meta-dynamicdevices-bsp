@@ -67,7 +67,25 @@ Assisted-by: Briar
  
 --- a/drivers/video/mxsfb.c
 +++ b/drivers/video/mxsfb.c
-@@ -428,6 +428,21 @@
+@@ -380,8 +380,14 @@
+ 			enable_bridge = true;
+ 
+-			/* sec dsim needs enable ploarity at low, default we set to high */
+-			if (!strcmp(priv->disp_dev->driver->name, "imx_sec_dsim"))
+-				timings.flags &= ~DISPLAY_FLAGS_DE_HIGH;
++			/* Preserve legacy panels; DT510 DSIM needs active-high DE. */
++			if (!strcmp(priv->disp_dev->driver->name, "imx_sec_dsim")) {
++				struct udevice *panel = NULL;
++
++				if (IS_ENABLED(CONFIG_VIDEO_LT9611_DT510))
++					panel = video_link_get_next_device(priv->disp_dev);
++				if (!panel || !device_is_compatible(panel, "lontium,lt9611"))
++					timings.flags &= ~DISPLAY_FLAGS_DE_HIGH;
++			}
+ 
+ 		}
+ #endif
+@@ -428,6 +434,21 @@
  	video_set_flush_dcache(dev, true);
  	gd->fb_base = plat->base;
  
