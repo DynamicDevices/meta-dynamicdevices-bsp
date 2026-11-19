@@ -19,7 +19,7 @@ reported HDMI connected/enabled. A read-only FAT16 root-directory check found
 attempt did not exercise visible splash output; driver-code presence alone was
 insufficient. No second reboot, flash, artwork copy or boot-option change was made.
 
-The local cleanup removes experiments **0036–0044**, their recipe entries and
+The cleanup in build 699 removes experiments **0036–0044**, their recipe entries and
 controller-only test harnesses, including inactive ring-clock/one-second-delay
 patch files. Standard crystal selection and ordinary first-error returns remain.
 The I2C controller and regmap sources now match the pinned kernel byte-for-byte.
@@ -34,13 +34,28 @@ completion handling. Keep manual overscan/console/video tests and the optional
 U-Boot display feature. Private captures and Git history retain the retired
 experiments; historical sections below are not the current recipe/configuration.
 
-The splash packaging correction is local and unbuilt: include the BMP in
-`lmp-boot-firmware`, and load it from the resolved OSTree firmware deployment
-after the unchanged common header, with FAT-root fallback. Native regressions
-cover both firmware locations, ext4/FAT precedence, absent/corrupt artwork,
-unchanged boot/root logic and failure continuation. Nothing in this cleanup has
-been published, built by Foundries or deployed. A new reviewed factory build
-and physical splash test are still required.
+Build **699 passed** and is running on the board. Its packaging correction
+includes the BMP in `lmp-boot-firmware` and loads it from the resolved OSTree
+deployment after the common header, with FAT-root fallback. A further watched
+reboot completed the boot-firmware update: recorded and payload versions both
+`81341805870a3eba1aff03a616b6f3dc`, update flags clear, primary boot selected.
+The installed bitmap has the expected size and SHA-256.
+
+Passive serial capture on the next watched reboot showed U-Boot selecting the
+1280×720 LCDIF/DSI/LT9611 chain, loading the bitmap and reporting
+`AESL U-Boot HDMI splash displayed`. Alex had not seen the splash; this message
+only proves the software draw path returned success, not a physical HDMI image.
+U-Boot text remains serial-only. Linux subsequently reported HDMI connected
+and enabled. The serial port was captured at 115200 baud, with no transmitted
+bytes or boot/environment changes.
+
+**Current diagnostic candidate:** hold the verified, successfully drawn splash
+for **10 seconds** before continuing to Linux, with serial start/end markers.
+Missing/corrupt artwork and failed display paths do not wait. The pause is a
+temporary visibility/TV-lock test, not a crystal-startup workaround or a claim
+of working HDMI output. Remove it after establishing the cause and choosing
+product splash duration. This candidate still needs its own factory build and
+watched physical test; it does not add the separately requested graphical distro.
 
 ### Historical build 697 — before the hardware repair
 

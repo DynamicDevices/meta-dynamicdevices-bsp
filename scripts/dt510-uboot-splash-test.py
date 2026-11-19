@@ -217,20 +217,29 @@ def packaging(work, boot_header=None):
         raise AssertionError('Artwork drift must fail generation, not ship a rejected BMP')
     # Exercise the actual hush-compatible fragment with successful/failed commands.
     cases = ((0,1,0,0,'2a3036','displayed'), (1,0,0,0,'2a3036','displayed'), (1,1,0,0,'2a3036','skipped'), (0,0,0,1,'2a3036','skipped'), (0,0,1,0,'2a3036','skipped'), (0,0,0,0,'abc','skipped'))
+    assert fragment.count('sleep 10\n') == 1
     for ext_ok, fat_ok, hash_ok, bmp_ok, size, expected in cases:
-        script = f'filesize={size}\next4load() {{ return {ext_ok}; }}\nload() {{ return {fat_ok}; }}\nhash() {{ return {hash_ok}; }}\nbmp() {{ return {bmp_ok}; }}\n' + fragment + '\necho LINUX_BOOT_CONTINUES\n'
-        result = run(['sh','-c',script])
-        assert expected in result and 'LINUX_BOOT_CONTINUES' in result
+        # Stub time, not script control flow; even a failed sleep must leave
+        # the original Linux boot continuation reachable.
+        for sleep_ret in (0, 1):
+            script = f'filesize={size}\next4load() {{ return {ext_ok}; }}\nload() {{ return {fat_ok}; }}\nhash() {{ return {hash_ok}; }}\nbmp() {{ return {bmp_ok}; }}\nsleep() {{ test "$#" = 1 && test "$1" = 10 || exit 41; echo DWELL_10; return {sleep_ret}; }}\n' + fragment + '\necho LINUX_BOOT_CONTINUES\n'
+            result = run(['sh','-c',script])
+            assert expected in result and 'LINUX_BOOT_CONTINUES' in result
+            assert result.count('DWELL_10') == int(expected == 'displayed')
+            assert ('holding for 10 seconds' in result) == (expected == 'displayed')
+            assert ('continuing Linux boot' in result) == (expected == 'displayed')
+            if expected == 'displayed':
+                assert result.index('displayed') < result.index('holding for 10 seconds') < result.index('DWELL_10') < result.index('continuing Linux boot') < result.index('LINUX_BOOT_CONTINUES')
     # Check real load arguments and fallback order for both firmware locations.
     for image_dir in ('/ostree/deploy/lmp/deploy/current.0/usr/lib/firmware', '/boot/ostree/lmp-test'):
         for ext_ok in (0,1):
             prefix = f'devtype=mmc; devnum=2; ostree_bootpart=2; bootpart=1; image_dir_path={image_dir}; filesize=2a3036\n'
             prefix += f'ext4load() {{ printf "EXT:%s,%s,%s,%s,%s\\n" "$1" "$2" "$3" "$4" "$5"; return {ext_ok}; }}\n'
-            prefix += 'load() { printf "FAT:%s,%s,%s,%s,%s\\n" "$1" "$2" "$3" "$4" "$5"; return 0; }\nhash() { return 0; }\nbmp() { return 0; }\n'
+            prefix += 'load() { printf "FAT:%s,%s,%s,%s,%s\\n" "$1" "$2" "$3" "$4" "$5"; return 0; }\nhash() { return 0; }\nbmp() { return 0; }\nsleep() { test "$#" = 1 && test "$1" = 10; }\n'
             result = run(['sh','-c',prefix+fragment])
             assert f'EXT:mmc,2:2,0x50000000,{image_dir}/active-edge-splash-1280x720.bmp,0x2a3036' in result
             assert ('FAT:mmc,2:1,0x50000000,active-edge-splash-1280x720.bmp,0x2a3036' in result) == bool(ext_ok)
-    print('PASS actual unpack hook: boot body/header prefix unchanged, feature toggle/marker guards, splash after deployment-path resolution; OTA firmware delivery selection, ext4/FAT precedence, hash/size/display failures non-fatal and canonical BMP. Full recipe remains a Foundries gate.')
+    print('PASS actual unpack hook: boot body/header prefix unchanged, feature toggle/marker guards, splash after deployment-path resolution; OTA firmware delivery selection, ext4/FAT precedence, hash/size/display failures non-fatal and canonical BMP. Ten-second diagnostic only after successful drawing; skip and sleep-failure paths continue boot. Full recipe remains a Foundries gate.')
 
 
 def host_order(work, source_root):
@@ -437,7 +446,7 @@ def control_dt(build):
     assert get(new,endpoint,'remote-endpoint') == get(new,panel_endpoint,'phandle')
     assert get(new,panel_endpoint,'remote-endpoint') == get(new,endpoint,'phandle')
     config = (build/'.config').read_text()
-    for key in ('VIDEO_LT9611_DT510','FIT_SIGNATURE_STRICT','SPL_FIT_SIGNATURE_STRICT','SYS_CONSOLE_IS_IN_ENV','CMD_HASH','HASH_VERIFY','SHA256'):
+    for key in ('VIDEO_LT9611_DT510','FIT_SIGNATURE_STRICT','SPL_FIT_SIGNATURE_STRICT','SYS_CONSOLE_IS_IN_ENV','CMD_HASH','HASH_VERIFY','SHA256','CMD_SLEEP'):
         assert f'CONFIG_{key}=y\n' in config, key
     assert 'CONFIG_SPL_VIDEO=y' not in config
     print('PASS compiled control DT: I2C3/0x39, 4 lanes, active-low reset, reciprocal DSIM graph; chosen/aliases/non-phandle MMC properties preserved; FIT checks/serial/hash enabled, no SPL video.')
