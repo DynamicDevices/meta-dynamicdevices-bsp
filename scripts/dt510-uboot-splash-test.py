@@ -97,7 +97,7 @@ int main(void)
  gpio_request_ret=-EBUSY;assert(lt9611_probe(&dev)==-EBUSY);gpio_request_ret=0;
  assert(!lt9611_get_timing(&dev,&t));
  assert(t.pixelclock.typ==74250000 && t.hactive.typ==1280 && t.vactive.typ==720);
- assert(t.hactive.typ+t.hfront_porch.typ+t.hback_porch.typ+t.hsync_len.typ==1650);
+ assert(t.hfront_porch.typ==112 && t.hactive.typ+t.hfront_porch.typ+t.hback_porch.typ+t.hsync_len.typ==1652);
  assert(t.vactive.typ+t.vfront_porch.typ+t.vback_porch.typ+t.vsync_len.typ==750);
  assert(t.flags==(DISPLAY_FLAGS_HSYNC_HIGH|DISPLAY_FLAGS_VSYNC_HIGH|DISPLAY_FLAGS_DE_HIGH));
  assert(dsi.lanes==4 && dsi.format==MIPI_DSI_FMT_RGB888 && dsi.mode_flags==7);
@@ -108,13 +108,14 @@ int main(void)
  assert(wait_count==3 && wait_values[0]==100 && wait_values[1]==20 && wait_values[2]==100);
  assert(regs[0x81][1]==0x18 && regs[0x83][0]==0 && regs[0x83][0xa]==0);
  assert(regs[0x83][0xd]*256+regs[0x83][0xe]==750);
- assert(regs[0x83][0x11]*256+regs[0x83][0x12]==1650);
+ assert(regs[0x83][0x11]*256+regs[0x83][0x12]==1652);
+ assert(regs[0x83][0x19]==112);
  assert(regs[0x83][0x13]*256+regs[0x83][0x14]==1280);
  assert(regs[0x83][0xf]*256+regs[0x83][0x10]==720);
  assert(regs[0x81][0x2d]==0x99 && regs[0x83][0x26]==74250*5*2/27000);
  assert(regs[0x82][0xe3]==(74250>>17) && regs[0x82][0xe4]==((74250>>9)&255) && regs[0x82][0xe5]==((74250>>1)&255));
  unsigned int sum=0;for(int n=0;n<17;n++)sum+=regs[0x84][0x40+n];assert(!(sum&255));
- assert(regs[0x84][0x40]==0x82 && regs[0x84][0x47]==4 && regs[0x81][0x30]==0x6a);
+ assert(regs[0x84][0x40]==0x82 && regs[0x84][0x43]==0x37 && regs[0x84][0x47]==0 && regs[0x81][0x30]==0x6a);
  int count=bus_calls;assert(!lt9611_enable(&dev) && bus_calls==count && attach_calls==1);
  for(int n=1;n<=count;n++) {
    reset_model();priv.configured=priv.enabled=false;priv.page=-1;bus_fail=n;
@@ -570,7 +571,7 @@ int main(void) {
  assert(regs.hw_lcdif_vdctrl0 & LCDIF_VDCTRL0_VSYNC_POL);
  assert(regs.hw_lcdif_transfer_count==((720U<<16)|1280U));
  assert(regs.hw_lcdif_vdctrl1==750);
- assert((regs.hw_lcdif_vdctrl2 & 0x3ffff)==1650);
+ assert((regs.hw_lcdif_vdctrl2 & 0x3ffff)==1652);
  assert(regs.hw_lcdif_vdctrl3==((260U<<16)|25U));
  assert(regs.hw_lcdif_vdctrl4 & LCDIF_VDCTRL4_SYNC_SIGNALS_ON);
  assert(regs.hw_lcdif_ctrl_set==LCDIF_CTRL_RUN);
@@ -584,7 +585,64 @@ int main(void) {
     path.write_text(preamble+common+regs+body+timing+init+tests)
     run(['cc','-Wall','-Wextra','-Werror','-fsanitize=address,undefined',str(path),'-o',str(binary)])
     run([str(binary)])
-    print('PASS actual LCDIF init/registers: active-high DE/H/V, 1280x720, 1650x750, waits, sync and RUN; low-DE negative control.')
+    print('PASS actual LCDIF init/registers: active-high DE/H/V, 1280x720, adjusted1652x750, waits, sync and RUN; low-DE negative control.')
+
+
+def dsim_main_mode(work, source_root):
+    """Check actual DSIM packet counts against Linux's four-lane 720p row."""
+    source = (source_root/'drivers/video/nxp/imx/sec_mipi_dsim.c').read_text()
+    function = 'static void sec_mipi_dsim_set_main_mode(' + source.split('static void sec_mipi_dsim_set_main_mode(')[1].split('\nstatic void sec_mipi_dsim_config_dpi')[0]
+    names = ('REG_MASK', 'REG_PUT', 'DSIM_MDRESOL', 'DSIM_MVPORCH',
+             'DSIM_MHPORCH', 'DSIM_MSYNC', 'MDRESOL_SET_MAINVRESOL',
+             'MDRESOL_SET_MAINHRESOL', 'MVPORCH_SET_MAINVBP',
+             'MVPORCH_SET_STABLEVFP', 'MVPORCH_SET_CMDALLOW',
+             'MHPORCH_SET_MAINHFP', 'MHPORCH_SET_MAINHBP', 'MSYNC_SET_MAINVSA',
+             'MSYNC_SET_MAINHSA', 'MIPI_HFP_PKT_OVERHEAD',
+             'MIPI_HBP_PKT_OVERHEAD', 'MIPI_HSA_PKT_OVERHEAD')
+    defines = '\n'.join(line for line in source.splitlines()
+                        if any(re.match(r'^#define\s+' + name + r'(?:\(|\s)', line) for name in names)) + '\n'
+    timing_source = (FILES/'lt9611-dt510.c').read_text()
+    timing = 'static const struct display_timing lt9611_timing' + timing_source.split('static const struct display_timing lt9611_timing')[1].split('\nstatic int lt9611_page')[0]
+    harness = r'''
+#include <assert.h>
+#include <stdint.h>
+enum display_flags { DISPLAY_FLAGS_HSYNC_HIGH=1, DISPLAY_FLAGS_VSYNC_HIGH=2, DISPLAY_FLAGS_DE_HIGH=4 };
+struct timing_entry { unsigned int min,typ,max; };
+struct display_timing {
+ struct timing_entry pixelclock,hactive,hfront_porch,hback_porch,hsync_len;
+ struct timing_entry vactive,vfront_porch,vback_porch,vsync_len; enum display_flags flags;
+};
+struct sec_mipi_dsim { struct display_timing timings; unsigned int format,lanes; };
+#define MIPI_DSI_FMT_RGB888 0
+#define DIV_ROUND_UP(n,d) (((n)+(d)-1)/(d))
+#define debug(...) ((void)0)
+static uint32_t regs[64];
+static int mipi_dsi_pixel_format_to_bpp(unsigned int f) { assert(f==MIPI_DSI_FMT_RGB888);return 24; }
+static void dsim_write(struct sec_mipi_dsim *d,uint32_t v,unsigned int r) { assert(d && r<256 && !(r%4));regs[r/4]=v; }
+'''
+    tests = r'''
+int main(void) {
+ struct sec_mipi_dsim d={.timings=lt9611_timing,.lanes=4,.format=MIPI_DSI_FMT_RGB888};
+ sec_mipi_dsim_set_main_mode(&d);
+ assert(regs[DSIM_MDRESOL/4]==((720U<<16)|1280U));
+ assert(regs[DSIM_MVPORCH/4]==((5U<<16)|20U));
+ /* Exact Linux sec-dsim.c hblank_4lanes 1280x720@60 row:78/159/24. */
+ assert(regs[DSIM_MHPORCH/4]==((78U<<16)|159U));
+ assert(regs[DSIM_MSYNC/4]==((5U<<22)|24U));
+ /* Negative control: old110-pixel HFP produces77, not the Linux78. */
+ d.timings.hfront_porch.typ=110;
+ sec_mipi_dsim_set_main_mode(&d);
+ assert(regs[DSIM_MHPORCH/4]==((77U<<16)|159U));
+ return 0;
+}
+'''
+    path,binary=work/'dsim-main-mode.c',work/'dsim-main-mode'
+    path.write_text(harness+defines+timing+function+tests)
+    # Pinned REG_MASK uses signed left shifts for bit masks, as in the target
+    # build; disable only shift-base instrumentation for those unchanged macros.
+    run(['cc','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-sanitize=shift-base',str(path),'-o',str(binary)])
+    run([str(binary)])
+    print('PASS actual DSIM main mode: Linux four-lane720p60 packet counts78/159/24; old110HFP negative control77; vertical720+5+20+5 retained.')
 
 
 def control_dt(build):
@@ -634,6 +692,7 @@ if __name__ == '__main__':
             host_order(Path(tmp), args.uboot_source)
             lcdif_order(Path(tmp), args.uboot_source)
             lcdif_registers(Path(tmp), args.uboot_source)
+            dsim_main_mode(Path(tmp), args.uboot_source)
         if args.uboot_git:
             patch_stack(Path(tmp), args.uboot_git)
         if args.uboot_build:

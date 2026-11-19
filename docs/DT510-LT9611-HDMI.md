@@ -86,7 +86,39 @@ remain required. Linux, device tree, boot arguments, persistent environment and
 update/recovery behavior are unchanged. The separately requested graphical
 distro remains pending and is not included in this repair.
 
-### Build 701 watched retest and next correction
+### Build 702 watched retest and 720p sync-pulse correction
+
+Build **702 passed** and completed the watched primary boot-firmware update to
+`90ca9d34cffd637f1dcee244aa88b020`; recorded and payload versions agree, upgrade
+flags are clear and primary boot is selected. The new primary U-Boot still read
+3840 active bytes, **55 active lines**, 746 total lines and 600 horizontal
+system-clock units. It kept TX disabled and skipped the splash. Linux 702 booted
+and was reachable over SSH. Thus the DE correction alone did not establish
+working U-Boot output; this is not an old-firmware/update failure.
+
+The next source correction follows the pinned Linux driver's explicit
+four-lane, sync-pulse **1280×720@60** workaround. Linux
+`drivers/gpu/drm/bridge/sec-dsim.c` adds two pixels to horizontal sync start/end
+and total for this exact mode because the unadjusted standard timing cannot
+display correctly. This adds two pixels only to the horizontal front porch:
+112 instead of 110, total 1652 instead of 1650. Pixel clock, active area, sync
+widths and all vertical values remain unchanged. Apply the same adjusted
+horizontal values to the LT9611 timing registers; do not alter Linux or shared
+DSIM behavior. Advertise VIC0 (custom timing) and update the AVI checksum, as
+DRM's exact CEA timing match no longer identifies the adjusted total as VIC4.
+Linux's four-lane blanking-table values are HFP/HBP/HSA
+**78/159/24**; actual U-Boot DSIM register tests show the old front porch yielded
+77/159/24 and the correction matches all three Linux values. The initial red
+regression and an explicit old-timing negative control preserve that distinction.
+
+Actual LCDIF, DSIM and LT9611 timing tests now agree on the adjusted mode. The
+input gate still requires two valid 1280×720/750-line samples before TX enable;
+it is not relaxed to accept the failing measurement. This is a documented
+source-parity correction, not proof of the remaining physical root cause.
+Updated cross-build, independent review, factory image and watched TV/serial
+test are required before declaring U-Boot output fixed.
+
+### Build 701 watched retest and DE correction
 
 Build **701 passed** and completed its primary firmware update to
 `a9f929508c9995771498bc6114e4d3b4`. The fresh serial capture shows successful
