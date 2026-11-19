@@ -49,13 +49,42 @@ U-Boot text remains serial-only. Linux subsequently reported HDMI connected
 and enabled. The serial port was captured at 115200 baud, with no transmitted
 bytes or boot/environment changes.
 
-**Current diagnostic candidate:** hold the verified, successfully drawn splash
+Build **700 passed**, is installed, and completed its primary boot-firmware
+update (recorded and payload version `03efb4dac335d9a23a7c5f28c195b3c7`, update
+flags clear). Serial capture recorded the successful drawing command and both
+10-second hold markers, but Alex still saw no U-Boot HDMI image. The Linux TV
+console worked. The hold therefore did not establish a working U-Boot signal.
+U-Boot text remains deliberately serial-only; absence of HDMI text alone is not
+an additional fault.
+
+The diagnostic holds the verified, successfully drawn splash
 for **10 seconds** before continuing to Linux, with serial start/end markers.
 Missing/corrupt artwork and failed display paths do not wait. The pause is a
 temporary visibility/TV-lock test, not a crystal-startup workaround or a claim
 of working HDMI output. Remove it after establishing the cause and choosing
-product splash duration. This candidate still needs its own factory build and
-watched physical test; it does not add the separately requested graphical distro.
+product splash duration.
+
+**Current repair candidate:** source inspection found two missing checks, not
+yet a proven explanation for the absent image. SEC DSIM attach discarded
+clock-setup and PHY-preparation errors; it now preserves those errors, cleans
+up a failed preparation and reports successful lane/clock/status values on
+serial. The LT9611 path previously enabled TX without verifying input. After
+LCDIF starts pixels, it now checks the plain-LT9611 Linux driver's video
+counters: port-A active bytes must be 3840, active lines 720, total lines 750,
+and horizontal total in system-clock units nonzero. Two consecutive valid
+samples are required, with at most 20 samples 25 ms apart after the existing
+500 ms settling interval. Missing/incorrect input or I2C errors keep TX disabled
+and return failure; the splash failure path continues to Linux without the hold.
+No undocumented PLL-lock bit, reset retry or oscillator workaround is added.
+
+Actual-source native tests cover counter/I2C faults, late/invalid input, bounded
+waits, DSIM error propagation and cleanup, and LCDIF failure teardown. A negative
+control reproduces the swallowed error in the pinned original DSIM attach.
+The updated source also passes a direct U-Boot cross-build; these are software
+checks, not physical HDMI proof. Factory build and a watched serial/TV retest
+remain required. Linux, device tree, boot arguments, persistent environment and
+update/recovery behavior are unchanged. The separately requested graphical
+distro remains pending and is not included in this repair.
 
 ### Historical build 697 — before the hardware repair
 

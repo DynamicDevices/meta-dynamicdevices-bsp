@@ -30,6 +30,7 @@ def native(work):
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 #include <errno.h>
 typedef uint8_t u8; typedef uint16_t u16;
@@ -56,7 +57,8 @@ static void *dev_get_priv(struct udevice *d) { return d->priv; }
 static void *dev_get_plat(struct udevice *d) { return d->plat; }
 static unsigned int lanes=4;
 static int gpio_request_ret,attach_ret,bus_calls,bus_fail,gpio_calls,gpio_fail;
-static int attach_calls,bank,reset_values[4],wait_values[8],wait_count;
+static int attach_calls,bank,reset_values[4],wait_values[64],wait_count;
+static int input_samples,input_late;
 static u8 regs[256][256];
 static int dev_read_u32_default(struct udevice *d,const char *s,int def)
 { (void)d;(void)def;assert(!strcmp(s,"dsi-lanes"));return lanes; }
@@ -64,18 +66,26 @@ static int gpio_request_by_name(struct udevice *d,const char *s,int n,struct gpi
 { (void)d;(void)g;assert(!strcmp(s,"reset-gpios") && !n && f==GPIOD_IS_OUT);return gpio_request_ret; }
 static int dm_gpio_set_value(struct gpio_desc *g,int v)
 { assert(gpio_calls<4);reset_values[gpio_calls++]=v;if(gpio_calls==gpio_fail)return -EIO;g->value=v;return 0; }
-static void mdelay(unsigned int ms) { assert(wait_count<8);wait_values[wait_count++]=ms; }
+static void mdelay(unsigned int ms) { assert(wait_count<64);wait_values[wait_count++]=ms; }
 static int mipi_dsi_attach(struct mipi_dsi_device *d)
 { assert(d);attach_calls++;return attach_ret; }
 static int dm_i2c_write(struct udevice *d,unsigned int reg,const u8 *v,int n)
 { (void)d;assert(n==1 && reg<=255);if(++bus_calls==bus_fail)return -EIO;
   if(reg==255)bank=*v;else regs[bank][reg]=*v;return 0; }
 static int dm_i2c_read(struct udevice *d,unsigned int reg,u8 *v,int n)
-{ (void)d;assert(n==1 && reg==2 && bank==0x80);if(++bus_calls==bus_fail)return -EIO;*v=0xe1;return 0; }
+{ (void)d;assert(n==1 && reg<=255);if(++bus_calls==bus_fail)return -EIO;
+  if(bank==0x80 && reg==2){*v=0xe1;return 0;}
+  if(bank==0x83 && reg==0x82)input_samples++;
+  *v=(bank==0x83 && reg==0x82 && input_samples<=input_late)?0:regs[bank][reg];return 0; }
 '''
     harness += source + r'''
 static void reset_model(void)
-{ bus_calls=bus_fail=gpio_calls=gpio_fail=attach_calls=attach_ret=wait_count=0;memset(regs,0,sizeof(regs)); }
+{ bus_calls=bus_fail=gpio_calls=gpio_fail=attach_calls=attach_ret=wait_count=input_samples=input_late=0;
+  memset(regs,0,sizeof(regs));regs[0x81][0x30]=0x6a;
+  regs[0x83][0x82]=0x0f;regs[0x83][0x83]=0;
+  regs[0x82][0x82]=2;regs[0x82][0x83]=0xd0;
+  regs[0x82][0x6c]=2;regs[0x82][0x6d]=0xee;
+  regs[0x82][0x86]=1;regs[0x82][0x87]=0x50; }
 int main(void)
 {
  struct lt9611_priv priv={0};struct mipi_dsi_device dsi={0};
@@ -122,13 +132,27 @@ int main(void)
  assert(!lt9611_set_backlight(&dev,100) && priv.enabled && regs[0x81][0x30]==0xea);
  assert(wait_values[3]==500);
  int tx_count=bus_calls-count;
- assert(tx_count==2);
+ assert(tx_count>2 && input_samples==2);
  count=bus_calls;assert(!lt9611_set_backlight(&dev,100) && bus_calls==count);
  assert(!lt9611_set_backlight(&dev,0) && !priv.enabled && regs[0x81][0x30]==0x6a);
  for(int n=1;n<=tx_count;n++) {
    reset_model();priv.page=-1;bus_fail=n;
-   assert(lt9611_set_backlight(&dev,100)==-EIO && !priv.enabled && priv.page==-1 && bus_calls==n);
+   assert(lt9611_set_backlight(&dev,100)==-EIO && !priv.enabled && priv.page==-1 && bus_calls==n && regs[0x81][0x30]==0x6a);
  }
+ /* Real input counters, including malformed byte count, gate all TX writes. */
+ for(int mode=0;mode<5;mode++) {
+   reset_model();priv.page=-1;priv.configured=true;priv.enabled=false;
+   if(mode==0)regs[0x83][0x82]=0;
+   if(mode==1)regs[0x82][0x83]=0;
+   if(mode==2)regs[0x82][0x6d]=0;
+   if(mode==3)regs[0x82][0x86]=regs[0x82][0x87]=0;
+   if(mode==4)regs[0x83][0x83]=1;
+   assert(lt9611_set_backlight(&dev,100)==-ETIMEDOUT && !priv.enabled && regs[0x81][0x30]==0x6a);
+   assert(input_samples==20 && wait_count==21 && wait_values[0]==500);
+   for(int n=1;n<wait_count;n++)assert(wait_values[n]==25);
+ }
+ reset_model();priv.page=-1;priv.configured=true;priv.enabled=false;input_late=3;
+ assert(!lt9611_set_backlight(&dev,100) && priv.enabled && input_samples==5);
  return 0;
 }
 '''
@@ -136,7 +160,7 @@ int main(void)
     src.write_text(harness)
     run(['cc','-std=c11','-Wall','-Wextra','-Werror','-fsanitize=address,undefined',str(src),'-o',str(binary)])
     run([str(binary)])
-    print('PASS actual driver: every I2C/GPIO/attach fault, first-error exit, reset polarity, cached enable, 720p timing/PLL/PCR, four-lane portA and AVI checksum; ASan/UBSan. Not hardware proof.')
+    print('PASS actual driver: every I2C/GPIO/attach/counter fault, first-error exit, reset polarity, cached enable, 720p timing/PLL/PCR, four-lane portA, AVI checksum; two valid input samples before TX, bounded missing/wrong/late input, ASan/UBSan. Not hardware proof.')
 
 
 def packaging(work, boot_header=None):
@@ -240,6 +264,81 @@ def packaging(work, boot_header=None):
             assert f'EXT:mmc,2:2,0x50000000,{image_dir}/active-edge-splash-1280x720.bmp,0x2a3036' in result
             assert ('FAT:mmc,2:1,0x50000000,active-edge-splash-1280x720.bmp,0x2a3036' in result) == bool(ext_ok)
     print('PASS actual unpack hook: boot body/header prefix unchanged, feature toggle/marker guards, splash after deployment-path resolution; OTA firmware delivery selection, ext4/FAT precedence, hash/size/display failures non-fatal and canonical BMP. Ten-second diagnostic only after successful drawing; skip and sleep-failure paths continue boot. Full recipe remains a Foundries gate.')
+
+
+def host_attach_errors(work, source_root, original_git=None):
+    """Compile actual DSIM attach; the pinned original must fail the regression."""
+    def extract(source):
+        return 'static int sec_mipi_dsim_host_attach(' + source.split('static int sec_mipi_dsim_host_attach(', 1)[1].split('\nstatic ssize_t ', 1)[0]
+
+    harness = r'''
+#include <assert.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <errno.h>
+#define debug(...) ((void)0)
+#define MIPI_DSI_MODE_VIDEO 1
+#define MIPI_DSI_MODE_VIDEO_BURST 2
+#define MIPI_DSI_MODE_VIDEO_SYNC_PULSE 4
+#define MIPI_DSI_FMT_RGB888 0
+#define MIPI_DSI_FMT_RGB565 1
+#define MIPI_DSI_FMT_RGB666 2
+#define MIPI_DSI_FMT_RGB666_PACKED 3
+#define DSIM_STATUS 4
+struct mipi_dsi_host { void *priv; };
+struct mipi_dsi_device { unsigned int lanes,channel,format; unsigned long mode_flags; };
+struct sec_mipi_dsim { unsigned int max_data_lanes,lanes,channel,format; unsigned long mode_flags; unsigned long long pix_clk,bit_clk; };
+static struct sec_mipi_dsim *host_to_dsi(struct mipi_dsi_host *h) { return h->priv; }
+static int clock_ret,prepare_ret,stage,cleanup;
+static int sec_mipi_dsim_bridge_clk_set(struct sec_mipi_dsim *d)
+{ assert(d && stage++==0);return clock_ret; }
+static int sec_mipi_dsim_bridge_prepare(struct sec_mipi_dsim *d)
+{ assert(d && stage++==1);return prepare_ret; }
+static void sec_mipi_dsim_set_standby(struct sec_mipi_dsim *d,bool on)
+{ assert(d && !on && stage==2 && cleanup++==0); }
+static void sec_mipi_dsim_disable_clkctrl(struct sec_mipi_dsim *d)
+{ assert(d && stage==2 && cleanup++==1); }
+static void sec_mipi_dsim_disable_pll(struct sec_mipi_dsim *d)
+{ assert(d && stage==2 && cleanup++==2); }
+static unsigned int dsim_read(struct sec_mipi_dsim *d,int reg)
+{ assert(d && reg==DSIM_STATUS && stage==2 && !cleanup);return 0x8000010f; }
+'''
+    tests = r'''
+int main(void) {
+ struct sec_mipi_dsim dsi={.max_data_lanes=4,.pix_clk=74250,.bit_clk=445500};
+ struct mipi_dsi_host host={.priv=&dsi};
+ struct mipi_dsi_device dev={.lanes=4,.format=0,.mode_flags=5};
+ clock_ret=-EIO;
+ /* Return, rather than abort, for the original-source negative control. */
+ if(sec_mipi_dsim_host_attach(&host,&dev)!=-EIO)return 91;
+ assert(stage==1 && !cleanup);
+ stage=0;clock_ret=-EINVAL;assert(sec_mipi_dsim_host_attach(&host,&dev)==-EINVAL && stage==1 && !cleanup);
+ const int faults[]={-ETIMEDOUT,-EBUSY,-EIO};
+ for(unsigned int n=0;n<3;n++) {
+   stage=cleanup=clock_ret=0;prepare_ret=faults[n];
+   assert(sec_mipi_dsim_host_attach(&host,&dev)==faults[n] && stage==2 && cleanup==3);
+ }
+ stage=cleanup=prepare_ret=0;
+ assert(!sec_mipi_dsim_host_attach(&host,&dev) && stage==2 && !cleanup);
+ assert(dsi.lanes==4 && dsi.mode_flags==5 && dsi.format==0);
+ stage=0;dev.lanes=0;assert(sec_mipi_dsim_host_attach(&host,&dev)==-EINVAL && !stage);
+ dev.lanes=5;assert(sec_mipi_dsim_host_attach(&host,&dev)==-EINVAL && !stage);
+ dev.lanes=4;dev.mode_flags=0;assert(sec_mipi_dsim_host_attach(&host,&dev)==-EINVAL && !stage);
+ dev.mode_flags=5;dev.format=9;assert(sec_mipi_dsim_host_attach(&host,&dev)==-EINVAL && !stage);
+ return 0;
+}
+'''
+    variants = [('fixed', (source_root/'drivers/video/nxp/imx/sec_mipi_dsim.c').read_text())]
+    if original_git:
+        variants.append(('original', run([GIT, '--git-dir='+str(original_git), 'show', 'adbe53791d8f3cc2d7ecf2a3f308494d561def9e:drivers/video/nxp/imx/sec_mipi_dsim.c'])))
+    for label, source in variants:
+        path, binary = work/f'dsim-attach-{label}.c', work/f'dsim-attach-{label}'
+        # Unused cleanup/read mocks are expected in the defective original.
+        path.write_text(harness + extract(source) + tests)
+        run(['cc', '-std=c11', '-Wall', '-Wextra', '-Werror', '-Wno-unused-function', str(path), '-o', str(binary)])
+        result = subprocess.run([str(binary)], capture_output=True, text=True)
+        assert result.returncode == (0 if label == 'fixed' else 91), (label, result.returncode, result.stderr)
+    print('PASS actual DSIM attach: clock/PHY errors propagated, failed PHY cleaned up, invalid inputs rejected; pinned original reproduces swallowed error.')
 
 
 def host_order(work, source_root):
@@ -463,6 +562,7 @@ if __name__ == '__main__':
         native(Path(tmp))
         packaging(Path(tmp), args.boot_header)
         if args.uboot_source:
+            host_attach_errors(Path(tmp), args.uboot_source, args.uboot_git)
             host_order(Path(tmp), args.uboot_source)
             lcdif_order(Path(tmp), args.uboot_source)
         if args.uboot_git:

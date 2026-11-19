@@ -88,3 +88,39 @@ Assisted-by: Briar
 +
  	return ret;
  }
+ 
+--- a/drivers/video/nxp/imx/sec_mipi_dsim.c
++++ b/drivers/video/nxp/imx/sec_mipi_dsim.c
+@@ -1276,6 +1276,7 @@
+ 				   struct mipi_dsi_device *device)
+ {
+ 	struct sec_mipi_dsim *dsi = host_to_dsi(host);
++	int ret;
+ 
+ 	if (!device->lanes || device->lanes > dsi->max_data_lanes) {
+ 		printf("invalid data lanes number\n");
+@@ -1305,8 +1306,22 @@
+ 	debug("lanes %u, channel %u, format 0x%x, mode_flags 0x%lx\n", dsi->lanes,
+ 		dsi->channel, dsi->format, dsi->mode_flags);
+ 
+-	sec_mipi_dsim_bridge_clk_set(dsi);
+-	sec_mipi_dsim_bridge_prepare(dsi);
++	ret = sec_mipi_dsim_bridge_clk_set(dsi);
++	if (ret) {
++		printf("DSIM: clock setup failed: %d\n", ret);
++		return ret;
++	}
++	ret = sec_mipi_dsim_bridge_prepare(dsi);
++	if (ret) {
++		printf("DSIM: PHY preparation failed: %d\n", ret);
++		sec_mipi_dsim_set_standby(dsi, false);
++		sec_mipi_dsim_disable_clkctrl(dsi);
++		sec_mipi_dsim_disable_pll(dsi);
++		return ret;
++	}
++	printf("DSIM: prepared %u lanes, pixel %llu kHz, bit %llu kHz, status %08x\n",
++	       dsi->lanes, (unsigned long long)dsi->pix_clk,
++	       (unsigned long long)dsi->bit_clk, dsim_read(dsi, DSIM_STATUS));
+ 
+ 	return 0;
+ }

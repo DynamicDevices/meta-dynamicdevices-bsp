@@ -193,7 +193,56 @@ static int lt9611_enable(struct udevice *dev)
 	return 0;
 }
 
-/* SEC DSIM calls this only after starting the DSI video stream. No dimming. */
+/* Use the same plain-LT9611 video counters as the Linux driver. */
+static int lt9611_read_word(struct udevice *dev, u16 reg)
+{
+	u8 hi, lo;
+	int ret;
+
+	ret = lt9611_read(dev, reg, &hi);
+	if (ret)
+		return ret;
+	ret = lt9611_read(dev, reg + 1, &lo);
+	return ret ? ret : (hi << 8) | lo;
+}
+
+static int lt9611_wait_input(struct udevice *dev)
+{
+	int hactive = 0, vactive = 0, vtotal = 0, htotal = 0;
+	unsigned int sample, stable = 0;
+
+	/* Bounded readiness check, not a retry of reset/PLL initialization. */
+	for (sample = 0; sample < 20; sample++) {
+		hactive = lt9611_read_word(dev, 0x8382);
+		if (hactive < 0)
+			return hactive;
+		vactive = lt9611_read_word(dev, 0x8282);
+		if (vactive < 0)
+			return vactive;
+		vtotal = lt9611_read_word(dev, 0x826c);
+		if (vtotal < 0)
+			return vtotal;
+		htotal = lt9611_read_word(dev, 0x8286);
+		if (htotal < 0)
+			return htotal;
+		if (hactive == 1280 * 3 && vactive == 720 &&
+		    vtotal == 750 && htotal > 0) {
+			if (++stable == 2) {
+				printf("LT9611: valid port-A input 1280x720, vtotal %d, htotal_sysclk %d\n",
+				       vtotal, htotal);
+				return 0;
+			}
+		} else {
+			stable = 0;
+		}
+		mdelay(25);
+	}
+	printf("LT9611: invalid input: hactive_bytes=%d vactive=%d vtotal=%d htotal_sysclk=%d\n",
+	       hactive, vactive, vtotal, htotal);
+	return -ETIMEDOUT;
+}
+
+/* LCDIF calls this after starting pixels. No dimming or assumed link success. */
 static int lt9611_set_backlight(struct udevice *dev, int percent)
 {
 	struct lt9611_priv *priv = dev_get_priv(dev);
@@ -206,14 +255,20 @@ static int lt9611_set_backlight(struct udevice *dev, int percent)
 	if (priv->enabled == !!percent)
 		return 0;
 	/* Match the Linux bridge's settling interval, now with a running input. */
-	if (percent)
+	if (percent) {
 		mdelay(500);
+		ret = lt9611_wait_input(dev);
+		if (ret) {
+			printf("LT9611: input verification failed: %d; HDMI remains disabled\n", ret);
+			return ret;
+		}
+	}
 	ret = lt9611_write(dev, 0x8130, percent ? 0xea : 0x6a);
 	if (ret)
 		return ret;
 	priv->enabled = !!percent;
 	if (percent)
-		dev_info(dev, "LT9611 output enabled for 1280x720p60 (physical output unverified)\n");
+		printf("LT9611: TX enable written after input verification (physical output unverified)\n");
 	return 0;
 }
 
