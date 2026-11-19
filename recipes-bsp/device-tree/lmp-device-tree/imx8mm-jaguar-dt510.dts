@@ -50,7 +50,8 @@
  *   GNSS: NMEA on UART; **lab 2026-05-05:** valid fix with antenna — `$GNRMC`/`$GNGLL` status A, `$GNGGA` quality ≥1, `$GNGSA` 3D, multi-constellation in view.
  *   USB (host/gadget): working.
  *   CP2108 (**U13**) quad VCP: **[0]/[1]** RS‑232; **[2]/[3]** RS‑485 (**GPIO.10→`RS485_DE1`**, **GPIO.14→`RS485_DE2`** on bridge die — not SoC GPIO). **GPIO.2/GPIO.6** NC. **`quart-res-hog`** only line SoC drives to the bridge; stable **`/dev`** → **udev by-path**.
- *   HDMI (LT9611): enabled for bring-up, not yet bench validated; DT510 reset/connector/IRQ driver patches required.
+ *   HDMI (LT9611): console/video bench tested; DT510 reset/connector/IRQ patches required.
+ *   Michael reports crystal startup fixed by 1M across X5 (2026-11-19); no software startup experiments retained.
  *   Low-power MCU link: TBD.
  *   Digital I/O: DI pads 0x010 (PE=0, DSE_X1); DO pads 0x116. Andy/Vix fleet: cab DI invert in &gpio1 gpio-line-config (GPIO_ACTIVE_LOW on 0,1,4,5); vix-apps dt510_gpio active_low=False (see checklist § Cab buttons).
  *   SE050: reachable; board security posture unsecured / provisioning TBD.
@@ -341,13 +342,6 @@
 &iomuxc {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_hog>, <&pinctrl_bq25792_chgr_int>, <&pinctrl_gnss_reset>, <&pinctrl_hdmi>, <&pinctrl_quart_reset>, <&pinctrl_gpio1_dio_in>, <&pinctrl_gpio1_dio_out>, <&pinctrl_can_mcp2518_gpio>;
-
-	pinctrl_dt510_i2c3_gpio: dt510-i2c3-gpiogrp {
-		fsl,pins = <
-			MX8MM_IOMUXC_I2C3_SCL_GPIO5_IO18 0x400001c3
-			MX8MM_IOMUXC_I2C3_SDA_GPIO5_IO19 0x400001c3
-		>;
-	};
 
 	/*
 	 * Boot-time strap / sideband mux defaults (WLAN/BT/LTE/SIM/audio straps).
@@ -1044,19 +1038,12 @@
 
 &i2c3 {
 	/*
-	 * Keep the shared LT9611 / KSZ9896 / charger bus at Standard-mode while
-	 * qualifying LT9611 startup. Fast-mode clock-switch transfers stalled at
-	 * boot; a slower bus is a controlled candidate, not a proved startup fix.
+	 * Restore the pre-HDMI-startup-experiment shared-bus rate. The missing
+	 * crystal bias resistor was a hardware startup fault, not proof of an
+	 * I2C frequency or Ethernet conflict. Electrical Fast-mode qualification
+	 * remains separate from this software cleanup.
 	 */
-	clock-frequency = <100000>;
-	/* Alex confirms i.MX is the sole master on this shared bus (2026-11-17). */
-	single-master;
-	/* Let i2c-imx release an incomplete transaction using standard bus clear. */
-	pinctrl-names = "default", "gpio";
-	pinctrl-0 = <&pinctrl_i2c3>;
-	pinctrl-1 = <&pinctrl_dt510_i2c3_gpio>;
-	scl-gpios = <&gpio5 18 GPIO_ACTIVE_HIGH>;
-	sda-gpios = <&gpio5 19 GPIO_ACTIVE_HIGH>;
+	clock-frequency = <400000>;
 
 	/* Strip EVK audio/camera/gpio-expander children not fitted on DT510. */
 	/delete-node/ ak4458@10;
@@ -1070,8 +1057,7 @@
 	ksz9896_sw: switch@5f {
 		compatible = "microchip,ksz9896";
 		reg = <0x5f>;
-		/* Temporary HDMI startup isolation: omit the switch probe/reset only. */
-		status = "disabled";
+		status = "okay";
 		/* ENET_RST_N# — SAI1_RXC → GPIO4_IO1; active-low reset output from SoC */
 		reset-gpios = <&gpio4 1 GPIO_ACTIVE_LOW>;
 		interrupt-parent = <&gpio4>;

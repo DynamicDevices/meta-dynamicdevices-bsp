@@ -7,12 +7,16 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
 # Only add Zephyr firmware for Dynamic Devices machines that need it
 LMP_BOOT_FIRMWARE_FILES:append:imx8mm-jaguar-sentai = " zephyr.bin"
-LMP_BOOT_FIRMWARE_FILES:append:imx8mm-jaguar-dt510 = " zephyr.bin"
+LMP_BOOT_FIRMWARE_FILES:append:imx8mm-jaguar-dt510 = " zephyr.bin ${@bb.utils.contains('MACHINE_FEATURES', 'hdmi-boot-splash', 'active-edge-splash-1280x720.bmp', '', d)}"
 LMP_BOOT_FIRMWARE_FILES:append:imx8mm-jaguar-inst = " zephyr.bin"
 LMP_BOOT_FIRMWARE_FILES:append:imx8mm-jaguar-screen = " zephyr.bin"
 LMP_BOOT_FIRMWARE_FILES:append:imx8mm-jaguar-handheld = " zephyr.bin"
 LMP_BOOT_FIRMWARE_FILES:append:imx8mm-jaguar-phasora = " zephyr.bin"
 LMP_BOOT_FIRMWARE_FILES:append:imx93-jaguar-eink = " zephyr.bin"
+
+# Reuse the ordinary signed-OS boot-firmware delivery path; no copy service,
+# FAT writes, persistent environment edits or separate live deployment.
+do_install[depends] += "${@'dt510-hdmi-splash:do_deploy' if d.getVar('MACHINE') == 'imx8mm-jaguar-dt510' and bb.utils.contains('MACHINE_FEATURES', 'hdmi-boot-splash', True, False, d) else ''}"
 
 # Only add zephyr.bin source for Dynamic Devices machines that need it
 SRC_URI:append:imx8mm-jaguar-sentai = " file://zephyr.bin"

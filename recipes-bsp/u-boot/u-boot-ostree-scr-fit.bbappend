@@ -11,8 +11,9 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
     ${@bb.utils.contains('MACHINE_FEATURES', 'hdmi-boot-splash', 'file://hdmi-splash.cmd', '', d)} \
 "
 
-# Expand during unpack so the existing LmP IMX/common compile hooks stay intact.
-# Unpack refreshes the source template when the feature changes.
+# Append after the common header resolves image_dir_path/ostree_bootpart. An
+# OTA updates boot firmware in the deployment, not arbitrary FAT-root files.
+# Both inputs are freshly unpacked when feature metadata changes.
 python do_unpack:append:imx8mm-jaguar-dt510() {
     from pathlib import Path
     source = Path(d.getVar('WORKDIR')) / 'boot.cmd'
@@ -21,8 +22,12 @@ python do_unpack:append:imx8mm-jaguar-dt510() {
     if text.count(marker) != 1:
         bb.fatal('DT510 splash marker missing or duplicated')
     enabled = bb.utils.contains('MACHINE_FEATURES', 'hdmi-boot-splash', True, False, d)
-    fragment = (source.parent / 'hdmi-splash.cmd').read_text() if enabled else ''
-    source.write_text(text.replace(marker, fragment))
+    source.write_text(text.replace(marker, ''))
+    if enabled:
+        header = source.parent / 'boot-header.cmd.in'
+        original = header.read_text()
+        fragment = (source.parent / 'hdmi-splash.cmd').read_text()
+        header.write_text(original + '\n' + fragment)
 }
 do_unpack[vardeps] += "MACHINE_FEATURES"
 

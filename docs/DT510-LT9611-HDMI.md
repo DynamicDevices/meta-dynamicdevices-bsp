@@ -1,8 +1,48 @@
 # DT510 LT9611 HDMI bring-up
 
-Updated 18 November 2026 at Alex's request. Briar helped draft this.
+Updated 19 November 2026 at Alex's request. Briar helped draft this.
 
 ## Current state
+
+Michael reported the hardware cause on 19 November: the 27 MHz crystal did
+not oscillate on three failed boots. After adding a **1 MΩ resistor across the
+crystal**, the console appeared during all three subsequent boots. This is
+Michael's scoped bench observation relayed by Alex, not an independently
+reviewed PCB ECO or field-reliability qualification. Record the resistor in the
+next hardware revision; software delays are not a replacement for it.
+
+On Alex's requested reboot of image **698**, Alex confirmed that the normal TV
+console worked but the U-Boot splash did not appear. Read-only inspection found
+the new `lt9611_dt510` code in both eMMC U-Boot copies. After reboot Linux
+reported HDMI connected/enabled. A read-only FAT16 root-directory check found
+`active-edge-splash-1280x720.bmp` **absent from the boot partition**. Thus this
+attempt did not exercise visible splash output; driver-code presence alone was
+insufficient. No second reboot, flash, artwork copy or boot-option change was made.
+
+The local cleanup removes experiments **0036–0044**, their recipe entries and
+controller-only test harnesses, including inactive ring-clock/one-second-delay
+patch files. Standard crystal selection and ordinary first-error returns remain.
+The I2C controller and regmap sources now match the pinned kernel byte-for-byte.
+Remove the experimental `single-master` and GPIO bus-clear DT properties,
+restore the pre-startup-experiment 400 kHz setting and enable the KSZ9896 switch.
+The 400 kHz setting restores prior source behavior, not fresh electrical
+qualification of Fast-mode with every shared-bus client.
+
+Keep patches **0031–0035**: reset polarity, NXP host/connector/IRQ support,
+sleep-address preservation, the LCDIF atomic-state crash fix and EDID error/
+completion handling. Keep manual overscan/console/video tests and the optional
+U-Boot display feature. Private captures and Git history retain the retired
+experiments; historical sections below are not the current recipe/configuration.
+
+The splash packaging correction is local and unbuilt: include the BMP in
+`lmp-boot-firmware`, and load it from the resolved OSTree firmware deployment
+after the unchanged common header, with FAT-root fallback. Native regressions
+cover both firmware locations, ext4/FAT precedence, absent/corrupt artwork,
+unchanged boot/root logic and failure continuation. Nothing in this cleanup has
+been published, built by Foundries or deployed. A new reviewed factory build
+and physical splash test are still required.
+
+### Historical build 697 — before the hardware repair
 
 Build **697 passed but did not fix natural startup**. The last observed image
 is `5.0.9-697-96`, OSTree
@@ -57,9 +97,13 @@ renderer also fails the build if its output does not match that digest, so
 Pillow/rendering drift cannot silently ship an unusable splash. The
 original boot/update body is unchanged apart from this optional fragment;
 no root arguments, BLS, persistent environment or partition layout is changed.
-The WIC boot partition receives the BMP. A normal OS update alone does not
-prove the installed bootloader or artwork has been updated; programming and
-the initial hardware test remain separate, explicitly authorized steps.
+The WIC boot partition receives the BMP. It is also included in the ordinary
+`lmp-boot-firmware` payload so OTA can deliver it with the current deployment.
+The optional fragment runs after the unchanged common header resolves
+`ostree_bootpart` and `image_dir_path`; it first uses bounded `ext4load` from
+that deployment, then falls back to the FAT root. No new environment-save,
+root-argument rewrite or copy service is introduced. An OS version alone does
+not prove bootloader/artwork installation or a visible splash.
 
 Inputs: meta-lmp `4dffdff79b4df49c683c9a7faea406595cb7e9ca` selects U-Boot
 `imx-2024.04`, source `adbe53791d8f3cc2d7ecf2a3f308494d561def9e`.
@@ -82,6 +126,8 @@ to include the actual NXP callback regression. Independent review, factory
 build and physical splash/cold/warm startup tests are still required. Linux
 currently resets/reinitializes the bridge: a U-Boot picture would not establish
 seamless handover or resolve the Linux startup problem by itself.
+
+## Historical investigation — retired experiments, not product settings
 
 ### Previous 696 evidence
 
@@ -984,16 +1030,9 @@ Linux 6.6.52 at `e0f9e2afd4cff3f02d71891244b4aa5899dfc786`.
   Native tests exercise the actual reader with delayed completion, timeout,
   NACK/arbitration errors, each transfer failing and cleanup error precedence.
   Physical DDC/startup behaviour still requires testing on the new image.
-- `0036-drm-bridge-lt9611-retry-power-on-arbitration-loss.patch`: retry only
-  `-EAGAIN` in the idempotent power-on register sequence, at most three total
-  attempts with 1–2 ms backoff after retryable failures. The pinned i.MX adapter
-  leaves `retries` zero-initialized; the core therefore makes just one attempt
-  unless another user explicitly changes that setting. Other errors still fail
-  immediately; exhausted retries leave `power_on=false`. Recovery is logged.
-  The actual compiled function is tested with errors at every sequence position,
-  recovery on attempts two/three, exhaustion, cached success, later reprobe and
-  permanent errors. This is bounded handling of a proven returned error, not
-  proof that three attempts cover every physical startup failure.
+- Experimental patches `0036` through `0044` are retired from the cleanup
+  candidate, not additional required board support. Their old descriptions and
+  test results above are historical evidence only.
 
 On 684, the first warning was at boot monotonic time 1203.27 s in
 `drm_atomic_bridge_chain_disable`, from `videotestsrc0:s`; subsequent video

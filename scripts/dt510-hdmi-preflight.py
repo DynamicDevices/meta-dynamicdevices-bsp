@@ -8,7 +8,6 @@ import re
 import subprocess
 import tarfile
 import tempfile
-from dt510_hdmi_controller_test import check_controller_diagnostics
 
 
 PIN = "e0f9e2afd4cff3f02d71891244b4aa5899dfc786"
@@ -26,13 +25,6 @@ PATCHES = (
     "0033-drm-bridge-lt9611-preserve-i2c-address-in-sleep.patch",
     "0034-drm-imx-lcdif-check-fb-modeset-before-bridges.patch",
     "0035-drm-bridge-lt9611-poll-edid-and-check-i2c-errors.patch",
-    "0036-drm-bridge-lt9611-retry-power-on-arbitration-loss.patch",
-    "0037-i2c-imx-support-single-master-with-stop-polling.patch",
-    "0038-dt510-lt9611-startup-diagnostics.patch",
-    "0039-i2c-imx-propagate-stop-and-recover-bus.patch",
-    "0042-drm-bridge-lt9611-boot-reset-recovery.patch",
-    "0043-i2c-imx-trace-lt9611-clock-switch.patch",
-    "0044-i2c-imx-test-lt9611-post-ack-stop-delay.patch",
 )
 
 
@@ -359,8 +351,7 @@ def check_dt(work):
 
     for label in ("lt9611", "mipi_dsi", "lcdif"):
         assert get(symbol(label), "status") == "okay", label
-    # Temporary diagnostic image: exclude the KSZ probe, not the shared bus.
-    assert get(symbol("ksz9896_sw"), "status") == "disabled"
+    assert get(symbol("ksz9896_sw"), "status") == "okay"
     assert get(symbol("fec1"), "status") == "okay"
     for left, right in (("lcdif_to_dsim", "dsim_from_lcdif"),
                         ("mipi_dsi_out", "lt9611_in"),
@@ -371,17 +362,12 @@ def check_dt(work):
     get(symbol("mipi_dsi_out"), "attach-bridge")
     assert get(symbol("lt9611"), "reset-gpios", "x").split()[1:] == ["b", "1"]
     assert get(symbol("lt9611"), "interrupts", "x") == "6 4"
-    assert get(symbol("i2c3"), "clock-frequency", "u") == "100000"
-    get(symbol("i2c3"), "single-master")
-    assert get(symbol("i2c3"), "pinctrl-names") == "default gpio"
-    assert get(symbol("i2c3"), "pinctrl-1", "x") == get(symbol("pinctrl_dt510_i2c3_gpio"), "phandle", "x")
-    for prop, line in (("scl-gpios", "12"), ("sda-gpios", "13")):
-        assert get(symbol("i2c3"), prop, "x").split() == [get(symbol("gpio5"), "phandle", "x"), line, "0"]
-    pins = get(symbol("pinctrl_dt510_i2c3_gpio"), "fsl,pins", "x").split()
-    assert pins == ["224", "48c", "0", "5", "0", "400001c3", "228", "490", "0", "5", "0", "400001c3"]
-    for label in ("i2c1", "i2c2", "i2c4"):
+    assert get(symbol("i2c3"), "clock-frequency", "u") == "400000"
+    for label in ("i2c1", "i2c2", "i2c3", "i2c4"):
         properties = run(["fdtget", "-p", dtb, symbol(label)], text=True).stdout.splitlines()
         assert "single-master" not in properties, label
+        if label == "i2c3":
+            assert not {"scl-gpios", "sda-gpios", "pinctrl-1"}.intersection(properties)
     assert symbol("lt9611").rsplit("/", 1)[0] == symbol("i2c3")
     assert get(symbol("lt9611"), "vdd-supply", "x") == get(symbol("reg_lt9611_vdd_1v8"), "phandle", "x")
     assert get(symbol("lt9611"), "vcc-supply", "x") == get(symbol("reg_vddext_3v3"), "phandle", "x")
@@ -394,7 +380,7 @@ def check_dt(work):
                      if "Warning" in line and any(term in line for term in
                         ("lt9611", "hdmi-connector", "mipi_dsi", "dsim_", "lcdif"))]
     assert not hdmi_warnings, "\n".join(hdmi_warnings)[:2000]
-    print(f"PASS: compiled DTB and checked disabled KSZ switch with FEC retained, enabled LCDIF/DSI/LT9611, graph, lanes, GPIOs, supplies, only I2C3 single-master at 100 kHz and EVK removal; {warnings.count('Warning')} other DT warnings.")
+    print(f"PASS: compiled DTB: KSZ/FEC restored, LCDIF/DSI/LT9611 enabled, graph/lanes/GPIOs/supplies retained, baseline 400 kHz and no experimental single-master/GPIO recovery; {warnings.count('Warning')} other DT warnings.")
     for line in warnings.splitlines():
         if "Warning" in line:
             print(line.split(": Warning", 1)[-1][:400])
@@ -610,521 +596,48 @@ int main(void)
     print("PASS: actual EDID reader models immediate/delayed completion, bounded timeout, NACK/arbitration errors including done+error, every transfer failure and release/first-error handling. Power-on guard source-checked; no physical DDC proof.")
 
 
-def check_power_on_retry(source, work):
+
+
+
+
+
+
+
+
+
+
+def check_standard_power_on(source, work):
     harness = r'''
 #include <assert.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <errno.h>
 #define ARRAY_SIZE(x) (sizeof(x)/sizeof((x)[0]))
-static int sleeps, recoveries;
-#define dev_dbg(...) ((void)0)
-#define dev_info(...) (recoveries++)
 struct reg_sequence { unsigned int reg, def; };
-struct regmap { int attempts, writes, fail_at, error, fail_attempts; size_t seq_len; };
-struct lt9611 { struct regmap *regmap; void *dev; bool power_on; };
-static void usleep_range(unsigned int min, unsigned int max)
-{
-    assert(min==1000 && max==2000); sleeps++;
-}
-static int regmap_multi_reg_write(struct regmap *m, const struct reg_sequence *seq, size_t n)
-{
-    assert(seq && n==15 && seq[0].reg==0x8101 && seq[0].def==0x18);
-    m->seq_len=n; m->attempts++;
-    if (m->attempts<=m->fail_attempts) return m->error;
-    for (size_t i=0;i<n;i++) {
-        m->writes++;
-        if (m->writes==m->fail_at) return m->error;
-    }
-    return 0;
+struct regmap { int calls, error; };
+struct lt9611 { struct regmap *regmap; bool power_on; };
+static int regmap_multi_reg_write(struct regmap *m,const struct reg_sequence *s,size_t n)
+{ m->calls++;assert(n==15 && s[0].reg==0x8101 && s[0].def==0x18);return m->error; }
+'''
+    harness += function(source,'lt9611_power_on') + r'''
+int main(void) {
+ struct regmap map={0};struct lt9611 d={.regmap=&map};
+ assert(!lt9611_power_on(&d) && d.power_on && map.calls==1);
+ assert(!lt9611_power_on(&d) && map.calls==1);
+ int errors[]={-EAGAIN,-ETIMEDOUT,-ENXIO,-EIO,-EBUSY};
+ for(unsigned int i=0;i<ARRAY_SIZE(errors);i++) {
+  d.power_on=false;map.calls=0;map.error=errors[i];
+  assert(lt9611_power_on(&d)==errors[i] && map.calls==1 && !d.power_on);
+ }
+ return 0;
 }
 '''
-    harness += function(source, "lt9611_power_on") + r'''
-int main(void)
-{
-    struct regmap m={0}; struct lt9611 d={.regmap=&m};
-    assert(!lt9611_power_on(&d) && d.power_on && m.attempts==1 && !sleeps);
-    assert(!lt9611_power_on(&d) && m.attempts==1); /* cached success */
-    int count=(int)m.seq_len;
-    for (int i=1;i<=count;i++) {
-        m=(struct regmap){.fail_at=i,.error=-EAGAIN}; d.power_on=false;
-        sleeps=recoveries=0;
-        assert(!lt9611_power_on(&d) && d.power_on && m.attempts==2);
-        assert(sleeps==1 && recoveries==1 && m.writes==i+count);
-    }
-    m=(struct regmap){.fail_attempts=2,.error=-EAGAIN}; d.power_on=false;
-    sleeps=recoveries=0;
-    assert(!lt9611_power_on(&d) && d.power_on && m.attempts==3 && sleeps==2);
-    assert(recoveries==1);
-    m=(struct regmap){.fail_attempts=3,.error=-EAGAIN}; d.power_on=false;
-    sleeps=recoveries=0;
-    assert(lt9611_power_on(&d)==-EAGAIN && !d.power_on && m.attempts==3);
-    assert(sleeps==2 && !recoveries);
-    m=(struct regmap){0};
-    assert(!lt9611_power_on(&d) && d.power_on); /* later successful reprobe */
-    m=(struct regmap){.fail_attempts=1,.error=-ETIMEDOUT}; d.power_on=false;
-    sleeps=recoveries=0;
-    assert(!lt9611_power_on(&d) && d.power_on && m.attempts==2 && sleeps==1);
-    m=(struct regmap){.fail_attempts=3,.error=-ETIMEDOUT}; d.power_on=false;
-    sleeps=recoveries=0;
-    assert(lt9611_power_on(&d)==-ETIMEDOUT && !d.power_on && m.attempts==3 && sleeps==2);
-    const int errors[]={-ENXIO,-EIO,-EBUSY};
-    for (size_t i=0;i<ARRAY_SIZE(errors);i++) {
-        m=(struct regmap){.fail_attempts=1,.error=errors[i]}; d.power_on=false;
-        sleeps=recoveries=0;
-        assert(lt9611_power_on(&d)==errors[i] && !d.power_on);
-        assert(m.attempts==1 && !sleeps && !recoveries);
-    }
-    m=(struct regmap){0}; d.power_on=true;
-    assert(!lt9611_power_on(&d) && !m.attempts);
-    d.power_on=false;
-    assert(!lt9611_power_on(&d) && m.attempts==1);
-    return 0;
-}
-'''
-    path = work / "power-on-retry-test.c"
-    path.write_text(harness)
-    binary = work / "power-on-retry-test"
-    run(["cc", "-Wall", "-Wextra", "-Werror", "-std=c11", str(path), "-o", str(binary)])
-    run([str(binary)])
-    print("PASS: actual power-on selects crystal, bounds EAGAIN/ETIMEDOUT retries, caches success and propagates permanent errors without the ineffective settling delay; model, not oscillator/boot proof.")
-
-
-def check_boot_init(source, work):
-    # Compile BOTH actual functions: a failed target must receive a hardware
-    # reset and revision/I2C initialization before another power-on sequence.
-    harness = r'''
-#include <assert.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <errno.h>
-#define ARRAY_SIZE(x) (sizeof(x)/sizeof((x)[0]))
-#define dev_dbg(...) ((void)0)
-#define dev_info(...) ((void)0)
-#define dev_warn(...) (warnings++)
-struct reg_sequence { unsigned int reg, def; };
-struct regmap { int stage, attempts[2], errors[2], rev_fail_stage, rev_error; bool ready; };
-struct lt9611 { struct regmap *regmap; void *dev; bool power_on, sleep; };
-static int resets, revisions, warnings, sleeps;
-static void lt9611_reset(struct lt9611 *d)
-{
-    assert(resets<2); d->regmap->stage=resets++; d->regmap->ready=false;
-}
-static int lt9611_read_device_rev(struct lt9611 *d)
-{
-    assert(!d->power_on && !d->sleep && resets==revisions+1);
-    revisions++;
-    if (resets==d->regmap->rev_fail_stage) return d->regmap->rev_error;
-    d->regmap->ready=true; return 0;
-}
-static void usleep_range(unsigned int lo, unsigned int hi)
-{ assert(lo==1000 && hi==2000); sleeps++; }
-static int regmap_multi_reg_write(struct regmap *m,
-                                  const struct reg_sequence *seq, size_t n)
-{
-    assert(m->ready && revisions==resets);
-    assert(n==15 && seq[0].reg==0x8101 && seq[0].def==0x18);
-    assert(m->stage>=0 && m->stage<2);
-    m->attempts[m->stage]++;
-    return m->errors[m->stage];
-}
-'''
-    harness += function(source, "lt9611_power_on") + "\n"
-    harness += function(source, "lt9611_boot_init") + r'''
-static void check(int first, int second, int rev_fail, int expected,
-                  int reset_count, int attempts0, int attempts1, int backoffs)
-{
-    struct regmap m={.errors={first,second},.rev_fail_stage=rev_fail,.rev_error=-EIO};
-    struct lt9611 d={.regmap=&m,.power_on=true,.sleep=true};
-    resets=revisions=warnings=sleeps=0;
-    assert(lt9611_boot_init(&d)==expected);
-    assert(resets==reset_count && revisions==reset_count);
-    assert(m.attempts[0]==attempts0 && m.attempts[1]==attempts1);
-    assert(sleeps==backoffs && warnings==(reset_count==2));
-    assert(d.power_on==(!expected) && !d.sleep);
-    if (!expected) {
-        assert(!lt9611_power_on(&d)); /* subsequent EDID: no rewrite/reset */
-        assert(resets==reset_count && m.attempts[0]==attempts0 && m.attempts[1]==attempts1);
-    }
-}
-int main(void)
-{
-    check(0,0,0,0,1,1,0,0);
-    check(-ENXIO,0,0,0,2,1,1,0);
-    check(-ENXIO,-ENXIO,0,-ENXIO,2,1,1,0);
-    check(-EAGAIN,0,0,0,2,3,1,2);
-    check(-ETIMEDOUT,0,0,0,2,3,1,2);
-    check(-EAGAIN,-EAGAIN,0,-EAGAIN,2,3,3,4);
-    check(-ETIMEDOUT,-ETIMEDOUT,0,-ETIMEDOUT,2,3,3,4);
-    check(-ENXIO,-EIO,0,-EIO,2,1,1,0);
-    check(-EIO,0,0,-EIO,1,1,0,0);
-    check(-EBUSY,0,0,-EBUSY,1,1,0,0);
-    check(0,0,1,-EIO,1,0,0,0);
-    check(-ENXIO,0,2,-EIO,2,1,0,0);
-    return 0;
-}
-'''
-    path = work / "boot-init-test.c"
-    path.write_text(harness)
-    binary = work / "boot-init-test"
-    run(["cc", "-Wall", "-Wextra", "-Werror", "-std=c11", str(path), "-o", str(binary)])
-    run([str(binary)])
-    probe = function(source, "lt9611_probe")
-    assert source.count("lt9611_boot_init(") == 2
-    assert probe.index("lt9611_regulator_enable(") < probe.index("lt9611_boot_init(")
-    for later in ("0x8210", "devm_request_threaded_irq(", "drm_bridge_add("):
-        assert probe.index("lt9611_boot_init(") < probe.index(later)
-    assert re.search(r"ret = lt9611_boot_init\(lt9611\);\s*if \(ret\) \{[^}]*goto err_disable_regulators;", probe)
-    print("PASS: actual boot-init + power-on: one hardware-reset replay, revision/state restored, bounded transfer retries, final/permanent/revision errors, cached EDID path; source checks IRQ/DRM publication order. Not physical reset or boot proof.")
-
-
-def check_startup_diagnostics(i2c, regmap, work):
-    # Compile actual helpers: injected faults must not change the return code,
-    # bus-write count or STOP sequence. Logging is absent on successful transfers.
-    harness = r'''
-#include <assert.h>
-#include <stdbool.h>
-#include <errno.h>
-#include <stdio.h>
-#include <string.h>
-#define IMX_I2C_I2SR 0
-#define IMX_I2C_I2CR 1
-#define IMX_I2C_I2DR 2
-#define I2CR_MSTA 0x20
-#define I2CR_MTX 0x10
-#define I2CR_DMAEN 0x02
-#define I2CR_IEN 0x80
-#define dev_dbg(...) ((void)0)
-static int logs, reads, writes, steps, fail_at, fail_ret, stop_ret, polls, settles;
-static unsigned int cr, last_write;
-static char record[256];
-#define dev_err(dev,fmt,...) do { (void)(dev); logs++; snprintf(record,sizeof(record),fmt,__VA_ARGS__); } while(0)
-struct imx_i2c_struct {
-    struct { int nr, dev; } adapter;
-    int stopped, stop_result, disable_delay; void *dma;
-    struct { unsigned int i2cr_ien_opcode; } *hwdata;
-};
-struct i2c_msg { unsigned short addr, flags, len; unsigned char *buf; };
-static unsigned int imx_i2c_read_reg(struct imx_i2c_struct *i, int reg)
-{ (void)i; reads++; return reg==IMX_I2C_I2CR ? cr : 0x31; }
-static void imx_i2c_write_reg(unsigned int v, struct imx_i2c_struct *i, int reg)
-{ (void)i; (void)reg; writes++; last_write=v; }
-static int i2c_8bit_addr_from_msg(struct i2c_msg *m) { return m->addr<<1; }
-static int i2c_imx_trx_complete(struct imx_i2c_struct *i, bool a)
-{ (void)i; (void)a; return ++steps==fail_at ? fail_ret : 0; }
-static int i2c_imx_acked(struct imx_i2c_struct *i)
-{ (void)i; return ++steps==fail_at ? fail_ret : 0; }
-static int i2c_imx_bus_busy(struct imx_i2c_struct *i, int busy, bool a)
-{ (void)i; (void)a; assert(!busy); polls++; return stop_ret; }
-static bool is_imx1_i2c(struct imx_i2c_struct *i) { (void)i; return false; }
-static void udelay(int delay) { (void)delay; assert(0); }
-static void i2c_imx_dt510_settle(struct imx_i2c_struct *i, struct i2c_msg *m, bool a)
-{ (void)i; (void)m; (void)a; assert(steps==6); settles++; }
-'''
-    harness += function(i2c, "i2c_imx_diag_error")
-    harness += function(i2c, "i2c_imx_write")
-    harness += function(i2c, "i2c_imx_stop")
-    harness += r'''
-int main(void)
-{
-    unsigned char data[]={0x01,0x18};
-    struct i2c_msg m={.addr=0x39,.len=2,.buf=data};
-    struct imx_i2c_struct i={.adapter.nr=2};
-    const char *phases[]={"write-address-complete","write-address-ack",
-        "write-data-complete","write-data-ack","write-data-complete","write-data-ack"};
-    for(int atomic=0;atomic<2;atomic++) {
-        fail_at=0; logs=reads=writes=steps=settles=0;
-        assert(i2c_imx_write(&i,&m,atomic)==0);
-        assert(writes==3 && steps==6 && !logs && !reads && settles==1);
-        for(int error=0;error<2;error++) for(int pos=1;pos<=6;pos++) {
-            fail_at=pos; fail_ret=error ? -ETIMEDOUT : -ENXIO;
-            logs=reads=writes=steps=settles=0;
-            assert(i2c_imx_write(&i,&m,atomic)==fail_ret);
-            assert(writes==(pos+1)/2 && steps==pos && reads==2 && logs==1 && !settles);
-            assert(strstr(record,phases[pos-1]));
-            assert(strstr(record,pos<=2?"byte=-1":pos<=4?"byte=0":"byte=1"));
-        }
-    }
-    for(int scope=0;scope<2;scope++) {
-        i.adapter.nr=scope?2:1; m.addr=scope?0x6b:0x39;
-        fail_at=2; fail_ret=-ENXIO; logs=reads=writes=steps=0;
-        assert(i2c_imx_write(&i,&m,false)==-ENXIO && !logs && !reads && writes==1);
-    }
-    i.adapter.nr=2; logs=reads=0;
-    i2c_imx_diag_error(&i,&m,"none",0,0); assert(!logs && !reads);
-    typeof(*i.hwdata) hw={.i2cr_ien_opcode=I2CR_IEN}; i.hwdata=&hw;
-    for(int atomic=0;atomic<2;atomic++) for(int err=0;err<2;err++) {
-        i.stopped=0; cr=I2CR_MSTA|I2CR_MTX; stop_ret=err?-ETIMEDOUT:0;
-        reads=writes=logs=polls=0; assert(i2c_imx_stop(&i,atomic)==stop_ret);
-        assert(reads==1 && writes==2 && polls==1 && last_write==0 && logs==err);
-    }
-    i.stopped=1; reads=writes=logs=polls=0; i2c_imx_stop(&i,false);
-    assert(!reads && writes==1 && !polls && !logs);
-    puts("PASS: actual PIO write/error/STOP diagnostics preserve success, address/data faults, byte positions, scope and atomic paths; STOP errors returned.");
-}
-'''
-    test = work / "i2c-diagnostics.c"
-    test.write_text(harness)
-    binary = work / "i2c-diagnostics"
-    run(["cc", "-std=gnu11", "-Wall", "-Wextra", "-Werror", str(test), "-o", str(binary)])
-    print(run([str(binary)], text=True).stdout.strip())
-    # Read-address branches are source-checked; no DMA data-phase claim.
-    read = function(i2c, "i2c_imx_read")
-    assert '"read-address-complete", -1, result' in read
-    assert '"read-address-ack", -1, result' in read
-    harness = r'''
-#include <assert.h>
-#include <stdbool.h>
-#include <errno.h>
-#include <stdio.h>
-#include <string.h>
-static int logs, bus_calls, error, caches; static char record[256];
-struct device { const char *name; };
-struct regmap {
-    struct device *dev; bool cache_bypass, defer_caching, cache_only, cache_dirty;
-    int (*reg_write)(void *,unsigned int,unsigned int);
-    int (*reg_read)(void *,unsigned int,unsigned int *);
-};
-static const char *dev_name(struct device *d) { return d->name; }
-#define dev_err(dev,fmt,...) do { (void)(dev); logs++; snprintf(record,sizeof(record),fmt,__VA_ARGS__); } while(0)
-#define dev_info(...) ((void)0)
-#define trace_regmap_reg_write(...) ((void)0)
-#define trace_regmap_reg_read(...) ((void)0)
-static void *_regmap_map_get_context(struct regmap *m) { return m; }
-static bool regmap_writeable(struct regmap *m,unsigned int r) { (void)m; (void)r; return true; }
-static bool regmap_readable(struct regmap *m,unsigned int r) { return regmap_writeable(m,r); }
-static bool regmap_should_log(struct regmap *m) { (void)m; return false; }
-static int regcache_write(struct regmap *m,unsigned int r,unsigned int v)
-{ (void)m; (void)r; (void)v; caches++; return 0; }
-static int regcache_read(struct regmap *m,unsigned int r,unsigned int *v)
-{ (void)m; (void)r; (void)v; return -ENOENT; }
-static int wr(void *m,unsigned int r,unsigned int v)
-{ (void)m; assert(r==0x821b && v==0x69); bus_calls++; return error; }
-static int rd(void *m,unsigned int r,unsigned int *v)
-{ (void)m; assert(r==0x825e); bus_calls++; if(!error) *v=5; return error; }
-'''
-    harness += re.search(r"int _regmap_write\(.*?\n\}", regmap, re.S).group(0)
-    harness += function(regmap, "_regmap_read")
-    harness += r'''
-int main(void)
-{
-    struct device d={"2-0039"};
-    struct regmap m={.dev=&d,.cache_bypass=true,.reg_write=wr,.reg_read=rd};
-    const int errors[]={0,-ENXIO,-EAGAIN,-ETIMEDOUT};
-    for(int scope=0;scope<3;scope++) for(int n=0;n<4;n++) {
-        d.name=scope==1?"1-0039":"2-0039"; m.dev=scope==2?NULL:&d;
-        error=errors[n]; logs=bus_calls=caches=0;
-        assert(_regmap_write(&m,0x821b,0x69)==error && bus_calls==1);
-        assert(logs==((n && !scope)?1:0));
-        if(logs) assert(strstr(record,"logical=821b") && strstr(record,"value=69"));
-        unsigned int v=0xfeed; logs=bus_calls=0;
-        assert(_regmap_read(&m,0x825e,&v)==error && bus_calls==1);
-        assert(v==(error?0xfeed:5) && logs==((n && !scope)?1:0));
-        if(logs) assert(strstr(record,"logical=825e"));
-    }
-    puts("PASS: actual regmap read/write diagnostics retain logical addresses, values, failure returns, untouched failed-read output and device scope; no extra bus calls.");
-}
-'''
-    test = work / "regmap-diagnostics.c"
-    test.write_text(harness)
-    binary = work / "regmap-diagnostics"
-    run(["cc", "-std=gnu11", "-Wall", "-Wextra", "-Werror", str(test), "-o", str(binary)])
-    print(run([str(binary)], text=True).stdout.strip())
-    page = function(regmap, "_regmap_select_page")
-    assert page.index("if (ret && map->dev") < page.index("if (ret != 0)")
-    assert '"DT510-DIAG page-select logical=' in page
-
-
-def check_stop_recovery(source, work):
-    # Compile the actual STOP and complete transfer wrapper, not a model of
-    # error precedence. Peripheral byte completion and bus clear are injected.
-    harness = r'''
-#include <assert.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <errno.h>
-#include <stdio.h>
-#define I2C_M_RD 1
-#define I2C_M_DMA_SAFE 0x200
-#define DMA_THRESHOLD 16
-#define IMX_I2C_I2CR 1
-#define I2CR_MSTA 0x20
-#define I2CR_MTX 0x10
-#define I2CR_DMAEN 2
-#define I2CR_IEN 0x80
-#define I2CR_RSTA 4
-#define dev_dbg(...) ((void)0)
-#define dev_err(...) ((void)0)
-#define dev_warn(dev,fmt,stop,ret) ((void)(dev),(void)(fmt),(void)(stop),(void)(ret))
-struct i2c_adapter { int nr, dev; void *bus_recovery_info; };
-struct i2c_msg { unsigned short flags, len; };
-struct imx_i2c_struct {
-    struct i2c_adapter adapter;
-    int stopped, stop_result, disable_delay;
-    void *dma, *slave;
-    struct { unsigned int i2cr_ien_opcode; } *hwdata;
-};
-static struct imx_i2c_struct *target;
-static unsigned int cr;
-static int poll_result, polls, recovery_result, recoveries, transfers;
-static int transfer_result, read_stop_result, starts, start_error;
-static unsigned int imx_i2c_read_reg(struct imx_i2c_struct *i, int r)
-{ assert(i==target && r==IMX_I2C_I2CR); return cr; }
-static void imx_i2c_write_reg(unsigned int v, struct imx_i2c_struct *i, int r)
-{ assert(i==target && r==IMX_I2C_I2CR); cr=v; }
-static bool is_imx1_i2c(struct imx_i2c_struct *i) { (void)i; return false; }
-static void udelay(int n) { (void)n; assert(0); }
-static int i2c_imx_bus_busy(struct imx_i2c_struct *i, int busy, bool atomic)
-{ (void)atomic; assert(i==target); if(busy)return 0; polls++; return poll_result; }
-static int i2c_recover_bus(struct i2c_adapter *a)
-{ assert(a==&target->adapter && cr==0); recoveries++; return recovery_result; }
-static struct imx_i2c_struct *i2c_get_adapdata(struct i2c_adapter *a)
-{ assert(a==&target->adapter); return target; }
-static int i2c_imx_start(struct imx_i2c_struct *i, bool atomic)
-{ (void)atomic; starts++; i->stop_result=0; cr=I2CR_MSTA|I2CR_MTX; return start_error; }
-static int i2c_imx_write(struct imx_i2c_struct *i, struct i2c_msg *m, bool a)
-{ (void)i; (void)m; (void)a; transfers++; return transfer_result; }
-static int i2c_imx_dma_write(struct imx_i2c_struct *i, struct i2c_msg *m)
-{ return i2c_imx_write(i,m,false); }
-static int i2c_imx_read(struct imx_i2c_struct *i, struct i2c_msg *m, bool last, bool a)
-{ (void)last; i->stop_result=read_stop_result; return i2c_imx_write(i,m,a); }
-static void i2c_imx_slave_init(struct imx_i2c_struct *i) { (void)i; }
-'''
-    # Include the actual bounded diagnostic state; exercise legacy recovery
-    # with diagnostics inactive, without weakening its existing assertions.
-    diag = re.search(r"struct imx_i2c_dt510_diag \{.*?\n\};", source, re.S).group()
-    harness = harness.replace("struct imx_i2c_struct {", """
-typedef unsigned long long u64;
-#define READ_ONCE(v) (v)
-#define IMX_I2C_I2SR 0
-static u64 ktime_get_ns(void) { return 1; }
-""" + diag + "\nstruct imx_i2c_struct {\n    struct imx_i2c_dt510_diag dt510_diag;")
-    harness += function(source, "i2c_imx_stop")
-    harness += function(source, "i2c_imx_xfer_common")
-    harness += r'''
-int main(void)
-{
-    struct imx_i2c_struct d={.adapter.nr=2}; target=&d;
-    typeof(*d.hwdata) hw={.i2cr_ien_opcode=I2CR_IEN}; d.hwdata=&hw;
-    struct i2c_msg m={.len=2};
-    for(int atomic=0;atomic<2;atomic++) for(int info=0;info<2;info++)
-    for(int read=0;read<2;read++) for(int bad=0;bad<2;bad++)
-    for(int original=0;original<2;original++) for(int recovery_bad=0;recovery_bad<2;recovery_bad++) {
-        d.adapter.bus_recovery_info=info?&d:NULL; d.stopped=0;
-        poll_result=bad?-ETIMEDOUT:0; read_stop_result=read?poll_result:0;
-        transfer_result=original?-ENXIO:0; recovery_result=recovery_bad?-EBUSY:0;
-        recoveries=polls=starts=transfers=0; m.flags=read?I2C_M_RD:0;
-        int expected=original?-ENXIO:bad?-ETIMEDOUT:1;
-        assert(i2c_imx_xfer_common(&d.adapter,&m,1,atomic)==expected);
-        assert(cr==0 && transfers==1 && starts==1);
-        assert(recoveries==(bad && info && !atomic));
-        /* A failed read's existing STOP wait must not be repeated. */
-        assert(polls==(read && bad?0:1));
-    }
-    poll_result=read_stop_result=transfer_result=start_error=0;
-    m=(struct i2c_msg){.len=32,.flags=I2C_M_DMA_SAFE}; d.dma=&d;
-    d.adapter.bus_recovery_info=&d; d.stopped=0; recoveries=transfers=0;
-    assert(i2c_imx_xfer_common(&d.adapter,&m,1,false)==1 && transfers==1 && !recoveries);
-    /* A start failure takes only the existing bounded recovery/restart. */
-    start_error=-EAGAIN; recoveries=transfers=starts=0;
-    /* Existing start-failure recovery occurs while enabled, unlike STOP. */
-    d.adapter.bus_recovery_info=NULL;
-    assert(i2c_imx_xfer_common(&d.adapter,&m,1,false)==-EAGAIN && !transfers && starts==1);
-    puts("PASS: actual transfer/STOP paths: timeout propagation, original-error precedence, controller disabled before one recovery, recovery-failure handling, no message replay, atomic exclusion and read STOP preservation (64 combinations).");
-    return 0;
-}
-'''
-    path = work / "stop-recovery.c"
-    path.write_text(harness)
-    binary = work / "stop-recovery"
-    run(["cc", "-Wall", "-Wextra", "-Werror", "-Wno-sign-compare", "-std=gnu11", str(path), "-o", str(binary)])
-    run([str(binary)])
-    assert "i2c_imx->stop_result = 0;" in function(source, "i2c_imx_start")
-    for name, atomic in (("i2c_imx_read", "atomic"), ("i2c_imx_dma_read", "false")):
-        assert f"i2c_imx->stop_result = i2c_imx_bus_busy(i2c_imx, 0, {atomic});" in function(source, name)
-    print("PASS: actual STOP/transfer wrapper: 64 fault combinations, timeout/error precedence, one recovery after disable, no client replay, atomic exclusion and saved read-STOP results; read placement source-checked.")
-
-
-def check_i2c_single_master(source, work):
-    # Compile the actual patched polling function, not a rewritten model.
-    harness = r'''
-#include <assert.h>
-#include <stdbool.h>
-#include <errno.h>
-#include <stdio.h>
-#define I2SR_IAL 0x10
-#define I2SR_IBB 0x20
-#define IMX_I2C_I2SR 0
-#define dev_dbg(...) ((void)0)
-#define dev_err(...) ((void)0)
-#define msecs_to_jiffies(ms) ((unsigned long)(ms))
-#define time_after(a, b) ((long)((b) - (a)) < 0)
-static unsigned long jiffies;
-struct imx_i2c_struct { bool multi_master; int stopped; struct { int nr; } adapter; };
-static const unsigned int *statuses;
-static unsigned int status_count, reads, clears, waits;
-static unsigned int imx_i2c_read_reg(struct imx_i2c_struct *i, int reg)
-{
-    (void)i; (void)reg;
-    assert(reads < 1000);
-    unsigned int pos = reads++;
-    return statuses[pos < status_count ? pos : status_count - 1];
-}
-static void i2c_imx_clear_irq(struct imx_i2c_struct *i, unsigned int mask)
-{ (void)i; assert(mask == I2SR_IAL); clears++; }
-static void schedule(void) { jiffies++; waits++; }
-static void udelay(int us) { assert(us == 100); jiffies++; waits++; }
-'''
-    harness += function(source, "i2c_imx_bus_busy")
-    harness += r'''
-static void check(bool multi, bool atomic, int busy,
-                  const unsigned int *seq, unsigned int count,
-                  int expected, int stopped, unsigned int expected_reads,
-                  unsigned int expected_clears)
-{
-    struct imx_i2c_struct i = { .multi_master = multi, .stopped = !stopped };
-    statuses = seq; status_count = count;
-    reads = clears = waits = 0; jiffies = 0;
-    assert(i2c_imx_bus_busy(&i, busy, atomic) == expected);
-    if (!expected) assert(i.stopped == stopped);
-    assert(reads == expected_reads && clears == expected_clears);
-}
-int main(void)
-{
-    const unsigned int idle[] = {0}, active[] = {I2SR_IBB};
-    const unsigned int ial[] = {I2SR_IAL};
-    const unsigned int delayed_start[] = {0, I2SR_IBB};
-    const unsigned int delayed_stop[] = {I2SR_IBB, 0};
-    const unsigned int stale_ial_stop[] = {I2SR_IBB | I2SR_IAL, I2SR_IAL};
-    for (int a = 0; a < 2; a++) {
-        check(false, a, 1, idle, 1, 0, 0, 1, 0);
-        check(false, a, 1, ial, 1, 0, 0, 1, 0);
-        check(false, a, 0, delayed_stop, 2, 0, 1, 2, 0);
-        assert(waits == 1);
-        check(false, a, 0, stale_ial_stop, 2, 0, 1, 2, 0);
-        check(false, a, 0, active, 1, -ETIMEDOUT, 1, 502, 0);
-        check(true, a, 1, delayed_start, 2, 0, 0, 2, 0);
-        check(true, a, 0, delayed_stop, 2, 0, 1, 2, 0);
-        check(true, a, 1, ial, 1, -EAGAIN, 0, 1, 1);
-        check(true, a, 0, ial, 1, -EAGAIN, 1, 1, 1);
-        check(true, a, 1, idle, 1, -ETIMEDOUT, 0, 502, 0);
-        check(true, a, 0, active, 1, -ETIMEDOUT, 1, 502, 0);
-    }
-    puts("PASS: actual i2c_imx_bus_busy: single/multi-master, START/STOP, stale IAL, stuck-bus timeouts, atomic/sleep paths (22 cases).");
-}
-'''
-    test = work / "i2c-single-master.c"
-    test.write_text(harness)
-    binary = work / "i2c-single-master"
-    run(["cc", "-std=gnu11", "-Wall", "-Wextra", "-Werror", str(test), "-o", str(binary)])
-    print(run([str(binary)], text=True).stdout.strip())
-    probe = function(source, "i2c_imx_probe")
-    assert re.search(r'multi_master\s*=\s*!of_property_read_bool\([^;]+"single-master"\)', probe)
-    # Preserve the pinned NXP STOP call and timeout; do not add the broken
-    # intermediate upstream early return that skipped STOP polling entirely.
-    stop = function(source, "i2c_imx_stop")
-    assert "i2c_imx_bus_busy(i2c_imx, 0, atomic)" in stop
-    assert "if (!i2c_imx->multi_master)" not in function(source, "i2c_imx_bus_busy")
+    binary = str(work/'standard-power-on')
+    run(['cc','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-x','c','-','-o',binary],input=harness,text=True)
+    run([binary])
+    assert 'lt9611_boot_init' not in source
+    assert 'DT510-DIAG' not in source
+    print('PASS: standard crystal selection, cached success and first-error return; no startup retry/reset replay or added delay.')
 
 
 def main():
@@ -1150,22 +663,22 @@ def main():
                 assert not checked.stderr and "offset" not in checked.stdout and "fuzz" not in checked.stdout, checked.stdout + checked.stderr
                 run(["patch", "--fuzz=0", "--batch", "-p1", "-i", patch], cwd=work)
             print(f"PASS: all {len(PATCHES)} DT510-only patches apply in order to the pinned kernel without offsets/fuzz.")
+            for path in (I2C_IMX,REGMAP):
+                original = run(['harness-git','--git-dir='+args.kernel_git,'show',PIN+':'+path]).stdout
+                assert (work/path).read_bytes() == original, path
+            print('PASS: I2C controller and regmap sources byte-identical to the pinned kernel; experimental instrumentation/recovery removed.')
             source = (work / DRIVER).read_text()
             check_sleep_address(source, work)
             check_functions(source, work)
             check_lcdif_state((work / LCDIF_KMS).read_text(),
                               (work / LCDIF_PLANE).read_text(), legacy_plane_source, work)
             check_edid(source, work)
-            check_power_on_retry(source, work)
-            check_boot_init(source, work)
-            check_i2c_single_master((work / I2C_IMX).read_text(), work)
-            check_startup_diagnostics((work / I2C_IMX).read_text(), (work / REGMAP).read_text(), work)
-            check_stop_recovery((work / I2C_IMX).read_text(), work)
-            check_controller_diagnostics((work / I2C_IMX).read_text(), work, run)
+            check_standard_power_on(source, work)
         check_dt(work)
     recipe = (BSP / "recipes-kernel/linux/linux-lmp-fslc-imx_%.bbappend").read_text()
-    assert "0040-drm-bridge-lt9611-test-ring-clock.patch" not in recipe
-    assert "0041-drm-bridge-lt9611-test-crystal-settle.patch" not in recipe
+    for number in range(36,45):
+        assert not list(FILES.glob(f"{number:04d}-*.patch"))
+        assert f"/{number:04d}-" not in recipe
     blocks = re.findall(r'SRC_URI:append:([^ =]+)\s*=\s*"(.*?)"', recipe, re.S)
     for name in PATCHES:
         assert [machine for machine, body in blocks if name in body] == ["imx8mm-jaguar-dt510"]

@@ -139,7 +139,7 @@ int main(void)
     print('PASS actual driver: every I2C/GPIO/attach fault, first-error exit, reset polarity, cached enable, 720p timing/PLL/PCR, four-lane portA and AVI checksum; ASan/UBSan. Not hardware proof.')
 
 
-def packaging(work):
+def packaging(work, boot_header=None):
     path = BSP/'recipes-bsp/u-boot/u-boot-ostree-scr-fit/imx8mm-jaguar-dt510/boot.cmd'
     template = path.read_text()
     marker = '@@DT510_HDMI_SPLASH@@\n'
@@ -163,11 +163,20 @@ def packaging(work):
     data = Data()
     bb = SimpleNamespace(fatal=fatal, utils=SimpleNamespace(contains=lambda var, item, yes, no, d: yes if item in d.getVar(var).split() else no))
     (work/'hdmi-splash.cmd').write_text(fragment)
+    header = boot_header.read_text() if boot_header else '# unchanged common header\n'
+    if boot_header:
+        assert hashlib.sha256(boot_header.read_bytes()).hexdigest() == 'a07b08ee9b9689103ad0f2bfe6f407ef7d943400c93acf44315450fc163ec104'
+        assert 'setenv image_dir_path' in header
     for enabled in (False, True, False):
         data.enabled = enabled
         (work/'boot.cmd').write_text(template)  # Each unpack refreshes the template.
+        (work/'boot-header.cmd.in').write_text(header)
         exec(hook, {'d': data, 'bb': bb})
-        assert (work/'boot.cmd').read_text() == template.replace(marker, fragment if enabled else '')
+        assert (work/'boot.cmd').read_text() == baseline
+        assert (work/'boot-header.cmd.in').read_text() == header + ('\n'+fragment if enabled else '')
+        if enabled and boot_header:
+            body = (work/'boot-header.cmd.in').read_text()
+            assert body.index('setenv image_dir_path') < body.index('# Prefer the current OSTree')
     for bad in (baseline, template + marker):
         (work/'boot.cmd').write_text(bad)
         try:
@@ -178,6 +187,11 @@ def packaging(work):
             raise AssertionError('Missing/duplicate marker accepted')
     uboot_recipe = (BSP/'recipes-bsp/u-boot/u-boot-fio_%.bbappend').read_text()
     assert uboot_recipe.count('SRC_URI:append:imx8mm-jaguar-dt510 =') == 1
+    firmware = (BSP/'recipes-bsp/lmp-boot-firmware/lmp-boot-firmware.bbappend').read_text()
+    assert firmware.count('LMP_BOOT_FIRMWARE_FILES:append:imx8mm-jaguar-dt510 =') == 1
+    assert 'zephyr.bin ${@bb.utils.contains' in firmware
+    assert "'active-edge-splash-1280x720.bmp'" in firmware
+    assert 'dt510-hdmi-splash:do_deploy' in firmware
     asset = BSP/'recipes-bsp/dt510-hdmi-splash/files'
     png = asset/'active-edge-splash-1920x1200.png'
     assert hashlib.sha256(png.read_bytes()).hexdigest() == '70469b3d038df99f829b0ed0fc3f09b8a16ed05a85f6d03ad2a382418a5bd67e'
@@ -202,11 +216,21 @@ def packaging(work):
     else:
         raise AssertionError('Artwork drift must fail generation, not ship a rejected BMP')
     # Exercise the actual hush-compatible fragment with successful/failed commands.
-    for load_ok, hash_ok, bmp_ok, size, expected in ((0,0,0,'2a3036','displayed'), (1,0,0,'2a3036','skipped'), (0,0,1,'2a3036','skipped'), (0,1,0,'2a3036','skipped'), (0,0,0,'abc','skipped')):
-        script = f'filesize={size}\nload() {{ return {load_ok}; }}\nhash() {{ return {hash_ok}; }}\nbmp() {{ return {bmp_ok}; }}\n' + fragment + '\necho LINUX_BOOT_CONTINUES\n'
+    cases = ((0,1,0,0,'2a3036','displayed'), (1,0,0,0,'2a3036','displayed'), (1,1,0,0,'2a3036','skipped'), (0,0,0,1,'2a3036','skipped'), (0,0,1,0,'2a3036','skipped'), (0,0,0,0,'abc','skipped'))
+    for ext_ok, fat_ok, hash_ok, bmp_ok, size, expected in cases:
+        script = f'filesize={size}\next4load() {{ return {ext_ok}; }}\nload() {{ return {fat_ok}; }}\nhash() {{ return {hash_ok}; }}\nbmp() {{ return {bmp_ok}; }}\n' + fragment + '\necho LINUX_BOOT_CONTINUES\n'
         result = run(['sh','-c',script])
         assert expected in result and 'LINUX_BOOT_CONTINUES' in result
-    print('PASS actual unpack hook on/off/on-source-refresh and marker guards; baseline boot body unchanged, fragment failures non-fatal; canonical AESL artwork and 24-bit 720p BMP. Full recipe remains a Foundries gate.')
+    # Check real load arguments and fallback order for both firmware locations.
+    for image_dir in ('/ostree/deploy/lmp/deploy/current.0/usr/lib/firmware', '/boot/ostree/lmp-test'):
+        for ext_ok in (0,1):
+            prefix = f'devtype=mmc; devnum=2; ostree_bootpart=2; bootpart=1; image_dir_path={image_dir}; filesize=2a3036\n'
+            prefix += f'ext4load() {{ printf "EXT:%s,%s,%s,%s,%s\\n" "$1" "$2" "$3" "$4" "$5"; return {ext_ok}; }}\n'
+            prefix += 'load() { printf "FAT:%s,%s,%s,%s,%s\\n" "$1" "$2" "$3" "$4" "$5"; return 0; }\nhash() { return 0; }\nbmp() { return 0; }\n'
+            result = run(['sh','-c',prefix+fragment])
+            assert f'EXT:mmc,2:2,0x50000000,{image_dir}/active-edge-splash-1280x720.bmp,0x2a3036' in result
+            assert ('FAT:mmc,2:1,0x50000000,active-edge-splash-1280x720.bmp,0x2a3036' in result) == bool(ext_ok)
+    print('PASS actual unpack hook: boot body/header prefix unchanged, feature toggle/marker guards, splash after deployment-path resolution; OTA firmware delivery selection, ext4/FAT precedence, hash/size/display failures non-fatal and canonical BMP. Full recipe remains a Foundries gate.')
 
 
 def host_order(work, source_root):
@@ -424,10 +448,11 @@ if __name__ == '__main__':
     parser.add_argument('--uboot-source', type=Path, help='Patched pinned U-Boot source for actual host callback tests')
     parser.add_argument('--uboot-git', type=Path, help='Original Foundries U-Boot Git cache for strict pinned patch tests')
     parser.add_argument('--uboot-build', type=Path, help='Cross-build directory for compiled control DT/config tests')
+    parser.add_argument('--boot-header', type=Path, help='Exact pinned Foundries common boot-header input')
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix='dt510-uboot-native-') as tmp:
         native(Path(tmp))
-        packaging(Path(tmp))
+        packaging(Path(tmp), args.boot_header)
         if args.uboot_source:
             host_order(Path(tmp), args.uboot_source)
             lcdif_order(Path(tmp), args.uboot_source)

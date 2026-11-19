@@ -128,7 +128,7 @@ Work **in order** within each tier unless a dependency forces otherwise.
 |----|------|--------|
 | C1 | **Ethernet — `&fec1` + KSZ9896** | **Phase 1 (prove hardware):** single CPU netdev, **`&fec1` + `fixed-link`**, **no** DSA, **no** I²C switch node — in-tree **`microchip,ksz9896`** DSA uses **I²C/SPI** regmap, not MIIM as full switch management for this product’s strap; see [`docs/DT510-ETHERNET-KSZ9896.md`](DT510-ETHERNET-KSZ9896.md) (*Phased plan* + *Simple bring-up*). RGMII pinctrl = **SSOT / board (Ollie)**, not EVK, unless schematics match EVK ENET. **Future:** I²C/SPI strap + DSA or richer switch control when the product needs per-port / VLAN / manageability; incremental bring-up, risk of boot hang if MDIO/PHY wrong — validate link before “full” bridge features. |
 | C2 | **Audio vs SSOT** | **TAS6424 — working (kernel + userspace “Tannoy” ALSA; lab):** **`alsa-state`** [`docs/DT510-TAS6424-TANNOY-ALSA.md`](DT510-TAS6424-TANNOY-ALSA.md) — **`pcm`/`ctl` `tannoys`**, IEC **`tannoy_slot2`/`slot3`**, **`tannoy_both_*`**, **`tas6424-init`**. **`TAS6422`** (2‑ch) later: move PCM **`ttable`** from **IEC 2–3 → 0–1** (`slot0`/`slot1`). **TAS2563 (driver speaker):** **`driver_speaker`/`drivers`/`driver_slot`/`driver_out`**, **`tas2563-init`** [**`DT510-TAS2563-DRIVER-SPEAKER-ALSA.md`**](DT510-TAS2563-DRIVER-SPEAKER-ALSA.md). **TAA5412‑Q1 (Driver Mic):** **`driver_mic`** (**capture-only**) [**`DT510-TAA5412-DRIVER-MIC-ALSA.md`**](DT510-TAA5412-DRIVER-MIC-ALSA.md) — needs **`taa5412`** **`MACHINE_FEATURES`** + TI **firmware** + **`&micfil` off**. **TAC5301-Q1 (analog loop / aux):** **`audio_loop`** (playback), **`aux`** (capture — **asym** aliases) [**`DT510-TAC5301-AUDIO-LOOP-ALSA.md`**](DT510-TAC5301-AUDIO-LOOP-ALSA.md). DTS: **`pinctrl_sai1_tas6424`**, **`&sai1`**, **`sound-tas6424`** / **`tas6424-classd`**, **`tas6424@6a`**, **`tas6424_hi_rail`**, **`CONFIG_SND_SOC_TAS6424=m`**, **`sound-tas2563`** **`&sai3`**, **`sound-taa5412`** **`&sai5`**, **`sound-tac5301`** **`&sai6`**, **micfil** off. **Still to do (C2):** TAA5412 **lab + firmware** polish, optional TDM / extra TAC routing. **I2C2 `0x50`:** TAC5301. |
-| C3 | **HDMI — LT9611** (I2C3 `0x39` 7-bit / `0x72` 8-bit) | **Build 688 / visible playback confirmed by Alex (2026-11-17), startup unresolved:** clean-flashed image boots normally, but initial EDID power-on still fails with `-11`; 100 kHz I2C did not fix it. Ordered live display/bridge rebind plus GStreamer `kmssink driver-name=imx-drm force-modesetting=false` produced visible 1080p scanout and silent H.264 playback. Forcing modesetting blanks output on this image. Sleep-address correction 0033 is deployed, not pending. Requested video loop is transient and not enabled at boot. HDMI audio is physically unconnected. See [HDMI integration notes](DT510-LT9611-HDMI.md) for exact build identities, command, evidence and boot-safety restrictions. |
+| C3 | **HDMI — LT9611** (I2C3 `0x39` 7-bit / `0x72` 8-bit) | **19 November:** Michael reports a stopped crystal fixed by 1 MΩ across it (three failures before, three console starts after). Alex confirmed Linux TV console on image 698; U-Boot splash did not appear and its bitmap was absent from the boot partition. Local candidate removes startup experiments, retains real driver fixes and U-Boot display, and repairs OTA splash packaging. Not yet built/deployed. HDMI audio is physically unconnected. See [HDMI integration notes](DT510-LT9611-HDMI.md). |
 | C4 | **CAN — MCP2518xx on ECSPI2** | **DT510 has no XM125** (Sentai only). `&ecspi2` free for CAN bring-up when ready. |
 | C5 | **GNSS** | **Lab 2026-05-05:** NEO-M9V + antenna — valid NMEA fix. **2026-05-18:** **NDTR container** path validated — **`/dev/gnss`** (CP2102N **`10c4:ea60`**, udev **`99-dt510-gnss.rules`**, BSP **`36f1b22`** / target **378**), **`onboard_gps = true`**, **38400**, Compose **`/dev/gnss`** (**`vix-apps` `6f1935a`**, containers **377**); engineering SSH **`status l`** shows lock with antenna. Reset/`gnss-res#` per DTS hog. See checklist + **`meta-subscriber-overrides/docs/DT510-HARDWARE-BRINGUP.md`**. |
 
@@ -145,12 +145,16 @@ environment for further diagnosis. The earlier live tracing boot edits preceded
 a boot failure; the clean flash removed them. Current investigation uses scoped
 live diagnostics and source analysis, not more speculative image builds.
 
-**Current source candidate:** Alex confirmed i.MX is the only I2C3 master on
-17 November. Patch 0037 backports upstream single-master handling together with
-the mandatory STOP-condition correction, defaulting other controllers to the
-old behaviour. Only I2C3 opts in. Native polling-helper and compiled-DTB tests
-pass; no new image has been built or deployed, and startup is not claimed fixed.
-The existing video loop and boot configuration remain unchanged.
+**Current source candidate (19 November):** Michael scoped a stopped crystal
+on three failed starts; adding 1 MΩ across it gave three successful console
+starts. This is reported hardware evidence, not hardware-design signoff.
+Local cleanup retains genuine Linux fixes 0031–0035 and U-Boot HDMI support,
+removes temporary experiments 0036–0044, and restores the prior I2C3/KSZ settings.
+Image 698 contains the U-Boot driver and Linux console works, but its boot
+partition lacks the splash bitmap. The local packaging fix adds that bitmap
+to the existing OTA boot-firmware payload, with a bounded, verified load after
+the common boot header resolves its deployment path. Native tests pass; these
+source changes are not yet built or deployed. Boot arguments remain untouched.
 
 The **HDMI** section of the [hardware specification](https://docs.google.com/document/d/1dlVcfW7SrOifR-rGjkJnVbnQBO4uU8HeS1MEfDmgcYE/edit) was read directly on 2026-11-16 and states:
 
@@ -235,7 +239,7 @@ Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md)
 | Analog / mic / class-D | TAC5301, TAA5412, TAS6424, TAS2563 on I2C2 + SAI5/6/1/3 | **TAS6424 / SAI1** (**`tas6424-classd`**). **TAS2563 / SAI3** (**`tas2563-audio`**): [`DT510-TAS2563-DRIVER-SPEAKER-ALSA.md`](DT510-TAS2563-DRIVER-SPEAKER-ALSA.md). **TAC5301 / SAI6** (**`tac5301-codec`**): [`DT510-TAC5301-AUDIO-LOOP-ALSA.md`](DT510-TAC5301-AUDIO-LOOP-ALSA.md). **TAA5412 / SAI5** (**`taa5412-codec`** — Driver Mic): [`DT510-TAA5412-DRIVER-MIC-ALSA.md`](DT510-TAA5412-DRIVER-MIC-ALSA.md). **Userspace (“Tannoy”):** [`DT510-TAS6424-TANNOY-ALSA.md`](DT510-TAS6424-TANNOY-ALSA.md). Tier C2 follow-on: levels / firmware / TDM. |
 | I2C `0x50` | TAC5301 | **TCPC node removed** from DT510 DTS — address free for TAC5301 when Tier C2 enables it |
 | Charger | BQ25792 @ `0x6B` | **DT enabled** — kernel charger driver pending suitable upstream/kernel version |
-| HDMI | LT9611 (`0x72` 8-bit → `0x39` 7-bit) | **Video confirmed on build 682; boot reliability unresolved** — ordered driver rebind recovered 1080p60 and valid EDID; HDMI audio route not configured |
+| HDMI | LT9611 (`0x72` 8-bit → `0x39` 7-bit) | **19 November:** reported crystal resistor fix; Linux console confirmed on 698. U-Boot splash packaging repair and experiment removal are local, not deployed; HDMI audio physically unconnected |
 | Ethernet | KSZ9896 RGMII | `fec1` disabled |
 | SE050 | I2C4 `0x48` | **OpTEE/Sentai-aligned** — see [`DT510-SE050.md`](DT510-SE050.md); optional explicit DT child |
 | CAN | MCP2518xx, ECSPI2 | `&ecspi2` disabled — enable for CAN (no XM125 on DT510) |
