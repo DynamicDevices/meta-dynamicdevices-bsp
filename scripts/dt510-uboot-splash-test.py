@@ -435,6 +435,11 @@ typedef uint32_t u32;
 #define IS_ENABLED(x) (x)
 #define CONFIG_IS_ENABLED(x) 0
 #define DISPLAY_FLAGS_DE_HIGH 1
+#define DISPLAY_FLAGS_HSYNC_HIGH 2
+#define DISPLAY_FLAGS_VSYNC_HIGH 4
+#define DISPLAY_FLAGS_HSYNC_LOW 8
+#define DISPLAY_FLAGS_VSYNC_LOW 16
+#define DISPLAY_FLAGS_DE_LOW 32
 #define UCLASS_VIDEO_BRIDGE 1
 #define UCLASS_PANEL 2
 #define UCLASS_DISPLAY 3
@@ -463,7 +468,9 @@ static void *dev_get_uclass_plat(struct udevice *d) { return d->plat; }
 static void *dev_get_uclass_priv(struct udevice *d) { return d->uc_priv; }
 static unsigned long dev_read_addr(struct udevice *d) { (void)d; return 1; }
 static int mxs_of_get_timings(struct udevice *d,struct display_timing *t,u32 *bpp)
-{ (void)d; memset(t,0,sizeof(*t));t->hactive.typ=1280;t->vactive.typ=720;*bpp=24;return 0; }
+{ (void)d; memset(t,0,sizeof(*t));t->hactive.typ=1280;t->vactive.typ=720;
+  t->flags=DISPLAY_FLAGS_HSYNC_HIGH|DISPLAY_FLAGS_VSYNC_HIGH|DISPLAY_FLAGS_DE_HIGH;
+  *bpp=24;return 0; }
 static int check_module_fused(int n) { (void)n;return 0; }
 static int device_get_uclass_id(struct udevice *d) { (void)d;return UCLASS_VIDEO_BRIDGE; }
 static bool device_is_compatible(struct udevice *d,const char *s)
@@ -481,7 +488,13 @@ static int video_bridge_set_backlight(struct udevice *d,int p);
 static int mxs_probe_common(struct udevice *d,struct display_timing *t,u32 bpp,unsigned long fb,bool bridge)
 { (void)d;(void)fb;assert(bpp==24 && bridge && !stream && !tx_calls);
   struct imx_sec_dsim_priv *p=((struct mxsfb_priv *)d->priv)->disp_dev->priv;
-  assert(!!(t->flags & DISPLAY_FLAGS_DE_HIGH)==(FEATURE && !strcmp(p->panel->compatible,"lontium,lt9611")));
+  bool dt510=FEATURE && !strcmp(p->panel->compatible,"lontium,lt9611") &&
+    !strcmp(((struct mxsfb_priv *)d->priv)->disp_dev->compatible,"fsl,imx8mm-mipi-dsim");
+  assert(!(t->flags & DISPLAY_FLAGS_DE_HIGH));
+  assert(!!(t->flags & DISPLAY_FLAGS_HSYNC_HIGH)==!dt510);
+  assert(!!(t->flags & DISPLAY_FLAGS_VSYNC_HIGH)==!dt510);
+  if(dt510) assert((t->flags & (DISPLAY_FLAGS_HSYNC_LOW|DISPLAY_FLAGS_VSYNC_LOW|DISPLAY_FLAGS_DE_LOW))==
+    (DISPLAY_FLAGS_HSYNC_LOW|DISPLAY_FLAGS_VSYNC_LOW|DISPLAY_FLAGS_DE_LOW));
   common_calls++;if(!common_ret)stream=true;return common_ret; }
 static int device_remove(struct udevice *d,int f) { (void)d;(void)f;removed++;return -EBUSY; }
 static void mxs_remove_common(unsigned long reg,unsigned long fb)
@@ -513,6 +526,8 @@ int main(void) {
  assert(ret==(FEATURE?-EIO:0) && removed==FEATURE && stopped==FEATURE);
  reset();panel.compatible="other,panel";
  assert(!mxs_video_probe(&dev) && stream && !tx_calls && host_calls==1);
+ reset();panel.compatible="lontium,lt9611";bridge.compatible="fsl,imx8mp-mipi-dsim";
+ assert(!mxs_video_probe(&dev) && stream && !tx_calls && host_calls==1);
  return 0;
 }
 '''
@@ -534,6 +549,9 @@ def lcdif_registers(work, source_root):
     regs = re.sub(r'^#include.*\n', '', (headers/'regs-lcdif.h').read_text(), flags=re.M)
     driver = (FILES/'lt9611-dt510.c').read_text()
     timing = 'static const struct display_timing lt9611_timing' + driver.split('static const struct display_timing lt9611_timing')[1].split('\nstatic int lt9611_page')[0]
+    # Execute the real probe's polarity mapping before the real LCDIF init.
+    # Do not silently equate DSIM-side logical levels with LCDIF register bits.
+    mapping = lcdif.split('/* i.MX8MM glue inverts LCDIF HS/VS/DE before DSIM. */')[1].split('\n\t\t}\n#endif')[0]
     preamble = r'''
 #include <assert.h>
 #include <stdbool.h>
@@ -541,17 +559,25 @@ def lcdif_registers(work, source_root):
 #include <string.h>
 typedef uint32_t u32;
 #define CONFIG_IMX8M 1
+#define CONFIG_VIDEO_LT9611_DT510 FEATURE
+#define IS_ENABLED(x) (x)
 #define CONFIG_IS_ENABLED(x) 0
 enum display_flags { DISPLAY_FLAGS_HSYNC_HIGH=1, DISPLAY_FLAGS_VSYNC_HIGH=2,
- DISPLAY_FLAGS_DE_HIGH=4, DISPLAY_FLAGS_PIXDATA_NEGEDGE=8 };
+ DISPLAY_FLAGS_DE_HIGH=4, DISPLAY_FLAGS_PIXDATA_NEGEDGE=8,
+ DISPLAY_FLAGS_HSYNC_LOW=16, DISPLAY_FLAGS_VSYNC_LOW=32, DISPLAY_FLAGS_DE_LOW=64 };
 struct timing_entry { unsigned int min,typ,max; };
 struct display_timing {
  struct timing_entry pixelclock,hactive,hfront_porch,hback_porch,hsync_len;
  struct timing_entry vactive,vfront_porch,vback_porch,vsync_len; enum display_flags flags;
 };
-struct mxsfb_priv { uintptr_t reg_base; };
-struct udevice { struct mxsfb_priv *priv; };
+struct driver { const char *name; };
+struct udevice;
+struct mxsfb_priv { uintptr_t reg_base; struct udevice *disp_dev; };
+struct udevice { struct mxsfb_priv *priv; struct driver *driver;
+ const char *compatible; struct udevice *panel; };
 static void *dev_get_priv(struct udevice *d) { return d->priv; }
+static bool device_is_compatible(struct udevice *d,const char *s) { return !strcmp(d->compatible,s); }
+static struct udevice *video_link_get_next_device(struct udevice *d) { return d->panel; }
 static void mxs_set_lcdclk(uintptr_t base,unsigned int khz) { assert(base && khz==74250); }
 static void mxsfb_system_setup(void) {}
 static void writel(uint32_t value,uint32_t *addr) { *addr=value; }
@@ -563,29 +589,60 @@ static void mxs_reset_block(struct mxs_register_32 *r) { memset(r,0,sizeof(*r));
     tests = r'''
 int main(void) {
  struct mxs_lcdif_regs regs={0};
- struct mxsfb_priv priv={.reg_base=(uintptr_t)&regs};struct udevice dev={.priv=&priv};
- struct display_timing t=lt9611_timing;
+ struct driver driver={.name="imx_sec_dsim"};
+ struct udevice panel={.compatible="lontium,lt9611"};
+ struct udevice bridge={.driver=&driver,.compatible="fsl,imx8mm-mipi-dsim",.panel=&panel};
+ struct mxsfb_priv priv={.reg_base=(uintptr_t)&regs,.disp_dev=&bridge};struct udevice dev={.priv=&priv};
+ struct display_timing t=lcdif_input_timing(&dev);
  mxs_lcd_init(&dev,0x80000000,&t,24,true);
- assert(regs.hw_lcdif_vdctrl0 & LCDIF_VDCTRL0_ENABLE_POL);
- assert(regs.hw_lcdif_vdctrl0 & LCDIF_VDCTRL0_HSYNC_POL);
- assert(regs.hw_lcdif_vdctrl0 & LCDIF_VDCTRL0_VSYNC_POL);
+ /* Pinned Linux imx8mm_pdata inverts all three: logical HIGH => bit clear. */
+ assert(!(regs.hw_lcdif_vdctrl0 & LCDIF_VDCTRL0_ENABLE_POL));
+ assert(!!(regs.hw_lcdif_vdctrl0 & LCDIF_VDCTRL0_HSYNC_POL)==!FEATURE);
+ assert(!!(regs.hw_lcdif_vdctrl0 & LCDIF_VDCTRL0_VSYNC_POL)==!FEATURE);
  assert(regs.hw_lcdif_transfer_count==((720U<<16)|1280U));
  assert(regs.hw_lcdif_vdctrl1==750);
  assert((regs.hw_lcdif_vdctrl2 & 0x3ffff)==1652);
  assert(regs.hw_lcdif_vdctrl3==((260U<<16)|25U));
  assert(regs.hw_lcdif_vdctrl4 & LCDIF_VDCTRL4_SYNC_SIGNALS_ON);
  assert(regs.hw_lcdif_ctrl_set==LCDIF_CTRL_RUN);
- t.flags &= ~DISPLAY_FLAGS_DE_HIGH;
+ panel.compatible="other,panel";t=lcdif_input_timing(&dev);
  mxs_lcd_init(&dev,0x80000000,&t,24,true);
  assert(!(regs.hw_lcdif_vdctrl0 & LCDIF_VDCTRL0_ENABLE_POL));
+ assert(regs.hw_lcdif_vdctrl0 & LCDIF_VDCTRL0_HSYNC_POL);
+ assert(regs.hw_lcdif_vdctrl0 & LCDIF_VDCTRL0_VSYNC_POL);
+ panel.compatible="lontium,lt9611";bridge.compatible="fsl,imx8mp-mipi-dsim";
+ t=lcdif_input_timing(&dev);
+ mxs_lcd_init(&dev,0x80000000,&t,24,true);
+ assert(!(regs.hw_lcdif_vdctrl0 & LCDIF_VDCTRL0_ENABLE_POL));
+ assert(regs.hw_lcdif_vdctrl0 & LCDIF_VDCTRL0_HSYNC_POL);
+ assert(regs.hw_lcdif_vdctrl0 & LCDIF_VDCTRL0_VSYNC_POL);
  return 0;
 }
 '''
     path, binary = work/'lcdif-registers.c', work/'lcdif-registers'
-    path.write_text(preamble+common+regs+body+timing+init+tests)
-    run(['cc','-Wall','-Wextra','-Werror','-fsanitize=address,undefined',str(path),'-o',str(binary)])
-    run([str(binary)])
-    print('PASS actual LCDIF init/registers: active-high DE/H/V, 1280x720, adjusted1652x750, waits, sync and RUN; low-DE negative control.')
+    mapper = '\nstatic struct display_timing lcdif_input_timing(struct udevice *dev) {\nstruct mxsfb_priv *priv=dev_get_priv(dev);\nstruct display_timing timings=lt9611_timing;\n' + mapping + '\nreturn timings;\n}\n'
+    path.write_text(preamble+common+regs+body+timing+mapper+init+tests)
+    for enabled in (0,1):
+        run(['cc','-Wall','-Wextra','-Werror',f'-DFEATURE={enabled}','-fsanitize=address,undefined',str(path),'-o',str(binary)])
+        run([str(binary)])
+    # Build 703's probe left HS/VS high and preserved DE high for LT9611.
+    # The same actual-register assertions must reject that old mapping.
+    old_mapping = '''
+if (!strcmp(priv->disp_dev->driver->name, "imx_sec_dsim")) {
+ struct udevice *panel = NULL;
+ if (IS_ENABLED(CONFIG_VIDEO_LT9611_DT510))
+  panel = video_link_get_next_device(priv->disp_dev);
+ if (!panel || !device_is_compatible(panel, "lontium,lt9611"))
+  timings.flags &= ~DISPLAY_FLAGS_DE_HIGH;
+}
+'''
+    old_path, old_binary = work/'lcdif-registers-703.c', work/'lcdif-registers-703'
+    old_path.write_text(preamble+common+regs+body+timing+mapper.replace(mapping, old_mapping)+init+tests)
+    run(['cc','-Wall','-Wextra','-Werror','-DFEATURE=1','-fsanitize=address,undefined',str(old_path),'-o',str(old_binary)])
+    rejected = subprocess.run([str(old_binary)], capture_output=True, text=True)
+    assert rejected.returncode != 0 and 'LCDIF_VDCTRL0_ENABLE_POL' in rejected.stderr, rejected.stderr
+    print('PASS actual probe polarity mapping + LCDIF init/registers: Linux-matching inverted HS/VS/DE for DT510; feature-off/other-panel/other-SoC legacy behavior; 1280x720, adjusted1652x750, waits, sync and RUN.')
+    print('PASS build703 negative control: the same actual-register assertions reject its old HS/VS/DE mapping.')
 
 
 def dsim_main_mode(work, source_root):

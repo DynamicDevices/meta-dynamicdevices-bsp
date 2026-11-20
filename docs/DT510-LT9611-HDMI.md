@@ -86,6 +86,38 @@ remain required. Linux, device tree, boot arguments, persistent environment and
 update/recovery behavior are unchanged. The separately requested graphical
 distro remains pending and is not included in this repair.
 
+### Build 703 failure and i.MX8MM signal-inversion correction
+
+Alex's watched reboot of Linux image **703** still showed no splash. Serial
+captured 3840 active bytes, **55 active lines**, 746 total lines and 601
+horizontal system-clock units; TX remained disabled and Linux booted normally.
+The horizontal timing change did not resolve the failure. Recorded firmware
+version was `3afe0ff20b86055065921d6c788d6847`, with upgrade flags clear.
+
+The earlier DE analysis below missed the i.MX8MM's hardware inversion between
+LCDIF and DSIM. The pinned kernel's actual NXP LCDIF implementation is
+`drivers/gpu/imx/lcdif/lcdif-common.c`, not the generic DRM MXS driver. Its
+`imx8mm_pdata` sets `hsync_invert`, `vsync_invert` and `de_invert` to true.
+Consequently logical high HS/VS/DE at DSIM requires all three LCDIF polarity
+bits to be **clear**. Build 703 U-Boot set all three bits instead.
+
+Upstream Linux also explicitly documents this Mini/Nano glue inversion in
+[`samsung-dsim.c`](https://github.com/torvalds/linux/blob/master/drivers/gpu/drm/bridge/samsung-dsim.c).
+The correction is limited to the optional plain-LT9611 DT510/i.MX8MM MXS path:
+keep the bridge's logical positive-sync timing, but translate it to active-low
+LCDIF HS/VS/DE before programming LCDIF. Keep legacy feature-off, other-panel
+and other-SoC behavior, DSIM packet counts, LT9611 timings and strict input
+verification unchanged. No Linux, device-tree, boot-environment or update-policy
+changes are involved. Actual-source tests execute both this mapping and LCDIF
+register programming; an expected value copied from logical flags is not enough.
+
+The separate upstream U-Boot
+[pixel-clock edge fix](https://github.com/u-boot/u-boot/commit/ff1932daab1e6381e0b26d69a0197dfb2cd7168f)
+changes NEGEDGE to POSEDGE in the LCDIF condition. Neither flag is selected in
+this fixed mode, so that patch alone would not change its clock polarity and
+is not bundled into this repair. Physical HDMI remains unproven until a new
+firmware image is installed and a watched serial/TV test succeeds.
+
 ### Build 702 watched retest and 720p sync-pulse correction
 
 Build **702 passed** and completed the watched primary boot-firmware update to
@@ -136,7 +168,8 @@ was visible**. This proves live Linux recovery on that boot, not reliable
 startup or a working U-Boot splash. The running edge image is intentionally
 left displayed while source work continues.
 
-Source comparison found an actual polarity mismatch: pinned Linux
+**Historical interpretation, superseded by the inversion analysis above.**
+Source comparison found an apparent polarity mismatch: pinned Linux
 `drivers/gpu/drm/bridge/sec-dsim.c` explicitly requires active-high DE, whereas
 U-Boot `drivers/video/mxsfb.c` forcibly clears `DISPLAY_FLAGS_DE_HIGH` for SEC
 DSIM. The next candidate preserves high DE only for the optional DT510/plain
