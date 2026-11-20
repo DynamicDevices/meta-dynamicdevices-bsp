@@ -57,6 +57,7 @@ class TriggerTests(unittest.TestCase):
                    patch.object(runtime, 'output'),
                    patch.object(runtime, 'verify_live_service'),
                    patch.object(runtime, 'commit_status'),
+                   patch.object(runtime, 'merge_check'),
                    patch.object(runtime, 'preloop', side_effect=self.preloop)]
         self.mocks = []
         for item in patches:
@@ -109,13 +110,11 @@ class TriggerTests(unittest.TestCase):
         self.binding['publication_merge_gate'] = copy.deepcopy(runtime.trust.MERGE_GATE)
         self.store_intent()
         def check_status(*args, **kwargs):
-            if kwargs.get('context_name') == 'Preloop merge gate':
-                self.assertEqual(self.calls, [])
-                self.assertEqual(args[3], 'pending')
-        runtime.commit_status.side_effect = check_status
+            self.assertEqual(self.calls, [])
+            self.assertEqual(kwargs, {})
+        runtime.merge_check.side_effect = check_status
         trigger.start()
-        self.assertEqual(runtime.commit_status.call_count, 1)
-        self.assertEqual(runtime.commit_status.call_args.kwargs['context_name'], 'Preloop merge gate')
+        self.assertEqual(runtime.merge_check.call_count, 1)
         runtime.output.assert_called_with(execution_id='execution')
         trigger.startup()
         self.assertEqual(self.calls[-1], ('/flows/executions/execution', 'GET', None))
@@ -123,7 +122,7 @@ class TriggerTests(unittest.TestCase):
     def test_unconfirmed_merge_gate_pending_prevents_paid_launch(self):
         self.binding['publication_merge_gate'] = copy.deepcopy(runtime.trust.MERGE_GATE)
         self.store_intent()
-        runtime.commit_status.side_effect = InvalidReview('Pending status readback failed')
+        runtime.merge_check.side_effect = InvalidReview('Pending check readback failed')
         with self.assertRaises(InvalidReview):
             trigger.start()
         self.assertEqual(self.calls, [])

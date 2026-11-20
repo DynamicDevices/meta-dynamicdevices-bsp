@@ -149,6 +149,8 @@ class PublisherTests(unittest.TestCase):
         self.assertEqual(self.statuses[0]['state'], 'success')
         self.assertEqual(self.checks[0]['conclusion'], 'success')
         self.assertIn(self.eid, self.reviews[0]['body'])
+        receipt = json.loads((Path(self.temp.name) / 'preloop-publication/receipt.json').read_text())
+        self.assertEqual(receipt['trigger_run_id'], self.intent['trigger_run_id'])
 
     def test_failed_trigger_blocks_review_but_allows_owned_error_cleanup(self):
         # Even a complete, valid later controller result cannot erase a failed

@@ -185,7 +185,7 @@ def release():
 def accept():
     """Release merge admission only AFTER the real finalizer completed.
 
-    This status is a separate required GitHub context. Earlier green review
+    This app-bound check is a separate required GitHub context. Earlier green review
     records cannot release it, even if finalization is cancelled after writing.
     The reviewer/finalizer never receives source or merge-write privileges.
     """
@@ -230,8 +230,7 @@ def accept():
     publisher.no_supersession(binding, os.environ['PRELOOP_CI_TOKEN'], completion)
     runtime.current_pr(github, binding, number, head, base)
     run_url = 'https://github.com/' + binding['repository'] + '/actions/runs/' + os.environ['GITHUB_RUN_ID']
-    runtime.commit_status(github, binding, head, 'success', run_url,
-        'Completed finalizer, exact review and bot publication verified.', context_name='Preloop merge gate')
+    runtime.merge_check(github, binding, head, run_url, trigger_run_id=receipt['trigger_run_id'])
 
 
 if __name__ == '__main__':

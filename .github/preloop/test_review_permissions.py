@@ -18,13 +18,16 @@ class ReviewPermissionTests(unittest.TestCase):
     def test_completed_publication_api_families(self):
         # current_pr and completed_publication read pulls, reviews, check runs,
         # actions runs and source. Finalization additionally writes the check;
-        # acceptance writes only its commit status. Never broaden to PR writes.
+        # acceptance writes only its app-bound check. Never broaden to PR writes.
         for workflow, checks in [('preloop-review-finalize.yml', 'write'),
-                                 ('preloop-review-merge.yml', 'read')]:
+                                 ('preloop-review-merge.yml', 'write')]:
             with self.subTest(workflow=workflow):
-                self.assertEqual(self.permissions(workflow), {
+                expected = {
                     'actions': 'read', 'contents': 'read', 'pull-requests': 'read',
-                    'checks': checks, 'statuses': 'write', 'id-token': 'write'})
+                    'checks': checks, 'id-token': 'write'}
+                if workflow == 'preloop-review-finalize.yml':
+                    expected['statuses'] = 'write'
+                self.assertEqual(self.permissions(workflow), expected)
 
 
 if __name__ == '__main__':

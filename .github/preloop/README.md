@@ -10,8 +10,10 @@ It uses the existing shared organisation flow, not a new flow per repository.
 
 For explicitly admitted ordinary Briar PRs, the intended route is genuine
 same-head Preloop review, completed-finalizer admission, required CI and signed
-automatic-merge authority. GitHub must enforce `Preloop merge gate` and strict
-up-to-date-base checks. Failed, incomplete, stale or placeholder reviews cannot
+automatic-merge authority. GitHub must require both `Preloop review` and
+`Preloop merge gate` check runs pinned to GitHub Actions app ID `15368`,
+plus strict up-to-date-base checks. Context-name-only commit statuses are not
+an acceptable final merge gate. Failed, incomplete, stale or placeholder reviews cannot
 approve merging. Trust/security changes retain separate explicit approval.
 
 ## What runs where
@@ -175,16 +177,20 @@ Failed, incomplete, placeholder or stale reviews block merging; a skipped job
 is not approval. Trust/security changes retain their specific approval. A
 bootstrap exception must be separately explicit, not inferred from a red check.
 
-Automatic merge requires the distinct `Preloop merge gate` context, not just
-the preliminary `Preloop review` records. The trigger sets it pending before
-launch. A trusted completion workflow releases it only after the actual finalizer
+Automatic merge requires both app-pinned check runs, not just the preliminary
+`Preloop review` records. The trigger creates the `Preloop merge gate` check
+in progress before launch, with an external ID bound to its Actions run.
+A trusted completion workflow completes that same check only after the actual finalizer
 is completed/successful, its exact source and durable intent are authenticated,
 the complete review/bot/check/status are independently read back, the PR remains
 current and no newer execution supersedes it. Failed/cancelled/interrupted
 finalizers cannot release it. The publisher job has a separate name,
 `Publish validated Preloop review`, to avoid colliding with its custom check.
-The merge-gate workflow receives status-write permission, not source-write or
-merge permission. GitHub's native auto-merge still requires applicable CI.
+The merge-gate workflow receives checks-write permission, not status-write,
+source-write or merge permission. Its API allowlist permits only check updates;
+the trigger can create the pending check but never complete it. Both operations
+independently verify the app identity, exact head and trigger-owned external ID.
+GitHub's native auto-merge still requires applicable CI.
 Enable this route only with exact signed `publication_merge_gate` admission,
 the fourth workflow in live-revocation bindings and actual required-check rules.
 
@@ -196,7 +202,12 @@ visibly newer writes are not retryable. Final ID, commit, context, state, run
 URL and actor agreement remains mandatory. There is no sleep, loop or rePOST.
 
 `PRELOOP_PUBLICATION_AUTHORITY` and `PRELOOP_PUBLICATION_SIGNATURE` must preserve
-exact signed bytes. `install_policy.py` writes them only to runner-local files.
+exact signed bytes. A workflow-inline isolated Python step writes them only to
+runner-local files, without executing any checkout helper. Before that step,
+the workflow verifies a literal SHA-256 pin for `bootstrap.py`; only that pinned
+loader may execute checkout code. It verifies the signature and complete source
+manifest before importing staged modules. Workflow regressions reject an
+unverified checkout entry point or stale loader pin.
 The policy must bind repository/provider/project/principal, flow/model/config,
 trusted workflows, complete source SHA-256/Git blob manifests, actor, OIDC,
 allowed operations, callback tolerance, expiry and revocation. See `trust.py`

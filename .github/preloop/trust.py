@@ -58,7 +58,10 @@ def receipt_from_zip(data):
 
 MERGE_GATE = dict(explicit_posture_approval=True,
     workflow_path='.github/workflows/preloop-review-merge.yml', event='workflow_run',
-    producer_path='.github/workflows/preloop-review-finalize.yml', status_context='Preloop merge gate')
+    producer_path='.github/workflows/preloop-review-finalize.yml',
+    check_name='Preloop merge gate', app_id=15368,
+    required_checks=[{'context': 'Preloop review', 'app_id': 15368},
+                     {'context': 'Preloop merge gate', 'app_id': 15368}])
 
 
 def workload_events(binding, workflow):

@@ -234,6 +234,7 @@ def publish():
                                         'Complete review and genuine check independently read back.')
         runtime.write_receipt(Path(os.environ['RUNNER_TEMP']) / 'preloop-publication', {
             'execution_id': eid, 'head_sha': head, 'base_sha': base, 'claim_sha256': proof['claim_sha256'],
+            'trigger_run_id': receipt['trigger_run_id'],
             'review_id': review['id'], 'review_url': readback['html_url'], 'check_id': check['id'],
             'review_body_sha256': hashlib.sha256(body.encode('utf-8')).hexdigest(),
             'publication_run_attempt': os.environ.get('GITHUB_RUN_ATTEMPT', '1'),

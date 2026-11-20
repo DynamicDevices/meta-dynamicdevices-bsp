@@ -146,7 +146,12 @@ def context(workflow):
         require(path.startswith('/repos/' + repository + '/'), 'GitHub target outside this repository')
         if method != 'GET':
             relative = path.removeprefix('/repos/' + repository + '/')
-            allowed = ((method == 'POST' and re.fullmatch('statuses/[0-9a-f]{40}', relative)) or
+            allowed = ((workflow != 'preloop-review-merge.yml' and method == 'POST' and
+                        re.fullmatch('statuses/[0-9a-f]{40}', relative)) or
+                       (workflow == 'preloop-review-trigger.yml' and method == 'POST' and
+                        relative == 'check-runs') or
+                       (workflow == 'preloop-review-merge.yml' and method == 'PATCH' and
+                        re.fullmatch('check-runs/[1-9][0-9]*', relative)) or
                        (workflow == 'preloop-review-finalize.yml' and method == 'PATCH' and
                         re.fullmatch('check-runs/[1-9][0-9]*', relative)) or
                        (workflow == 'preloop-review-publish.yml' and
@@ -154,15 +159,75 @@ def context(workflow):
                          (method == 'POST' and relative == 'check-runs') or
                          (method == 'PATCH' and re.fullmatch('check-runs/[1-9][0-9]*', relative)))))
             require(allowed, 'GitHub operation outside review/status publication')
+            if workflow == 'preloop-review-trigger.yml' and relative == 'check-runs':
+                require(binding.get('publication_merge_gate') == trust.MERGE_GATE and
+                        type(body) is dict and
+                        set(body) == {'name', 'external_id', 'details_url', 'status', 'head_sha'} and
+                        body.get('name') == 'Preloop merge gate' and body.get('status') == 'in_progress' and
+                        body.get('external_id') == 'briar-preloop-merge:' + os.environ['GITHUB_RUN_ID'] and
+                        body.get('details_url') == 'https://github.com/' + repository +
+                            '/actions/runs/' + os.environ['GITHUB_RUN_ID'] and
+                        type(body.get('head_sha')) is str and re.fullmatch('[0-9a-f]{40}', body['head_sha']),
+                        'Trigger may only create its pending merge check')
             verify_live_service(binding, workload, workflow)
         return trust.request('https://api.github.com', path, os.environ['GH_TOKEN'], method, body)
     trust.verify_sources(github, binding, workload['workflow_sha'], list(binding['approved_files']))
     return binding, workload, github
 
 
+def merge_check(github, binding, head, run_url, *, trigger_run_id=None):
+    """Create a pending app-bound gate, or complete that exact trigger's check."""
+    require(binding.get('publication_merge_gate') == trust.MERGE_GATE,
+            'Merge check not explicitly admitted')
+    require(type(head) is str and re.fullmatch('[0-9a-f]{40}', head), 'Invalid merge check commit')
+    run_id = os.environ['GITHUB_RUN_ID']
+    expected_url = 'https://github.com/' + binding['repository'] + '/actions/runs/' + run_id
+    require(re.fullmatch('[1-9][0-9]*', run_id) and run_url == expected_url,
+            'Merge check must link this Actions run')
+    root = '/repos/' + binding['repository']
+    pending = trigger_run_id is None
+    trigger_id = run_id if pending else trigger_run_id
+    require(type(trigger_id) is str and re.fullmatch('[1-9][0-9]*', trigger_id),
+            'Invalid merge check trigger')
+    external = 'briar-preloop-merge:' + trigger_id
+    body = dict(name='Preloop merge gate', external_id=external, details_url=run_url,
+                status='in_progress' if pending else 'completed')
+    if pending:
+        posted = github(root + '/check-runs', 'POST', dict(body, head_sha=head))
+    else:
+        checks = github_pages(github, root + '/commits/' + head +
+                              '/check-runs?check_name=Preloop%20merge%20gate&filter=all', 'check_runs')
+        owned = [row for row in checks if row.get('external_id') == external and
+                 row.get('app', {}).get('id') == 15368]
+        require(len(owned) == 1, 'Missing unique trigger-owned merge check')
+        prior = owned[0]
+        require(prior.get('name') == body['name'] and prior.get('head_sha') == head and
+                prior.get('status') == 'in_progress' and prior.get('conclusion') is None,
+                'Merge check is not the pending trigger gate')
+        verify_check_url(prior, binding, 'https://github.com/' + binding['repository'] +
+                         '/actions/runs/' + trigger_id)
+        body.update(conclusion='success', output=dict(title='Completed Preloop delivery verified',
+                    summary='Exact review, finalizer and bot publication verified.'))
+        posted = github(root + '/check-runs/' + str(prior['id']), 'PATCH', body)
+        require(type(posted) is dict and posted.get('id') == prior['id'],
+                'Merge check update changed identity')
+    require(type(posted) is dict and type(posted.get('id')) is int and posted['id'] > 0,
+            'Malformed posted merge check')
+    observed = github(root + '/check-runs/' + str(posted['id']))
+    require(type(observed) is dict and observed.get('id') == posted['id'] and
+            type(observed.get('id')) is int and
+            observed.get('head_sha') == head and
+            observed.get('conclusion') == (None if pending else 'success') and
+            all(observed.get(k) == body[k] for k in ['name', 'status', 'external_id']),
+            'Merge check readback changed')
+    verify_check_url(observed, binding, run_url)
+    # A check from a different app, even with the same name, cannot satisfy
+    # the signed app-pinned required-check configuration.
+    return observed
+
+
 def commit_status(github, binding, head, state, run_url, description, *, context_name='Preloop review'):
-    require(context_name == 'Preloop review' or context_name == 'Preloop merge gate' and
-            binding.get('publication_merge_gate') == trust.MERGE_GATE,
+    require(context_name == 'Preloop review',
             'Status context is not admitted')
     require(state in ['pending', 'success', 'failure', 'error'], 'Invalid commit status state')
     require(re.fullmatch('[0-9a-f]{40}', head), 'Invalid status commit')

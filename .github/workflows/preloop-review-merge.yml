@@ -21,8 +21,7 @@ jobs:
       actions: read
       contents: read
       pull-requests: read
-      checks: read
-      statuses: write
+      checks: write
       id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node24
@@ -33,7 +32,20 @@ jobs:
         env:
           PRELOOP_PUBLICATION_AUTHORITY: ${{ secrets.PRELOOP_PUBLICATION_AUTHORITY }}
           PRELOOP_PUBLICATION_SIGNATURE: ${{ secrets.PRELOOP_PUBLICATION_SIGNATURE }}
-        run: python3 -I -B .github/preloop/install_policy.py
+        run: |
+          printf '%s\n' '8031c226bf325ca928b5d65d8f0a29e5c08836dc64cb0c12dcf78802e3f945bb  .github/preloop/bootstrap.py' | sha256sum --check --strict
+          python3 -I -B - <<'PY'
+          import os
+          from pathlib import Path
+          for variable, name in [
+              ('PRELOOP_PUBLICATION_AUTHORITY', 'preloop-publication-authority.json'),
+              ('PRELOOP_PUBLICATION_SIGNATURE', 'preloop-publication-authority.json.sig'),
+          ]:
+              destination = Path('.github') / name
+              if destination.is_symlink():
+                  raise SystemExit('Unsafe policy destination')
+              destination.write_bytes(os.environ[variable].encode('utf-8'))
+          PY
       - name: Admit only completed successful Preloop delivery
         env:
           GH_TOKEN: ${{ github.token }}

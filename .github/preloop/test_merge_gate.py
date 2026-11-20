@@ -28,7 +28,7 @@ class MergeGateTests(unittest.TestCase):
         self.completion = dict(execution_id='487d988a-53ad-4f5d-8b84-d77bb733676f', pr_number=7,
             head_sha='a' * 40, base_sha='b' * 40, result_sha256='c' * 64,
             status='SUCCEEDED', result_ready=True)
-        self.receipt = dict(self.completion, state='success')
+        self.receipt = dict(self.completion, state='success', trigger_run_id='10')
         self.intent = dict(publisher_run_id='12', finalizer_run_id='13',
             publication_receipt=self.receipt, completion=self.completion)
         self.rows = [dict(name=finalize.intent_name('12', self.receipt), expired=False)]
@@ -51,7 +51,7 @@ class MergeGateTests(unittest.TestCase):
              patch.object(finalize.publisher, 'no_supersession',
                           side_effect=InvalidReview('Newer execution') if stale else None), \
              patch.object(runtime, 'current_pr') as current, \
-             patch.object(runtime, 'commit_status', side_effect=lambda *a, **kw: self.calls.append((a, kw))):
+             patch.object(runtime, 'merge_check', side_effect=lambda *a, **kw: self.calls.append((a, kw))):
             finalize.accept()
             current.assert_called_once()
 
@@ -59,8 +59,8 @@ class MergeGateTests(unittest.TestCase):
         self.execute()
         self.assertEqual(len(self.calls), 1)
         args, keywords = self.calls[0]
-        self.assertEqual(args[3], 'success')
-        self.assertEqual(keywords, {'context_name': 'Preloop merge gate'})
+        self.assertEqual(args[3], 'https://github.com/example/repository/actions/runs/14')
+        self.assertEqual(keywords, {'trigger_run_id': '10'})
         self.assertEqual(args[2], 'a' * 40)
 
     def test_running_failed_cancelled_or_retried_finalizer_cannot_release(self):

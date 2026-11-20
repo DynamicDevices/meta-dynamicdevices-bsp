@@ -62,6 +62,36 @@ class RuntimeBoundaryTests(unittest.TestCase):
                 github('/repos/example/repository/pulls/7/reviews', 'POST', {})
             request.assert_not_called()
 
+    def test_trigger_can_create_only_its_pending_app_check_not_success(self):
+        self.binding['publication_merge_gate'] = runtime.trust.MERGE_GATE
+        body = dict(name='Preloop merge gate', external_id='briar-preloop-merge:12',
+                    details_url='https://github.com/example/repository/actions/runs/12',
+                    status='in_progress', head_sha='a' * 40)
+        with patch.object(runtime.trust, 'load_authority', return_value=self.binding), \
+             patch.object(runtime.trust, 'verify_workload', return_value={'workflow_sha': 'a' * 40}), \
+             patch.object(runtime.trust, 'verify_sources'), \
+             patch.object(runtime, 'verify_live_service'), \
+             patch.object(runtime.trust, 'request') as request:
+            _, _, github = runtime.context('preloop-review-trigger.yml')
+            for mutation in [dict(conclusion='success'), dict(status='completed'),
+                             dict(external_id='briar-preloop-merge:99')]:
+                with self.subTest(mutation=mutation), self.assertRaises(InvalidReview):
+                    github('/repos/example/repository/check-runs', 'POST', dict(body, **mutation))
+            request.assert_not_called()
+            github('/repos/example/repository/check-runs', 'POST', body)
+            request.assert_called_once()
+
+    def test_merge_workflow_cannot_create_checks_or_spoof_commit_statuses(self):
+        with patch.object(runtime.trust, 'load_authority', return_value=self.binding), \
+             patch.object(runtime.trust, 'verify_workload', return_value={'workflow_sha': 'a' * 40}), \
+             patch.object(runtime.trust, 'verify_sources'), \
+             patch.object(runtime.trust, 'request') as request:
+            _, _, github = runtime.context('preloop-review-merge.yml')
+            for target in ['check-runs', 'statuses/' + 'a' * 40]:
+                with self.subTest(target=target), self.assertRaises(InvalidReview):
+                    github('/repos/example/repository/' + target, 'POST', {})
+            request.assert_not_called()
+
     def artifact(self, auth_success=True, branch='main', event='repository_dispatch', expired=False):
         row = dict(id=1, name='preloop-wake-execution', expired=expired, workflow_run={'id': 10})
         run = dict(id=10, path='.github/workflows/preloop-review-publish.yml',
