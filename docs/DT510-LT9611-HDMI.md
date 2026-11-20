@@ -1,8 +1,52 @@
 # DT510 LT9611 HDMI bring-up
 
-Updated 19 November 2026 at Alex's request. Briar helped draft this.
+Updated 20 November 2026 at Alex's request. Briar helped draft this.
 
 ## Current state
+
+**Working U-Boot baseline: build 704.** Alex visibly confirmed the splash on
+two consecutive watched warm reboots. BSP commit
+`5dd6e794ac166fca6765ad4c3f5a609ee7453c57`, manifest
+`417a9ac059efc5c75643b993dd56dbbf3c0a6853`, installed boot firmware
+`4cad2dd9d8d4c1dacaaeb85685797abd`. Serial measured valid port-A input:
+1280x720, 750 total lines, horizontal system-clock count 601, before enabling
+TX. This confirms physical output, not just the drawing command. Cold-start
+qualification remains outstanding. Preserve this polarity/timing/input-check
+baseline; the successful-splash-only ten-second TV-lock hold is unchanged.
+
+### Headed splash handover candidate — not yet built or visually accepted
+
+The distro's `display-boot-splash` feature now follows the `display` product
+bundle by default on machines explicitly marked `display-multimedia` (DT510
+and Jaguar Screen). Explicit headless selection remains available. The feature
+packages PSplash and a matching Weston desktop background from the same AESL
+source artwork. DT510 uses the exact 1280x720 pixels and bitmap digest already
+confirmed in U-Boot, and the same 720p mode in Linux and Weston. Screen retains
+its DSI rotation/G2D policy, with a correspondingly rotated framebuffer image;
+this board's new handover has not been physically tested.
+
+Image-generated kernel arguments remove display-VT console sinks only; serial
+console, root/OSTree arguments and diagnostic verbosity stay intact. No live
+boot environment, boot storage, firmware-update policy or security settings are
+edited. Local display gettys are suppressed unless
+`/etc/aesl-enable-display-getty` exists; serial gettys remain available.
+
+PSplash waits boundedly for fb0 and does not switch/restore virtual terminals.
+The normal progress helper is suppressed so it cannot dismiss the image before
+Weston starts. Weston still runs as its normal unprivileged user. A separate
+root oneshot sends QUIT after Weston's systemd READY notification; missing or
+failed PSplash does not prevent desktop startup. READY is compositor readiness,
+not independent evidence that the desktop background has reached the TV.
+
+**No pixel-continuous handover claim:** U-Boot still safely tears down its
+LCDIF/DMA before Linux, and Linux reinitializes the display. Leaving DMA running
+without reserving its framebuffer is unsafe. A blank interval may remain even
+with all console text suppressed. Watched serial/TV testing must check splash,
+any blank interval, absence of console text and desktop background separately.
+Do not declare the full requested stay-on-screen behaviour complete on native
+tests or a successful image build alone.
+
+### Earlier bring-up history
 
 Michael reported the hardware cause on 19 November: the 27 MHz crystal did
 not oscillate on three failed boots. After adding a **1 MΩ resistor across the
@@ -115,8 +159,8 @@ The separate upstream U-Boot
 [pixel-clock edge fix](https://github.com/u-boot/u-boot/commit/ff1932daab1e6381e0b26d69a0197dfb2cd7168f)
 changes NEGEDGE to POSEDGE in the LCDIF condition. Neither flag is selected in
 this fixed mode, so that patch alone would not change its clock polarity and
-is not bundled into this repair. Physical HDMI remains unproven until a new
-firmware image is installed and a watched serial/TV test succeeds.
+is not bundled into this repair. The subsequent build704 warm-reboot physical
+confirmation is recorded above; the statements below describe earlier tests.
 
 ### Build 702 watched retest and 720p sync-pulse correction
 
@@ -220,7 +264,7 @@ upstream i.MX single-master STOP fix is already present. Recovery evidence
 indicates SDA read low during recovery, not which device held it or a measured
 crystal fault. Do not keep increasing blind delays.
 
-### Optional U-Boot AESL HDMI splash — implementation, not hardware proof
+### Optional U-Boot AESL HDMI splash — build704 warm-reboot confirmation above
 
 Alex requested testing initialization before Linux, reusing the Jaguar Screen
 splash approach. This is a hardware-specific **MACHINE_FEATURES** switch,
