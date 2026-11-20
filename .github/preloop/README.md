@@ -297,7 +297,15 @@ dispatch retains the helper's explicit draft/closed-PR denial. This workflow
 change only affects trusted runs after it is merged and its exact source policy
 is signed and installed; changing PR-head YAML cannot modify current base runs.
 
-The existing shared DD flow has a600-second native deadline. Its exact
+This source-only route requires an up-to-date PR branch: the target tip must
+equal the merge base before any review receipt or execution is created. If the
+target advances, update the PR branch and review the new candidate. This keeps
+the receipt, canonical diff and native reviewer bound to the same base without
+accepting stale approval. Binary changes are rejected explicitly because this
+route's canonical diff does not carry binary patch content; they require a
+separately supported complete-review route, not an incomplete green result.
+
+The existing shared DD flow has a 600-second native deadline. Its exact
 configuration must match BSP's signed runtime policy before launch. The hard
 whole-workload cutoff and terminal cleanup remain required; a larger deadline
 is not proof a review will finish.
