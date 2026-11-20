@@ -1240,12 +1240,16 @@
 	status = "disabled";
 };
 
+/* PMU PTC7 drives i.MX8MM ONOFF; expose its shutdown requests as KEY_POWER. */
+&snvs_pwrkey {
+	status = "okay";
+};
+
 /*
  * Disabled — unused SKU options, EVK leftovers, or controller blocks pending driver / bring-up.
  *   uart3 — not fitted / unused on this product.
  *   sai6 — was pending tac5x1x; now enabled with tac5301@50 + sound-tac5301 (see &sai6).
  *   ir_recv — EVK GPIO1_IR conflicts with TAS6424 GPIO usage.
- *   snvs_pwrkey — EVK enables SNVS PMIC_ON_REQ power key; DT510 product has no wired key / avoid stray KEY_POWER input.
  *   reg_pcie0 / pcie0 — mini-PCIe power path not used (no M.2/NVMe on this SKU).
  *   backlight — no EVK-style LCD panel on DT510.
  *   spdif1 — SPDIF not wired out for DT510 audio plan.
@@ -1295,10 +1299,6 @@
 };
 
 &ir_recv {
-	status = "disabled";
-};
-
-&snvs_pwrkey {
 	status = "disabled";
 };
 
