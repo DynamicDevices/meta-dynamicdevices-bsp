@@ -103,7 +103,7 @@ diff --git a/drivers/gpu/imx/lcdif/lcdif-common.c b/drivers/gpu/imx/lcdif/lcdif-
  
  struct lcdif_soc_pdata {
  	bool hsync_invert;
-@@ -437,6 +511,24 @@
+@@ -437,6 +511,31 @@
  	if (unlikely(!of_id))
  		return;
  	soc_pdata = of_id->data;
@@ -121,6 +121,13 @@ diff --git a/drivers/gpu/imx/lcdif/lcdif-common.c b/drivers/gpu/imx/lcdif/lcdif-
 +			dev_info(lcdif->dev, "AESL HDMI handover: keeping LCDIF timings\n");
 +			return;
 +		}
++		dev_info(lcdif->dev,
++			 "AESL HDMI handover: fallback fb=%d i80=%d retained=%d mode=%d clock=%lu/%lu\n",
++			 lcdif->boot_fb_compatible, use_i80,
++			 dt510_boot_display_retained(),
++			 dt510_boot_mode_matches(vmode),
++			 clk_get_rate(lcdif->clk_pix),
++			 (unsigned long)vmode->pixelclock);
 +		writel(0, lcdif->base + LCDIF_CTRL);
 +		dt510_boot_display_reject();
 +		dev_info(lcdif->dev, "AESL HDMI handover: mode mismatch, resetting LCDIF\n");
@@ -1063,14 +1070,25 @@ diff --git a/drivers/pmdomain/imx/imx8m-blk-ctrl.c b/drivers/pmdomain/imx/imx8m-
  	struct generic_pm_domain genpd;
  	const struct imx8m_blk_ctrl_domain_data *data;
  	struct clk_bulk_data clks[DOMAIN_MAX_CLKS];
-@@ -131,6 +134,20 @@
+@@ -131,21 +134,36 @@
  	const struct imx8m_blk_ctrl_domain_data *data = domain->data;
  	struct imx8m_blk_ctrl *bc = domain->bc;
  	int ret;
 +	struct dt510_boot_display boot;
 +	u32 rst, clk, phy;
 +	bool inherit = false;
-+
+ 
+ 	if (!domain->power_dev)
+ 		return -ENODEV;
+ 
+ 	/* make sure bus domain is awake */
+ 	ret = pm_runtime_get_sync(bc->bus_power_dev);
+ 	if (ret < 0) {
+ 		pm_runtime_put_noidle(bc->bus_power_dev);
+ 		dev_err(bc->dev, "failed to power up bus domain\n");
+ 		return ret;
+ 	}
+ 
 +	if (!domain->boot_seen && dt510_boot_display_read(&boot) &&
 +	    (!strcmp(data->name, "dispblk-lcdif") ||
 +	     !strcmp(data->name, "dispblk-mipi-dsi")) &&
@@ -1081,12 +1099,7 @@ diff --git a/drivers/pmdomain/imx/imx8m-blk-ctrl.c b/drivers/pmdomain/imx/imx8m-
 +			  (clk & data->clk_mask) == data->clk_mask &&
 +			  (phy & data->mipi_phy_rst_mask) == data->mipi_phy_rst_mask;
 +	domain->boot_seen = true;
- 
- 	if (!domain->power_dev)
- 		return -ENODEV;
-@@ -144,8 +161,9 @@
- 	}
- 
++
  	/* put devices into reset */
 -	regmap_clear_bits(bc->regmap, BLK_SFT_RSTN, data->rst_mask);
 -	if (data->mipi_phy_rst_mask)

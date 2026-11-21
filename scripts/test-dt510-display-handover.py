@@ -26,6 +26,91 @@ def added_file(patch, name):
 
 
 class HandoverTest(unittest.TestCase):
+    def test_compiled_blk_ctrl_reads_only_after_bus_resume(self):
+        part = PATCH.read_text().split('+++ b/drivers/pmdomain/imx/imx8m-blk-ctrl.c\n', 1)[1]
+        part = part.split('\ndiff --git ', 1)[0]
+        hunk = part.split('@@ -131,', 1)[1].split('\n', 1)[1]
+        hunk = hunk.split('@@', 1)[0]
+        body = '\n'.join(line[1:] for line in hunk.splitlines()
+                         if line.startswith(('+', ' ')))
+        body = body.split('/* enable upstream and blk-ctrl clocks', 1)[0]
+        fixture = r'''
+#include <assert.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <string.h>
+#include <errno.h>
+typedef uint32_t u32;
+enum { BLK_SFT_RSTN, BLK_CLK_EN, BLK_MIPI_RESET_DIV };
+struct dt510_boot_display { int unused; };
+struct generic_pm_domain { int unused; };
+struct imx8m_blk_ctrl_domain_data {
+    const char *name; u32 rst_mask, clk_mask, mipi_phy_rst_mask;
+};
+struct imx8m_blk_ctrl { void *bus_power_dev, *regmap, *dev; } bc;
+struct imx8m_blk_ctrl_domain {
+    const struct imx8m_blk_ctrl_domain_data *data;
+    struct imx8m_blk_ctrl *bc; void *power_dev; bool boot_seen;
+} domain_state;
+static bool awake, descriptor;
+static int resume_result, resumes, puts, reads, clears, read_error;
+static u32 values[3];
+static struct imx8m_blk_ctrl_domain *to_imx8m_blk_ctrl_domain(void *p) {
+    return &domain_state;
+}
+static int pm_runtime_get_sync(void *p) {
+    resumes++; awake = resume_result >= 0; return resume_result;
+}
+static void pm_runtime_put_noidle(void *p) { puts++; }
+#define dev_err(...) ((void)0)
+static bool dt510_boot_display_read(struct dt510_boot_display *p) { return descriptor; }
+static int regmap_read(void *p, int offset, u32 *value) {
+    assert(awake); reads++; *value = values[offset]; return read_error;
+}
+static void regmap_clear_bits(void *p, int offset, u32 mask) {
+    assert(awake); clears++;
+}
+static int power_on(struct generic_pm_domain *genpd) {
+    struct imx8m_blk_ctrl_domain *domain = to_imx8m_blk_ctrl_domain(genpd);
+    /* ACTUAL_PREFIX */
+    return inherit;
+}
+static void reset(void) {
+    awake = false; descriptor = true; resume_result = 0;
+    resumes = puts = reads = clears = read_error = 0;
+    domain_state.boot_seen = false; domain_state.power_dev = &bc;
+    values[0] = 1; values[1] = 2; values[2] = 4;
+}
+int main(void) {
+    struct imx8m_blk_ctrl_domain_data data = { "dispblk-lcdif", 1, 2, 4 };
+    domain_state.data = &data; domain_state.bc = &bc;
+    reset(); domain_state.power_dev = 0;
+    assert(power_on(0) == -ENODEV && !resumes && !reads && !domain_state.boot_seen);
+    reset(); resume_result = -EIO;
+    assert(power_on(0) == -EIO && resumes == 1 && puts == 1);
+    assert(!reads && !clears && !domain_state.boot_seen);
+    reset(); assert(power_on(0) == 1 && reads == 3 && !clears);
+    assert(domain_state.boot_seen);
+    assert(power_on(0) == 0 && reads == 3 && clears == 2);
+    reset(); data.name = "dispblk-mipi-dsi";
+    assert(power_on(0) == 1 && reads == 3 && !clears);
+    reset(); values[2] = 0;
+    assert(power_on(0) == 0 && reads == 3 && clears == 2);
+    reset(); read_error = -EIO;
+    assert(power_on(0) == 0 && reads == 1 && clears == 2);
+    reset(); descriptor = false;
+    assert(power_on(0) == 0 && !reads && clears == 2);
+    reset(); data.name = "unrelated-domain";
+    assert(power_on(0) == 0 && !reads && clears == 2);
+}
+'''
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / 'power.c').write_text(fixture.replace('/* ACTUAL_PREFIX */', body))
+            subprocess.run(['cc', '-std=c11', '-Werror', str(root / 'power.c'),
+                            '-o', str(root / 'power')], check=True)
+            subprocess.run([str(root / 'power')], check=True)
+
     def test_uboot_four_lane_timing_matches_retained_mode(self):
         bridge = (ROOT / 'recipes-bsp/u-boot/u-boot-fio/imx8mm-jaguar-dt510/lt9611-dt510.c').read_text()
         timing = bridge.split('static const struct display_timing lt9611_timing = {', 1)[1].split('};', 1)[0]
