@@ -1,6 +1,6 @@
 # DT510 LT9611 HDMI bring-up
 
-Updated 20 November 2026 at Alex's request. Briar helped draft this.
+Updated 21 November 2026 at Alex's request. Briar helped draft this.
 
 ## Current state
 
@@ -14,7 +14,32 @@ TX. This confirms physical output, not just the drawing command. Cold-start
 qualification remains outstanding. Preserve this polarity/timing/input-check
 baseline; the successful-splash-only ten-second TV-lock hold is unchanged.
 
-### Headed splash handover candidate — not yet built or visually accepted
+### Headed splash handover — 706 installed; correction under test
+
+Image 706 selects the headed distro and includes the splash/Weston payload.
+It exposed two independent integration defects: Weston G2D cannot open the
+root-only `/dev/galcore`, and OTA retained the earlier `console=tty1` argument.
+The correction keeps hardware rendering (Alex explicitly rejected a CPU
+fallback), tags only DT510's `gpu_class/galcore` device for logind's active-seat
+ACL, and leaves its base root:root 0600 mode unchanged. This grants the active
+local desktop user GPU ioctl access; it is an explicitly approved security
+change, not a world-writable device or root compositor.
+
+The packaged boot script filters exact numbered VT console tokens in RAM
+after rollback selects the deployment arguments and before upstream adds root.
+It preserves serial, earlycon, root, OSTree and other tokens, and adds the
+splash/mode policy. It does not rewrite OSTree metadata, uEnv.txt or saved
+environment. A failed regex retains the original token rather than dropping it.
+Native fixtures exercise normal/no-match/error paths and feature opt-out;
+they do not prove U-Boot or physical display handover.
+
+Live test on image706, without reboot: the temporary active-seat rule let Weston
+UID63 start using `g2d-renderer.so`; HDMI-A-1 enabled the Panasonic output and
+the desktop shell ran. PSplash exited successfully after Weston became ready.
+The named ACL granted weston rw with group/other denied; a non-active `nobody`
+identity could not read/write galcore. Session-switch revocation was not tested.
+The rule is temporary under `/run`, so this is not a fixed startup image or
+physical acceptance of the background/continuous handover. No new build yet.
 
 The distro's `display-boot-splash` feature now follows the `display` product
 bundle by default on machines explicitly marked `display-multimedia` (DT510
@@ -25,10 +50,10 @@ confirmed in U-Boot, and the same 720p mode in Linux and Weston. Screen retains
 its DSI rotation/G2D policy, with a correspondingly rotated framebuffer image;
 this board's new handover has not been physically tested.
 
-Image-generated kernel arguments remove display-VT console sinks only; serial
+Image-generated and boot-script kernel arguments remove display-VT console sinks only; serial
 console, root/OSTree arguments and diagnostic verbosity stay intact. No live
-boot environment, boot storage, firmware-update policy or security settings are
-edited. Local display gettys are suppressed unless
+boot environment, boot storage or firmware-update policy is edited. The scoped
+GPU ACL change above is the only security-policy change. Local display gettys are suppressed unless
 `/etc/aesl-enable-display-getty` exists; serial gettys remain available.
 
 PSplash waits boundedly for fb0 and does not switch/restore virtual terminals.

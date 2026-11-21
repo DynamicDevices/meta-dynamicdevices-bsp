@@ -2,6 +2,29 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
 inherit lmp-signing-override
 
+# OSTree OTA can retain the previous deployment's kernel arguments. Apply only
+# the display policy in RAM, after rollback selection and before root is added.
+# Never rewrite uEnv.txt, save the environment, or change deployment selection.
+SRC_URI:append = " ${@bb.utils.contains('DISTRO_FEATURES', 'display-boot-splash', 'file://display-bootargs.cmd', '', d)}"
+
+python do_unpack:append() {
+    from pathlib import Path
+    # Do not return from an append: later machine appends must still run when
+    # display-boot-splash is disabled (including DT510's splash marker removal).
+    if bb.utils.contains('DISTRO_FEATURES', 'display-boot-splash', True, False, d):
+        work = Path(d.getVar('WORKDIR'))
+        footer = work / 'boot-footer.cmd.in'
+        text = footer.read_text()
+        marker = 'run bootcmd_rollback\n'
+        if text.count(marker) != 1:
+            bb.fatal('Display boot policy requires exactly one rollback selection')
+        policy = (work / 'display-bootargs.cmd').read_text()
+        mode = ' video=HDMI-A-1:1280x720@60e' if d.getVar('MACHINE') == 'imx8mm-jaguar-dt510' else ''
+        policy = policy.replace('@@AESL_DISPLAY_MODE@@', mode)
+        footer.write_text(text.replace(marker, marker + policy + '\n'))
+}
+do_unpack[vardeps] += "DISTRO_FEATURES MACHINE"
+
 SRC_URI:append:imx8mm-jaguar-sentai = " \
     file://boot.cmd \
 "
