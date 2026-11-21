@@ -10,7 +10,7 @@ the actual U-Boot and Linux adjusted timing, not the unadjusted CEA mode.
 diff --git a/drivers/gpu/imx/lcdif/lcdif-common.c b/drivers/gpu/imx/lcdif/lcdif-common.c
 --- a/drivers/gpu/imx/lcdif/lcdif-common.c
 +++ b/drivers/gpu/imx/lcdif/lcdif-common.c
-@@ -27,10 +27,45 @@
+@@ -27,10 +27,47 @@
  #include <drm/drm_fourcc.h>
  #include <video/imx-lcdif.h>
  #include <video/videomode.h>
@@ -34,7 +34,9 @@ diff --git a/drivers/gpu/imx/lcdif/lcdif-common.c b/drivers/gpu/imx/lcdif/lcdif-
 +
 +void dt510_boot_display_reject(void)
 +{
-+	atomic_set(&dt510_boot_failed, 1);
++	if (!atomic_xchg(&dt510_boot_failed, 1))
++		pr_info("AESL HDMI handover: first rejection at %pS\n",
++			__builtin_return_address(0));
 +}
 +EXPORT_SYMBOL_GPL(dt510_boot_display_reject);
 +
@@ -56,7 +58,7 @@ diff --git a/drivers/gpu/imx/lcdif/lcdif-common.c b/drivers/gpu/imx/lcdif/lcdif-
  
  struct lcdif_soc {
  	struct device *dev;
-@@ -44,7 +79,46 @@
+@@ -44,7 +79,56 @@
  	struct clk *clk_pix;
  	struct clk *clk_disp_axi;
  	struct clk *clk_disp_apb;
@@ -75,18 +77,28 @@ diff --git a/drivers/gpu/imx/lcdif/lcdif-common.c b/drivers/gpu/imx/lcdif/lcdif-
 +{
 +	static const u32 offsets[] = { 0x30, 0x70, 0x80, 0x90, 0xa0, 0xb0 };
 +	struct dt510_boot_display boot;
++	u32 ctrl, current;
 +	int i;
 +
-+	if (!dt510_boot_display_read(&boot) ||
-+	    !(readl(lcdif->base + LCDIF_CTRL) & CTRL_RUN) ||
-+	    readl(lcdif->base + LCDIF_CUR_BUF) != boot.address ||
-+	    CTRL_GET_WORD_LENGTH(readl(lcdif->base + LCDIF_CTRL)) != 3)
++	if (!dt510_boot_display_read(&boot))
 +		return false;
++	ctrl = readl(lcdif->base + LCDIF_CTRL);
++	current = readl(lcdif->base + LCDIF_CUR_BUF);
++	if (!(ctrl & CTRL_RUN) || current != boot.address ||
++	    CTRL_GET_WORD_LENGTH(ctrl) != 3) {
++		dev_info(lcdif->dev, "AESL HDMI handover: LCDIF ctrl=%#x current=%#x expected=%#llx\n",
++			 ctrl, current, (unsigned long long)boot.address);
++		return false;
++	}
 +	for (i = 0; i < ARRAY_SIZE(offsets); i++) {
 +		int slot = i == 0 ? 2 : i + 4;
++		u32 actual = readl(lcdif->base + offsets[i]);
 +
-+		if (readl(lcdif->base + offsets[i]) != boot.lcdif[slot])
++		if (actual != boot.lcdif[slot]) {
++			dev_info(lcdif->dev, "AESL HDMI handover: LCDIF offset=%#x actual=%#x expected=%#x\n",
++				 offsets[i], actual, boot.lcdif[slot]);
 +			return false;
++		}
 +	}
 +	return true;
 +}
@@ -461,13 +473,14 @@ diff --git a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c b/drivers/gpu/drm/imx/sec_m
  
  #define DRIVER_NAME "imx_sec_dsim_drv"
  
-@@ -57,11 +58,25 @@
+@@ -57,11 +58,26 @@
  	atomic_t rpm_suspended;
  
  	bool enabled;
 +	bool boot_running;
 +	bool boot_pm_ref;
 +	bool clocks_active;
++	struct clk *clk_pllref_fallback;
 +	void *bind_group;
  };
  
@@ -504,7 +517,21 @@ diff --git a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c b/drivers/gpu/drm/imx/sec_m
  
  	ret = sec_dsim_rstc_reset(dsim_dev->mipi_reset, false);
  	if (ret)
-@@ -257,6 +280,18 @@
+@@ -243,42 +266,67 @@
+ static int sec_dsim_determine_pll_ref_rate(u32 *rate, u32 min, u32 max)
+ {
+ 	int ret;
+ 	struct device *dev = dsim_dev->dev;
+ 	u32 req_rate = PHY_REF_CLK;
+ 	unsigned long get_rate;
+ 
+ 	ret = of_property_read_u32(dev->of_node, "pref-rate", &req_rate);
+ 	if (!ret) {
+ 		if (req_rate != clamp(req_rate, min, max)) {
+ 			dev_warn(dev, "invalid requested PLL ref clock rate : %u\n", req_rate);
+ 			req_rate = PHY_REF_CLK;
+ 			dev_warn(dev, "use default clock rate : %u\n", req_rate);
+ 		}
  	}
  
  set_rate:
@@ -516,13 +543,48 @@ diff --git a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c b/drivers/gpu/drm/imx/sec_m
 +		if (get_rate % 1000 == 0 && get_rate / 1000 >= min &&
 +		    get_rate / 1000 <= max) {
 +			*rate = get_rate / 1000;
++			dev_info(dev, "AESL HDMI handover: adopting DSIM reference %lu Hz\n", get_rate);
 +			return 0;
 +		}
++		dev_info(dev, "AESL HDMI handover: invalid DSIM reference %lu Hz\n", get_rate);
++		dt510_boot_display_reject();
 +		dsim_dev->boot_running = false;
++	}
++	/* Firmware left the video-PLL parent untouched for adoption. Once
++	 * adoption is rejected, restore the board's normal reference parent
++	 * before asking for the exact default rate. Never reparent adoption.
++	 */
++	if (dsim_dev->clk_pllref_fallback) {
++		ret = clk_set_parent(dsim_dev->clk_pllref, dsim_dev->clk_pllref_fallback);
++		if (ret)
++			return ret;
++		dev_info(dev, "AESL HDMI handover: restored fallback DSIM reference parent\n");
 +	}
  	ret = clk_set_rate(dsim_dev->clk_pllref, ((unsigned long)req_rate) * 1000);
  	if (ret)
  		return ret;
+ 
+ 	get_rate = clk_get_rate(dsim_dev->clk_pllref);
+ 	if (!get_rate)
+ 		return -EINVAL;
+ 
+ 	/* PLL ref clock rate should be set precisely */
+ 	if (get_rate != req_rate * 1000) {
+ 		/* default clock rate should can be set precisely */
+ 		if (WARN_ON(unlikely(req_rate == PHY_REF_CLK)))
+ 			return -EINVAL;
+ 
+ 		dev_warn(dev, "request rate %u cannot be satisfied\n", req_rate);
+ 		req_rate = PHY_REF_CLK;
+ 		dev_warn(dev, "use default clock rate : %u\n", req_rate);
+ 
+ 		goto set_rate;
+ 	}
+ 
+ 	*rate = req_rate;
+ 
+ 	return 0;
+ }
 @@ -382,6 +417,7 @@
  							   dev);
  	const struct sec_mipi_dsim_plat_data *pdata;
@@ -600,7 +662,19 @@ diff --git a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c b/drivers/gpu/drm/imx/sec_m
  }
  
  static const struct component_ops imx_sec_dsim_ops = {
-@@ -487,11 +565,18 @@
+@@ -480,18 +565,30 @@
+ 		return dev_err_probe(dev, PTR_ERR(dsim_dev->clk_pix),
+ 				"failed to get pixel clock\n");
+ 
++	dsim_dev->clk_pllref_fallback = devm_clk_get_optional(dev, "fallback-pll-ref");
++	if (IS_ERR(dsim_dev->clk_pllref_fallback))
++		return dev_err_probe(dev, PTR_ERR(dsim_dev->clk_pllref_fallback),
++				     "failed to get fallback PLL reference\n");
++
+ 	ret = sec_dsim_of_parse_resets(dsim_dev);
+ 	if (ret)
+ 		return ret;
+ 
  	atomic_set(&dsim_dev->rpm_suspended, 1);
  
  	pm_runtime_enable(dev);

@@ -26,6 +26,78 @@ def added_file(patch, name):
 
 
 class HandoverTest(unittest.TestCase):
+    def test_dt510_fallback_clock_is_named_oscillator(self):
+        dts = (ROOT / 'recipes-bsp/device-tree/lmp-device-tree/imx8mm-jaguar-dt510.dts').read_text()
+        node = dts.split('&mipi_dsi {', 1)[1]
+        clocks = node.split('clocks =', 1)[1].split(';', 1)[0]
+        names = node.split('clock-names =', 1)[1].split(';', 1)[0]
+        self.assertEqual(re.findall(r'<&clk (\w+)>', clocks), [
+            'IMX8MM_CLK_DSI_CORE', 'IMX8MM_CLK_DSI_PHY_REF',
+            'IMX8MM_CLK_DISP_APB_ROOT', 'IMX8MM_CLK_24M'])
+        self.assertEqual(re.findall(r'"([^"]+)"', names),
+                         ['cfg', 'pll-ref', 'apb-root', 'fallback-pll-ref'])
+
+    def test_compiled_lcdif_snapshot_detector(self):
+        source = added_file(PATCH, 'drivers/gpu/imx/lcdif/lcdif-common.c')
+        detector = source.split('static bool lcdif_boot_running(', 1)[1]
+        detector = 'static bool lcdif_boot_running(' + detector.split(
+            '\nstatic void lcdif_boot_put', 1)[0]
+        fixture = r'''
+#include <assert.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <string.h>
+typedef uint32_t u32;
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
+#define LCDIF_CTRL 0
+#define LCDIF_CUR_BUF 0x40
+#define CTRL_RUN 1
+#define CTRL_GET_WORD_LENGTH(x) (((x) >> 8) & 3)
+struct dt510_boot_display { uint64_t address; u32 lcdif[10]; } snapshot;
+struct lcdif_soc { void *base, *dev; } display;
+#define dev_info(...) ((void)0)
+static u32 registers[0xc0 / sizeof(u32)];
+static bool valid;
+static unsigned int reads;
+static bool dt510_boot_display_read(struct dt510_boot_display *p) {
+    *p = snapshot; return valid;
+}
+static u32 readl(void *p) { reads++; return *(u32 *)p; }
+/* ACTUAL_DETECTOR */
+static void reset(void) {
+    const unsigned int offsets[] = {0, 0x10, 0x30, 0x40, 0x50,
+                                   0x70, 0x80, 0x90, 0xa0, 0xb0};
+    const u32 values[] = {0xa0f21, 0x70300, 0x2d00500, 0xbce00000,
+        0xbce00000, 0x10300005, 0x2ee, 0xa00674, 0x1040019, 0x40500};
+    snapshot.address = 0xbce00000;
+    memcpy(snapshot.lcdif, values, sizeof(values));
+    memset(registers, 0, sizeof(registers));
+    for (unsigned int i = 0; i < ARRAY_SIZE(offsets); i++)
+        registers[offsets[i] / sizeof(u32)] = values[i];
+    display.base = registers; valid = true; reads = 0;
+}
+int main(void) {
+    reset(); assert(lcdif_boot_running(&display));
+    const unsigned int checked[] = {0x30, 0x70, 0x80, 0x90, 0xa0, 0xb0};
+    for (unsigned int i = 0; i < ARRAY_SIZE(checked); i++) {
+        reset(); registers[checked[i] / sizeof(u32)] ^= 1;
+        assert(!lcdif_boot_running(&display));
+    }
+    reset(); registers[0] &= ~CTRL_RUN; assert(!lcdif_boot_running(&display));
+    reset(); registers[0] &= ~(3 << 8); assert(!lcdif_boot_running(&display));
+    reset(); registers[LCDIF_CUR_BUF / sizeof(u32)] += 4096;
+    assert(!lcdif_boot_running(&display));
+    reset(); valid = false;
+    assert(!lcdif_boot_running(&display) && !reads);
+}
+'''
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / 'snapshot.c').write_text(fixture.replace('/* ACTUAL_DETECTOR */', detector))
+            subprocess.run(['cc', '-std=gnu11', '-Werror', str(root / 'snapshot.c'),
+                            '-o', str(root / 'snapshot')], check=True)
+            subprocess.run([str(root / 'snapshot')], check=True)
+
     def test_compiled_blk_ctrl_reads_only_after_bus_resume(self):
         part = PATCH.read_text().split('+++ b/drivers/pmdomain/imx/imx8m-blk-ctrl.c\n', 1)[1]
         part = part.split('\ndiff --git ', 1)[0]
@@ -120,44 +192,82 @@ int main(void) {
         self.assertEqual(sum(fields.values()), 1652)
 
     def test_compiled_dsim_reference_adoption_does_not_set_rate(self):
-        # Execute the shipped adoption block. The non-handover/default branch
-        # remains separate; never turn off strict clock validation globally.
+        # Execute the complete shipped function, including strict fallback.
         part = PATCH.read_text().split('+++ b/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c\n', 1)[1]
         part = part.split('\ndiff --git ', 1)[0]
-        part = part.split(' set_rate:\n', 1)[1].split(' \tret = clk_set_rate', 1)[0]
-        adoption = '\n'.join(line[1:] for line in part.splitlines() if line.startswith('+'))
+        part = part.split(' static int sec_dsim_determine_pll_ref_rate(', 1)[1]
+        part = part.split('\n@@', 1)[0]
+        adoption = 'static int sec_dsim_determine_pll_ref_rate(u32 *rate, u32 min, u32 max)\n' + '\n'.join(
+            line[1:] for line in part.splitlines() if line.startswith(('+', ' ')))
         fixture = r'''
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <errno.h>
 typedef uint32_t u32;
-struct { bool boot_running; void *clk_pllref; } state, *dsim_dev = &state;
+struct device { void *of_node; } dev;
+struct { bool boot_running; void *clk_pllref, *clk_pllref_fallback;
+    struct device *dev; } state, *dsim_dev = &state;
 static unsigned long observed_rate;
-static int fallback_calls;
+static int parent_calls, rate_calls, parent_error, rate_error;
+static int rejections;
+static bool on_oscillator;
+#define PHY_REF_CLK 12000
+#define clamp(v, lo, hi) ((v) < (lo) ? (lo) : (v) > (hi) ? (hi) : (v))
+#define WARN_ON(v) (v)
+#define unlikely(v) (v)
+#define dev_warn(...) ((void)0)
+#define dev_info(...) ((void)0)
+static void dt510_boot_display_reject(void) { rejections++; }
+static int of_property_read_u32(void *n, const char *s, u32 *v) { return -ENOENT; }
 static unsigned long clk_get_rate(void *clk) { return observed_rate; }
-static int adopt(u32 *rate, u32 min, u32 max) {
-    unsigned long get_rate;
-    /* ACTUAL_ADOPTION */
-    fallback_calls++;
-    return -1;
+static int clk_set_parent(void *clk, void *parent) {
+    parent_calls++; if (parent_error) return parent_error;
+    on_oscillator = true; return 0;
+}
+static int clk_set_rate(void *clk, unsigned long rate) {
+    rate_calls++; if (rate_error) return rate_error;
+    observed_rate = on_oscillator ? rate : 11948276; return 0;
+}
+/* ACTUAL_ADOPTION */
+static void reset(void) {
+    state.dev = &dev; state.boot_running = true;
+    state.clk_pllref_fallback = &dev;
+    parent_calls = rate_calls = parent_error = rate_error = 0;
+    rejections = 0;
+    on_oscillator = false;
 }
 int main(void) {
     u32 rate = 0;
     const unsigned long valid[] = {27000000, 47250000, 6000000, 300000000};
     for (unsigned int i = 0; i < sizeof(valid) / sizeof(valid[0]); i++) {
-        state.boot_running = true; observed_rate = valid[i]; fallback_calls = 0;
-        assert(adopt(&rate, 6000, 300000) == 0);
-        assert(rate == observed_rate / 1000 && fallback_calls == 0);
+        reset(); observed_rate = valid[i];
+        assert(sec_dsim_determine_pll_ref_rate(&rate, 6000, 300000) == 0);
+        assert(rate == observed_rate / 1000 && !parent_calls && !rate_calls);
         assert(state.boot_running);
+        assert(!rejections);
     }
     const unsigned long invalid[] = {0, 5999000, 300001000, 11948276};
     for (unsigned int i = 0; i < sizeof(invalid) / sizeof(invalid[0]); i++) {
-        state.boot_running = true; observed_rate = invalid[i]; fallback_calls = 0;
-        assert(adopt(&rate, 6000, 300000) == -1);
-        assert(!state.boot_running && fallback_calls == 1);
+        reset(); observed_rate = invalid[i];
+        assert(sec_dsim_determine_pll_ref_rate(&rate, 6000, 300000) == 0);
+        assert(!state.boot_running && parent_calls == 1 && rate_calls == 1);
+        assert(rejections == 1);
+        assert(rate == 12000 && observed_rate == 12000000);
     }
-    state.boot_running = false; observed_rate = 27000000; fallback_calls = 0;
-    assert(adopt(&rate, 6000, 300000) == -1 && fallback_calls == 1);
+    reset(); state.boot_running = false; observed_rate = 27000000;
+    assert(sec_dsim_determine_pll_ref_rate(&rate, 6000, 300000) == 0);
+    assert(parent_calls == 1 && rate_calls == 1 && rate == 12000);
+    /* Reproduce714: retained video parent cannot supply the exact default. */
+    reset(); state.boot_running = false; state.clk_pllref_fallback = 0;
+    assert(sec_dsim_determine_pll_ref_rate(&rate, 6000, 300000) == -EINVAL);
+    assert(!parent_calls && rate_calls == 1 && observed_rate == 11948276);
+    reset(); state.boot_running = false; parent_error = -EIO;
+    assert(sec_dsim_determine_pll_ref_rate(&rate, 6000, 300000) == -EIO);
+    assert(parent_calls == 1 && !rate_calls);
+    reset(); state.boot_running = false; rate_error = -EIO;
+    assert(sec_dsim_determine_pll_ref_rate(&rate, 6000, 300000) == -EIO);
+    assert(parent_calls == 1 && rate_calls == 1);
 }
 '''
         with tempfile.TemporaryDirectory() as temp:
@@ -364,6 +474,11 @@ typedef struct { int counter; } atomic_t;
 #define EXPORT_SYMBOL_GPL(name)
 static int atomic_read(const atomic_t *p) { return p->counter; }
 static void atomic_set(atomic_t *p, int v) { p->counter = v; }
+static int atomic_xchg(atomic_t *p, int v) {
+    int old = p->counter; p->counter = v; return old;
+}
+static int reject_logs;
+#define pr_info(...) (reject_logs++)
 static void atomic_or(unsigned int v, atomic_t *p) { p->counter |= v; }
 static bool of_machine_is_compatible(const char *s) { return machine; }
 static struct device_node *of_find_node_by_path(const char *s) {
@@ -396,6 +511,7 @@ static void of_node_put(struct device_node *n) { refs--; }
 /* ACTUAL_SHARED_OUTCOME */
 static void defaults(void) {
     machine = available = compatible = map = exists = phandle = region_exists = true;
+    reject_logs = 0;
     atomic_set(&dt510_boot_failed, 0); atomic_set(&dt510_boot_claims, 0);
     /* Actual descriptor from image712, not an idealised CEA timing fixture. */
     address = 0xbce00000; region.base = address; region.size = 0x11e0000;
@@ -417,6 +533,7 @@ int main(void) {
     dt510_boot_display_claim(DT510_BOOT_LT9611);
     assert(dt510_boot_display_retained());
     dt510_boot_display_reject(); assert(!dt510_boot_display_retained());
+    dt510_boot_display_reject(); assert(reject_logs == 1);
     check(false); defaults();
     machine = false; check(false); defaults();
     available = false; check(false); defaults();
