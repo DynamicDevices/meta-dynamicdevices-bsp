@@ -14,6 +14,9 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
 COMPATIBLE_MACHINE:imx8mm-jaguar-sentai = ".*"
 COMPATIBLE_MACHINE:imx8mm-jaguar-dt510 = ".*"
 
+# Only the headed DT510 kernel advertises the boot-display handover ABI.
+DTC_PPFLAGS:append:imx8mm-jaguar-dt510 = " ${@bb.utils.contains('DISTRO_FEATURES', 'display-boot-splash', '-DAESL_CONTINUOUS_DISPLAY', '', d)}"
+
 SRC_URI:append:imx8mm-jaguar-inst = " \
         file://imx8mm-jaguar-inst.dts \
 "

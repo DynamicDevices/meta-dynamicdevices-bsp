@@ -14,7 +14,42 @@ TX. This confirms physical output, not just the drawing command. Cold-start
 qualification remains outstanding. Preserve this polarity/timing/input-check
 baseline; the successful-splash-only ten-second TV-lock hold is unchanged.
 
-### Headed splash handover — 707 starts accelerated Weston; VT filter correction under test
+### Continuous handover candidate — not yet hardware accepted
+
+Image 708 (`095026718fa7de7d911c9494d9061e6ef0af37c7`) booted
+`5.0.9-708-96` with accelerated Weston and **no `console=tty1`**. A watched
+reboot showed splash → black → splash. The VT filter is fixed; display
+continuity is not. The 708 baseline still shuts down and reinitializes HDMI.
+
+The new DT510-only source candidate adds a versioned firmware/kernel contract.
+Only headed DTBs advertise `aesl,continuous-display-v1`. U-Boot reserves its
+whole video allocation as no-map memory, publishes geometry/register metadata
+and leaves LCDIF/DSIM running only after reservation and framebuffer sync
+succeed. The handover also leaves DSI clock defaults unchanged: U-Boot uses
+27 MHz, whereas normal Linux DT defaults would switch the reference to 12 MHz
+before probe. A failed handover restores those normal defaults. Older/rollback
+DTBs retain normal teardown. Linux validates the
+descriptor, reservation and 720p timings, counts clock/runtime-PM ownership,
+avoids initial power-domain/bridge resets when hardware is already running,
+retains its bootstrap reference across deferred component binds, and skips
+the blank fbdev commit only when every display component reports adoption.
+A read-only DRM-device `aesl_boot_display` attribute reports `retained` or
+`fallback`; PSplash consumes that runtime outcome, not firmware status alone.
+Power failures are rejected during the error-returning atomic check, with
+additional framebuffer/vblank guards against an unclocked enable. A matching first native framebuffer is
+selected through LCDIF NEXT_BUF; invalid state/modes use normal initialization.
+Reserved firmware memory is never freed as a Linux DMA allocation.
+
+PSplash remains a fallback, but does not redraw a retained boot display. Weston
+keeps G2D and waits for a committed desktop background buffer before its first
+repaint; startup fading is disabled. A 15-second desktop-client timeout releases
+that wait rather than hanging startup. Headless images and other boards retain
+their existing paths. No saved environment, storage layout or OTA selection is
+changed. Native fixtures and cross-builds are not physical continuity proof:
+the target kernel/compositor build, independent review, watched warm/cold boots
+and recovery/mode-change tests remain required before acceptance.
+
+### Earlier headed startup — 707 and the VT-filter correction
 
 707 passed and booted image `5.0.9-707-96`, deployment
 `67a77fbea6336cdba72ff33f2cff045de71d1b61090fca73289ce67e49a6f96a`.
@@ -78,7 +113,7 @@ root oneshot sends QUIT after Weston's systemd READY notification; missing or
 failed PSplash does not prevent desktop startup. READY is compositor readiness,
 not independent evidence that the desktop background has reached the TV.
 
-**No pixel-continuous handover claim:** U-Boot still safely tears down its
+**708 baseline, not a pixel-continuous handover:** U-Boot safely tears down its
 LCDIF/DMA before Linux, and Linux reinitializes the display. Leaving DMA running
 without reserving its framebuffer is unsafe. A blank interval may remain even
 with all console text suppressed. Watched serial/TV testing must check splash,

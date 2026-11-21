@@ -18,7 +18,7 @@ SRC_URI:append:imx8mm-jaguar-dt510 = " \
     file://disable-se050-debug.cfg \
     file://uart4-rdc-assignment.cfg \
     ${@bb.utils.contains('ENABLE_BOOT_PROFILING', '1', 'file://enable_boot_profiling.cfg', '', d)} \
-    ${@bb.utils.contains('MACHINE_FEATURES', 'hdmi-boot-splash', 'file://02-dt510-lt9611-splash.patch file://lt9611-dt510.c file://dt510-hdmi.dtsi file://imx8mm-jaguar-dt510-uboot.dts file://imx8mm-jaguar-dt510-uboot-u-boot.dtsi file://hdmi-splash.cfg', '', d)} \
+    ${@bb.utils.contains('MACHINE_FEATURES', 'hdmi-boot-splash', 'file://02-dt510-lt9611-splash.patch file://03-dt510-reserved-display-handover.patch file://lt9611-dt510.c file://dt510-hdmi.dtsi file://imx8mm-jaguar-dt510-uboot.dts file://imx8mm-jaguar-dt510-uboot-u-boot.dtsi file://hdmi-splash.cfg', '', d)} \
 "
 
 do_configure:prepend:imx8mm-jaguar-dt510() {
@@ -29,6 +29,7 @@ do_configure:prepend:imx8mm-jaguar-dt510() {
         install -m 0644 ${WORKDIR}/imx8mm-jaguar-dt510-uboot-u-boot.dtsi ${S}/arch/arm/dts/
     fi
 }
+
 
 SRC_URI:append:imx8mm-jaguar-inst = " \
     file://custom-dtb.cfg \

@@ -1,0 +1,170 @@
+Subject: [PATCH] video: DT510 reserve boot scanout before retaining the pipeline
+
+Upstream-Status: Inappropriate [DT510 firmware handover ABI]
+Assisted-by: Briar
+
+diff --git a/drivers/video/mxsfb.c b/drivers/video/mxsfb.c
+--- a/drivers/video/mxsfb.c
++++ b/drivers/video/mxsfb.c
+@@ -27,6 +27,9 @@
+ #include <video_bridge.h>
+ #include <video_link.h>
+ #include <display.h>
++#include <fdt_support.h>
++#include <fdtdec.h>
++#include <linux/libfdt.h>
+ 
+ #include "videomodes.h"
+ #include <dm/device-internal.h>
+@@ -40,7 +43,120 @@
+ struct mxsfb_priv {
+ 	fdt_addr_t reg_base;
+ 	struct udevice *disp_dev;
++	bool os_handover;
+ };
++
++/* Called on the final Linux FDT, before DM_REMOVE_OS_PREPARE. Never save env.
++ * The kernel must explicitly advertise this ABI: an older/rollback DTB keeps
++ * the established shutdown/reset path even when the bootloader is newer.
++ */
++int dt510_video_handover(void *blob)
++{
++	static const u32 offsets[] = { 0x00, 0x10, 0x30, 0x40,
++				     0x50, 0x70, 0x80, 0x90, 0xa0, 0xb0 };
++	struct udevice *dev;
++	struct mxsfb_priv *priv;
++	struct video_uc_plat *plat;
++	struct video_priv *video;
++	struct fdt_memory mem;
++	fdt32_t regs[ARRAY_SIZE(offsets)];
++	u32 phandle;
++	int node, chosen, ret, i;
++	int dsi, parents_len, rates_len;
++	void *parents, *rates;
++	u8 saved_parents[32], saved_rates[16];
++
++	if (!IS_ENABLED(CONFIG_VIDEO_LT9611_DT510) || !video_is_active())
++		return 0;
++	ret = uclass_first_device_err(UCLASS_VIDEO, &dev);
++	if (ret || strcmp(dev->driver->name, "mxs_video"))
++		return -ENODEV;
++	priv = dev_get_priv(dev);
++	priv->os_handover = false;
++	if (fdt_node_check_compatible(blob, 0, "fsl,imx8mm-jaguar-dt510") ||
++	    !fdt_getprop(blob, 0, "aesl,continuous-display-v1", NULL))
++		return 0;
++	plat = dev_get_uclass_plat(dev);
++	video = dev_get_uclass_priv(dev);
++	if (!priv->disp_dev ||
++	    !device_is_compatible(priv->disp_dev, "fsl,imx8mm-mipi-dsim") ||
++	    video->xsize != 1280 || video->ysize != 720 ||
++	    video->bpix != VIDEO_BPP32 || !plat->base ||
++	    plat->base < gd->video_bottom ||
++	    plat->base + 1280 * 720 * 4 > gd->video_top ||
++	    !(readl(priv->reg_base) & BIT(0)) ||
++	    readl(priv->reg_base + 0x40) != plat->base)
++		return -EINVAL;
++
++	/* Reserve the whole video allocation, not only visible pixels. LCDIF
++	 * must never scan RAM which Linux's allocator can give to another user.
++	 */
++	mem.start = gd->video_bottom;
++	mem.end = gd->video_top - 1;
++	ret = fdtdec_add_reserved_memory(blob, "aesl-boot-display", &mem,
++			NULL, 0, &phandle, FDTDEC_RESERVED_MEMORY_NO_MAP);
++	if (ret)
++		return ret;
++	chosen = fdt_path_offset(blob, "/chosen");
++	if (chosen < 0)
++		return chosen;
++	node = fdt_add_subnode(blob, chosen, "aesl-boot-display");
++	if (node < 0)
++		return node;
++	ret = fdt_setprop_string(blob, node, "status", "disabled");
++	if (ret)
++		return ret;
++	for (i = 0; i < ARRAY_SIZE(offsets); i++)
++		regs[i] = cpu_to_fdt32(readl(priv->reg_base + offsets[i]));
++	ret = fdt_setprop_string(blob, node, "compatible", "aesl,dt510-handover-v1");
++	ret |= fdt_setprop_u32(blob, node, "memory-region", phandle);
++	ret |= fdt_setprop_u64(blob, node, "framebuffer-address", plat->base);
++	ret |= fdt_setprop_u32(blob, node, "width", 1280);
++	ret |= fdt_setprop_u32(blob, node, "height", 720);
++	ret |= fdt_setprop_u32(blob, node, "stride", 1280 * 4);
++	ret |= fdt_setprop_string(blob, node, "format", "x8r8g8b8");
++	ret |= fdt_setprop(blob, node, "lcdif-registers", regs, sizeof(regs));
++	if (ret)
++		return -EINVAL;
++	ret = video_sync(dev, true);
++	if (ret)
++		return ret;
++
++	/* OF clock defaults run before the native driver probes. Linux's
++	 * normal DT selects 12 MHz from OSC24M, but this boot DSIM is already
++	 * locked to 27 MHz from VIDEO_PLL. Zero means "leave unchanged" to
++	 * of_clk_set_defaults(). Keep property lengths/clock indices intact.
++	 * All allocating operations have finished before this in-place step.
++	 */
++	dsi = fdt_node_offset_by_compatible(blob, -1, "fsl,imx8mm-mipi-dsim");
++	if (dsi < 0)
++		return dsi;
++	parents = fdt_getprop_w(blob, dsi, "assigned-clock-parents", &parents_len);
++	rates = fdt_getprop_w(blob, dsi, "assigned-clock-rates", &rates_len);
++	if (!parents || !rates || parents_len <= 0 || rates_len <= 0 ||
++	    parents_len > sizeof(saved_parents) || rates_len > sizeof(saved_rates) ||
++	    parents_len % sizeof(fdt32_t) || rates_len % sizeof(fdt32_t))
++		return -EINVAL;
++	memcpy(saved_parents, parents, parents_len);
++	memcpy(saved_rates, rates, rates_len);
++	memset(parents, 0, parents_len);
++	memset(rates, 0, rates_len);
++	/* Commit last: neither a partial descriptor nor a failed reservation
++	 * permits retaining DMA. No simplefb driver owns this descriptor.
++	 */
++	ret = fdt_setprop_string(blob, node, "status", "okay");
++	if (!ret) {
++		priv->os_handover = true;
++		printf("AESL HDMI handover: reserved framebuffer, preserving scanout\n");
++	} else {
++		/* A failed libfdt update leaves offsets/data unchanged. Restore
++		 * normal clock defaults along with the existing disabled marker.
++		 */
++		memcpy(parents, saved_parents, parents_len);
++		memcpy(rates, saved_rates, rates_len);
++	}
++	return ret;
++}
+ 
+ struct mxs_dma_desc desc;
+ 
+@@ -476,6 +592,9 @@
+ 
+ 	debug("%s\n", __func__);
+ 
++	if (priv->os_handover)
++		return 0;
++
+ 	if (priv->disp_dev)
+ 		device_remove(priv->disp_dev, DM_REMOVE_NORMAL);
+ 
+diff --git a/arch/arm/mach-imx/imx8m/soc.c b/arch/arm/mach-imx/imx8m/soc.c
+--- a/arch/arm/mach-imx/imx8m/soc.c
++++ b/arch/arm/mach-imx/imx8m/soc.c
+@@ -1668,8 +1668,17 @@
+ 	return 0;
+ }
+ 
++#if defined(CONFIG_VIDEO_LT9611_DT510) && !defined(CONFIG_SPL_BUILD)
++int dt510_video_handover(void *blob);
++#endif
++
+ int ft_system_setup(void *blob, struct bd_info *bd)
+ {
++#if defined(CONFIG_VIDEO_LT9611_DT510) && !defined(CONFIG_SPL_BUILD)
++	/* Display failure must never change boot selection or prevent boot. */
++	if (dt510_video_handover(blob))
++		printf("AESL HDMI handover unavailable; using normal display reset\n");
++#endif
+ #ifdef CONFIG_IMX8MQ
+ 	int i = 0;
+ 	int rc;

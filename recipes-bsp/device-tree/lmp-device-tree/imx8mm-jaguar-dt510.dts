@@ -72,6 +72,10 @@
 #include <dt-bindings/clock/imx8mm-clock.h>
 
 / {
+#ifdef AESL_CONTINUOUS_DISPLAY
+	/* Versioned opt-in; absent in headless/manufacturing images. */
+	aesl,continuous-display-v1;
+#endif
 	model = "i.MX8MM Jaguar DT510 board";
 	compatible = "fsl,imx8mm-jaguar-dt510", "fsl,imx8mm-evkb", "fsl,imx8mm-evk", "fsl,imx8mm";
 

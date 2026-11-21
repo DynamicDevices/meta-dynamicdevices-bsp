@@ -60,6 +60,9 @@ jobs:
           FAIL_ON_HIGH: ${{ github.event_name == 'workflow_dispatch' && inputs.fail_on_high && '1' || '0' }}
         run: ./scripts/yocto-lens-ci.sh
 
+      - name: Execute native DT510 handover admission fixtures
+        run: python3 scripts/test-dt510-display-handover.py
+
       - name: Upload JSON report
         if: always()
         uses: actions/upload-artifact@v4
