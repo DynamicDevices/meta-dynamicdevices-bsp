@@ -14,7 +14,22 @@ TX. This confirms physical output, not just the drawing command. Cold-start
 qualification remains outstanding. Preserve this polarity/timing/input-check
 baseline; the successful-splash-only ten-second TV-lock hold is unchanged.
 
-### Headed splash handover — 706 installed; correction under test
+### Headed splash handover — 707 starts accelerated Weston; VT filter correction under test
+
+707 passed and booted image `5.0.9-707-96`, deployment
+`67a77fbea6336cdba72ff33f2cff045de71d1b61090fca73289ce67e49a6f96a`.
+Weston started with G2D, HDMI-A-1 enabled and the packaged active-seat GPU rule;
+no temporary `/run` rule was present. PSplash released successfully. The running
+command line included the new splash/mode flags but still `console=tty1`.
+
+Cause reproduced against U-Boot's exact pinned SLRE source: bracket expressions
+are literal sets, not POSIX ranges. `[0-9]` matches `0`, `-` or `9`, not `1`.
+The corrected script spells out `[0123456789]`. The native regression verifies
+the pinned engine's source hashes, reproduces 707's failure and tests all VT
+numbers 0–63, serial/root/OTA preservation, multiple sinks and failure paths.
+CI runs the same real-engine test. This is not a full Hush or physical boot test;
+the host-native sandbox build was unavailable because its Python device-tree
+tool dependencies were not installed. No board reboot or live change was made.
 
 Image 706 selects the headed distro and includes the splash/Weston payload.
 It exposed two independent integration defects: Weston G2D cannot open the
@@ -38,8 +53,8 @@ UID63 start using `g2d-renderer.so`; HDMI-A-1 enabled the Panasonic output and
 the desktop shell ran. PSplash exited successfully after Weston became ready.
 The named ACL granted weston rw with group/other denied; a non-active `nobody`
 identity could not read/write galcore. Session-switch revocation was not tested.
-The rule is temporary under `/run`, so this is not a fixed startup image or
-physical acceptance of the background/continuous handover. No new build yet.
+That test used a temporary `/run` rule; 707's subsequent startup above proves
+the packaged rule works without it. Neither proves continuous handover.
 
 The distro's `display-boot-splash` feature now follows the `display` product
 bundle by default on machines explicitly marked `display-multimedia` (DT510

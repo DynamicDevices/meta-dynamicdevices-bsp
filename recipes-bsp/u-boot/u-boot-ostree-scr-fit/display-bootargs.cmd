@@ -1,8 +1,9 @@
 # Filter exact numbered VT consoles only; retain serial and deployment tokens.
 # setexpr regex is already required by the upstream OSTree boot header.
+# U-Boot's SLRE treats bracket contents as a literal set: no [0-9] ranges.
 setenv aesl_display_args
 for aesl_display_arg in ${bootargs}; do
-    if setexpr aesl_display_keep sub "^console=tty[0-9]+$" "AESL_VT" "${aesl_display_arg}"; then
+    if setexpr aesl_display_keep sub "^console=tty[0123456789]+$" "AESL_VT" "${aesl_display_arg}"; then
         # Only a successful exact VT match is discarded.
         true
     else
