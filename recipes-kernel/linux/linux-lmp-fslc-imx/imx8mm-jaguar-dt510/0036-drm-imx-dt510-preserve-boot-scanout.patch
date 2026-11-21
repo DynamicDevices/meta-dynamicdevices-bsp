@@ -3,6 +3,10 @@ Subject: [PATCH] drm/imx: DT510 take over reserved boot scanout without a reset
 Upstream-Status: Inappropriate [DT510 firmware handover ABI]
 Assisted-by: Briar
 
+The retained 720p mode uses the SEC DSIM four-lane sync-pulse adjustment:
+112 pixels of horizontal front porch and 1652 pixels per line. Validate
+the actual U-Boot and Linux adjusted timing, not the unadjusted CEA mode.
+
 diff --git a/drivers/gpu/imx/lcdif/lcdif-common.c b/drivers/gpu/imx/lcdif/lcdif-common.c
 --- a/drivers/gpu/imx/lcdif/lcdif-common.c
 +++ b/drivers/gpu/imx/lcdif/lcdif-common.c
@@ -1175,7 +1179,7 @@ new file mode 100644
 +	    boot->lcdif[3] != boot->address || !(boot->lcdif[0] & BIT(0)) ||
 +	    boot->lcdif[2] != ((720U << 16) | 1280) ||
 +	    (boot->lcdif[5] & 0x3ffff) != 5 || boot->lcdif[6] != 750 ||
-+	    boot->lcdif[7] != ((40U << 18) | 1650) ||
++	    boot->lcdif[7] != ((40U << 18) | 1652) ||
 +	    boot->lcdif[8] != ((260U << 16) | 25) ||
 +	    (boot->lcdif[9] & 0x3ffff) != 1280)
 +		goto out;
@@ -1196,7 +1200,7 @@ new file mode 100644
 +static inline bool dt510_boot_mode_matches(const struct videomode *vm)
 +{
 +	return vm->pixelclock == 74250000 && vm->hactive == 1280 &&
-+		vm->hfront_porch == 110 && vm->hsync_len == 40 &&
++		vm->hfront_porch == 112 && vm->hsync_len == 40 &&
 +		vm->hback_porch == 220 && vm->vactive == 720 &&
 +		vm->vfront_porch == 5 && vm->vsync_len == 5 &&
 +		vm->vback_porch == 20 &&

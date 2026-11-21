@@ -7,6 +7,7 @@ kernel build or a simulated TV.
 """
 from pathlib import Path
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -25,6 +26,62 @@ def added_file(patch, name):
 
 
 class HandoverTest(unittest.TestCase):
+    def test_uboot_four_lane_timing_matches_retained_mode(self):
+        bridge = (ROOT / 'recipes-bsp/u-boot/u-boot-fio/imx8mm-jaguar-dt510/lt9611-dt510.c').read_text()
+        timing = bridge.split('static const struct display_timing lt9611_timing = {', 1)[1].split('};', 1)[0]
+        fields = {name: int(value) for name, value in re.findall(
+            r'\.(hactive|hfront_porch|hsync_len|hback_porch) = \{ (\d+),', timing)}
+        self.assertEqual(fields['hfront_porch'], 112)
+        self.assertEqual(sum(fields.values()), 1652)
+
+    def test_compiled_dsim_reference_adoption_does_not_set_rate(self):
+        # Execute the shipped adoption block. The non-handover/default branch
+        # remains separate; never turn off strict clock validation globally.
+        part = PATCH.read_text().split('+++ b/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c\n', 1)[1]
+        part = part.split('\ndiff --git ', 1)[0]
+        part = part.split(' set_rate:\n', 1)[1].split(' \tret = clk_set_rate', 1)[0]
+        adoption = '\n'.join(line[1:] for line in part.splitlines() if line.startswith('+'))
+        fixture = r'''
+#include <assert.h>
+#include <stdbool.h>
+#include <stdint.h>
+typedef uint32_t u32;
+struct { bool boot_running; void *clk_pllref; } state, *dsim_dev = &state;
+static unsigned long observed_rate;
+static int fallback_calls;
+static unsigned long clk_get_rate(void *clk) { return observed_rate; }
+static int adopt(u32 *rate, u32 min, u32 max) {
+    unsigned long get_rate;
+    /* ACTUAL_ADOPTION */
+    fallback_calls++;
+    return -1;
+}
+int main(void) {
+    u32 rate = 0;
+    const unsigned long valid[] = {27000000, 47250000, 6000000, 300000000};
+    for (unsigned int i = 0; i < sizeof(valid) / sizeof(valid[0]); i++) {
+        state.boot_running = true; observed_rate = valid[i]; fallback_calls = 0;
+        assert(adopt(&rate, 6000, 300000) == 0);
+        assert(rate == observed_rate / 1000 && fallback_calls == 0);
+        assert(state.boot_running);
+    }
+    const unsigned long invalid[] = {0, 5999000, 300001000, 11948276};
+    for (unsigned int i = 0; i < sizeof(invalid) / sizeof(invalid[0]); i++) {
+        state.boot_running = true; observed_rate = invalid[i]; fallback_calls = 0;
+        assert(adopt(&rate, 6000, 300000) == -1);
+        assert(!state.boot_running && fallback_calls == 1);
+    }
+    state.boot_running = false; observed_rate = 27000000; fallback_calls = 0;
+    assert(adopt(&rate, 6000, 300000) == -1 && fallback_calls == 1);
+}
+'''
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / 'clock.c').write_text(fixture.replace('/* ACTUAL_ADOPTION */', adoption))
+            subprocess.run(['cc', '-std=c11', '-Werror', str(root / 'clock.c'),
+                            '-o', str(root / 'clock')], check=True)
+            subprocess.run([str(root / 'clock')], check=True)
+
     def test_git_index_applies_new_header_and_rejects_missing_metadata(self):
         patch = PATCH.read_text()
         header_diff = patch[patch.index('diff --git a/include/video/dt510-handover.h '):]
@@ -255,11 +312,12 @@ static void of_node_put(struct device_node *n) { refs--; }
 static void defaults(void) {
     machine = available = compatible = map = exists = phandle = region_exists = true;
     atomic_set(&dt510_boot_failed, 0); atomic_set(&dt510_boot_claims, 0);
-    address = 0xbf000000; region.base = address; region.size = 16 * 1024 * 1024;
+    /* Actual descriptor from image712, not an idealised CEA timing fixture. */
+    address = 0xbce00000; region.base = address; region.size = 0x11e0000;
     width = 1280; height = 720; stride = 5120; format = "x8r8g8b8";
-    memset(regs, 0, sizeof(regs)); regs[0] = 1; regs[3] = address; missing = 0;
-    regs[2] = (720U << 16) | 1280; regs[5] = 5; regs[6] = 750;
-    regs[7] = (40U << 18) | 1650; regs[8] = (260U << 16) | 25; regs[9] = 1280;
+    const u32 captured[] = {0xa0f21, 0x70300, 0x2d00500, 0xbce00000,
+        0xbce00000, 0x10300005, 0x2ee, 0xa00674, 0x1040019, 0x40500};
+    memcpy(regs, captured, sizeof(regs)); missing = 0;
     assert(refs == 0);
 }
 static void check(bool expected) {
@@ -289,15 +347,17 @@ int main(void) {
     address = UINT32_MAX - 100; regs[3] = address; check(false); defaults();
     regs[0] = 0; check(false); defaults(); regs[3]++; check(false); defaults();
     regs[7]--; check(false); defaults();
+    regs[7] = (40U << 18) | 1650; check(false); defaults();
     region.size = 1280 * 720 * 4 - 1; check(false); defaults();
     region.base++; check(false); defaults();
     region.base = address - 4096; region.size = 1280 * 720 * 4; check(false); defaults();
     region.base = address - 4096; region.size = 1280 * 720 * 4 + 4096; check(true);
-    struct videomode vm = {74250000, 1280, 110, 40, 220, 720, 5, 5, 20, 3};
+    struct videomode vm = {74250000, 1280, 112, 40, 220, 720, 5, 5, 20, 3};
     assert(dt510_boot_mode_matches(&vm));
     for (u32 f = 0; f < 16; f++) { vm.flags = f; assert(dt510_boot_mode_matches(&vm) == (f == 3)); }
     vm.flags = 3; vm.pixelclock--; assert(!dt510_boot_mode_matches(&vm));
     vm.pixelclock++; vm.hfront_porch--; assert(!dt510_boot_mode_matches(&vm));
+    vm.hfront_porch = 110; assert(!dt510_boot_mode_matches(&vm));
     puts("kernel handover admission/mode policy PASS");
 }
 '''
