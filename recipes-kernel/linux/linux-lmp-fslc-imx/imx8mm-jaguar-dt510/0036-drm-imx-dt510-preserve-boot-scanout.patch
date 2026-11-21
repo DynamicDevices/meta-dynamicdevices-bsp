@@ -1116,6 +1116,7 @@ diff --git a/drivers/pmdomain/imx/imx8m-blk-ctrl.c b/drivers/pmdomain/imx/imx8m-
  	/* put devices into reset and disable clocks */
  	if (data->mipi_phy_rst_mask)
 diff --git a/include/video/dt510-handover.h b/include/video/dt510-handover.h
+new file mode 100644
 --- /dev/null
 +++ b/include/video/dt510-handover.h
 @@ -0,0 +1,85 @@

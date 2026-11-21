@@ -6,7 +6,9 @@ review, the target kernel build and a watched DT510 boot. These are not a
 kernel build or a simulated TV.
 """
 from pathlib import Path
+import os
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -23,6 +25,34 @@ def added_file(patch, name):
 
 
 class HandoverTest(unittest.TestCase):
+    def test_git_index_applies_new_header_and_rejects_missing_metadata(self):
+        patch = PATCH.read_text()
+        header_diff = patch[patch.index('diff --git a/include/video/dt510-handover.h '):]
+        broken = header_diff.replace('new file mode 100644\n', '')
+        self.assertNotEqual(header_diff, broken)
+        git = os.environ.get('GIT', 'git')
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            subprocess.run([git, '-C', temp, 'init', '-q'], check=True)
+            command = [git, '-C', temp, 'apply', '--check', '--index', '-']
+            rejected = subprocess.run(command, input=broken, text=True, capture_output=True)
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('dev/null', rejected.stderr)
+            subprocess.run(command, input=header_diff, text=True, check=True)
+            subprocess.run([git, '-C', temp, 'apply', '--index', '-'],
+                           input=header_diff, text=True, check=True)
+            actual = (root / 'include/video/dt510-handover.h').read_text()
+            self.assertEqual(actual, added_file(PATCH, 'include/video/dt510-handover.h'))
+            corrected = root / 'corrected.patch'
+            corrected.write_text(patch)
+            lint = [sys.executable, str(ROOT / 'scripts/kernel-patch-lint.py')]
+            subprocess.run(lint + [str(corrected)], check=True, capture_output=True)
+            malformed = root / 'missing-metadata.patch'
+            malformed.write_text(broken)
+            result = subprocess.run(lint + [str(malformed)], capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('new file mode', result.stderr)
+
     def test_compiled_dsim_irq_lifetime(self):
         part = PATCH.read_text().split('+++ b/drivers/gpu/drm/bridge/sec-dsim.c\n', 1)[1]
         part = part.split('\ndiff --git ', 1)[0]

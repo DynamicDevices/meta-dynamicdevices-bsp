@@ -8,6 +8,7 @@ from pathlib import Path
 ALLOWED_PREFIXES = (
     "diff --git ",
     "index ",
+    "new file mode ",
     "--- ",
     "+++ ",
     "@@ ",
@@ -30,7 +31,18 @@ def validate_patch(path: Path) -> list[str]:
     lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     errors: list[str] = []
     in_diff = False
+    git_section = False
+    new_file_mode = False
     for i, line in enumerate(lines, start=1):
+        if line.startswith("diff --git "):
+            in_diff = True
+            git_section = True
+            new_file_mode = False
+            continue
+        if git_section and line.startswith("new file mode "):
+            new_file_mode = True
+        if git_section and line == "--- /dev/null" and not new_file_mode:
+            errors.append(f"{path}:{i}: Git new-file diff lacks 'new file mode' metadata")
         if not in_diff:
             if line.startswith("diff --git ") or line.startswith("--- "):
                 in_diff = True
