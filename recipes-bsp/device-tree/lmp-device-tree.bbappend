@@ -17,6 +17,21 @@ COMPATIBLE_MACHINE:imx8mm-jaguar-dt510 = ".*"
 # Only the headed DT510 kernel advertises the boot-display handover ABI.
 DTC_PPFLAGS:append:imx8mm-jaguar-dt510 = " ${@bb.utils.contains('DISTRO_FEATURES', 'display-boot-splash', '-DAESL_CONTINUOUS_DISPLAY', '', d)}"
 
+# Check the compiled artifact, not merely the source-level preprocessor guard.
+# Manufacturing/headless images must not opt in to the handover ABI.
+python do_compile:append:imx8mm-jaguar-dt510() {
+    import os
+    import subprocess
+
+    dtb = os.path.join(d.getVar("B"), "imx8mm-jaguar-dt510.dtb")
+    properties = subprocess.check_output(
+        ["fdtget", "-p", dtb, "/"], text=True).splitlines()
+    expected = "display-boot-splash" in (d.getVar("DISTRO_FEATURES") or "").split()
+    actual = "aesl,continuous-display-v1" in properties
+    if actual != expected:
+        bb.fatal("DT510 compiled DTB handover opt-in does not match display-boot-splash")
+}
+
 SRC_URI:append:imx8mm-jaguar-inst = " \
         file://imx8mm-jaguar-inst.dts \
 "
