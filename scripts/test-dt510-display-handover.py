@@ -48,6 +48,8 @@ class HandoverTest(unittest.TestCase):
 #include <stdint.h>
 #include <string.h>
 typedef uint32_t u32;
+/* Linux's task macro must remain visible to the shipped detector. */
+#define current get_current()
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 #define LCDIF_CTRL 0
 #define LCDIF_CUR_BUF 0x40

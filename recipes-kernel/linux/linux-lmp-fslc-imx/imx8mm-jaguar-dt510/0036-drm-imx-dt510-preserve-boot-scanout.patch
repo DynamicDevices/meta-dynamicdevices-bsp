@@ -77,17 +77,17 @@ diff --git a/drivers/gpu/imx/lcdif/lcdif-common.c b/drivers/gpu/imx/lcdif/lcdif-
 +{
 +	static const u32 offsets[] = { 0x30, 0x70, 0x80, 0x90, 0xa0, 0xb0 };
 +	struct dt510_boot_display boot;
-+	u32 ctrl, current;
++	u32 ctrl, current_buf;
 +	int i;
 +
 +	if (!dt510_boot_display_read(&boot))
 +		return false;
 +	ctrl = readl(lcdif->base + LCDIF_CTRL);
-+	current = readl(lcdif->base + LCDIF_CUR_BUF);
-+	if (!(ctrl & CTRL_RUN) || current != boot.address ||
++	current_buf = readl(lcdif->base + LCDIF_CUR_BUF);
++	if (!(ctrl & CTRL_RUN) || current_buf != boot.address ||
 +	    CTRL_GET_WORD_LENGTH(ctrl) != 3) {
 +		dev_info(lcdif->dev, "AESL HDMI handover: LCDIF ctrl=%#x current=%#x expected=%#llx\n",
-+			 ctrl, current, (unsigned long long)boot.address);
++			 ctrl, current_buf, (unsigned long long)boot.address);
 +		return false;
 +	}
 +	for (i = 0; i < ARRAY_SIZE(offsets); i++) {
