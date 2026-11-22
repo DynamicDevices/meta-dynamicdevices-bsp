@@ -1,8 +1,35 @@
 # DT510 LT9611 HDMI bring-up
 
-Updated 21 November 2026 at Alex's request. Briar helped draft this.
+Updated 22 November 2026 at Alex's request. Briar helped draft this.
 
 ## Current state
+
+**Test baseline: build 718; residual handover blackout reported.**
+Three complete camera/serial-recorded warm reboots retained the AESL splash
+from U-Boot into accelerated Weston, without observed black/white handover
+frames or TV console. Linux reports `aesl_boot_display=retained`; the running
+compositor uses G2D. Alex accepted the physical camera's 5 fps cadence; the
+recordings cannot exclude events shorter than roughly 200 ms. Logo scale
+changes at desktop takeover, so this is not pixel-identical content acceptance.
+
+**Subsequent user observation:** Alex thinks a black period still occurs during
+handover and requested a separate issue for investigation another day. Treat
+that as unresolved; sampled footage and `retained` status do not justify claiming
+fully seamless operation. No additional reboot or investigation is scheduled.
+
+See the [DT510 HDMI handover test release](releases/dt510-hdmi-handover-test-1.md)
+for exact source/image identities, implemented fixes and remaining checks.
+The code used by build 718 is already published; later documentation/skill
+snapshot commits do not change that tested image. No boot selection, storage
+layout, security or OTA policy was changed during acceptance testing.
+
+The hardware oscillator repair (1 MΩ across the crystal) remains required on
+the tested prototype. Cold power-on, suspend/resume and broader GPIO/USB
+regression qualification remain open. The ten-second U-Boot diagnostic splash
+hold is still present; this is a test release, not production qualification.
+HDMI audio is physically unconnected on this board.
+
+## Earlier baselines and investigation
 
 **Working U-Boot baseline: build 704.** Alex visibly confirmed the splash on
 two consecutive watched warm reboots. BSP commit
@@ -14,7 +41,7 @@ TX. This confirms physical output, not just the drawing command. Cold-start
 qualification remains outstanding. Preserve this polarity/timing/input-check
 baseline; the successful-splash-only ten-second TV-lock hold is unchanged.
 
-### Continuous handover candidate — not yet hardware accepted
+### Historical continuous handover candidate — before build 718 acceptance
 
 Image 708 (`095026718fa7de7d911c9494d9061e6ef0af37c7`) booted
 `5.0.9-708-96` with accelerated Weston and **no `console=tty1`**. A watched
@@ -765,11 +792,10 @@ HDMI and 256 EDID bytes. Active 1080p scanout was observed during T2. This is no
 camera-confirmed picture acceptance. The test trace instance was removed;
 global `nop`/tracing-on settings remain unchanged, and no player was started.
 
-Raw private evidence is retained on the board at
-`/var/lib/dt510-hdmi-debug/t2-690-detect.YQZOuZ/` (trace, per-CPU stats, EDID and
-metadata), with local copy `/tmp/dt510-690-t2.kLs6MT/`. Trace SHA-256:
+Raw trace, per-CPU stats, EDID and metadata are retained in the private evidence
+archive indexed by the project checkpoint. Trace SHA-256:
 `8f484f2273e21b92c8d3409f0197594a41f0f42b2689cc1c298e18489b1e48f4`.
-The local reducer `/tmp/dt510-i2c-summary.py` uses parsed adapter/transfer fields
+The private local reducer uses parsed adapter/transfer fields
 and fixed success/failure/interleaved/no-match fixtures; it reports incomplete
 tails rather than treating them as successful transfers.
 
@@ -797,9 +823,8 @@ removed and global tracing settings were unchanged.
 This proves a late full I2C3 reinitialisation can work; it does not prove which
 first-startup condition differs or that reloading is an acceptable product fix.
 Trace phases use the trace `mono` clock; do not assume exact raw timestamp
-equivalence with kernel printk timestamps. Raw evidence:
-`/var/lib/dt510-hdmi-debug/t3-690-i2c3-rebind.3EM8CX/`, local copy
-`/tmp/dt510-690-t3.dMsmDm/`; trace SHA-256
+equivalence with kernel printk timestamps. Raw evidence is retained in the
+private archive indexed by the project checkpoint; trace SHA-256
 `95575719fe8848c30f44da631101bbe85e6d7d5139c3ba0c586b05df55b16282`.
 
 #### Diagnostic-only startup image: patch 0038
@@ -1058,7 +1083,7 @@ clock-switch write in **0.279 ms**, with zero failed transfers and zero trace
 overruns; connector detection and 256-byte EDID recovered. This is recovery,
 not a boot or visible-video acceptance pass. Both temporary boot-option changes
 were restored, and tracing was disabled. Boot and rebind traces were retained
-under `/var/lib/dt510-hdmi-debug/` on the development board. An earlier capture
+in the private evidence archive indexed by the project checkpoint. An earlier capture
 stopped on the switch's initial `-ENXIO`, so it is not HDMI failure evidence.
 
 The 687/688 controlled candidate restored shared I2C3 to **100 kHz**, instead of
@@ -1177,8 +1202,9 @@ is still needed to identify the underlying bus/register failure.
 ## Hardware recovery evidence — 16 November 2026
 
 Alex explicitly designated Michael's DT510 as development hardware and requested
-live diagnostics and driver-reload experiments. Device identity:
-`imx8mm-jaguar-dt510-1b1b6209dabc234a`, reported LAN address `192.168.2.205`.
+live diagnostics and driver-reload experiments on that development board.
+Connection details and its unique device identity remain in the private
+project checkpoint, not these public notes.
 Build 682 uses BSP `b3e99127bc1384ee66cab74519587f919bde3bde`, manifest
 `78692c1010d20e3a8f7e1a7161e5b999f4547eae`.
 
@@ -1339,7 +1365,7 @@ No other machine's driver build is changed.
 
 ## Michael's vendor archive
 
-Inspected `/home/ajlennon/Downloads/LT9611 6911.zip` as data only. No supplied
+Inspected Michael's supplied LT9611/6911 archive as data only. No supplied
 code or binaries were executed, and vendor files are not copied into this repo.
 Archive SHA-256:
 `ab81bb834688c862edf1adc35560369c2613ddd50bfcb298ae843e64eb9ce944`.
