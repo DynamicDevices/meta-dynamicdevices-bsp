@@ -26,6 +26,200 @@ def added_file(patch, name):
 
 
 class HandoverTest(unittest.TestCase):
+    def test_compiled_terminal_cleanup_rejects_before_releasing_boot_hold(self):
+        common = added_file(PATCH, 'drivers/gpu/imx/lcdif/lcdif-common.c')
+        lcdif = 'static void lcdif_boot_put(' + common.split(
+            'static void lcdif_boot_put(', 1)[1]
+        lcdif = lcdif[:lcdif.index('\n}', lcdif.index('{')) + 2]
+        glue = added_file(PATCH, 'drivers/gpu/drm/imx/sec_mipi_dsim-imx.c')
+        dsim = 'static void imx_sec_dsim_boot_put(' + glue.split(
+            'static void imx_sec_dsim_boot_put(', 1)[1].split(
+                'ret = pm_runtime_resume_and_get', 1)[0]
+        # added_file includes later additions; retain only the complete helper.
+        dsim = dsim[:dsim.index('\n}', dsim.index('{')) + 2]
+        bind_error = 'static int imx_sec_dsim_bind_error(' + glue.split(
+            'static int imx_sec_dsim_bind_error(', 1)[1]
+        bind_error = bind_error[:bind_error.index('\n}', bind_error.index('{')) + 2]
+        fixture = r'''
+#include <assert.h>
+#include <stdbool.h>
+#include <errno.h>
+#define EPROBE_DEFER 517
+struct lcdif_soc { bool boot_pm_ref; void *dev; } lcdif;
+struct imx_sec_dsim_device { bool boot_pm_ref; void *dev; } dsim;
+static struct imx_sec_dsim_device *dsim_dev = &dsim;
+static bool pending;
+static int rejects, puts;
+static bool dt510_boot_display_pending(void) { return pending; }
+static void dt510_boot_display_reject(void) { rejects++; pending = false; }
+static void pm_runtime_put_sync(void *dev) { assert(!pending); puts++; }
+/* ACTUAL_CLEANUP */
+int main(void) {
+    /* Client-creation failure and add_action_or_reset failure run this helper. */
+    pending = true; lcdif.boot_pm_ref = true;
+    lcdif_boot_put(&lcdif);
+    assert(rejects == 1 && puts == 1 && !lcdif.boot_pm_ref);
+    lcdif_boot_put(&lcdif); assert(rejects == 1 && puts == 1);
+    /* DSIM-only removal/devres cleanup must independently release pending state. */
+    pending = true; dsim.boot_pm_ref = true;
+    imx_sec_dsim_boot_put(&dsim);
+    assert(rejects == 2 && puts == 2 && !dsim.boot_pm_ref);
+    imx_sec_dsim_boot_put(&dsim); assert(rejects == 2 && puts == 2);
+    /* Normal native ownership transfer must not reject the retained descriptor. */
+    pending = false; lcdif.boot_pm_ref = true; lcdif_boot_put(&lcdif);
+    assert(rejects == 2 && puts == 3);
+    /* A deferred bind keeps its hold; an early terminal retry must release it. */
+    pending = true; dsim.boot_pm_ref = true;
+    assert(imx_sec_dsim_bind_error(-EPROBE_DEFER) == -EPROBE_DEFER);
+    assert(pending && dsim.boot_pm_ref && rejects == 2 && puts == 3);
+    assert(imx_sec_dsim_bind_error(-ENOMEM) == -ENOMEM);
+    assert(!pending && !dsim.boot_pm_ref && rejects == 3 && puts == 4);
+    /* Parse/encoder-init failures before acquisition still invalidate adoption. */
+    pending = true;
+    assert(imx_sec_dsim_bind_error(-EINVAL) == -EINVAL);
+    assert(!pending && !dsim.boot_pm_ref && puts == 4);
+}
+'''
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / 'cleanup.c').write_text(fixture.replace('/* ACTUAL_CLEANUP */',
+                                                          lcdif + '\n' + dsim + '\n' + bind_error))
+            subprocess.run(['cc', '-std=c11', '-Werror', str(root / 'cleanup.c'),
+                            '-o', str(root / 'cleanup')], check=True)
+            subprocess.run([str(root / 'cleanup')], check=True)
+        self.assertIn('disable_pm:\n+\tdt510_boot_display_reject();', PATCH.read_text())
+        removal = PATCH.read_text().split('static int imx_sec_dsim_remove(', 1)[1]
+        self.assertLess(removal.index('dt510_boot_display_reject();'),
+                        removal.index('component_del('))
+
+    def test_compiled_uboot_video_pll_default_selection(self):
+        source = added_file(UBOOT, 'drivers/video/mxsfb.c')
+        helper = 'static int dt510_video_pll_rate(' + source.split(
+            'static int dt510_video_pll_rate(', 1)[1].split('/* Called on', 1)[0]
+        fixture = r'''
+#include <assert.h>
+#include <stdint.h>
+#include <string.h>
+#include <errno.h>
+typedef uint32_t fdt32_t;
+typedef uint32_t u32;
+#define IMX8MM_VIDEO_PLL1 6
+#define fdt32_to_cpu(x) (x)
+static fdt32_t clocks[18], rates[9], cells;
+static int len, rate_len, cells_len, ccm_error, missing;
+static u32 phandle;
+static int fdt_node_offset_by_compatible(void *b, int n, const char *s) {
+    return ccm_error ? ccm_error : 7;
+}
+static u32 fdt_get_phandle(void *b, int n) { return phandle; }
+static const fdt32_t *fdt_getprop(void *b, int n, const char *s, int *l) {
+    if (!strcmp(s, "#clock-cells")) { *l = cells_len; return &cells; }
+    *l = len; return missing == 1 ? 0 : clocks;
+}
+static fdt32_t *fdt_getprop_w(void *b, int n, const char *s, int *l) {
+    *l = rate_len; return missing == 2 ? 0 : rates;
+}
+/* ACTUAL_PLL_SELECTION */
+static void reset(void) {
+    len = sizeof(clocks); rate_len = sizeof(rates); cells_len = sizeof(cells);
+    cells = 1; phandle = 12; ccm_error = missing = 0;
+    const u32 defaults[] = {0, 0, 0, 400000000, 400000000, 750000000,
+                            1039500000, 393216000, 361267200};
+    memcpy(rates, defaults, sizeof(rates));
+    for (int i = 0; i < 9; i++) { clocks[2*i] = phandle; clocks[2*i+1] = i; }
+}
+int main(void) {
+    fdt32_t *rate = 0, original[9];
+    reset(); memcpy(original, rates, sizeof(rates));
+    assert(!dt510_video_pll_rate(0, &rate) && rate == &rates[6]);
+    assert(!memcmp(original, rates, sizeof(rates)));
+    *rate = 0;
+    for (int i = 0; i < 9; i++) if (i != 6) assert(rates[i] == original[i]);
+    /* Failed final ABI commit restores precisely the saved upstream rate. */
+    *rate = original[6]; assert(!memcmp(original, rates, sizeof(rates)));
+    reset(); cells = 2; assert(dt510_video_pll_rate(0, &rate) == -EINVAL);
+    reset(); len--; assert(dt510_video_pll_rate(0, &rate) == -EINVAL);
+    reset(); rate_len--; assert(dt510_video_pll_rate(0, &rate) == -EINVAL);
+    reset(); clocks[0]++; assert(dt510_video_pll_rate(0, &rate) == -EINVAL);
+    reset(); phandle = 0; assert(dt510_video_pll_rate(0, &rate) == -EINVAL);
+    reset(); missing = 1; assert(dt510_video_pll_rate(0, &rate) == -EINVAL);
+    reset(); missing = 2; assert(dt510_video_pll_rate(0, &rate) == -EINVAL);
+    reset(); clocks[13] = 99; assert(dt510_video_pll_rate(0, &rate) == -ENOENT);
+    reset(); ccm_error = -ENOENT; assert(dt510_video_pll_rate(0, &rate) == -ENOENT);
+}
+'''
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / 'pll.c').write_text(fixture.replace('/* ACTUAL_PLL_SELECTION */', helper))
+            subprocess.run(['cc', '-std=c11', '-Werror', str(root / 'pll.c'),
+                            '-o', str(root / 'pll')], check=True)
+            subprocess.run([str(root / 'pll')], check=True)
+
+    def test_compiled_power_off_waits_for_takeover(self):
+        patch = PATCH.read_text()
+        gpc = patch.split('@@ -460,', 1)[1].split('\n', 1)[1].split('@@', 1)[0]
+        gpc = gpc.split('\ndiff --git ', 1)[0]
+        gpc = '\n'.join(line[1:] for line in gpc.splitlines()
+                        if line.startswith(('+', ' ')))
+        gpc = gpc.split('/* Enable reset clocks', 1)[0]
+        blk = patch.split('@@ -194,', 1)[1].split('\n', 1)[1].split('@@', 1)[0]
+        blk = blk.split('\ndiff --git ', 1)[0]
+        blk = '\n'.join(line[1:] for line in blk.splitlines()
+                        if line.startswith(('+', ' ')))
+        blk = blk.split('/* put devices into reset', 1)[0]
+        fixture = r'''
+#include <assert.h>
+#include <stdbool.h>
+#include <string.h>
+#include <errno.h>
+struct generic_pm_domain { const char *name; } genpd;
+struct data { const char *name; int num_clks; } description;
+struct domain { bool boot_clocks; void *clks, *power_dev; } domain_state;
+static bool pending;
+static int releases;
+static bool dt510_boot_display_pending(void) { return pending; }
+#define dev_info(...) ((void)0)
+#define pr_info(...) ((void)0)
+static void clk_bulk_disable_unprepare(int n, void *c) { releases++; }
+static int gpc_off(struct generic_pm_domain *genpd) {
+    /* ACTUAL_GPC_GUARD */
+    return 0;
+}
+static int blk_off(void) {
+    struct domain *domain = &domain_state;
+    struct data *data = &description;
+    void *bc = 0;
+    /* ACTUAL_BLK_GUARD */
+    return 0;
+}
+int main(void) {
+    pending = true; genpd.name = "dispmix";
+    assert(gpc_off(&genpd) == -EBUSY);
+    genpd.name = "mipi"; assert(gpc_off(&genpd) == -EBUSY);
+    genpd.name = "gpu"; assert(!gpc_off(&genpd));
+    domain_state.power_dev = &genpd; domain_state.boot_clocks = true;
+    description.name = "dispblk-mipi-dsi";
+    assert(blk_off() == -EBUSY && !releases && domain_state.boot_clocks);
+    description.name = "dispblk-lcdif";
+    assert(blk_off() == -EBUSY && !releases && domain_state.boot_clocks);
+    /* Rejection, absent/invalid descriptor, or first native frame releases it. */
+    pending = false; genpd.name = "dispmix"; assert(!gpc_off(&genpd));
+    assert(!blk_off() && releases == 1 && !domain_state.boot_clocks);
+    assert(!blk_off() && releases == 1);
+    pending = true; description.name = "unrelated";
+    domain_state.boot_clocks = true;
+    assert(!blk_off() && releases == 2);
+    domain_state.power_dev = 0; assert(blk_off() == -ENODEV);
+}
+'''
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / 'off.c').write_text(fixture.replace('/* ACTUAL_GPC_GUARD */', gpc)
+                                      .replace('/* ACTUAL_BLK_GUARD */', blk))
+            subprocess.run(['cc', '-std=c11', '-Werror', str(root / 'off.c'),
+                            '-o', str(root / 'off')], check=True)
+            subprocess.run([str(root / 'off')], check=True)
+
     def test_compiled_uboot_removal_keeps_admitted_power_domain(self):
         part = UBOOT.read_text().split('+++ b/drivers/core/device-remove.c\n', 1)[1]
         part = part.split('\ndiff --git ', 1)[0]
@@ -694,6 +888,7 @@ static void defaults(void) {
     machine = available = compatible = map = exists = phandle = region_exists = true;
     reject_logs = 0;
     atomic_set(&dt510_boot_failed, 0); atomic_set(&dt510_boot_claims, 0);
+    atomic_set(&dt510_boot_taken_over, 0);
     /* Actual descriptor from image712, not an idealised CEA timing fixture. */
     address = 0xbce00000; region.base = address; region.size = 0x11e0000;
     width = 1280; height = 720; stride = 5120; format = "x8r8g8b8";
@@ -708,12 +903,17 @@ static void check(bool expected) {
 }
 int main(void) {
     defaults(); check(true);
+    assert(dt510_boot_display_pending());
+    dt510_boot_display_takeover();
+    assert(!dt510_boot_display_pending()); check(true);
+    defaults();
     assert(!dt510_boot_display_retained());
     dt510_boot_display_claim(DT510_BOOT_LCDIF | DT510_BOOT_DSIM);
     assert(!dt510_boot_display_retained());
     dt510_boot_display_claim(DT510_BOOT_LT9611);
     assert(dt510_boot_display_retained());
     dt510_boot_display_reject(); assert(!dt510_boot_display_retained());
+    assert(!dt510_boot_display_pending());
     dt510_boot_display_reject(); assert(reject_logs == 1);
     check(false); defaults();
     machine = false; check(false); defaults();

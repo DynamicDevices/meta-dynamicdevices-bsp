@@ -6,22 +6,59 @@ Assisted-by: Briar
 diff --git a/drivers/video/mxsfb.c b/drivers/video/mxsfb.c
 --- a/drivers/video/mxsfb.c
 +++ b/drivers/video/mxsfb.c
-@@ -27,6 +27,9 @@
+@@ -27,6 +27,10 @@
  #include <video_bridge.h>
  #include <video_link.h>
  #include <display.h>
 +#include <fdt_support.h>
 +#include <fdtdec.h>
 +#include <linux/libfdt.h>
++#include <dt-bindings/clock/imx8mm-clock.h>
  
  #include "videomodes.h"
  #include <dm/device-internal.h>
-@@ -40,7 +43,126 @@
+@@ -40,7 +44,169 @@
  struct mxsfb_priv {
  	fdt_addr_t reg_base;
  	struct udevice *disp_dev;
 +	bool os_handover;
  };
++
++/* Return only the VIDEO_PLL1 rate cell; never zero unrelated CPU/audio rates. */
++static int dt510_video_pll_rate(void *blob, fdt32_t **rate)
++{
++	const fdt32_t *clocks, *cells;
++	fdt32_t *rates;
++	u32 phandle;
++	int ccm, len, rates_len, cells_len, i;
++
++	ccm = fdt_node_offset_by_compatible(blob, -1, "fsl,imx8mm-ccm");
++	if (ccm < 0)
++		return ccm;
++	phandle = fdt_get_phandle(blob, ccm);
++	cells = fdt_getprop(blob, ccm, "#clock-cells", &cells_len);
++	if (!cells || cells_len != sizeof(*cells) || fdt32_to_cpu(*cells) != 1)
++		return -EINVAL;
++	clocks = fdt_getprop(blob, ccm, "assigned-clocks", &len);
++	rates = fdt_getprop_w(blob, ccm, "assigned-clock-rates", &rates_len);
++	/* The CCM defaults list consists of self-provider, one-argument tuples.
++	 * Reject unfamiliar layouts before mutating any final-DT clock property.
++	 */
++	if (!phandle || !clocks || !rates || len <= 0 ||
++	    len % (2 * sizeof(fdt32_t)) || rates_len != len / 2)
++		return -EINVAL;
++	for (i = 0; i < len / (2 * sizeof(fdt32_t)); i++) {
++		if (fdt32_to_cpu(clocks[2 * i]) != phandle)
++			return -EINVAL;
++	}
++	for (i = 0; i < len / (2 * sizeof(fdt32_t)); i++) {
++		if (fdt32_to_cpu(clocks[2 * i + 1]) == IMX8MM_VIDEO_PLL1) {
++			*rate = &rates[i];
++			return 0;
++		}
++	}
++	return -ENOENT;
++}
 +
 +/* Called on the final Linux FDT, before DM_REMOVE_OS_PREPARE. Never save env.
 + * The kernel must explicitly advertise this ABI: an older/rollback DTB keeps
@@ -37,6 +74,7 @@ diff --git a/drivers/video/mxsfb.c b/drivers/video/mxsfb.c
 +	struct video_priv *video;
 +	struct fdt_memory mem;
 +	fdt32_t regs[ARRAY_SIZE(offsets)];
++	fdt32_t *pll_rate, saved_pll_rate;
 +	u32 phandle;
 +	int node, chosen, ret, i;
 +	int dsi, parents_len, rates_len;
@@ -117,6 +155,11 @@ diff --git a/drivers/video/mxsfb.c b/drivers/video/mxsfb.c
 +		return -EINVAL;
 +	memcpy(saved_parents, parents, parents_len);
 +	memcpy(saved_rates, rates, rates_len);
++	ret = dt510_video_pll_rate(blob, &pll_rate);
++	if (ret)
++		return ret;
++	saved_pll_rate = *pll_rate;
++	*pll_rate = 0;
 +	memset(parents, 0, parents_len);
 +	memset(rates, 0, rates_len);
 +	/* Commit last: neither a partial descriptor nor a failed reservation
@@ -137,13 +180,14 @@ diff --git a/drivers/video/mxsfb.c b/drivers/video/mxsfb.c
 +		 */
 +		memcpy(parents, saved_parents, parents_len);
 +		memcpy(rates, saved_rates, rates_len);
++		*pll_rate = saved_pll_rate;
 +	}
 +	return ret;
 +}
  
  struct mxs_dma_desc desc;
  
-@@ -476,6 +598,9 @@
+@@ -476,6 +642,9 @@
  
  	debug("%s\n", __func__);
  

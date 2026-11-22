@@ -10,7 +10,7 @@ the actual U-Boot and Linux adjusted timing, not the unadjusted CEA mode.
 diff --git a/drivers/gpu/imx/lcdif/lcdif-common.c b/drivers/gpu/imx/lcdif/lcdif-common.c
 --- a/drivers/gpu/imx/lcdif/lcdif-common.c
 +++ b/drivers/gpu/imx/lcdif/lcdif-common.c
-@@ -27,10 +27,47 @@
+@@ -27,10 +27,62 @@
  #include <drm/drm_fourcc.h>
  #include <video/imx-lcdif.h>
  #include <video/videomode.h>
@@ -25,6 +25,21 @@ diff --git a/drivers/gpu/imx/lcdif/lcdif-common.c b/drivers/gpu/imx/lcdif/lcdif-
 + */
 +static atomic_t dt510_boot_failed = ATOMIC_INIT(0);
 +static atomic_t dt510_boot_claims = ATOMIC_INIT(0);
++static atomic_t dt510_boot_taken_over = ATOMIC_INIT(0);
++
++bool dt510_boot_display_pending(void)
++{
++	struct dt510_boot_display boot;
++
++	return !atomic_read(&dt510_boot_taken_over) && dt510_boot_display_read(&boot);
++}
++EXPORT_SYMBOL_GPL(dt510_boot_display_pending);
++
++void dt510_boot_display_takeover(void)
++{
++	atomic_set(&dt510_boot_taken_over, 1);
++}
++EXPORT_SYMBOL_GPL(dt510_boot_display_takeover);
 +
 +bool dt510_boot_display_failed(void)
 +{
@@ -58,7 +73,7 @@ diff --git a/drivers/gpu/imx/lcdif/lcdif-common.c b/drivers/gpu/imx/lcdif/lcdif-
  
  struct lcdif_soc {
  	struct device *dev;
-@@ -44,7 +81,56 @@
+@@ -44,7 +96,58 @@
  	struct clk *clk_pix;
  	struct clk *clk_disp_axi;
  	struct clk *clk_disp_apb;
@@ -108,6 +123,8 @@ diff --git a/drivers/gpu/imx/lcdif/lcdif-common.c b/drivers/gpu/imx/lcdif/lcdif-
 +	struct lcdif_soc *lcdif = data;
 +
 +	if (lcdif->boot_pm_ref) {
++		if (dt510_boot_display_pending())
++			dt510_boot_display_reject();
 +		lcdif->boot_pm_ref = false;
 +		pm_runtime_put_sync(lcdif->dev);
 +	}
@@ -115,11 +132,12 @@ diff --git a/drivers/gpu/imx/lcdif/lcdif-common.c b/drivers/gpu/imx/lcdif/lcdif-
  
  struct lcdif_soc_pdata {
  	bool hsync_invert;
-@@ -437,6 +523,31 @@
+@@ -437,6 +540,32 @@
  	if (unlikely(!of_id))
  		return;
  	soc_pdata = of_id->data;
 +	/* CRTC enable already owns the replacement runtime-PM reference. */
++	dt510_boot_display_takeover();
 +	lcdif_boot_put(lcdif);
 +
 +	if (lcdif->boot_running) {
@@ -147,7 +165,7 @@ diff --git a/drivers/gpu/imx/lcdif/lcdif-common.c b/drivers/gpu/imx/lcdif/lcdif-
  
  	/* Clear the FIFO */
  	writel(CTRL1_FIFO_CLEAR, lcdif->base + LCDIF_CTRL1 + REG_SET);
-@@ -752,13 +863,38 @@
+@@ -752,13 +881,43 @@
  	pm_runtime_enable(dev);
  	atomic_inc(&lcdif->rpm_suspended);
  
@@ -177,17 +195,22 @@ diff --git a/drivers/gpu/imx/lcdif/lcdif-common.c b/drivers/gpu/imx/lcdif/lcdif-
 +		return 0;
 +	lcdif_boot_put(lcdif);
 +disable_pm:
++	dt510_boot_display_reject();
 +	pm_runtime_disable(dev);
 +	return ret;
  }
  
  static int imx_lcdif_remove(struct platform_device *pdev)
  {
-+	lcdif_boot_put(platform_get_drvdata(pdev));
++	struct lcdif_soc *lcdif = platform_get_drvdata(pdev);
++
++	if (lcdif->boot_pm_ref)
++		dt510_boot_display_reject();
++	lcdif_boot_put(lcdif);
  	pm_runtime_disable(&pdev->dev);
  
  	return 0;
-@@ -809,24 +945,41 @@
+@@ -809,24 +968,41 @@
  	ret = lcdif_enable_clocks(lcdif);
  	if (ret) {
  		release_bus_freq(BUS_FREQ_HIGH);
@@ -473,7 +496,7 @@ diff --git a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c b/drivers/gpu/drm/imx/sec_m
  
  #define DRIVER_NAME "imx_sec_dsim_drv"
  
-@@ -57,11 +58,26 @@
+@@ -57,11 +58,38 @@
  	atomic_t rpm_suspended;
  
  	bool enabled;
@@ -493,14 +516,26 @@ diff --git a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c b/drivers/gpu/drm/imx/sec_m
 +	struct imx_sec_dsim_device *dsim = data;
 +
 +	if (dsim->boot_pm_ref) {
++		if (dt510_boot_display_pending())
++			dt510_boot_display_reject();
 +		dsim->boot_pm_ref = false;
 +		pm_runtime_put_sync(dsim->dev);
 +	}
 +}
++
++static int imx_sec_dsim_bind_error(int ret)
++{
++	/* A deferred dependency still owns a possible future takeover. */
++	if (ret != -EPROBE_DEFER) {
++		dt510_boot_display_reject();
++		imx_sec_dsim_boot_put(dsim_dev);
++	}
++	return ret;
++}
  
  #if CONFIG_PM
  static int imx_sec_dsim_runtime_suspend(struct device *dev);
-@@ -132,7 +148,15 @@
+@@ -132,7 +160,15 @@
  	if (dsim_dev->enabled)
  		return;
  
@@ -517,7 +552,7 @@ diff --git a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c b/drivers/gpu/drm/imx/sec_m
  
  	ret = sec_dsim_rstc_reset(dsim_dev->mipi_reset, false);
  	if (ret)
-@@ -243,42 +267,91 @@
+@@ -243,42 +279,91 @@
  static int sec_dsim_determine_pll_ref_rate(u32 *rate, u32 min, u32 max)
  {
  	int ret;
@@ -609,7 +644,7 @@ diff --git a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c b/drivers/gpu/drm/imx/sec_m
  
  	return 0;
  }
-@@ -382,6 +455,7 @@
+@@ -382,6 +467,7 @@
  							   dev);
  	const struct sec_mipi_dsim_plat_data *pdata;
  	struct drm_encoder *encoder;
@@ -617,14 +652,27 @@ diff --git a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c b/drivers/gpu/drm/imx/sec_m
  
  	dev_dbg(dev, "%s: dsim bind begin\n", __func__);
  
-@@ -399,12 +473,44 @@
+@@ -388,9 +474,9 @@
+ 	if (!of_id)
+-		return -ENODEV;
++		return imx_sec_dsim_bind_error(-ENODEV);
+ 	pdata = of_id->data;
+ 
+ 	encoder = &dsim_dev->encoder;
+ 	ret = imx_drm_encoder_parse_of(drm_dev, encoder, np);
+ 	if (ret)
+-		return ret;
++		return imx_sec_dsim_bind_error(ret);
+ 
+@@ -399,12 +485,41 @@
  	ret = drm_simple_encoder_init(drm_dev, encoder, DRM_MODE_ENCODER_DSI);
  	if (ret)
- 		return ret;
+-		return ret;
++		return imx_sec_dsim_bind_error(ret);
 +	bind_group = devres_open_group(dev, NULL, GFP_KERNEL);
 +	if (!bind_group) {
 +		drm_encoder_cleanup(encoder);
-+		return -ENOMEM;
++		return imx_sec_dsim_bind_error(-ENOMEM);
 +	}
  
  	/* bind sec dsim bridge */
@@ -637,7 +685,7 @@ diff --git a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c b/drivers/gpu/drm/imx/sec_m
 +			if (ret < 0) {
 +				devres_release_group(dev, bind_group);
 +				drm_encoder_cleanup(encoder);
-+				return ret;
++				return imx_sec_dsim_bind_error(ret);
 +			}
 +			dsim_dev->boot_pm_ref = true;
 +		}
@@ -655,14 +703,11 @@ diff --git a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c b/drivers/gpu/drm/imx/sec_m
 +		/* Ordinary component deferral must not stop the boot stream.
 +		 * A retry reuses this reference instead of taking another one.
 +		 */
-+		if (ret != -EPROBE_DEFER) {
-+			dt510_boot_display_reject();
-+			imx_sec_dsim_boot_put(dsim_dev);
-+		}
++		imx_sec_dsim_bind_error(ret);
  		drm_encoder_cleanup(encoder);
  
  		/* If no panel or bridge connected, just return 0
-@@ -421,6 +527,8 @@
+@@ -421,6 +536,8 @@
  	}
  
  	dev_dbg(dev, "%s: dsim bind end\n", __func__);
@@ -671,7 +716,7 @@ diff --git a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c b/drivers/gpu/drm/imx/sec_m
  
  	return 0;
  }
-@@ -434,6 +542,14 @@
+@@ -434,6 +551,14 @@
  	drm_encoder_cleanup(&dsim_dev->encoder);
  
  	sec_mipi_dsim_unbind(dev, master, data);
@@ -686,7 +731,7 @@ diff --git a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c b/drivers/gpu/drm/imx/sec_m
  }
  
  static const struct component_ops imx_sec_dsim_ops = {
-@@ -480,18 +596,30 @@
+@@ -480,18 +605,30 @@
  		return dev_err_probe(dev, PTR_ERR(dsim_dev->clk_pix),
  				"failed to get pixel clock\n");
  
@@ -719,15 +764,17 @@ diff --git a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c b/drivers/gpu/drm/imx/sec_m
  		dev_err_probe(dev, ret, "Failed to add component\n");
  	}
  
-@@ -501,6 +629,7 @@
+@@ -501,6 +638,9 @@
  static int imx_sec_dsim_remove(struct platform_device *pdev)
  {
++	if (dsim_dev->boot_pm_ref)
++		dt510_boot_display_reject();
  	component_del(&pdev->dev, &imx_sec_dsim_ops);
 +	imx_sec_dsim_boot_put(dsim_dev);
  	pm_runtime_disable(&pdev->dev);
  	sec_dsim_of_put_resets(dsim_dev);
  
-@@ -523,17 +652,20 @@
+@@ -523,17 +663,20 @@
  static int imx_sec_dsim_runtime_suspend(struct device *dev)
  {
  	/* check sec dsim is bound or not */
@@ -749,7 +796,7 @@ diff --git a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c b/drivers/gpu/drm/imx/sec_m
  
  	release_bus_freq(BUS_FREQ_HIGH);
  
-@@ -545,7 +677,7 @@
+@@ -545,7 +688,7 @@
  	int ret;
  
  	/* check sec dsim is bound or not */
@@ -758,7 +805,7 @@ diff --git a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c b/drivers/gpu/drm/imx/sec_m
  		return 0;
  
  	if (unlikely(!atomic_read(&dsim_dev->rpm_suspended))) {
-@@ -561,37 +693,58 @@
+@@ -561,37 +704,58 @@
  
  	ret = clk_prepare_enable(dsim_dev->clk_pllref);
  	if (WARN_ON(unlikely(ret)))
@@ -1155,11 +1202,11 @@ diff --git a/drivers/pmdomain/imx/gpcv2.c b/drivers/pmdomain/imx/gpcv2.c
  				   domain->bits.pxx, domain->bits.pxx);
 @@ -460,1 +480,9 @@
 +	if (!strcmp(genpd->name, "dispmix") || !strcmp(genpd->name, "mipi")) {
-+		struct dt510_boot_display boot;
-+
-+		if (dt510_boot_display_read(&boot))
-+			pr_info("AESL HDMI handover: GPC %s powering off with valid descriptor\n",
++		if (dt510_boot_display_pending()) {
++			pr_info("AESL HDMI handover: keeping GPC %s on until native takeover\n",
 +				genpd->name);
++			return -EBUSY;
++		}
 +	}
 +
  	/* Enable reset clocks for all devices in the domain */
@@ -1289,17 +1336,17 @@ diff --git a/drivers/pmdomain/imx/imx8m-blk-ctrl.c b/drivers/pmdomain/imx/imx8m-
  
  	if (!domain->power_dev)
  		return -ENODEV;
++	if (!strcmp(data->name, "dispblk-lcdif") ||
++	    !strcmp(data->name, "dispblk-mipi-dsi")) {
++		if (dt510_boot_display_pending()) {
++			dev_info(bc->dev, "AESL HDMI handover: keeping blk %s on until native takeover\n",
++				 data->name);
++			return -EBUSY;
++		}
++	}
 +	if (domain->boot_clocks) {
 +		domain->boot_clocks = false;
 +		clk_bulk_disable_unprepare(data->num_clks, domain->clks);
-+	}
-+	if (!strcmp(data->name, "dispblk-lcdif") ||
-+	    !strcmp(data->name, "dispblk-mipi-dsi")) {
-+		struct dt510_boot_display boot;
-+
-+		if (dt510_boot_display_read(&boot))
-+			dev_info(bc->dev, "AESL HDMI handover: blk %s powering off with valid descriptor\n",
-+				 data->name);
 +	}
  
  	/* put devices into reset and disable clocks */
@@ -1308,7 +1355,7 @@ diff --git a/include/video/dt510-handover.h b/include/video/dt510-handover.h
 new file mode 100644
 --- /dev/null
 +++ b/include/video/dt510-handover.h
-@@ -0,0 +1,94 @@
+@@ -0,0 +1,96 @@
 +/* SPDX-License-Identifier: GPL-2.0 */
 +#ifndef _VIDEO_DT510_HANDOVER_H
 +#define _VIDEO_DT510_HANDOVER_H
@@ -1335,6 +1382,8 @@ new file mode 100644
 +void dt510_boot_display_reject(void);
 +void dt510_boot_display_claim(unsigned int participant);
 +bool dt510_boot_display_retained(void);
++bool dt510_boot_display_pending(void);
++void dt510_boot_display_takeover(void);
 +struct device;
 +#if IS_ENABLED(CONFIG_IMX8M_BLK_CTRL)
 +int dt510_boot_display_drop_dsim_clocks(struct device *dev);
