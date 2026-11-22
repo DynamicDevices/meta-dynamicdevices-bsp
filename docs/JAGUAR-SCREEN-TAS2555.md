@@ -1,5 +1,31 @@
 # Jaguar screen TAS2555 audio
 
+## Fault decoder correction, 2026-11-22
+
+Patch0008 keeps the sticky fault byte from B0/P0/R104 separate from DSP
+interrupt R108. Brownout is R104 bit3; R108 bit3 is reserved. Reports from the
+old TAS_Status decoder are not reliable evidence of supply brownout. Both
+register-read failures are checked and propagated through the ALSA getter.
+Existing fault responses, protection settings and ROM1 clock values are retained.
+Reading TAS_Status still acknowledges flags and can shut down on a fault;
+PowerCtrl still reports cached software state rather than verified hardware power.
+
+Firmware-parser safeguards remain in the shared driver although ROM1 bypasses
+firmware loading. The parser patch's final hunk count is corrected without
+changing its resulting code. The clock patch has normal surrounding context
+so standard git apply can apply it without a zero-context exception.
+
+Run the actual patched C functions with a fake bus and host compiler:
+
+```sh
+python3 scripts/test_tas2555_faults.py /path/to/patched/ti/driver
+```
+
+Coverage includes all65536 R104/R108 combinations, fault response, accumulated
+software errors, failed reads and ALSA error propagation. The original decoder
+fails the regression. These host/source checks are not a kernel build or
+hardware acceptance; retain exact deployed-image identity for lab retesting.
+
 ## DEV ROM1 clock correction, 2026-10-30
 
 The temporary board test identified a clock-tree problem, not microphone
