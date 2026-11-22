@@ -627,7 +627,7 @@ Upstream-Status: Pending
  static int tas2555_i2c_probe(struct i2c_client *pClient)
  {
  	struct tas2555_priv *pTAS2555;
-@@ -472,6 +480,11 @@
+@@ -472,5 +480,10 @@
  	if (!pTAS2555->mpCalFirmware)
  		return -ENOMEM;
  

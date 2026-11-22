@@ -15,24 +15,17 @@ Reference: TI DINtoDOUTTestROM1.txt in E2E thread 1192205.
 Upstream-Status: Inappropriate [board-specific development ROM1 mode]
 Assisted-by: Briar
 ---
- tas2555-core.c | 33 ++++++++++++++++++++++++---------
- 1 file changed, 24 insertions(+), 9 deletions(-)
+ tas2555-core.c | 21 ++++++++++++++++++---
+ 1 file changed, 18 insertions(+), 3 deletions(-)
 
 diff --git a/tas2555-core.c b/tas2555-core.c
 --- a/tas2555-core.c
 +++ b/tas2555-core.c
-@@ -139,9 +139,24 @@
--static unsigned int p_tas2555_rom1_dev_startup_data[] = {
--	TAS2555_CLK_ERR_CTRL1, 0x00,
+@@ -139,11 +139,26 @@ static unsigned int p_tas2555_startup_wo_boost_rom1_data[] = {
+  */
+ static unsigned int p_tas2555_rom1_dev_startup_data[] = {
+ 	TAS2555_CLK_ERR_CTRL1, 0x00,
 -	TAS2555_MAIN_CLKIN_REG, 0x00,
--	TAS2555_POWER_CTRL2_REG, 0x80,
--	TAS2555_POWER_CTRL1_REG, 0xB8,
--	TAS2555_UDELAY, 2000,
--	TAS2555_CLK_ERR_CTRL1, 0x02,
--	0xFFFFFFFF, 0xFFFFFFFF
--};
-+static unsigned int p_tas2555_rom1_dev_startup_data[] = {
-+	TAS2555_CLK_ERR_CTRL1, 0x00,
 +	TAS2555_POWER_CTRL1_REG, 0x00,
 +	TAS2555_MAIN_CLKIN_REG, 0x0F,
 +	TAS2555_PLL_CLKIN_REG, 0x0D,
@@ -49,9 +42,12 @@ diff --git a/tas2555-core.c b/tas2555-core.c
 +	TAS2555_RAMP_CLK_DIV_LSB_REG, 0x20,
 +	TAS2555_CLK_MISC_REG, 0x20,
 +	TAS2555_ISENSE_DIV_REG, 0x40,
-+	TAS2555_POWER_CTRL2_REG, 0x80,
+ 	TAS2555_POWER_CTRL2_REG, 0x80,
+-	TAS2555_POWER_CTRL1_REG, 0xB8,
 +	TAS2555_POWER_CTRL1_REG, 0xF8,
-+	TAS2555_UDELAY, 2000,
+ 	TAS2555_UDELAY, 2000,
+-	TAS2555_CLK_ERR_CTRL1, 0x02,
 +	TAS2555_CLK_ERR_CTRL1, 0x0B,
-+	0xFFFFFFFF, 0xFFFFFFFF
-+};
+ 	0xFFFFFFFF, 0xFFFFFFFF
+ };
+ 
