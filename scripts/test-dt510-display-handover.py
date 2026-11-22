@@ -26,6 +26,133 @@ def added_file(patch, name):
 
 
 class HandoverTest(unittest.TestCase):
+    def test_compiled_uboot_removal_keeps_admitted_power_domain(self):
+        part = UBOOT.read_text().split('+++ b/drivers/core/device-remove.c\n', 1)[1]
+        part = part.split('\ndiff --git ', 1)[0]
+        source = '\n'.join(line[1:] for line in part.splitlines()
+                           if line.startswith(('+', ' ')))
+        condition = source[source.index('if (!(flags & DM_REMOVE_NO_PD)'):]
+        fixture = r'''
+#include <assert.h>
+#define DM_REMOVE_NO_PD 2
+#define DM_FLAG_DEFAULT_PD_CTRL_OFF (1 << 11)
+#define DM_FLAG_LEAVE_PD_ON (1 << 13)
+struct device { unsigned int flags; } device, serial;
+struct driver { unsigned int flags; } driver;
+struct { struct device *cur_serial_dev; } globals, *gd = &globals;
+static int powers_off;
+static unsigned int dev_get_flags(struct device *d) { return d->flags; }
+static void dev_power_domain_off(struct device *d) { powers_off++; }
+static void remove_device(unsigned int flags) {
+    struct device *dev = &device;
+    struct driver *drv = &driver;
+    /* ACTUAL_CORE_CONDITION */
+}
+int main(void) {
+    remove_device(0); assert(powers_off == 1);
+    /* Only the validated firmware-ABI commit sets the runtime flag. */
+    device.flags = DM_FLAG_LEAVE_PD_ON;
+    remove_device(0); assert(powers_off == 1 && !driver.flags);
+    /* Failed/absent/old-image handover clears it: normal removal remains. */
+    device.flags = 0; remove_device(0); assert(powers_off == 2);
+    remove_device(DM_REMOVE_NO_PD); assert(powers_off == 2);
+    driver.flags = DM_FLAG_LEAVE_PD_ON;
+    remove_device(0); assert(powers_off == 2);
+    driver.flags = DM_FLAG_DEFAULT_PD_CTRL_OFF;
+    remove_device(0); assert(powers_off == 2);
+    driver.flags = 0; gd->cur_serial_dev = &device;
+    remove_device(0); assert(powers_off == 2);
+}
+'''
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / 'remove.c').write_text(fixture.replace('/* ACTUAL_CORE_CONDITION */', condition))
+            subprocess.run(['cc', '-std=c11', '-Werror', str(root / 'remove.c'),
+                            '-o', str(root / 'remove')], check=True)
+            subprocess.run([str(root / 'remove')], check=True)
+
+    def test_compiled_dsim_reset_clock_release(self):
+        source = added_file(PATCH, 'drivers/pmdomain/imx/imx8m-blk-ctrl.c')
+        helper = 'int dt510_boot_display_drop_dsim_clocks(' + source.split(
+            'int dt510_boot_display_drop_dsim_clocks(', 1)[1].split(
+                'EXPORT_SYMBOL_GPL', 1)[0]
+        fixture = r'''
+#include <assert.h>
+#include <stdbool.h>
+#include <errno.h>
+#define EPROBE_DEFER 517
+#define IMX8MM_DISPBLK_PD_MIPI_DSI 2
+struct device { void *of_node; } device;
+struct of_phandle_args { void *np; int args_count; unsigned int args[1]; } topology;
+struct platform_device { struct device dev; } provider;
+struct domain_data { int num_clks; } data = {2};
+struct imx8m_blk_ctrl_domain {
+    struct { int mlock; } genpd;
+    bool boot_clocks; struct domain_data *data; void *clks;
+};
+struct imx8m_blk_ctrl {
+    struct { unsigned int num_domains; } onecell_data;
+    struct imx8m_blk_ctrl_domain domains[3];
+} bc;
+static bool machine, compatible, found, ready;
+static int parse_error, node_refs, device_refs, releases, locked;
+static bool of_machine_is_compatible(const char *s) { return machine; }
+static int of_parse_phandle_with_args(void *n, const char *p, const char *c,
+                                      int index, struct of_phandle_args *a) {
+    if (parse_error) return parse_error;
+    *a = topology; node_refs++; return 0;
+}
+static bool of_device_is_compatible(void *n, const char *s) { return compatible; }
+static void of_node_put(void *n) { node_refs--; }
+static struct platform_device *of_find_device_by_node(void *n) {
+    if (!found) return 0; device_refs++; return &provider;
+}
+static struct imx8m_blk_ctrl *platform_get_drvdata(struct platform_device *p) {
+    return ready ? &bc : 0;
+}
+static void put_device(struct device *d) { device_refs--; }
+static void mutex_lock(int *p) { assert(!locked); locked++; }
+static void mutex_unlock(int *p) { assert(locked); locked--; }
+static void clk_bulk_disable_unprepare(int count, void *clks) {
+    assert(locked && count == 2); releases++;
+}
+/* ACTUAL_RELEASE */
+static void reset(void) {
+    machine = compatible = found = ready = true;
+    parse_error = node_refs = device_refs = releases = locked = 0;
+    topology.args_count = 1; topology.args[0] = 2;
+    bc.onecell_data.num_domains = 3;
+    bc.domains[2].boot_clocks = true; bc.domains[2].data = &data;
+}
+static void balanced(void) { assert(!node_refs && !device_refs && !locked); }
+int main(void) {
+    reset(); assert(!dt510_boot_display_drop_dsim_clocks(&device)); balanced();
+    assert(releases == 1 && !bc.domains[2].boot_clocks);
+    assert(!dt510_boot_display_drop_dsim_clocks(&device)); balanced();
+    assert(releases == 1);
+    reset(); machine = false;
+    assert(!dt510_boot_display_drop_dsim_clocks(&device) && !releases); balanced();
+    reset(); parse_error = -EINVAL;
+    assert(dt510_boot_display_drop_dsim_clocks(&device) == -EINVAL); balanced();
+    reset(); topology.args[0] = 0;
+    assert(dt510_boot_display_drop_dsim_clocks(&device) == -EINVAL); balanced();
+    reset(); compatible = false;
+    assert(dt510_boot_display_drop_dsim_clocks(&device) == -EINVAL); balanced();
+    reset(); found = false;
+    assert(dt510_boot_display_drop_dsim_clocks(&device) == -EPROBE_DEFER); balanced();
+    reset(); ready = false;
+    assert(dt510_boot_display_drop_dsim_clocks(&device) == -EPROBE_DEFER); balanced();
+    reset(); bc.onecell_data.num_domains = 2;
+    assert(dt510_boot_display_drop_dsim_clocks(&device) == -EPROBE_DEFER); balanced();
+}
+'''
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / 'release.c').write_text(fixture.replace('/* ACTUAL_RELEASE */', helper))
+            subprocess.run(['cc', '-std=c11', '-Werror', str(root / 'release.c'),
+                            '-o', str(root / 'release')], check=True)
+            subprocess.run([str(root / 'release')], check=True)
+
     def test_dt510_fallback_clock_is_named_oscillator(self):
         dts = (ROOT / 'recipes-bsp/device-tree/lmp-device-tree/imx8mm-jaguar-dt510.dts').read_text()
         node = dts.split('&mipi_dsi {', 1)[1]
@@ -137,6 +264,7 @@ static int pm_runtime_get_sync(void *p) {
 }
 static void pm_runtime_put_noidle(void *p) { puts++; }
 #define dev_err(...) ((void)0)
+#define dev_info(...) ((void)0)
 static bool dt510_boot_display_read(struct dt510_boot_display *p) { return descriptor; }
 static int regmap_read(void *p, int offset, u32 *value) {
     assert(awake); reads++; *value = values[offset]; return read_error;
@@ -201,6 +329,11 @@ int main(void) {
         part = part.split('\n@@', 1)[0]
         adoption = 'static int sec_dsim_determine_pll_ref_rate(u32 *rate, u32 min, u32 max)\n' + '\n'.join(
             line[1:] for line in part.splitlines() if line.startswith(('+', ' ')))
+        suspend_part = PATCH.read_text().split('@@ -523,', 1)[1]
+        suspend_part = suspend_part.split('\n', 1)[1].split('@@', 1)[0]
+        suspend = '\n'.join(line[1:] for line in suspend_part.splitlines()
+                            if line.startswith(('+', ' ')))
+        suspend = suspend.split('sec_mipi_dsim_suspend(dev);', 1)[0] + 'return 0;\n}'
         fixture = r'''
 #include <assert.h>
 #include <stdbool.h>
@@ -208,10 +341,12 @@ int main(void) {
 #include <errno.h>
 typedef uint32_t u32;
 struct device { void *of_node; } dev;
-struct { bool boot_running; void *clk_pllref, *clk_pllref_fallback;
+struct { bool boot_running, clocks_active; int rpm_suspended;
+    void *clk_pllref, *clk_pllref_fallback, *clk_cfg, *clk_apb;
     struct device *dev; } state, *dsim_dev = &state;
 static unsigned long observed_rate;
 static int parent_calls, rate_calls, parent_error, rate_error;
+static int own_refs, reset_refs, drop_error, prepare_error;
 static int rejections;
 static bool on_oscillator;
 #define PHY_REF_CLK 12000
@@ -220,11 +355,28 @@ static bool on_oscillator;
 #define unlikely(v) (v)
 #define dev_warn(...) ((void)0)
 #define dev_info(...) ((void)0)
+#define BUS_FREQ_HIGH 1
+static void release_bus_freq(int x) {}
+static void atomic_set(int *p, int x) { *p = x; }
+static int atomic_inc_return(int *p) { return ++*p; }
+static int dt510_boot_display_drop_dsim_clocks(struct device *d) {
+    if (drop_error) return drop_error;
+    reset_refs = 0; return 0;
+}
+static void clk_disable_unprepare(void *clk) {
+    if (clk == state.clk_pllref) { assert(own_refs == 1); own_refs--; }
+}
+static int clk_prepare_enable(void *clk) {
+    assert(own_refs == 0);
+    if (prepare_error) return prepare_error;
+    own_refs++; return 0;
+}
 static void dt510_boot_display_reject(void) { rejections++; }
 static int of_property_read_u32(void *n, const char *s, u32 *v) { return -ENOENT; }
 static unsigned long clk_get_rate(void *clk) { return observed_rate; }
 static int clk_set_parent(void *clk, void *parent) {
     parent_calls++; if (parent_error) return parent_error;
+    if (own_refs || reset_refs) return -EBUSY;
     on_oscillator = true; return 0;
 }
 static int clk_set_rate(void *clk, unsigned long rate) {
@@ -232,9 +384,13 @@ static int clk_set_rate(void *clk, unsigned long rate) {
     observed_rate = on_oscillator ? rate : 11948276; return 0;
 }
 /* ACTUAL_ADOPTION */
+/* ACTUAL_SUSPEND_PREFIX */
 static void reset(void) {
     state.dev = &dev; state.boot_running = true;
     state.clk_pllref_fallback = &dev;
+    state.clk_pllref = &state;
+    state.clocks_active = false; own_refs = 0; reset_refs = 1;
+    drop_error = prepare_error = 0;
     parent_calls = rate_calls = parent_error = rate_error = 0;
     rejections = 0;
     on_oscillator = false;
@@ -248,6 +404,7 @@ int main(void) {
         assert(rate == observed_rate / 1000 && !parent_calls && !rate_calls);
         assert(state.boot_running);
         assert(!rejections);
+        assert(reset_refs == 1);
     }
     const unsigned long invalid[] = {0, 5999000, 300001000, 11948276};
     for (unsigned int i = 0; i < sizeof(invalid) / sizeof(invalid[0]); i++) {
@@ -270,11 +427,32 @@ int main(void) {
     reset(); state.boot_running = false; rate_error = -EIO;
     assert(sec_dsim_determine_pll_ref_rate(&rate, 6000, 300000) == -EIO);
     assert(parent_calls == 1 && rate_calls == 1);
+    reset(); state.boot_running = false; state.clocks_active = true; own_refs = 1;
+    assert(sec_dsim_determine_pll_ref_rate(&rate, 6000, 300000) == 0);
+    assert(own_refs == 1 && !reset_refs && state.clocks_active);
+    reset(); state.boot_running = false; state.clocks_active = true; own_refs = 1;
+    parent_error = -EIO;
+    assert(sec_dsim_determine_pll_ref_rate(&rate, 6000, 300000) == -EIO);
+    assert(own_refs == 1 && !reset_refs && !rate_calls);
+    reset(); state.boot_running = false; drop_error = -EIO;
+    assert(sec_dsim_determine_pll_ref_rate(&rate, 6000, 300000) == -EIO);
+    assert(reset_refs == 1 && !parent_calls && !rate_calls);
+    reset(); state.boot_running = false; state.clocks_active = true; own_refs = 1;
+    prepare_error = -EIO;
+    assert(sec_dsim_determine_pll_ref_rate(&rate, 6000, 300000) == -EIO);
+    assert(!own_refs && !state.clocks_active && state.rpm_suspended == 1);
+    /* Bind failure invokes runtime suspend after clocks were already unwound. */
+    assert(!imx_sec_dsim_runtime_suspend(&dev) && state.rpm_suspended == 1);
+    /* The next resume must reach zero and reacquire its clock, not return early. */
+    prepare_error = 0;
+    assert(--state.rpm_suspended == 0);
+    assert(!clk_prepare_enable(state.clk_pllref) && own_refs == 1);
 }
 '''
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            (root / 'clock.c').write_text(fixture.replace('/* ACTUAL_ADOPTION */', adoption))
+            (root / 'clock.c').write_text(fixture.replace('/* ACTUAL_ADOPTION */', adoption)
+                                        .replace('/* ACTUAL_SUSPEND_PREFIX */', suspend))
             subprocess.run(['cc', '-std=c11', '-Werror', str(root / 'clock.c'),
                             '-o', str(root / 'clock')], check=True)
             subprocess.run([str(root / 'clock')], check=True)
@@ -457,6 +635,7 @@ int main(void) {
 typedef uint32_t u32;
 typedef uint64_t u64;
 #define U32_MAX UINT32_MAX
+#define IS_ENABLED(x) 1
 #define BIT(x) (1U << (x))
 #define DISPLAY_FLAGS_HSYNC_HIGH 1
 #define DISPLAY_FLAGS_VSYNC_HIGH 2
@@ -596,6 +775,9 @@ int main(void) {
         self.assertIn('aesl,continuous-display-v1', patch)
         self.assertIn('priv->os_handover = false', patch)
         self.assertIn('if (priv->os_handover)', patch)
+        self.assertIn('dev_bic_flags(dev, DM_FLAG_LEAVE_PD_ON)', patch)
+        self.assertGreater(patch.index('dev_or_flags(dev, DM_FLAG_LEAVE_PD_ON)'),
+                           patch.index('"status", "okay"'))
         self.assertIn('"assigned-clock-parents"', patch)
         self.assertIn('"assigned-clock-rates"', patch)
         self.assertIn('memcpy(parents, saved_parents, parents_len)', patch)

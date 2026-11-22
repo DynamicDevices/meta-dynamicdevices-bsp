@@ -58,7 +58,7 @@ diff --git a/drivers/gpu/imx/lcdif/lcdif-common.c b/drivers/gpu/imx/lcdif/lcdif-
  
  struct lcdif_soc {
  	struct device *dev;
-@@ -44,7 +79,56 @@
+@@ -44,7 +81,56 @@
  	struct clk *clk_pix;
  	struct clk *clk_disp_axi;
  	struct clk *clk_disp_apb;
@@ -115,7 +115,7 @@ diff --git a/drivers/gpu/imx/lcdif/lcdif-common.c b/drivers/gpu/imx/lcdif/lcdif-
  
  struct lcdif_soc_pdata {
  	bool hsync_invert;
-@@ -437,6 +511,31 @@
+@@ -437,6 +523,31 @@
  	if (unlikely(!of_id))
  		return;
  	soc_pdata = of_id->data;
@@ -147,7 +147,7 @@ diff --git a/drivers/gpu/imx/lcdif/lcdif-common.c b/drivers/gpu/imx/lcdif/lcdif-
  
  	/* Clear the FIFO */
  	writel(CTRL1_FIFO_CLEAR, lcdif->base + LCDIF_CTRL1 + REG_SET);
-@@ -752,13 +844,38 @@
+@@ -752,13 +863,38 @@
  	pm_runtime_enable(dev);
  	atomic_inc(&lcdif->rpm_suspended);
  
@@ -187,7 +187,7 @@ diff --git a/drivers/gpu/imx/lcdif/lcdif-common.c b/drivers/gpu/imx/lcdif/lcdif-
  	pm_runtime_disable(&pdev->dev);
  
  	return 0;
-@@ -809,24 +926,41 @@
+@@ -809,24 +945,41 @@
  	ret = lcdif_enable_clocks(lcdif);
  	if (ret) {
  		release_bus_freq(BUS_FREQ_HIGH);
@@ -500,7 +500,7 @@ diff --git a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c b/drivers/gpu/drm/imx/sec_m
  
  #if CONFIG_PM
  static int imx_sec_dsim_runtime_suspend(struct device *dev);
-@@ -132,7 +147,15 @@
+@@ -132,7 +148,15 @@
  	if (dsim_dev->enabled)
  		return;
  
@@ -517,7 +517,7 @@ diff --git a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c b/drivers/gpu/drm/imx/sec_m
  
  	ret = sec_dsim_rstc_reset(dsim_dev->mipi_reset, false);
  	if (ret)
-@@ -243,42 +266,67 @@
+@@ -243,42 +267,91 @@
  static int sec_dsim_determine_pll_ref_rate(u32 *rate, u32 min, u32 max)
  {
  	int ret;
@@ -555,7 +555,31 @@ diff --git a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c b/drivers/gpu/drm/imx/sec_m
 +	 * before asking for the exact default rate. Never reparent adoption.
 +	 */
 +	if (dsim_dev->clk_pllref_fallback) {
++		bool active = dsim_dev->clocks_active;
++		int restore;
++
++		/* A gated mux cannot reparent while prepared. Drop only the
++		 * temporary blk-ctrl reset-clock hold and our own reference;
++		 * keep the powered domain and its register-access clocks alive.
++		 */
++		ret = dt510_boot_display_drop_dsim_clocks(dev);
++		if (ret)
++			return ret;
++		if (active)
++			clk_disable_unprepare(dsim_dev->clk_pllref);
 +		ret = clk_set_parent(dsim_dev->clk_pllref, dsim_dev->clk_pllref_fallback);
++		if (active) {
++			restore = clk_prepare_enable(dsim_dev->clk_pllref);
++			if (restore) {
++				/* Suspend must not drop a reference we failed to regain. */
++				clk_disable_unprepare(dsim_dev->clk_cfg);
++				clk_disable_unprepare(dsim_dev->clk_apb);
++				dsim_dev->clocks_active = false;
++				release_bus_freq(BUS_FREQ_HIGH);
++				atomic_set(&dsim_dev->rpm_suspended, 1);
++				return restore;
++			}
++		}
 +		if (ret)
 +			return ret;
 +		dev_info(dev, "AESL HDMI handover: restored fallback DSIM reference parent\n");
@@ -585,7 +609,7 @@ diff --git a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c b/drivers/gpu/drm/imx/sec_m
  
  	return 0;
  }
-@@ -382,6 +417,7 @@
+@@ -382,6 +455,7 @@
  							   dev);
  	const struct sec_mipi_dsim_plat_data *pdata;
  	struct drm_encoder *encoder;
@@ -593,7 +617,7 @@ diff --git a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c b/drivers/gpu/drm/imx/sec_m
  
  	dev_dbg(dev, "%s: dsim bind begin\n", __func__);
  
-@@ -399,12 +435,44 @@
+@@ -399,12 +473,44 @@
  	ret = drm_simple_encoder_init(drm_dev, encoder, DRM_MODE_ENCODER_DSI);
  	if (ret)
  		return ret;
@@ -638,7 +662,7 @@ diff --git a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c b/drivers/gpu/drm/imx/sec_m
  		drm_encoder_cleanup(encoder);
  
  		/* If no panel or bridge connected, just return 0
-@@ -421,6 +489,8 @@
+@@ -421,6 +527,8 @@
  	}
  
  	dev_dbg(dev, "%s: dsim bind end\n", __func__);
@@ -647,7 +671,7 @@ diff --git a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c b/drivers/gpu/drm/imx/sec_m
  
  	return 0;
  }
-@@ -434,6 +504,14 @@
+@@ -434,6 +542,14 @@
  	drm_encoder_cleanup(&dsim_dev->encoder);
  
  	sec_mipi_dsim_unbind(dev, master, data);
@@ -662,7 +686,7 @@ diff --git a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c b/drivers/gpu/drm/imx/sec_m
  }
  
  static const struct component_ops imx_sec_dsim_ops = {
-@@ -480,18 +565,30 @@
+@@ -480,18 +596,30 @@
  		return dev_err_probe(dev, PTR_ERR(dsim_dev->clk_pix),
  				"failed to get pixel clock\n");
  
@@ -695,7 +719,7 @@ diff --git a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c b/drivers/gpu/drm/imx/sec_m
  		dev_err_probe(dev, ret, "Failed to add component\n");
  	}
  
-@@ -501,6 +586,7 @@
+@@ -501,6 +629,7 @@
  static int imx_sec_dsim_remove(struct platform_device *pdev)
  {
  	component_del(&pdev->dev, &imx_sec_dsim_ops);
@@ -703,12 +727,13 @@ diff --git a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c b/drivers/gpu/drm/imx/sec_m
  	pm_runtime_disable(&pdev->dev);
  	sec_dsim_of_put_resets(dsim_dev);
  
-@@ -523,17 +609,19 @@
+@@ -523,17 +652,20 @@
  static int imx_sec_dsim_runtime_suspend(struct device *dev)
  {
  	/* check sec dsim is bound or not */
 -	if (unlikely(!dsim_dev->encoder.dev))
-+	if (unlikely(!dsim_dev->encoder.dev && !dsim_dev->clocks_active))
++	/* A failed bind may already have unwound every clock reference. */
++	if (unlikely(!dsim_dev->clocks_active))
  		return 0;
  
  	if (atomic_inc_return(&dsim_dev->rpm_suspended) > 1)
@@ -724,7 +749,7 @@ diff --git a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c b/drivers/gpu/drm/imx/sec_m
  
  	release_bus_freq(BUS_FREQ_HIGH);
  
-@@ -545,7 +633,7 @@
+@@ -545,7 +677,7 @@
  	int ret;
  
  	/* check sec dsim is bound or not */
@@ -733,7 +758,7 @@ diff --git a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c b/drivers/gpu/drm/imx/sec_m
  		return 0;
  
  	if (unlikely(!atomic_read(&dsim_dev->rpm_suspended))) {
-@@ -561,37 +649,58 @@
+@@ -561,37 +693,58 @@
  
  	ret = clk_prepare_enable(dsim_dev->clk_pllref);
  	if (WARN_ON(unlikely(ret)))
@@ -1085,7 +1110,7 @@ diff --git a/drivers/pmdomain/imx/gpcv2.c b/drivers/pmdomain/imx/gpcv2.c
  	struct generic_pm_domain genpd;
  	struct regmap *regmap;
  	struct regmap *noc_regmap;
-@@ -351,6 +353,19 @@
+@@ -351,6 +353,23 @@
  	struct imx_pgc_domain *domain = to_imx_pgc_domain(genpd);
  	u32 reg_val, pgc;
  	int ret;
@@ -1096,16 +1121,20 @@ diff --git a/drivers/pmdomain/imx/gpcv2.c b/drivers/pmdomain/imx/gpcv2.c
 +	    (!strcmp(genpd->name, "dispmix") || !strcmp(genpd->name, "mipi"))) {
 +		inherit = true;
 +		for_each_set_bit(pgc, &domain->pgc, 32) {
-+			if (regmap_read(domain->regmap, GPC_PGC_SR(pgc), &reg_val) ||
++			ret = regmap_read(domain->regmap, GPC_PGC_SR(pgc), &reg_val);
++			pr_info("AESL HDMI handover: GPC %s pgc=%u sr=%#x read=%d\n",
++				genpd->name, pgc, ret ? ~0U : reg_val, ret);
++			if (ret ||
 +			    (reg_val & BIT(0)))
 +				inherit = false;
 +		}
++		pr_info("AESL HDMI handover: GPC %s inherit=%d\n", genpd->name, inherit);
 +	}
 +	domain->boot_seen = true;
  
  	ret = pm_runtime_get_sync(domain->dev);
  	if (ret < 0) {
-@@ -368,7 +383,8 @@
+@@ -368,7 +387,8 @@
  		}
  	}
  
@@ -1115,7 +1144,7 @@ diff --git a/drivers/pmdomain/imx/gpcv2.c b/drivers/pmdomain/imx/gpcv2.c
  
  	/* Enable reset clocks for all devices in the domain */
  	ret = clk_bulk_prepare_enable(domain->num_clks, domain->clks);
-@@ -382,7 +398,7 @@
+@@ -382,7 +402,7 @@
  	/* delays for reset to propagate */
  	udelay(5);
  
@@ -1124,6 +1153,16 @@ diff --git a/drivers/pmdomain/imx/gpcv2.c b/drivers/pmdomain/imx/gpcv2.c
  		/* request the domain to power up */
  		regmap_update_bits(domain->regmap, domain->regs->pup,
  				   domain->bits.pxx, domain->bits.pxx);
+@@ -460,1 +480,9 @@
++	if (!strcmp(genpd->name, "dispmix") || !strcmp(genpd->name, "mipi")) {
++		struct dt510_boot_display boot;
++
++		if (dt510_boot_display_read(&boot))
++			pr_info("AESL HDMI handover: GPC %s powering off with valid descriptor\n",
++				genpd->name);
++	}
++
+ 	/* Enable reset clocks for all devices in the domain */
 diff --git a/drivers/pmdomain/imx/imx8m-blk-ctrl.c b/drivers/pmdomain/imx/imx8m-blk-ctrl.c
 --- a/drivers/pmdomain/imx/imx8m-blk-ctrl.c
 +++ b/drivers/pmdomain/imx/imx8m-blk-ctrl.c
@@ -1144,7 +1183,7 @@ diff --git a/drivers/pmdomain/imx/imx8m-blk-ctrl.c b/drivers/pmdomain/imx/imx8m-
  	struct generic_pm_domain genpd;
  	const struct imx8m_blk_ctrl_domain_data *data;
  	struct clk_bulk_data clks[DOMAIN_MAX_CLKS];
-@@ -131,21 +134,36 @@
+@@ -131,21 +134,39 @@
  	const struct imx8m_blk_ctrl_domain_data *data = domain->data;
  	struct imx8m_blk_ctrl *bc = domain->bc;
  	int ret;
@@ -1172,6 +1211,9 @@ diff --git a/drivers/pmdomain/imx/imx8m-blk-ctrl.c b/drivers/pmdomain/imx/imx8m-
 +		inherit = (rst & data->rst_mask) == data->rst_mask &&
 +			  (clk & data->clk_mask) == data->clk_mask &&
 +			  (phy & data->mipi_phy_rst_mask) == data->mipi_phy_rst_mask;
++	if (!domain->boot_seen && dt510_boot_display_read(&boot))
++		dev_info(bc->dev, "AESL HDMI handover: blk %s inherit=%d\n",
++			 data->name, inherit);
 +	domain->boot_seen = true;
 +
  	/* put devices into reset */
@@ -1183,7 +1225,7 @@ diff --git a/drivers/pmdomain/imx/imx8m-blk-ctrl.c b/drivers/pmdomain/imx/imx8m-
  		regmap_clear_bits(bc->regmap, BLK_MIPI_RESET_DIV, data->mipi_phy_rst_mask);
  
  	/* enable upstream and blk-ctrl clocks to allow reset to propagate */
-@@ -174,7 +192,10 @@
+@@ -174,7 +195,10 @@
  	imx8m_blk_ctrl_qos_set(domain);
  
  	/* disable upstream clocks */
@@ -1195,13 +1237,69 @@ diff --git a/drivers/pmdomain/imx/imx8m-blk-ctrl.c b/drivers/pmdomain/imx/imx8m-
  
  	return 0;
  
-@@ -194,6 +215,10 @@
+@@ -189,5 +213,47 @@
++/* Called during DSIM bind, outside genpd callbacks and clock locks. */
++int dt510_boot_display_drop_dsim_clocks(struct device *dev)
++{
++	struct of_phandle_args args;
++	struct platform_device *pdev;
++	struct imx8m_blk_ctrl *bc;
++	struct imx8m_blk_ctrl_domain *domain;
++	int ret;
++
++	if (!of_machine_is_compatible("fsl,imx8mm-jaguar-dt510"))
++		return 0;
++	ret = of_parse_phandle_with_args(dev->of_node, "power-domains",
++					 "#power-domain-cells", 0, &args);
++	if (ret)
++		return ret;
++	if (!of_device_is_compatible(args.np, "fsl,imx8mm-disp-blk-ctrl") ||
++	    args.args_count != 1 || args.args[0] != IMX8MM_DISPBLK_PD_MIPI_DSI) {
++		of_node_put(args.np);
++		return -EINVAL;
++	}
++	pdev = of_find_device_by_node(args.np);
++	of_node_put(args.np);
++	if (!pdev)
++		return -EPROBE_DEFER;
++	bc = platform_get_drvdata(pdev);
++	if (!bc || args.args[0] >= bc->onecell_data.num_domains) {
++		put_device(&pdev->dev);
++		return -EPROBE_DEFER;
++	}
++	domain = &bc->domains[args.args[0]];
++	/* These blk-ctrl domains use sleeping genpd locks, never IRQ_SAFE. */
++	mutex_lock(&domain->genpd.mlock);
++	if (domain->boot_clocks) {
++		domain->boot_clocks = false;
++		clk_bulk_disable_unprepare(domain->data->num_clks, domain->clks);
++	}
++	mutex_unlock(&domain->genpd.mlock);
++	put_device(&pdev->dev);
++	return 0;
++}
++EXPORT_SYMBOL_GPL(dt510_boot_display_drop_dsim_clocks);
++
+ static int imx8m_blk_ctrl_power_off(struct generic_pm_domain *genpd)
+ {
+ 	struct imx8m_blk_ctrl_domain *domain = to_imx8m_blk_ctrl_domain(genpd);
+ 	const struct imx8m_blk_ctrl_domain_data *data = domain->data;
+ 	struct imx8m_blk_ctrl *bc = domain->bc;
+@@ -194,6 +260,18 @@
  
  	if (!domain->power_dev)
  		return -ENODEV;
 +	if (domain->boot_clocks) {
 +		domain->boot_clocks = false;
 +		clk_bulk_disable_unprepare(data->num_clks, domain->clks);
++	}
++	if (!strcmp(data->name, "dispblk-lcdif") ||
++	    !strcmp(data->name, "dispblk-mipi-dsi")) {
++		struct dt510_boot_display boot;
++
++		if (dt510_boot_display_read(&boot))
++			dev_info(bc->dev, "AESL HDMI handover: blk %s powering off with valid descriptor\n",
++				 data->name);
 +	}
  
  	/* put devices into reset and disable clocks */
@@ -1210,7 +1308,7 @@ diff --git a/include/video/dt510-handover.h b/include/video/dt510-handover.h
 new file mode 100644
 --- /dev/null
 +++ b/include/video/dt510-handover.h
-@@ -0,0 +1,85 @@
+@@ -0,0 +1,94 @@
 +/* SPDX-License-Identifier: GPL-2.0 */
 +#ifndef _VIDEO_DT510_HANDOVER_H
 +#define _VIDEO_DT510_HANDOVER_H
@@ -1237,6 +1335,15 @@ new file mode 100644
 +void dt510_boot_display_reject(void);
 +void dt510_boot_display_claim(unsigned int participant);
 +bool dt510_boot_display_retained(void);
++struct device;
++#if IS_ENABLED(CONFIG_IMX8M_BLK_CTRL)
++int dt510_boot_display_drop_dsim_clocks(struct device *dev);
++#else
++static inline int dt510_boot_display_drop_dsim_clocks(struct device *dev)
++{
++	return 0;
++}
++#endif
 +
 +static inline bool dt510_boot_display_read(struct dt510_boot_display *boot)
 +{

@@ -16,7 +16,7 @@ diff --git a/drivers/video/mxsfb.c b/drivers/video/mxsfb.c
  
  #include "videomodes.h"
  #include <dm/device-internal.h>
-@@ -40,7 +43,120 @@
+@@ -40,7 +43,126 @@
  struct mxsfb_priv {
  	fdt_addr_t reg_base;
  	struct udevice *disp_dev;
@@ -50,6 +50,7 @@ diff --git a/drivers/video/mxsfb.c b/drivers/video/mxsfb.c
 +		return -ENODEV;
 +	priv = dev_get_priv(dev);
 +	priv->os_handover = false;
++	dev_bic_flags(dev, DM_FLAG_LEAVE_PD_ON);
 +	if (fdt_node_check_compatible(blob, 0, "fsl,imx8mm-jaguar-dt510") ||
 +	    !fdt_getprop(blob, 0, "aesl,continuous-display-v1", NULL))
 +		return 0;
@@ -124,6 +125,11 @@ diff --git a/drivers/video/mxsfb.c b/drivers/video/mxsfb.c
 +	ret = fdt_setprop_string(blob, node, "status", "okay");
 +	if (!ret) {
 +		priv->os_handover = true;
++		/* Driver removal alone does not stop DM powering the domain off.
++		 * Use a per-device flag only after successful ABI commit; do not
++		 * change driver flags, which also affect probe clock defaults.
++		 */
++		dev_or_flags(dev, DM_FLAG_LEAVE_PD_ON);
 +		printf("AESL HDMI handover: reserved framebuffer, preserving scanout\n");
 +	} else {
 +		/* A failed libfdt update leaves offsets/data unchanged. Restore
@@ -137,7 +143,7 @@ diff --git a/drivers/video/mxsfb.c b/drivers/video/mxsfb.c
  
  struct mxs_dma_desc desc;
  
-@@ -476,6 +592,9 @@
+@@ -476,6 +598,9 @@
  
  	debug("%s\n", __func__);
  
@@ -147,6 +153,18 @@ diff --git a/drivers/video/mxsfb.c b/drivers/video/mxsfb.c
  	if (priv->disp_dev)
  		device_remove(priv->disp_dev, DM_REMOVE_NORMAL);
  
+diff --git a/drivers/core/device-remove.c b/drivers/core/device-remove.c
+--- a/drivers/core/device-remove.c
++++ b/drivers/core/device-remove.c
+@@ -251,7 +251,8 @@
+ 	}
+ 
+ 	if (!(flags & DM_REMOVE_NO_PD) &&
++	    !(dev_get_flags(dev) & DM_FLAG_LEAVE_PD_ON) &&
+ 	    !(drv->flags &
+ 	      (DM_FLAG_DEFAULT_PD_CTRL_OFF | DM_FLAG_LEAVE_PD_ON)) &&
+ 	    dev != gd->cur_serial_dev)
+ 		dev_power_domain_off(dev);
 diff --git a/arch/arm/mach-imx/imx8m/soc.c b/arch/arm/mach-imx/imx8m/soc.c
 --- a/arch/arm/mach-imx/imx8m/soc.c
 +++ b/arch/arm/mach-imx/imx8m/soc.c
