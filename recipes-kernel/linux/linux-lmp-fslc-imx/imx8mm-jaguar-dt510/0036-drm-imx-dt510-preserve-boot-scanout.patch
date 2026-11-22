@@ -1,0 +1,1454 @@
+Subject: [PATCH] drm/imx: DT510 take over reserved boot scanout without a reset
+
+Upstream-Status: Inappropriate [DT510 firmware handover ABI]
+Assisted-by: Briar
+
+The retained 720p mode uses the SEC DSIM four-lane sync-pulse adjustment:
+112 pixels of horizontal front porch and 1652 pixels per line. Validate
+the actual U-Boot and Linux adjusted timing, not the unadjusted CEA mode.
+
+diff --git a/drivers/gpu/imx/lcdif/lcdif-common.c b/drivers/gpu/imx/lcdif/lcdif-common.c
+--- a/drivers/gpu/imx/lcdif/lcdif-common.c
++++ b/drivers/gpu/imx/lcdif/lcdif-common.c
+@@ -27,10 +27,62 @@
+ #include <drm/drm_fourcc.h>
+ #include <video/imx-lcdif.h>
+ #include <video/videomode.h>
++#include <video/dt510-handover.h>
+ 
+ #include "lcdif-regs.h"
+ 
+ #define DRIVER_NAME "imx8mm-lcdif"
++
++/* Built-in DT510 display path: one shared outcome, not independently trusted
++ * firmware flags in each consumer. Reject is sticky for this kernel boot.
++ */
++static atomic_t dt510_boot_failed = ATOMIC_INIT(0);
++static atomic_t dt510_boot_claims = ATOMIC_INIT(0);
++static atomic_t dt510_boot_taken_over = ATOMIC_INIT(0);
++
++bool dt510_boot_display_pending(void)
++{
++	struct dt510_boot_display boot;
++
++	return !atomic_read(&dt510_boot_taken_over) && dt510_boot_display_read(&boot);
++}
++EXPORT_SYMBOL_GPL(dt510_boot_display_pending);
++
++void dt510_boot_display_takeover(void)
++{
++	atomic_set(&dt510_boot_taken_over, 1);
++}
++EXPORT_SYMBOL_GPL(dt510_boot_display_takeover);
++
++bool dt510_boot_display_failed(void)
++{
++	return atomic_read(&dt510_boot_failed);
++}
++EXPORT_SYMBOL_GPL(dt510_boot_display_failed);
++
++void dt510_boot_display_reject(void)
++{
++	if (!atomic_xchg(&dt510_boot_failed, 1))
++		pr_info("AESL HDMI handover: first rejection at %pS\n",
++			__builtin_return_address(0));
++}
++EXPORT_SYMBOL_GPL(dt510_boot_display_reject);
++
++void dt510_boot_display_claim(unsigned int participant)
++{
++	atomic_or(participant, &dt510_boot_claims);
++}
++EXPORT_SYMBOL_GPL(dt510_boot_display_claim);
++
++bool dt510_boot_display_retained(void)
++{
++	struct dt510_boot_display boot;
++
++	return atomic_read(&dt510_boot_claims) ==
++		(DT510_BOOT_LCDIF | DT510_BOOT_DSIM | DT510_BOOT_LT9611) &&
++		dt510_boot_display_read(&boot);
++}
++EXPORT_SYMBOL_GPL(dt510_boot_display_retained);
+ 
+ struct lcdif_soc {
+ 	struct device *dev;
+@@ -44,7 +96,58 @@
+ 	struct clk *clk_pix;
+ 	struct clk *clk_disp_axi;
+ 	struct clk *clk_disp_apb;
++	bool boot_running;
++	bool boot_pm_ref;
++	bool boot_fb_compatible;
+ };
++
++void lcdif_set_boot_fb_compatible(struct lcdif_soc *lcdif, bool compatible)
++{
++	lcdif->boot_fb_compatible = compatible;
++}
++EXPORT_SYMBOL(lcdif_set_boot_fb_compatible);
++
++static bool lcdif_boot_running(struct lcdif_soc *lcdif)
++{
++	static const u32 offsets[] = { 0x30, 0x70, 0x80, 0x90, 0xa0, 0xb0 };
++	struct dt510_boot_display boot;
++	u32 ctrl, current_buf;
++	int i;
++
++	if (!dt510_boot_display_read(&boot))
++		return false;
++	ctrl = readl(lcdif->base + LCDIF_CTRL);
++	current_buf = readl(lcdif->base + LCDIF_CUR_BUF);
++	if (!(ctrl & CTRL_RUN) || current_buf != boot.address ||
++	    CTRL_GET_WORD_LENGTH(ctrl) != 3) {
++		dev_info(lcdif->dev, "AESL HDMI handover: LCDIF ctrl=%#x current=%#x expected=%#llx\n",
++			 ctrl, current_buf, (unsigned long long)boot.address);
++		return false;
++	}
++	for (i = 0; i < ARRAY_SIZE(offsets); i++) {
++		int slot = i == 0 ? 2 : i + 4;
++		u32 actual = readl(lcdif->base + offsets[i]);
++
++		if (actual != boot.lcdif[slot]) {
++			dev_info(lcdif->dev, "AESL HDMI handover: LCDIF offset=%#x actual=%#x expected=%#x\n",
++				 offsets[i], actual, boot.lcdif[slot]);
++			return false;
++		}
++	}
++	return true;
++}
++
++static void lcdif_boot_put(void *data)
++{
++	struct lcdif_soc *lcdif = data;
++
++	if (lcdif->boot_pm_ref) {
++		if (dt510_boot_display_pending())
++			dt510_boot_display_reject();
++		lcdif->boot_pm_ref = false;
++		pm_runtime_put_sync(lcdif->dev);
++	}
++}
+ 
+ struct lcdif_soc_pdata {
+ 	bool hsync_invert;
+@@ -437,6 +540,32 @@
+ 	if (unlikely(!of_id))
+ 		return;
+ 	soc_pdata = of_id->data;
++	/* CRTC enable already owns the replacement runtime-PM reference. */
++	dt510_boot_display_takeover();
++	lcdif_boot_put(lcdif);
++
++	if (lcdif->boot_running) {
++		bool keep = lcdif->boot_fb_compatible && !use_i80 &&
++			dt510_boot_display_retained() &&
++			dt510_boot_mode_matches(vmode) &&
++			clk_get_rate(lcdif->clk_pix) == vmode->pixelclock;
++
++		lcdif->boot_running = false;
++		if (keep) {
++			dev_info(lcdif->dev, "AESL HDMI handover: keeping LCDIF timings\n");
++			return;
++		}
++		dev_info(lcdif->dev,
++			 "AESL HDMI handover: fallback fb=%d i80=%d retained=%d mode=%d clock=%lu/%lu\n",
++			 lcdif->boot_fb_compatible, use_i80,
++			 dt510_boot_display_retained(),
++			 dt510_boot_mode_matches(vmode),
++			 clk_get_rate(lcdif->clk_pix),
++			 (unsigned long)vmode->pixelclock);
++		writel(0, lcdif->base + LCDIF_CTRL);
++		dt510_boot_display_reject();
++		dev_info(lcdif->dev, "AESL HDMI handover: mode mismatch, resetting LCDIF\n");
++	}
+ 
+ 	/* Clear the FIFO */
+ 	writel(CTRL1_FIFO_CLEAR, lcdif->base + LCDIF_CTRL1 + REG_SET);
+@@ -752,13 +881,43 @@
+ 	pm_runtime_enable(dev);
+ 	atomic_inc(&lcdif->rpm_suspended);
+ 
++	/* Hold counted clocks/runtime PM until the first native CRTC commit.
++	 * This also protects the boot scanout from late unused-clock cleanup.
++	 */
++	{
++		struct dt510_boot_display boot;
++
++		if (dt510_boot_display_read(&boot)) {
++			lcdif->boot_running = true;
++			ret = pm_runtime_resume_and_get(dev);
++			if (ret < 0)
++				goto disable_pm;
++			lcdif->boot_pm_ref = true;
++			ret = devm_add_action_or_reset(dev, lcdif_boot_put, lcdif);
++			if (ret)
++				goto disable_pm;
++		}
++	}
++
+ 	dev_dbg(dev, "%s: probe end\n", __func__);
+ 
+-	return lcdif_add_client_devices(lcdif);
++	ret = lcdif_add_client_devices(lcdif);
++	if (!ret)
++		return 0;
++	lcdif_boot_put(lcdif);
++disable_pm:
++	dt510_boot_display_reject();
++	pm_runtime_disable(dev);
++	return ret;
+ }
+ 
+ static int imx_lcdif_remove(struct platform_device *pdev)
+ {
++	struct lcdif_soc *lcdif = platform_get_drvdata(pdev);
++
++	if (lcdif->boot_pm_ref)
++		dt510_boot_display_reject();
++	lcdif_boot_put(lcdif);
+ 	pm_runtime_disable(&pdev->dev);
+ 
+ 	return 0;
+@@ -809,24 +968,41 @@
+ 	ret = lcdif_enable_clocks(lcdif);
+ 	if (ret) {
+ 		release_bus_freq(BUS_FREQ_HIGH);
++		atomic_inc(&lcdif->rpm_suspended);
++		dt510_boot_display_reject();
+ 		return ret;
++	}
++
++	if (lcdif->boot_running) {
++		if (lcdif_boot_running(lcdif)) {
++			dt510_boot_display_claim(DT510_BOOT_LCDIF);
++			return 0;
++		}
++		dt510_boot_display_reject();
++		lcdif->boot_running = false;
+ 	}
+ 
+ 	ret = lcdif_rstc_reset(lcdif->soft_resetn, false);
+ 	if (ret) {
+ 		dev_err(dev, "deassert soft_resetn failed\n");
+-		return ret;
++		goto clocks_disable;
+ 	}
+ 
+ 	ret = lcdif_rstc_reset(lcdif->clk_enable, true);
+ 	if (ret) {
+ 		dev_err(dev, "assert clk_enable failed\n");
+-		return ret;
++		goto clocks_disable;
+ 	}
+ 
+ 	/* Pull LCDIF out of reset */
+ 	writel(0x0, lcdif->base + LCDIF_CTRL);
+ 
++	return ret;
++clocks_disable:
++	lcdif_disable_clocks(lcdif);
++	release_bus_freq(BUS_FREQ_HIGH);
++	atomic_inc(&lcdif->rpm_suspended);
++	dt510_boot_display_reject();
+ 	return ret;
+ }
+ #endif
+diff --git a/drivers/gpu/drm/imx/imx-drm-core.c b/drivers/gpu/drm/imx/imx-drm-core.c
+--- a/drivers/gpu/drm/imx/imx-drm-core.c
++++ b/drivers/gpu/drm/imx/imx-drm-core.c
+@@ -14,6 +14,7 @@
+ #include <video/imx-ipu-v3.h>
+ #include <video/imx-lcdif.h>
+ #include <video/imx-lcdifv3.h>
++#include <video/dt510-handover.h>
+ 
+ #include <drm/drm_atomic.h>
+ #include <drm/drm_atomic_helper.h>
+@@ -31,6 +32,14 @@
+ #include "imx-drm.h"
+ 
+ static int legacyfb_depth = 16;
++
++static ssize_t aesl_boot_display_show(struct device *dev,
++				     struct device_attribute *attr, char *buf)
++{
++	return sysfs_emit(buf, "%s\n",
++		dt510_boot_display_retained() ? "retained" : "fallback");
++}
++static DEVICE_ATTR_RO(aesl_boot_display);
+ module_param(legacyfb_depth, int, 0444);
+ 
+ DEFINE_DRM_GEM_DMA_FOPS(imx_drm_driver_fops);
+@@ -334,7 +343,24 @@
+ 	if (ret)
+ 		goto err_poll_fini;
+ 
+-	drm_fbdev_dma_setup(drm, legacyfb_depth);
++	{
++		struct dt510_boot_display boot;
++
++		/* A blank fbdev commit would destroy the retained boot splash.
++		 * Native DRM remains inactive in software until Weston's first
++		 * complete frame. Serial diagnostics are not affected.
++		 */
++		if (dt510_boot_display_read(&boot) &&
++		    !dt510_boot_display_retained())
++			dt510_boot_display_reject();
++		/* Userspace consumes this runtime outcome, never DT status alone.
++		 * Failure to expose it selects fbdev/PSplash rather than lying.
++		 */
++		if (device_create_file(dev, &dev_attr_aesl_boot_display))
++			dt510_boot_display_reject();
++		if (!dt510_boot_display_retained())
++			drm_fbdev_dma_setup(drm, legacyfb_depth);
++	}
+ 
+ 	dev_set_drvdata(dev, drm);
+ 
+@@ -352,6 +378,7 @@
+ static void imx_drm_unbind(struct device *dev)
+ {
+ 	struct drm_device *drm = dev_get_drvdata(dev);
++	device_remove_file(dev, &dev_attr_aesl_boot_display);
+ 
+ 	drm_dev_unregister(drm);
+ 
+diff --git a/drivers/gpu/drm/imx/lcdif/lcdif-crtc.c b/drivers/gpu/drm/imx/lcdif/lcdif-crtc.c
+--- a/drivers/gpu/drm/imx/lcdif/lcdif-crtc.c
++++ b/drivers/gpu/drm/imx/lcdif/lcdif-crtc.c
+@@ -25,6 +25,8 @@
+ #include <drm/drm_atomic.h>
+ #include <drm/drm_atomic_helper.h>
+ #include <drm/drm_self_refresh_helper.h>
++#include <drm/drm_framebuffer.h>
++#include <drm/drm_fourcc.h>
+ #include <video/imx-lcdif.h>
+ #include <video/videomode.h>
+ 
+@@ -40,9 +42,15 @@
+ 
+ 	int vbl_irq;
+ 	u32 pix_fmt;		/* drm fourcc */
++	bool rpm_active;
+ };
+ 
+ #define to_lcdif_crtc(crtc) container_of(crtc, struct lcdif_crtc, base)
++
++bool lcdif_crtc_is_active(struct drm_crtc *crtc)
++{
++	return READ_ONCE(to_lcdif_crtc(crtc)->rpm_active);
++}
+ 
+ static void lcdif_crtc_reset(struct drm_crtc *crtc)
+ {
+@@ -142,12 +150,26 @@
+ 	if (old_crtc_state->self_refresh_active && !crtc_state->active)
+ 		crtc_state->connectors_changed = true;
+ 
++	/* Reject an unpowerable enable in the error-returning check phase,
++	 * before atomic state is swapped. The boot reference (if any) keeps
++	 * the inherited stream alive while this temporary reference is put.
++	 */
++	if (crtc_state->active && !lcdif_crtc_is_active(crtc)) {
++		int ret = pm_runtime_resume_and_get(lcdif_crtc->dev->parent);
++
++		if (ret < 0)
++			return ret;
++		pm_runtime_put(lcdif_crtc->dev->parent);
++	}
++
+ 	return 0;
+ }
+ 
+ static void lcdif_crtc_atomic_begin(struct drm_crtc *crtc,
+ 				    struct drm_atomic_state *state)
+ {
++	if (!lcdif_crtc_is_active(crtc))
++		return;
+ 	drm_crtc_vblank_on(crtc);
+ 
+ 	spin_lock_irq(&crtc->dev->event_lock);
+@@ -175,8 +197,22 @@
+ 	struct imx_crtc_state *imx_crtc_state = to_imx_crtc_state(crtc->state);
+ 	struct videomode vm;
+ 	bool use_i80 = lcdif_drm_connector_is_self_refresh_aware(state);
++	int ret;
+ 
+ 	drm_display_mode_to_videomode(mode, &vm);
++	{
++		struct drm_plane_state *primary =
++			drm_atomic_get_new_plane_state(state, crtc->primary);
++		struct drm_framebuffer *fb = primary ? primary->fb : NULL;
++
++		lcdif_set_boot_fb_compatible(lcdif, fb &&
++			(fb->format->format == DRM_FORMAT_XRGB8888 ||
++			 fb->format->format == DRM_FORMAT_ARGB8888) &&
++			fb->pitches[0] == 5120 && fb->width == 1280 &&
++			fb->height == 720 && primary->src_x == 0 &&
++			primary->src_y == 0 && primary->src_w == 1280 << 16 &&
++			primary->src_h == 720 << 16);
++	}
+ 
+ 	if (imx_crtc_state->bus_flags & DRM_BUS_FLAG_DE_HIGH)
+ 		vm.flags |= DISPLAY_FLAGS_DE_HIGH;
+@@ -188,7 +224,12 @@
+ 	else
+ 		vm.flags |= DISPLAY_FLAGS_PIXDATA_NEGEDGE;
+ 
+-	pm_runtime_get_sync(lcdif_crtc->dev->parent);
++	ret = pm_runtime_resume_and_get(lcdif_crtc->dev->parent);
++	if (ret < 0) {
++		dev_err(lcdif_crtc->dev, "failed to claim LCDIF clocks: %d\n", ret);
++		return;
++	}
++	WRITE_ONCE(lcdif_crtc->rpm_active, true);
+ 
+ 	lcdif_set_mode(lcdif, &vm, use_i80);
+ 
+@@ -211,6 +252,8 @@
+ 	bool use_i80 = lcdif_drm_connector_is_self_refresh_aware(state);
+ 
+ 	if (old_crtc_state->self_refresh_active)
++		return;
++	if (!lcdif_crtc_is_active(crtc))
+ 		return;
+ 
+ 	spin_lock_irq(&crtc->dev->event_lock);
+@@ -223,6 +266,8 @@
+ 	drm_crtc_vblank_off(crtc);
+ 
+ 	lcdif_disable_controller(lcdif, use_i80);
++	synchronize_irq(lcdif_crtc->vbl_irq);
++	WRITE_ONCE(lcdif_crtc->rpm_active, false);
+ 
+ 	pm_runtime_put(lcdif_crtc->dev->parent);
+ }
+@@ -276,6 +321,8 @@
+ {
+ 	struct lcdif_crtc *lcdif_crtc = to_lcdif_crtc(crtc);
+ 	struct lcdif_soc *lcdif = dev_get_drvdata(lcdif_crtc->dev->parent);
++	if (!lcdif_crtc_is_active(crtc))
++		return -EIO;
+ 
+ 	lcdif_vblank_irq_enable(lcdif);
+ 	enable_irq(lcdif_crtc->vbl_irq);
+@@ -287,6 +334,8 @@
+ {
+ 	struct lcdif_crtc *lcdif_crtc = to_lcdif_crtc(crtc);
+ 	struct lcdif_soc *lcdif = dev_get_drvdata(lcdif_crtc->dev->parent);
++	if (!lcdif_crtc_is_active(crtc))
++		return;
+ 
+ 	disable_irq_nosync(lcdif_crtc->vbl_irq);
+ 	lcdif_vblank_irq_disable(lcdif);
+@@ -307,6 +356,8 @@
+ {
+ 	struct lcdif_crtc *lcdif_crtc = dev_id;
+ 	struct lcdif_soc *lcdif = dev_get_drvdata(lcdif_crtc->dev->parent);
++	if (!lcdif_crtc_is_active(&lcdif_crtc->base))
++		return IRQ_NONE;
+ 
+ 	drm_crtc_handle_vblank(&lcdif_crtc->base);
+ 
+diff --git a/include/video/imx-lcdif.h b/include/video/imx-lcdif.h
+--- a/include/video/imx-lcdif.h
++++ b/include/video/imx-lcdif.h
+@@ -34,6 +34,7 @@
+ void lcdif_set_fb_addr(struct lcdif_soc *lcdif, int id, u32 addr, bool use_i80);
+ void lcdif_set_mode(struct lcdif_soc *lcdif, struct videomode *vmode,
+ 		    bool use_i80);
++void lcdif_set_boot_fb_compatible(struct lcdif_soc *lcdif, bool compatible);
+ void lcdif_set_fb_hcrop(struct lcdif_soc *lcdif, u32 src_w,
+ 			u32 fb_w, bool crop);
+ void lcdif_enable_controller(struct lcdif_soc *lcdif, bool use_i80);
+diff --git a/drivers/gpu/drm/imx/lcdif/lcdif-plane.c b/drivers/gpu/drm/imx/lcdif/lcdif-plane.c
+--- a/drivers/gpu/drm/imx/lcdif/lcdif-plane.c
++++ b/drivers/gpu/drm/imx/lcdif/lcdif-plane.c
+@@ -116,6 +116,8 @@
+ 	/* plane and crtc is disabling */
+ 	if (!fb)
+ 		return;
++	if (!lcdif_crtc_is_active(new_plane_state->crtc))
++		return;
+ 
+ 	/* TODO: for now we just update the next buf addr
+ 	 * and the fb pixel format, since the mode set will
+diff --git a/drivers/gpu/drm/imx/lcdif/lcdif-kms.h b/drivers/gpu/drm/imx/lcdif/lcdif-kms.h
+--- a/drivers/gpu/drm/imx/lcdif/lcdif-kms.h
++++ b/drivers/gpu/drm/imx/lcdif/lcdif-kms.h
+@@ -19,6 +19,7 @@
+ #include <drm/drm_connector.h>
+ 
+ extern const struct drm_mode_config_funcs lcdif_drm_mode_config_funcs;
++bool lcdif_crtc_is_active(struct drm_crtc *crtc);
+ extern struct drm_mode_config_helper_funcs lcdif_drm_mode_config_helpers;
+ 
+ static inline bool
+diff --git a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c b/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c
+--- a/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c
++++ b/drivers/gpu/drm/imx/sec_mipi_dsim-imx.c
+@@ -34,6 +34,7 @@
+ #include "imx-drm.h"
+ #include "sec_mipi_dphy_ln14lpp.h"
+ #include "sec_mipi_pll_1432x.h"
++#include <video/dt510-handover.h>
+ 
+ #define DRIVER_NAME "imx_sec_dsim_drv"
+ 
+@@ -57,11 +58,38 @@
+ 	atomic_t rpm_suspended;
+ 
+ 	bool enabled;
++	bool boot_running;
++	bool boot_pm_ref;
++	bool clocks_active;
++	struct clk *clk_pllref_fallback;
++	void *bind_group;
+ };
+ 
+ #define enc_to_dsim(enc) container_of(enc, struct imx_sec_dsim_device, encoder)
+ 
+ static struct imx_sec_dsim_device *dsim_dev;
++
++static void imx_sec_dsim_boot_put(void *data)
++{
++	struct imx_sec_dsim_device *dsim = data;
++
++	if (dsim->boot_pm_ref) {
++		if (dt510_boot_display_pending())
++			dt510_boot_display_reject();
++		dsim->boot_pm_ref = false;
++		pm_runtime_put_sync(dsim->dev);
++	}
++}
++
++static int imx_sec_dsim_bind_error(int ret)
++{
++	/* A deferred dependency still owns a possible future takeover. */
++	if (ret != -EPROBE_DEFER) {
++		dt510_boot_display_reject();
++		imx_sec_dsim_boot_put(dsim_dev);
++	}
++	return ret;
++}
+ 
+ #if CONFIG_PM
+ static int imx_sec_dsim_runtime_suspend(struct device *dev);
+@@ -132,7 +160,15 @@
+ 	if (dsim_dev->enabled)
+ 		return;
+ 
+-	pm_runtime_get_sync(dsim_dev->dev);
++	ret = pm_runtime_resume_and_get(dsim_dev->dev);
++	if (ret < 0) {
++		dev_err(dsim_dev->dev, "failed to claim DSIM clocks: %d\n", ret);
++		return;
++	}
++	if (dsim_dev->boot_pm_ref) {
++		dsim_dev->boot_pm_ref = false;
++		pm_runtime_put(dsim_dev->dev);
++	}
+ 
+ 	ret = sec_dsim_rstc_reset(dsim_dev->mipi_reset, false);
+ 	if (ret)
+@@ -243,42 +279,91 @@
+ static int sec_dsim_determine_pll_ref_rate(u32 *rate, u32 min, u32 max)
+ {
+ 	int ret;
+ 	struct device *dev = dsim_dev->dev;
+ 	u32 req_rate = PHY_REF_CLK;
+ 	unsigned long get_rate;
+ 
+ 	ret = of_property_read_u32(dev->of_node, "pref-rate", &req_rate);
+ 	if (!ret) {
+ 		if (req_rate != clamp(req_rate, min, max)) {
+ 			dev_warn(dev, "invalid requested PLL ref clock rate : %u\n", req_rate);
+ 			req_rate = PHY_REF_CLK;
+ 			dev_warn(dev, "use default clock rate : %u\n", req_rate);
+ 		}
+ 	}
+ 
+ set_rate:
++	/* Preserve the already locked boot DPHY reference, which need not
++	 * equal Linux's usual default. Future PLL calculations use this rate.
++	 */
++	if (dsim_dev->boot_running) {
++		get_rate = clk_get_rate(dsim_dev->clk_pllref);
++		if (get_rate % 1000 == 0 && get_rate / 1000 >= min &&
++		    get_rate / 1000 <= max) {
++			*rate = get_rate / 1000;
++			dev_info(dev, "AESL HDMI handover: adopting DSIM reference %lu Hz\n", get_rate);
++			return 0;
++		}
++		dev_info(dev, "AESL HDMI handover: invalid DSIM reference %lu Hz\n", get_rate);
++		dt510_boot_display_reject();
++		dsim_dev->boot_running = false;
++	}
++	/* Firmware left the video-PLL parent untouched for adoption. Once
++	 * adoption is rejected, restore the board's normal reference parent
++	 * before asking for the exact default rate. Never reparent adoption.
++	 */
++	if (dsim_dev->clk_pllref_fallback) {
++		bool active = dsim_dev->clocks_active;
++		int restore;
++
++		/* A gated mux cannot reparent while prepared. Drop only the
++		 * temporary blk-ctrl reset-clock hold and our own reference;
++		 * keep the powered domain and its register-access clocks alive.
++		 */
++		ret = dt510_boot_display_drop_dsim_clocks(dev);
++		if (ret)
++			return ret;
++		if (active)
++			clk_disable_unprepare(dsim_dev->clk_pllref);
++		ret = clk_set_parent(dsim_dev->clk_pllref, dsim_dev->clk_pllref_fallback);
++		if (active) {
++			restore = clk_prepare_enable(dsim_dev->clk_pllref);
++			if (restore) {
++				/* Suspend must not drop a reference we failed to regain. */
++				clk_disable_unprepare(dsim_dev->clk_cfg);
++				clk_disable_unprepare(dsim_dev->clk_apb);
++				dsim_dev->clocks_active = false;
++				release_bus_freq(BUS_FREQ_HIGH);
++				atomic_set(&dsim_dev->rpm_suspended, 1);
++				return restore;
++			}
++		}
++		if (ret)
++			return ret;
++		dev_info(dev, "AESL HDMI handover: restored fallback DSIM reference parent\n");
++	}
+ 	ret = clk_set_rate(dsim_dev->clk_pllref, ((unsigned long)req_rate) * 1000);
+ 	if (ret)
+ 		return ret;
+ 
+ 	get_rate = clk_get_rate(dsim_dev->clk_pllref);
+ 	if (!get_rate)
+ 		return -EINVAL;
+ 
+ 	/* PLL ref clock rate should be set precisely */
+ 	if (get_rate != req_rate * 1000) {
+ 		/* default clock rate should can be set precisely */
+ 		if (WARN_ON(unlikely(req_rate == PHY_REF_CLK)))
+ 			return -EINVAL;
+ 
+ 		dev_warn(dev, "request rate %u cannot be satisfied\n", req_rate);
+ 		req_rate = PHY_REF_CLK;
+ 		dev_warn(dev, "use default clock rate : %u\n", req_rate);
+ 
+ 		goto set_rate;
+ 	}
+ 
+ 	*rate = req_rate;
+ 
+ 	return 0;
+ }
+@@ -382,6 +467,7 @@
+ 							   dev);
+ 	const struct sec_mipi_dsim_plat_data *pdata;
+ 	struct drm_encoder *encoder;
++	void *bind_group;
+ 
+ 	dev_dbg(dev, "%s: dsim bind begin\n", __func__);
+ 
+@@ -388,9 +474,9 @@
+ 	if (!of_id)
+-		return -ENODEV;
++		return imx_sec_dsim_bind_error(-ENODEV);
+ 	pdata = of_id->data;
+ 
+ 	encoder = &dsim_dev->encoder;
+ 	ret = imx_drm_encoder_parse_of(drm_dev, encoder, np);
+ 	if (ret)
+-		return ret;
++		return imx_sec_dsim_bind_error(ret);
+ 
+@@ -399,12 +485,41 @@
+ 	ret = drm_simple_encoder_init(drm_dev, encoder, DRM_MODE_ENCODER_DSI);
+ 	if (ret)
+-		return ret;
++		return imx_sec_dsim_bind_error(ret);
++	bind_group = devres_open_group(dev, NULL, GFP_KERNEL);
++	if (!bind_group) {
++		drm_encoder_cleanup(encoder);
++		return imx_sec_dsim_bind_error(-ENOMEM);
++	}
+ 
+ 	/* bind sec dsim bridge */
++	{
++		struct dt510_boot_display boot;
++
++		if (!dsim_dev->boot_pm_ref && dt510_boot_display_read(&boot)) {
++			dsim_dev->boot_running = true;
++			ret = pm_runtime_resume_and_get(dev);
++			if (ret < 0) {
++				devres_release_group(dev, bind_group);
++				drm_encoder_cleanup(encoder);
++				return imx_sec_dsim_bind_error(ret);
++			}
++			dsim_dev->boot_pm_ref = true;
++		}
++	}
+ 	ret = sec_mipi_dsim_bind(dev, master, data, encoder,
+ 				 dsim_dev->base, dsim_dev->irq, pdata);
+ 	if (ret) {
+ 		dev_err(dev, "failed to bind sec dsim bridge: %d\n", ret);
++		/* IRQ/allocation lifetime is this bind attempt, not the entire
++		 * platform-device lifetime. Otherwise a deferred retry gets EBUSY
++		 * from its own old IRQ and cannot ever complete adoption.
++		 */
++		devres_release_group(dev, bind_group);
++		dev_set_drvdata(dev, NULL);
++		/* Ordinary component deferral must not stop the boot stream.
++		 * A retry reuses this reference instead of taking another one.
++		 */
++		imx_sec_dsim_bind_error(ret);
+ 		drm_encoder_cleanup(encoder);
+ 
+ 		/* If no panel or bridge connected, just return 0
+@@ -421,6 +536,8 @@
+ 	}
+ 
+ 	dev_dbg(dev, "%s: dsim bind end\n", __func__);
++	devres_close_group(dev, bind_group);
++	dsim_dev->bind_group = bind_group;
+ 
+ 	return 0;
+ }
+@@ -434,6 +551,14 @@
+ 	drm_encoder_cleanup(&dsim_dev->encoder);
+ 
+ 	sec_mipi_dsim_unbind(dev, master, data);
++	if (dsim_dev->bind_group) {
++		devres_release_group(dev, dsim_dev->bind_group);
++		dsim_dev->bind_group = NULL;
++		dev_set_drvdata(dev, NULL);
++	}
++	/* A different component may defer the master after this one bound.
++	 * Keep the boot reference until an actual frame or driver removal.
++	 */
+ }
+ 
+ static const struct component_ops imx_sec_dsim_ops = {
+@@ -480,18 +605,30 @@
+ 		return dev_err_probe(dev, PTR_ERR(dsim_dev->clk_pix),
+ 				"failed to get pixel clock\n");
+ 
++	dsim_dev->clk_pllref_fallback = devm_clk_get_optional(dev, "fallback-pll-ref");
++	if (IS_ERR(dsim_dev->clk_pllref_fallback))
++		return dev_err_probe(dev, PTR_ERR(dsim_dev->clk_pllref_fallback),
++				     "failed to get fallback PLL reference\n");
++
+ 	ret = sec_dsim_of_parse_resets(dsim_dev);
+ 	if (ret)
+ 		return ret;
+ 
+ 	atomic_set(&dsim_dev->rpm_suspended, 1);
+ 
+ 	pm_runtime_enable(dev);
+-
+-	ret = component_add(dev, &imx_sec_dsim_ops);
++	ret = devm_add_action_or_reset(dev, imx_sec_dsim_boot_put, dsim_dev);
+ 	if (ret) {
+ 		pm_runtime_disable(dev);
+ 		sec_dsim_of_put_resets(dsim_dev);
++		return ret;
++	}
++
++	ret = component_add(dev, &imx_sec_dsim_ops);
++	if (ret) {
++		imx_sec_dsim_boot_put(dsim_dev);
++		pm_runtime_disable(dev);
++		sec_dsim_of_put_resets(dsim_dev);
+ 		dev_err_probe(dev, ret, "Failed to add component\n");
+ 	}
+ 
+@@ -501,6 +638,9 @@
+ static int imx_sec_dsim_remove(struct platform_device *pdev)
+ {
++	if (dsim_dev->boot_pm_ref)
++		dt510_boot_display_reject();
+ 	component_del(&pdev->dev, &imx_sec_dsim_ops);
++	imx_sec_dsim_boot_put(dsim_dev);
+ 	pm_runtime_disable(&pdev->dev);
+ 	sec_dsim_of_put_resets(dsim_dev);
+ 
+@@ -523,17 +663,20 @@
+ static int imx_sec_dsim_runtime_suspend(struct device *dev)
+ {
+ 	/* check sec dsim is bound or not */
+-	if (unlikely(!dsim_dev->encoder.dev))
++	/* A failed bind may already have unwound every clock reference. */
++	if (unlikely(!dsim_dev->clocks_active))
+ 		return 0;
+ 
+ 	if (atomic_inc_return(&dsim_dev->rpm_suspended) > 1)
+ 		return 0;
+ 
+ 	sec_mipi_dsim_suspend(dev);
++	dsim_dev->boot_running = false;
+ 
+ 	clk_disable_unprepare(dsim_dev->clk_cfg);
+ 	clk_disable_unprepare(dsim_dev->clk_pllref);
+ 	clk_disable_unprepare(dsim_dev->clk_apb);
++	dsim_dev->clocks_active = false;
+ 
+ 	release_bus_freq(BUS_FREQ_HIGH);
+ 
+@@ -545,7 +688,7 @@
+ 	int ret;
+ 
+ 	/* check sec dsim is bound or not */
+-	if (unlikely(!dsim_dev->encoder.dev))
++	if (unlikely(!dsim_dev->encoder.dev && !dsim_dev->boot_pm_ref))
+ 		return 0;
+ 
+ 	if (unlikely(!atomic_read(&dsim_dev->rpm_suspended))) {
+@@ -561,37 +704,58 @@
+ 
+ 	ret = clk_prepare_enable(dsim_dev->clk_pllref);
+ 	if (WARN_ON(unlikely(ret)))
+-		return ret;
++		goto bus_put;
+ 
+ 	ret = clk_prepare_enable(dsim_dev->clk_cfg);
+ 	if (WARN_ON(unlikely(ret)))
+-		return ret;
++		goto pll_disable;
+ 
+ 	ret = clk_prepare_enable(dsim_dev->clk_apb);
+ 	if (WARN_ON(unlikely(ret)))
+-		return ret;
++		goto cfg_disable;
++	dsim_dev->clocks_active = true;
++
++	/* No reset pulse when claiming a running boot pipeline. The first
++	 * bridge enable validates its mode; subsequent runtime resumes reset
++	 * normally because runtime suspend clears this one-time state.
++	 */
++	if (dsim_dev->boot_running)
++		return 0;
+ 
+ 	ret = sec_dsim_rstc_reset(dsim_dev->soft_resetn, false);
+ 	if (ret) {
+ 		dev_err(dev, "deassert soft_resetn failed\n");
+-		return ret;
++		goto apb_disable;
+ 	}
+ 
+ 	ret = sec_dsim_rstc_reset(dsim_dev->clk_enable, true);
+ 	if (ret) {
+ 		dev_err(dev, "assert clk_enable failed\n");
+-		return ret;
++		goto apb_disable;
+ 	}
+ 
+ 	ret = sec_dsim_rstc_reset(dsim_dev->mipi_reset, false);
+ 	if (ret) {
+ 		dev_err(dev, "deassert mipi_reset failed\n");
+-		return ret;
+-	}
+-
+-	sec_mipi_dsim_resume(dev);
+-
+-	return 0;
++		goto apb_disable;
++	}
++
++	if (dev_get_drvdata(dev))
++		sec_mipi_dsim_resume(dev);
++
++	return 0;
++apb_disable:
++	dsim_dev->clocks_active = false;
++	clk_disable_unprepare(dsim_dev->clk_apb);
++cfg_disable:
++	clk_disable_unprepare(dsim_dev->clk_cfg);
++pll_disable:
++	clk_disable_unprepare(dsim_dev->clk_pllref);
++bus_put:
++	release_bus_freq(BUS_FREQ_HIGH);
++	atomic_inc(&dsim_dev->rpm_suspended);
++	dt510_boot_display_reject();
++	return ret;
+ }
+ #endif
+ 
+diff --git a/drivers/gpu/drm/bridge/sec-dsim.c b/drivers/gpu/drm/bridge/sec-dsim.c
+--- a/drivers/gpu/drm/bridge/sec-dsim.c
++++ b/drivers/gpu/drm/bridge/sec-dsim.c
+@@ -36,6 +36,7 @@
+ #include <drm/drm_mipi_dsi.h>
+ #include <drm/drm_panel.h>
+ #include <video/videomode.h>
++#include <video/dt510-handover.h>
+ #include <video/mipi_display.h>
+ 
+ /* dsim registers */
+@@ -323,6 +324,10 @@
+ 	unsigned long long hs_data_rate;
+ 	struct videomode vmode;
+ 	bool enabled;
++	bool boot_running;
++	int irq;
++	bool irq_requested;
++	bool irq_enabled;
+ 
+ 	struct completion pll_stable;
+ 	struct completion ph_tx_done;
+@@ -1350,6 +1355,24 @@
+ 
+ 	if (dsim->enabled)
+ 		return;
++	if (!pm_runtime_active(dsim->dev))
++		return;
++
++	if (dsim->boot_running) {
++		dsim->boot_running = false;
++		if (dt510_boot_display_retained() &&
++		    dt510_boot_mode_matches(&dsim->vmode) &&
++		    dsim->lanes == 4 && dsim->format == MIPI_DSI_FMT_RGB888 &&
++		    (dsim_read(dsim, DSIM_STATUS) & STATUS_PLLSTABLE) &&
++		    (dsim_read(dsim, DSIM_MDRESOL) & MDRESOL_MAINSTANDBY)) {
++			sec_mipi_dsim_irq_init(dsim);
++			dsim->enabled = true;
++			dev_info(dsim->dev, "AESL HDMI handover: keeping locked DSIM\n");
++			return;
++		}
++		sec_mipi_dsim_set_standby(dsim, false);
++		dt510_boot_display_reject();
++	}
+ 
+ 	/* config main display mode */
+ 	sec_mipi_dsim_set_main_mode(dsim);
+@@ -1699,6 +1722,13 @@
+ 
+ void sec_mipi_dsim_suspend(struct device *dev)
+ {
++	struct sec_mipi_dsim *dsim = dev_get_drvdata(dev);
++
++	/* Drain a pending handler before the glue turns register clocks off. */
++	if (dsim && dsim->irq_enabled) {
++		disable_irq(dsim->irq);
++		dsim->irq_enabled = false;
++	}
+ 	/* TODO: add dsim reset */
+ }
+ EXPORT_SYMBOL(sec_mipi_dsim_suspend);
+@@ -1708,6 +1738,10 @@
+ 	struct sec_mipi_dsim *dsim = dev_get_drvdata(dev);
+ 
+ 	sec_mipi_dsim_irq_init(dsim);
++	if (dsim->irq_requested && !dsim->irq_enabled) {
++		enable_irq(dsim->irq);
++		dsim->irq_enabled = true;
++	}
+ 
+ 	/* TODO: add dsim de-reset */
+ }
+@@ -1989,16 +2023,28 @@
+ 	dsim->base = base;
+ 	dsim->pdata = pdata;
+ 	dsim->encoder = encoder;
++	dsim->irq = irq;
++	{
++		struct dt510_boot_display boot;
++
++		dsim->boot_running = dt510_boot_display_read(&boot);
++	}
+ 
+ 	dsim->dsi_host.ops = &sec_mipi_dsim_host_ops;
+ 	dsim->dsi_host.dev = dev;
+ 
+ 	dev_set_drvdata(dev, dsim);
+ 
+-	pm_runtime_get_sync(dev);
++	/* Completions exist before any resume can initialize the interrupt block. */
++	init_completion(&dsim->pll_stable);
++	init_completion(&dsim->ph_tx_done);
++	init_completion(&dsim->pl_tx_done);
++	init_completion(&dsim->rx_done);
++	ret = pm_runtime_resume_and_get(dev);
++	if (ret < 0)
++		return ret;
+ 	version = dsim_read(dsim, DSIM_VERSION);
+ 	WARN_ON(version != pdata->version);
+-	pm_runtime_put_sync(dev);
+ 
+ 	dev_info(dev, "version number is %#x\n", version);
+ 
+@@ -2006,20 +2052,26 @@
+ 	ret = sec_mipi_dsim_set_pref_rate(dsim);
+ 	if (ret) {
+ 		dev_err(dev, "failed to set pll ref clock rate\n");
++		pm_runtime_put_sync(dev);
+ 		return ret;
+ 	}
+ 
++	/* Inherited hardware can interrupt immediately. Initialize completion
++	 * state before installing its handler, not after request_irq().
++	 */
++	sec_mipi_dsim_irq_init(dsim);
++
+ 	ret = devm_request_irq(dev, irq, sec_mipi_dsim_irq_handler,
+-			       0, dev_name(dev), dsim);
++			       IRQF_NO_AUTOEN, dev_name(dev), dsim);
+ 	if (ret) {
+ 		dev_err(dev, "failed to request dsim irq: %d\n", ret);
++		pm_runtime_put_sync(dev);
+ 		return ret;
+ 	}
+-
+-	init_completion(&dsim->pll_stable);
+-	init_completion(&dsim->ph_tx_done);
+-	init_completion(&dsim->pl_tx_done);
+-	init_completion(&dsim->rx_done);
++	dsim->irq_requested = true;
++	enable_irq(dsim->irq);
++	dsim->irq_enabled = true;
++	pm_runtime_put_sync(dev);
+ 
+ 	/* Initialize and attach sec dsim bridge */
+ 	bridge = devm_kzalloc(dev, sizeof(*bridge), GFP_KERNEL);
+@@ -2100,6 +2152,15 @@
+ 	}
+ 
+ 	dev_dbg(dev, "sec-dsim bridge bind end\n");
++	if (dsim->boot_running) {
++		if ((dsim_read(dsim, DSIM_STATUS) & STATUS_PLLSTABLE) &&
++		    (dsim_read(dsim, DSIM_MDRESOL) & MDRESOL_MAINSTANDBY))
++			dt510_boot_display_claim(DT510_BOOT_DSIM);
++		else {
++			dsim->boot_running = false;
++			dt510_boot_display_reject();
++		}
++	}
+ 
+ 	return 0;
+ 
+diff --git a/drivers/gpu/drm/bridge/lontium-lt9611.c b/drivers/gpu/drm/bridge/lontium-lt9611.c
+--- a/drivers/gpu/drm/bridge/lontium-lt9611.c
++++ b/drivers/gpu/drm/bridge/lontium-lt9611.c
+@@ -10,6 +10,8 @@
+ #include <linux/media-bus-format.h>
+ #include <linux/module.h>
+ #include <linux/of_graph.h>
++#include <video/dt510-handover.h>
++#include <drm/drm_modes.h>
+ #include <linux/platform_device.h>
+ #include <linux/regmap.h>
+ #include <linux/regulator/consumer.h>
+@@ -34,6 +36,7 @@
+ #define LT9611_4LANES	0
+ 
+ struct lt9611 {
++	bool boot_running;
+ 	struct device *dev;
+ 	struct drm_bridge bridge;
+ 	struct drm_bridge *next_bridge;
+@@ -730,6 +733,18 @@
+ 		return;
+ 
+ 	mode = &crtc_state->adjusted_mode;
++	if (lt9611->boot_running) {
++		struct videomode vm;
++
++		lt9611->boot_running = false;
++		drm_display_mode_to_videomode(mode, &vm);
++		if (dt510_boot_display_retained() && dt510_boot_mode_matches(&vm)) {
++			dev_info(lt9611->dev, "AESL HDMI handover: keeping LT9611 output\n");
++			return;
++		}
++		lt9611_reset(lt9611);
++		lt9611->power_on = false;
++	}
+ 
+ 	lt9611_mipi_input_digital(lt9611, mode);
+ 	lt9611_pll_setup(lt9611, mode, &postdiv);
+@@ -1020,18 +1035,21 @@
+ {
+ 	struct device *dev = lt9611->dev;
+ 
+-	lt9611->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
++	lt9611->reset_gpio = devm_gpiod_get(dev, "reset",
++		lt9611->boot_running ? GPIOD_ASIS : GPIOD_OUT_HIGH);
+ 	if (IS_ERR(lt9611->reset_gpio)) {
+ 		dev_err(dev, "failed to acquire reset gpio\n");
+ 		return PTR_ERR(lt9611->reset_gpio);
+ 	}
+ 
+ 	lt9611->enable_gpio = devm_gpiod_get_optional(dev, "enable",
+-						      GPIOD_OUT_LOW);
++		lt9611->boot_running ? GPIOD_ASIS : GPIOD_OUT_LOW);
+ 	if (IS_ERR(lt9611->enable_gpio)) {
+ 		dev_err(dev, "failed to acquire enable gpio\n");
+ 		return PTR_ERR(lt9611->enable_gpio);
+ 	}
++	if (lt9611->boot_running && lt9611->enable_gpio)
++		return gpiod_direction_output(lt9611->enable_gpio, 1);
+ 
+ 	return 0;
+ }
+@@ -1164,6 +1182,11 @@
+ 	lt9611->dev = dev;
+ 	lt9611->client = client;
+ 	lt9611->sleep = false;
++	{
++		struct dt510_boot_display boot;
++
++		lt9611->boot_running = dt510_boot_display_read(&boot);
++	}
+ 
+ 	lt9611->regmap = devm_regmap_init_i2c(client, &lt9611_regmap_config);
+ 	if (IS_ERR(lt9611->regmap)) {
+@@ -1191,7 +1214,25 @@
+ 	if (ret)
+ 		goto err_of_put;
+ 
+-	lt9611_reset(lt9611);
++	if (lt9611->boot_running) {
++		unsigned int tx;
++
++		/* Check before any reset pulse. Failed reads or asserted reset
++		 * select the normal active-low reset/init path, never a blind skip.
++		 */
++		if (gpiod_get_value_cansleep(lt9611->reset_gpio) != 0 ||
++		    regmap_read(lt9611->regmap, 0x8130, &tx) || tx != 0xea) {
++			dt510_boot_display_reject();
++			lt9611->boot_running = false;
++		}
++	}
++	ret = gpiod_direction_output(lt9611->reset_gpio, 0);
++	if (ret)
++		goto err_disable_regulators;
++	if (!lt9611->boot_running)
++		lt9611_reset(lt9611);
++	else
++		lt9611->power_on = true;
+ 
+ 	ret = lt9611_read_device_rev(lt9611);
+ 	if (ret) {
+@@ -1227,6 +1268,8 @@
+ 	lt9611_enable_hpd_interrupts(lt9611);
+ 	/* Publish only after probe is complete, without requiring a DSI host. */
+ 	drm_bridge_add(&lt9611->bridge);
++	if (lt9611->boot_running)
++		dt510_boot_display_claim(DT510_BOOT_LT9611);
+ 
+ 	return 0;
+ 
+diff --git a/drivers/pmdomain/imx/gpcv2.c b/drivers/pmdomain/imx/gpcv2.c
+--- a/drivers/pmdomain/imx/gpcv2.c
++++ b/drivers/pmdomain/imx/gpcv2.c
+@@ -19,6 +19,7 @@
+ #include <linux/reset.h>
+ #include <linux/sizes.h>
+ #include <soc/imx/gpcv2.h>
++#include <video/dt510-handover.h>
+ #include <dt-bindings/power/imx7-power.h>
+ #include <dt-bindings/power/imx8mq-power.h>
+ #include <dt-bindings/power/imx8mm-power.h>
+@@ -286,6 +287,7 @@
+ };
+ 
+ struct imx_pgc_domain {
++	bool boot_seen;
+ 	struct generic_pm_domain genpd;
+ 	struct regmap *regmap;
+ 	struct regmap *noc_regmap;
+@@ -351,6 +353,23 @@
+ 	struct imx_pgc_domain *domain = to_imx_pgc_domain(genpd);
+ 	u32 reg_val, pgc;
+ 	int ret;
++	struct dt510_boot_display boot;
++	bool inherit = false;
++
++	if (!domain->boot_seen && dt510_boot_display_read(&boot) &&
++	    (!strcmp(genpd->name, "dispmix") || !strcmp(genpd->name, "mipi"))) {
++		inherit = true;
++		for_each_set_bit(pgc, &domain->pgc, 32) {
++			ret = regmap_read(domain->regmap, GPC_PGC_SR(pgc), &reg_val);
++			pr_info("AESL HDMI handover: GPC %s pgc=%u sr=%#x read=%d\n",
++				genpd->name, pgc, ret ? ~0U : reg_val, ret);
++			if (ret ||
++			    (reg_val & BIT(0)))
++				inherit = false;
++		}
++		pr_info("AESL HDMI handover: GPC %s inherit=%d\n", genpd->name, inherit);
++	}
++	domain->boot_seen = true;
+ 
+ 	ret = pm_runtime_get_sync(domain->dev);
+ 	if (ret < 0) {
+@@ -368,7 +387,8 @@
+ 		}
+ 	}
+ 
+-	reset_control_assert(domain->reset);
++	if (!inherit)
++		reset_control_assert(domain->reset);
+ 
+ 	/* Enable reset clocks for all devices in the domain */
+ 	ret = clk_bulk_prepare_enable(domain->num_clks, domain->clks);
+@@ -382,7 +402,7 @@
+ 	/* delays for reset to propagate */
+ 	udelay(5);
+ 
+-	if (domain->bits.pxx) {
++	if (domain->bits.pxx && !inherit) {
+ 		/* request the domain to power up */
+ 		regmap_update_bits(domain->regmap, domain->regs->pup,
+ 				   domain->bits.pxx, domain->bits.pxx);
+@@ -460,1 +480,9 @@
++	if (!strcmp(genpd->name, "dispmix") || !strcmp(genpd->name, "mipi")) {
++		if (dt510_boot_display_pending()) {
++			pr_info("AESL HDMI handover: keeping GPC %s on until native takeover\n",
++				genpd->name);
++			return -EBUSY;
++		}
++	}
++
+ 	/* Enable reset clocks for all devices in the domain */
+diff --git a/drivers/pmdomain/imx/imx8m-blk-ctrl.c b/drivers/pmdomain/imx/imx8m-blk-ctrl.c
+--- a/drivers/pmdomain/imx/imx8m-blk-ctrl.c
++++ b/drivers/pmdomain/imx/imx8m-blk-ctrl.c
+@@ -15,6 +15,7 @@
+ #include <linux/clk.h>
+ #include <linux/mfd/syscon.h>
+ #include <soc/imx/gpcv2.h>
++#include <video/dt510-handover.h>
+ 
+ #include <dt-bindings/power/imx8mm-power.h>
+ #include <dt-bindings/power/imx8mn-power.h>
+@@ -76,6 +77,8 @@
+ #define DOMAIN_MAX_CLKS 4
+ 
+ struct imx8m_blk_ctrl_domain {
++	bool boot_seen;
++	bool boot_clocks;
+ 	struct generic_pm_domain genpd;
+ 	const struct imx8m_blk_ctrl_domain_data *data;
+ 	struct clk_bulk_data clks[DOMAIN_MAX_CLKS];
+@@ -131,21 +134,39 @@
+ 	const struct imx8m_blk_ctrl_domain_data *data = domain->data;
+ 	struct imx8m_blk_ctrl *bc = domain->bc;
+ 	int ret;
++	struct dt510_boot_display boot;
++	u32 rst, clk, phy;
++	bool inherit = false;
+ 
+ 	if (!domain->power_dev)
+ 		return -ENODEV;
+ 
+ 	/* make sure bus domain is awake */
+ 	ret = pm_runtime_get_sync(bc->bus_power_dev);
+ 	if (ret < 0) {
+ 		pm_runtime_put_noidle(bc->bus_power_dev);
+ 		dev_err(bc->dev, "failed to power up bus domain\n");
+ 		return ret;
+ 	}
+ 
++	if (!domain->boot_seen && dt510_boot_display_read(&boot) &&
++	    (!strcmp(data->name, "dispblk-lcdif") ||
++	     !strcmp(data->name, "dispblk-mipi-dsi")) &&
++	    !regmap_read(bc->regmap, BLK_SFT_RSTN, &rst) &&
++	    !regmap_read(bc->regmap, BLK_CLK_EN, &clk) &&
++	    !regmap_read(bc->regmap, BLK_MIPI_RESET_DIV, &phy))
++		inherit = (rst & data->rst_mask) == data->rst_mask &&
++			  (clk & data->clk_mask) == data->clk_mask &&
++			  (phy & data->mipi_phy_rst_mask) == data->mipi_phy_rst_mask;
++	if (!domain->boot_seen && dt510_boot_display_read(&boot))
++		dev_info(bc->dev, "AESL HDMI handover: blk %s inherit=%d\n",
++			 data->name, inherit);
++	domain->boot_seen = true;
++
+ 	/* put devices into reset */
+-	regmap_clear_bits(bc->regmap, BLK_SFT_RSTN, data->rst_mask);
+-	if (data->mipi_phy_rst_mask)
++	if (!inherit)
++		regmap_clear_bits(bc->regmap, BLK_SFT_RSTN, data->rst_mask);
++	if (data->mipi_phy_rst_mask && !inherit)
+ 		regmap_clear_bits(bc->regmap, BLK_MIPI_RESET_DIV, data->mipi_phy_rst_mask);
+ 
+ 	/* enable upstream and blk-ctrl clocks to allow reset to propagate */
+@@ -174,7 +195,10 @@
+ 	imx8m_blk_ctrl_qos_set(domain);
+ 
+ 	/* disable upstream clocks */
+-	clk_bulk_disable_unprepare(data->num_clks, domain->clks);
++	if (inherit)
++		domain->boot_clocks = true;
++	else
++		clk_bulk_disable_unprepare(data->num_clks, domain->clks);
+ 
+ 	return 0;
+ 
+@@ -189,5 +213,47 @@
++/* Called during DSIM bind, outside genpd callbacks and clock locks. */
++int dt510_boot_display_drop_dsim_clocks(struct device *dev)
++{
++	struct of_phandle_args args;
++	struct platform_device *pdev;
++	struct imx8m_blk_ctrl *bc;
++	struct imx8m_blk_ctrl_domain *domain;
++	int ret;
++
++	if (!of_machine_is_compatible("fsl,imx8mm-jaguar-dt510"))
++		return 0;
++	ret = of_parse_phandle_with_args(dev->of_node, "power-domains",
++					 "#power-domain-cells", 0, &args);
++	if (ret)
++		return ret;
++	if (!of_device_is_compatible(args.np, "fsl,imx8mm-disp-blk-ctrl") ||
++	    args.args_count != 1 || args.args[0] != IMX8MM_DISPBLK_PD_MIPI_DSI) {
++		of_node_put(args.np);
++		return -EINVAL;
++	}
++	pdev = of_find_device_by_node(args.np);
++	of_node_put(args.np);
++	if (!pdev)
++		return -EPROBE_DEFER;
++	bc = platform_get_drvdata(pdev);
++	if (!bc || args.args[0] >= bc->onecell_data.num_domains) {
++		put_device(&pdev->dev);
++		return -EPROBE_DEFER;
++	}
++	domain = &bc->domains[args.args[0]];
++	/* These blk-ctrl domains use sleeping genpd locks, never IRQ_SAFE. */
++	mutex_lock(&domain->genpd.mlock);
++	if (domain->boot_clocks) {
++		domain->boot_clocks = false;
++		clk_bulk_disable_unprepare(domain->data->num_clks, domain->clks);
++	}
++	mutex_unlock(&domain->genpd.mlock);
++	put_device(&pdev->dev);
++	return 0;
++}
++EXPORT_SYMBOL_GPL(dt510_boot_display_drop_dsim_clocks);
++
+ static int imx8m_blk_ctrl_power_off(struct generic_pm_domain *genpd)
+ {
+ 	struct imx8m_blk_ctrl_domain *domain = to_imx8m_blk_ctrl_domain(genpd);
+ 	const struct imx8m_blk_ctrl_domain_data *data = domain->data;
+ 	struct imx8m_blk_ctrl *bc = domain->bc;
+@@ -194,6 +260,18 @@
+ 
+ 	if (!domain->power_dev)
+ 		return -ENODEV;
++	if (!strcmp(data->name, "dispblk-lcdif") ||
++	    !strcmp(data->name, "dispblk-mipi-dsi")) {
++		if (dt510_boot_display_pending()) {
++			dev_info(bc->dev, "AESL HDMI handover: keeping blk %s on until native takeover\n",
++				 data->name);
++			return -EBUSY;
++		}
++	}
++	if (domain->boot_clocks) {
++		domain->boot_clocks = false;
++		clk_bulk_disable_unprepare(data->num_clks, domain->clks);
++	}
+ 
+ 	/* put devices into reset and disable clocks */
+ 	if (data->mipi_phy_rst_mask)
+diff --git a/include/video/dt510-handover.h b/include/video/dt510-handover.h
+new file mode 100644
+--- /dev/null
++++ b/include/video/dt510-handover.h
+@@ -0,0 +1,96 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#ifndef _VIDEO_DT510_HANDOVER_H
++#define _VIDEO_DT510_HANDOVER_H
++
++#include <linux/of.h>
++#include <linux/of_reserved_mem.h>
++#include <linux/limits.h>
++#include <linux/string.h>
++#include <video/videomode.h>
++
++/* Private, versioned contract with the DT510 bootloader. This describes
++ * hardware still scanning a reserved allocation, not a Linux framebuffer.
++ * Linux never frees, exports, maps or reuses the bootloader allocation.
++ */
++struct dt510_boot_display {
++	u64 address;
++	u32 lcdif[10];
++};
++
++#define DT510_BOOT_LCDIF BIT(0)
++#define DT510_BOOT_DSIM BIT(1)
++#define DT510_BOOT_LT9611 BIT(2)
++bool dt510_boot_display_failed(void);
++void dt510_boot_display_reject(void);
++void dt510_boot_display_claim(unsigned int participant);
++bool dt510_boot_display_retained(void);
++bool dt510_boot_display_pending(void);
++void dt510_boot_display_takeover(void);
++struct device;
++#if IS_ENABLED(CONFIG_IMX8M_BLK_CTRL)
++int dt510_boot_display_drop_dsim_clocks(struct device *dev);
++#else
++static inline int dt510_boot_display_drop_dsim_clocks(struct device *dev)
++{
++	return 0;
++}
++#endif
++
++static inline bool dt510_boot_display_read(struct dt510_boot_display *boot)
++{
++	struct device_node *node, *memory;
++	struct reserved_mem *rmem;
++	const char *format;
++	u32 width, height, stride;
++	bool valid = false;
++
++	if (dt510_boot_display_failed() ||
++	    !of_machine_is_compatible("fsl,imx8mm-jaguar-dt510"))
++		return false;
++	node = of_find_node_by_path("/chosen/aesl-boot-display");
++	if (!node)
++		return false;
++	if (!of_device_is_available(node) ||
++	    !of_device_is_compatible(node, "aesl,dt510-handover-v1") ||
++	    of_property_read_u64(node, "framebuffer-address", &boot->address) ||
++	    of_property_read_u32(node, "width", &width) ||
++	    of_property_read_u32(node, "height", &height) ||
++	    of_property_read_u32(node, "stride", &stride) ||
++	    of_property_read_string(node, "format", &format) ||
++	    width != 1280 || height != 720 || stride != 5120 ||
++	    strcmp(format, "x8r8g8b8") ||
++	    of_property_read_u32_array(node, "lcdif-registers", boot->lcdif, 10) ||
++	    !boot->address || boot->address > U32_MAX - 1280 * 720 * 4 ||
++	    boot->lcdif[3] != boot->address || !(boot->lcdif[0] & BIT(0)) ||
++	    boot->lcdif[2] != ((720U << 16) | 1280) ||
++	    (boot->lcdif[5] & 0x3ffff) != 5 || boot->lcdif[6] != 750 ||
++	    boot->lcdif[7] != ((40U << 18) | 1652) ||
++	    boot->lcdif[8] != ((260U << 16) | 25) ||
++	    (boot->lcdif[9] & 0x3ffff) != 1280)
++		goto out;
++	memory = of_parse_phandle(node, "memory-region", 0);
++	if (!memory)
++		goto out;
++	rmem = of_reserved_mem_lookup(memory);
++	valid = rmem && of_property_read_bool(memory, "no-map") &&
++		rmem->base <= boot->address &&
++		rmem->size >= 1280 * 720 * 4 &&
++		boot->address - rmem->base <= rmem->size - 1280 * 720 * 4;
++	of_node_put(memory);
++out:
++	of_node_put(node);
++	return valid;
++}
++
++static inline bool dt510_boot_mode_matches(const struct videomode *vm)
++{
++	return vm->pixelclock == 74250000 && vm->hactive == 1280 &&
++		vm->hfront_porch == 112 && vm->hsync_len == 40 &&
++		vm->hback_porch == 220 && vm->vactive == 720 &&
++		vm->vfront_porch == 5 && vm->vsync_len == 5 &&
++		vm->vback_porch == 20 &&
++		(vm->flags & DISPLAY_FLAGS_HSYNC_HIGH) &&
++		(vm->flags & DISPLAY_FLAGS_VSYNC_HIGH) &&
++		!(vm->flags & (DISPLAY_FLAGS_INTERLACED | DISPLAY_FLAGS_DOUBLESCAN));
++}
++#endif

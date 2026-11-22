@@ -72,6 +72,10 @@
 #include <dt-bindings/clock/imx8mm-clock.h>
 
 / {
+#ifdef AESL_CONTINUOUS_DISPLAY
+	/* Versioned opt-in; absent in headless/manufacturing images. */
+	aesl,continuous-display-v1;
+#endif
 	model = "i.MX8MM Jaguar DT510 board";
 	compatible = "fsl,imx8mm-jaguar-dt510", "fsl,imx8mm-evkb", "fsl,imx8mm-evk", "fsl,imx8mm";
 
@@ -1316,6 +1320,12 @@
 
 &mipi_dsi {
 	samsung,esc-clock-frequency = <10000000>;
+	/* Retained boot scanout keeps its existing parent. The normal reset path
+	 * must restore OSC24M if firmware adoption is rejected.
+	 */
+	clocks = <&clk IMX8MM_CLK_DSI_CORE>, <&clk IMX8MM_CLK_DSI_PHY_REF>,
+		 <&clk IMX8MM_CLK_DISP_APB_ROOT>, <&clk IMX8MM_CLK_24M>;
+	clock-names = "cfg", "pll-ref", "apb-root", "fallback-pll-ref";
 	status = "okay";
 
 	/* Replace inherited EVK graph ports; do not retain the ADV7535 endpoint. */

@@ -1,8 +1,154 @@
 # DT510 LT9611 HDMI bring-up
 
-Updated 19 November 2026 at Alex's request. Briar helped draft this.
+Updated 22 November 2026 at Alex's request. Briar helped draft this.
 
 ## Current state
+
+**Test baseline: build 718; residual handover blackout reported.**
+Three complete camera/serial-recorded warm reboots retained the AESL splash
+from U-Boot into accelerated Weston, without observed black/white handover
+frames or TV console. Linux reports `aesl_boot_display=retained`; the running
+compositor uses G2D. Alex accepted the physical camera's 5 fps cadence; the
+recordings cannot exclude events shorter than roughly 200 ms. Logo scale
+changes at desktop takeover, so this is not pixel-identical content acceptance.
+
+**Subsequent user observation:** Alex thinks a black period still occurs during
+handover and requested a separate issue for investigation another day. Treat
+that as unresolved; sampled footage and `retained` status do not justify claiming
+fully seamless operation. No additional reboot or investigation is scheduled.
+
+See the [DT510 HDMI handover test release](releases/dt510-hdmi-handover-test-1.md)
+for exact source/image identities, implemented fixes and remaining checks.
+The code used by build 718 is already published; later documentation/skill
+snapshot commits do not change that tested image. No boot selection, storage
+layout, security or OTA policy was changed during acceptance testing.
+
+The hardware oscillator repair (1 MΩ across the crystal) remains required on
+the tested prototype. Cold power-on, suspend/resume and broader GPIO/USB
+regression qualification remain open. The ten-second U-Boot diagnostic splash
+hold is still present; this is a test release, not production qualification.
+HDMI audio is physically unconnected on this board.
+
+## Earlier baselines and investigation
+
+**Working U-Boot baseline: build 704.** Alex visibly confirmed the splash on
+two consecutive watched warm reboots. BSP commit
+`5dd6e794ac166fca6765ad4c3f5a609ee7453c57`, manifest
+`417a9ac059efc5c75643b993dd56dbbf3c0a6853`, installed boot firmware
+`4cad2dd9d8d4c1dacaaeb85685797abd`. Serial measured valid port-A input:
+1280x720, 750 total lines, horizontal system-clock count 601, before enabling
+TX. This confirms physical output, not just the drawing command. Cold-start
+qualification remains outstanding. Preserve this polarity/timing/input-check
+baseline; the successful-splash-only ten-second TV-lock hold is unchanged.
+
+### Historical continuous handover candidate — before build 718 acceptance
+
+Image 708 (`095026718fa7de7d911c9494d9061e6ef0af37c7`) booted
+`5.0.9-708-96` with accelerated Weston and **no `console=tty1`**. A watched
+reboot showed splash → black → splash. The VT filter is fixed; display
+continuity is not. The 708 baseline still shuts down and reinitializes HDMI.
+
+The new DT510-only source candidate adds a versioned firmware/kernel contract.
+Only headed DTBs advertise `aesl,continuous-display-v1`. U-Boot reserves its
+whole video allocation as no-map memory, publishes geometry/register metadata
+and leaves LCDIF/DSIM running only after reservation and framebuffer sync
+succeed. The handover also leaves DSI clock defaults unchanged: U-Boot uses
+27 MHz, whereas normal Linux DT defaults would switch the reference to 12 MHz
+before probe. A failed handover restores those normal defaults. Older/rollback
+DTBs retain normal teardown. Linux validates the
+descriptor, reservation and 720p timings, counts clock/runtime-PM ownership,
+avoids initial power-domain/bridge resets when hardware is already running,
+retains its bootstrap reference across deferred component binds, and skips
+the blank fbdev commit only when every display component reports adoption.
+A read-only DRM-device `aesl_boot_display` attribute reports `retained` or
+`fallback`; PSplash consumes that runtime outcome, not firmware status alone.
+Power failures are rejected during the error-returning atomic check, with
+additional framebuffer/vblank guards against an unclocked enable. A matching first native framebuffer is
+selected through LCDIF NEXT_BUF; invalid state/modes use normal initialization.
+Reserved firmware memory is never freed as a Linux DMA allocation.
+
+PSplash remains a fallback, but does not redraw a retained boot display. Weston
+keeps G2D and waits for a committed desktop background buffer before its first
+repaint; startup fading is disabled. A 15-second desktop-client timeout releases
+that wait rather than hanging startup. Headless images and other boards retain
+their existing paths. No saved environment, storage layout or OTA selection is
+changed. Native fixtures and cross-builds are not physical continuity proof:
+the target kernel/compositor build, independent review, watched warm/cold boots
+and recovery/mode-change tests remain required before acceptance.
+
+### Earlier headed startup — 707 and the VT-filter correction
+
+707 passed and booted image `5.0.9-707-96`, deployment
+`67a77fbea6336cdba72ff33f2cff045de71d1b61090fca73289ce67e49a6f96a`.
+Weston started with G2D, HDMI-A-1 enabled and the packaged active-seat GPU rule;
+no temporary `/run` rule was present. PSplash released successfully. The running
+command line included the new splash/mode flags but still `console=tty1`.
+
+Cause reproduced against U-Boot's exact pinned SLRE source: bracket expressions
+are literal sets, not POSIX ranges. `[0-9]` matches `0`, `-` or `9`, not `1`.
+The corrected script spells out `[0123456789]`. The native regression verifies
+the pinned engine's source hashes, reproduces 707's failure and tests all VT
+numbers 0–63, serial/root/OTA preservation, multiple sinks and failure paths.
+CI runs the same real-engine test. This is not a full Hush or physical boot test;
+the host-native sandbox build was unavailable because its Python device-tree
+tool dependencies were not installed. No board reboot or live change was made.
+
+Image 706 selects the headed distro and includes the splash/Weston payload.
+It exposed two independent integration defects: Weston G2D cannot open the
+root-only `/dev/galcore`, and OTA retained the earlier `console=tty1` argument.
+The correction keeps hardware rendering (Alex explicitly rejected a CPU
+fallback), tags only DT510's `gpu_class/galcore` device for logind's active-seat
+ACL, and leaves its base root:root 0600 mode unchanged. This grants the active
+local desktop user GPU ioctl access; it is an explicitly approved security
+change, not a world-writable device or root compositor.
+
+The packaged boot script filters exact numbered VT console tokens in RAM
+after rollback selects the deployment arguments and before upstream adds root.
+It preserves serial, earlycon, root, OSTree and other tokens, and adds the
+splash/mode policy. It does not rewrite OSTree metadata, uEnv.txt or saved
+environment. A failed regex retains the original token rather than dropping it.
+Native fixtures exercise normal/no-match/error paths and feature opt-out;
+they do not prove U-Boot or physical display handover.
+
+Live test on image706, without reboot: the temporary active-seat rule let Weston
+UID63 start using `g2d-renderer.so`; HDMI-A-1 enabled the Panasonic output and
+the desktop shell ran. PSplash exited successfully after Weston became ready.
+The named ACL granted weston rw with group/other denied; a non-active `nobody`
+identity could not read/write galcore. Session-switch revocation was not tested.
+That test used a temporary `/run` rule; 707's subsequent startup above proves
+the packaged rule works without it. Neither proves continuous handover.
+
+The distro's `display-boot-splash` feature now follows the `display` product
+bundle by default on machines explicitly marked `display-multimedia` (DT510
+and Jaguar Screen). Explicit headless selection remains available. The feature
+packages PSplash and a matching Weston desktop background from the same AESL
+source artwork. DT510 uses the exact 1280x720 pixels and bitmap digest already
+confirmed in U-Boot, and the same 720p mode in Linux and Weston. Screen retains
+its DSI rotation/G2D policy, with a correspondingly rotated framebuffer image;
+this board's new handover has not been physically tested.
+
+Image-generated and boot-script kernel arguments remove display-VT console sinks only; serial
+console, root/OSTree arguments and diagnostic verbosity stay intact. No live
+boot environment, boot storage or firmware-update policy is edited. The scoped
+GPU ACL change above is the only security-policy change. Local display gettys are suppressed unless
+`/etc/aesl-enable-display-getty` exists; serial gettys remain available.
+
+PSplash waits boundedly for fb0 and does not switch/restore virtual terminals.
+The normal progress helper is suppressed so it cannot dismiss the image before
+Weston starts. Weston still runs as its normal unprivileged user. A separate
+root oneshot sends QUIT after Weston's systemd READY notification; missing or
+failed PSplash does not prevent desktop startup. READY is compositor readiness,
+not independent evidence that the desktop background has reached the TV.
+
+**708 baseline, not a pixel-continuous handover:** U-Boot safely tears down its
+LCDIF/DMA before Linux, and Linux reinitializes the display. Leaving DMA running
+without reserving its framebuffer is unsafe. A blank interval may remain even
+with all console text suppressed. Watched serial/TV testing must check splash,
+any blank interval, absence of console text and desktop background separately.
+Do not declare the full requested stay-on-screen behaviour complete on native
+tests or a successful image build alone.
+
+### Earlier bring-up history
 
 Michael reported the hardware cause on 19 November: the 27 MHz crystal did
 not oscillate on three failed boots. After adding a **1 MΩ resistor across the
@@ -115,8 +261,8 @@ The separate upstream U-Boot
 [pixel-clock edge fix](https://github.com/u-boot/u-boot/commit/ff1932daab1e6381e0b26d69a0197dfb2cd7168f)
 changes NEGEDGE to POSEDGE in the LCDIF condition. Neither flag is selected in
 this fixed mode, so that patch alone would not change its clock polarity and
-is not bundled into this repair. Physical HDMI remains unproven until a new
-firmware image is installed and a watched serial/TV test succeeds.
+is not bundled into this repair. The subsequent build704 warm-reboot physical
+confirmation is recorded above; the statements below describe earlier tests.
 
 ### Build 702 watched retest and 720p sync-pulse correction
 
@@ -220,7 +366,7 @@ upstream i.MX single-master STOP fix is already present. Recovery evidence
 indicates SDA read low during recovery, not which device held it or a measured
 crystal fault. Do not keep increasing blind delays.
 
-### Optional U-Boot AESL HDMI splash — implementation, not hardware proof
+### Optional U-Boot AESL HDMI splash — build704 warm-reboot confirmation above
 
 Alex requested testing initialization before Linux, reusing the Jaguar Screen
 splash approach. This is a hardware-specific **MACHINE_FEATURES** switch,
@@ -646,11 +792,10 @@ HDMI and 256 EDID bytes. Active 1080p scanout was observed during T2. This is no
 camera-confirmed picture acceptance. The test trace instance was removed;
 global `nop`/tracing-on settings remain unchanged, and no player was started.
 
-Raw private evidence is retained on the board at
-`/var/lib/dt510-hdmi-debug/t2-690-detect.YQZOuZ/` (trace, per-CPU stats, EDID and
-metadata), with local copy `/tmp/dt510-690-t2.kLs6MT/`. Trace SHA-256:
+Raw trace, per-CPU stats, EDID and metadata are retained in the private evidence
+archive indexed by the project checkpoint. Trace SHA-256:
 `8f484f2273e21b92c8d3409f0197594a41f0f42b2689cc1c298e18489b1e48f4`.
-The local reducer `/tmp/dt510-i2c-summary.py` uses parsed adapter/transfer fields
+The private local reducer uses parsed adapter/transfer fields
 and fixed success/failure/interleaved/no-match fixtures; it reports incomplete
 tails rather than treating them as successful transfers.
 
@@ -678,9 +823,8 @@ removed and global tracing settings were unchanged.
 This proves a late full I2C3 reinitialisation can work; it does not prove which
 first-startup condition differs or that reloading is an acceptable product fix.
 Trace phases use the trace `mono` clock; do not assume exact raw timestamp
-equivalence with kernel printk timestamps. Raw evidence:
-`/var/lib/dt510-hdmi-debug/t3-690-i2c3-rebind.3EM8CX/`, local copy
-`/tmp/dt510-690-t3.dMsmDm/`; trace SHA-256
+equivalence with kernel printk timestamps. Raw evidence is retained in the
+private archive indexed by the project checkpoint; trace SHA-256
 `95575719fe8848c30f44da631101bbe85e6d7d5139c3ba0c586b05df55b16282`.
 
 #### Diagnostic-only startup image: patch 0038
@@ -939,7 +1083,7 @@ clock-switch write in **0.279 ms**, with zero failed transfers and zero trace
 overruns; connector detection and 256-byte EDID recovered. This is recovery,
 not a boot or visible-video acceptance pass. Both temporary boot-option changes
 were restored, and tracing was disabled. Boot and rebind traces were retained
-under `/var/lib/dt510-hdmi-debug/` on the development board. An earlier capture
+in the private evidence archive indexed by the project checkpoint. An earlier capture
 stopped on the switch's initial `-ENXIO`, so it is not HDMI failure evidence.
 
 The 687/688 controlled candidate restored shared I2C3 to **100 kHz**, instead of
@@ -1058,8 +1202,9 @@ is still needed to identify the underlying bus/register failure.
 ## Hardware recovery evidence — 16 November 2026
 
 Alex explicitly designated Michael's DT510 as development hardware and requested
-live diagnostics and driver-reload experiments. Device identity:
-`imx8mm-jaguar-dt510-1b1b6209dabc234a`, reported LAN address `192.168.2.205`.
+live diagnostics and driver-reload experiments on that development board.
+Connection details and its unique device identity remain in the private
+project checkpoint, not these public notes.
 Build 682 uses BSP `b3e99127bc1384ee66cab74519587f919bde3bde`, manifest
 `78692c1010d20e3a8f7e1a7161e5b999f4547eae`.
 
@@ -1220,7 +1365,7 @@ No other machine's driver build is changed.
 
 ## Michael's vendor archive
 
-Inspected `/home/ajlennon/Downloads/LT9611 6911.zip` as data only. No supplied
+Inspected Michael's supplied LT9611/6911 archive as data only. No supplied
 code or binaries were executed, and vendor files are not copied into this repo.
 Archive SHA-256:
 `ab81bb834688c862edf1adc35560369c2613ddd50bfcb298ae843e64eb9ce944`.

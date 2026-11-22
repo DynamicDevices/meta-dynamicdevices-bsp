@@ -109,7 +109,7 @@ Work **in order** within each tier unless a dependency forces otherwise.
 | A1 | **Single DTS source** | **Done:** `linux-lmp-fslc-imx/imx8mm-jaguar-dt510.dts` → symlink to `lmp-device-tree/imx8mm-jaguar-dt510.dts` (canonical). |
 | A2 | **SSOT header in DTS** | **Done:** Comment block after NXP copyright in canonical DTS (SSOT pointer, symlink note, plan + reference folder). |
 | A3 | **Audit spreadsheet / checklist** | **Done:** [`docs/DT510-HARDWARE-AUDIT-CHECKLIST.md`](DT510-HARDWARE-AUDIT-CHECKLIST.md) — SSOT blocks vs BSP; update as doc/hardware changes. |
-| A4 | **Placeholder nodes** | **Done:** `&i2c3` — **`bq25792@6b` enabled (Tier B1)**; `lt9611@39` **disabled**. **SE050:** same as **Sentai** — **no** SE050 child in Jaguar DTS; **OpTEE** + **`se05x`** / **`SE05X_OEFID`** (see [`DT510-SE050.md`](DT510-SE050.md)). Optional explicit **`&i2c4` / `se050@48`** in kernel DT is **not** required for parity with Sentai — **Tier B4** if you want Linux-visible node. |
+| A4 | **Placeholder nodes** | **Done:** `&i2c3` — **`bq25792@6b` enabled (Tier B1)**; `lt9611@39` **enabled (Tier C3, build 718)**. **SE050:** same as **Sentai** — **no** SE050 child in Jaguar DTS; **OpTEE** + **`se05x`** / **`SE05X_OEFID`** (see [`DT510-SE050.md`](DT510-SE050.md)). Optional explicit **`&i2c4` / `se050@48`** in kernel DT is **not** required for parity with Sentai — **Tier B4** if you want Linux-visible node. |
 
 **Tier A — status:** **Complete** on `main` (software + interim lab smoke: factory images boot, OTA/SSH, DTS intent). **Full validation** (BOM/schematic, per-block electrical test, SSOT sign-off) is **queued for prototype hardware** — use §9 and Tier **B/C** when boards land. Git tag: **`dt510-tier-a-test-1`** (annotated, points at BSP `main` at tag time).
 
@@ -128,11 +128,21 @@ Work **in order** within each tier unless a dependency forces otherwise.
 |----|------|--------|
 | C1 | **Ethernet — `&fec1` + KSZ9896** | **Phase 1 (prove hardware):** single CPU netdev, **`&fec1` + `fixed-link`**, **no** DSA, **no** I²C switch node — in-tree **`microchip,ksz9896`** DSA uses **I²C/SPI** regmap, not MIIM as full switch management for this product’s strap; see [`docs/DT510-ETHERNET-KSZ9896.md`](DT510-ETHERNET-KSZ9896.md) (*Phased plan* + *Simple bring-up*). RGMII pinctrl = **SSOT / board (Ollie)**, not EVK, unless schematics match EVK ENET. **Future:** I²C/SPI strap + DSA or richer switch control when the product needs per-port / VLAN / manageability; incremental bring-up, risk of boot hang if MDIO/PHY wrong — validate link before “full” bridge features. |
 | C2 | **Audio vs SSOT** | **TAS6424 — working (kernel + userspace “Tannoy” ALSA; lab):** **`alsa-state`** [`docs/DT510-TAS6424-TANNOY-ALSA.md`](DT510-TAS6424-TANNOY-ALSA.md) — **`pcm`/`ctl` `tannoys`**, IEC **`tannoy_slot2`/`slot3`**, **`tannoy_both_*`**, **`tas6424-init`**. **`TAS6422`** (2‑ch) later: move PCM **`ttable`** from **IEC 2–3 → 0–1** (`slot0`/`slot1`). **TAS2563 (driver speaker):** **`driver_speaker`/`drivers`/`driver_slot`/`driver_out`**, **`tas2563-init`** [**`DT510-TAS2563-DRIVER-SPEAKER-ALSA.md`**](DT510-TAS2563-DRIVER-SPEAKER-ALSA.md). **TAA5412‑Q1 (Driver Mic):** **`driver_mic`** (**capture-only**) [**`DT510-TAA5412-DRIVER-MIC-ALSA.md`**](DT510-TAA5412-DRIVER-MIC-ALSA.md) — needs **`taa5412`** **`MACHINE_FEATURES`** + TI **firmware** + **`&micfil` off**. **TAC5301-Q1 (analog loop / aux):** **`audio_loop`** (playback), **`aux`** (capture — **asym** aliases) [**`DT510-TAC5301-AUDIO-LOOP-ALSA.md`**](DT510-TAC5301-AUDIO-LOOP-ALSA.md). DTS: **`pinctrl_sai1_tas6424`**, **`&sai1`**, **`sound-tas6424`** / **`tas6424-classd`**, **`tas6424@6a`**, **`tas6424_hi_rail`**, **`CONFIG_SND_SOC_TAS6424=m`**, **`sound-tas2563`** **`&sai3`**, **`sound-taa5412`** **`&sai5`**, **`sound-tac5301`** **`&sai6`**, **micfil** off. **Still to do (C2):** TAA5412 **lab + firmware** polish, optional TDM / extra TAC routing. **I2C2 `0x50`:** TAC5301. |
-| C3 | **HDMI — LT9611** (I2C3 `0x39` 7-bit / `0x72` 8-bit) | **19 November:** Michael reports a stopped crystal fixed by 1 MΩ across it (three failures before, three console starts after). Alex confirmed Linux TV console on image 698; U-Boot splash did not appear and its bitmap was absent from the boot partition. Local candidate removes startup experiments, retains real driver fixes and U-Boot display, and repairs OTA splash packaging. Not yet built/deployed. HDMI audio is physically unconnected. See [HDMI integration notes](DT510-LT9611-HDMI.md). |
+| C3 | **HDMI — LT9611** (I2C3 `0x39` 7-bit / `0x72` 8-bit) | **22 November, build 718:** U-Boot splash and G2D Weston working; Linux retains display state across takeover. Three sampled warm-reboot recordings found no blank, but Alex subsequently reports a possible handover black interval; investigation is deferred. Cold-power and broader regression qualification remain open. The prototype requires the 1 MΩ crystal repair. HDMI audio is unconnected. See [test-release limits](releases/dt510-hdmi-handover-test-1.md) and [HDMI integration notes](DT510-LT9611-HDMI.md). |
 | C4 | **CAN — MCP2518xx on ECSPI2** | **DT510 has no XM125** (Sentai only). `&ecspi2` free for CAN bring-up when ready. |
 | C5 | **GNSS** | **Lab 2026-05-05:** NEO-M9V + antenna — valid NMEA fix. **2026-05-18:** **NDTR container** path validated — **`/dev/gnss`** (CP2102N **`10c4:ea60`**, udev **`99-dt510-gnss.rules`**, BSP **`36f1b22`** / target **378**), **`onboard_gps = true`**, **38400**, Compose **`/dev/gnss`** (**`vix-apps` `6f1935a`**, containers **377**); engineering SSH **`status l`** shows lock with antenna. Reset/`gnss-res#` per DTS hog. See checklist + **`meta-subscriber-overrides/docs/DT510-HARDWARE-BRINGUP.md`**. |
 
-#### Tier C3 — Exact LT9611 and reset findings (updated 2026-11-17)
+#### Tier C3 — Exact LT9611 and display handover (updated 2026-11-22)
+
+**Current test evidence:** build 718 passed three complete recorded warm reboots,
+retaining the U-Boot AESL splash into G2D-accelerated Weston without observed
+handover blanking or TV console. The LT9611 is enabled, not the UXC/UXD variant.
+See [test-release identities and limits](releases/dt510-hdmi-handover-test-1.md)
+and [current HDMI notes](DT510-LT9611-HDMI.md). Cold-power, suspend/resume and
+broader GPIO/USB qualification remain open; HDMI audio is unconnected. Older
+build-specific findings below are historical, not the current shipping state.
+Alex subsequently reports a possible black interval during handover. It remains
+an unresolved test-release limitation, with investigation deferred at his request.
 
 Alex requested investigation of the specific **LT9611**, following Michael Hull's report that the chips had arrived, explicitly **not LT9611UXC or LT9611UXD**. Alex subsequently requested a DT510-only driver patch, then HDMI enablement, followed by the reviewed build/push workflow. Build 682 passed and reached Michael's designated development board. TV console video and 1080p60 with valid EDID were confirmed after driver rebind, but an earlier boot failed; repeatable boot/reboot operation and the underlying timing/state cause remain unresolved. (Briar helped draft this)
 
@@ -145,7 +155,7 @@ environment for further diagnosis. The earlier live tracing boot edits preceded
 a boot failure; the clean flash removed them. Current investigation uses scoped
 live diagnostics and source analysis, not more speculative image builds.
 
-**Current source candidate (19 November):** Michael scoped a stopped crystal
+**Historical source candidate (19 November):** Michael scoped a stopped crystal
 on three failed starts; adding 1 MΩ across it gave three successful console
 starts. This is reported hardware evidence, not hardware-design signoff.
 Local cleanup retains genuine Linux fixes 0031–0035 and U-Boot HDMI support,
@@ -239,7 +249,7 @@ Use [**`DT510-HARDWARE-AUDIT-CHECKLIST.md`**](DT510-HARDWARE-AUDIT-CHECKLIST.md)
 | Analog / mic / class-D | TAC5301, TAA5412, TAS6424, TAS2563 on I2C2 + SAI5/6/1/3 | **TAS6424 / SAI1** (**`tas6424-classd`**). **TAS2563 / SAI3** (**`tas2563-audio`**): [`DT510-TAS2563-DRIVER-SPEAKER-ALSA.md`](DT510-TAS2563-DRIVER-SPEAKER-ALSA.md). **TAC5301 / SAI6** (**`tac5301-codec`**): [`DT510-TAC5301-AUDIO-LOOP-ALSA.md`](DT510-TAC5301-AUDIO-LOOP-ALSA.md). **TAA5412 / SAI5** (**`taa5412-codec`** — Driver Mic): [`DT510-TAA5412-DRIVER-MIC-ALSA.md`](DT510-TAA5412-DRIVER-MIC-ALSA.md). **Userspace (“Tannoy”):** [`DT510-TAS6424-TANNOY-ALSA.md`](DT510-TAS6424-TANNOY-ALSA.md). Tier C2 follow-on: levels / firmware / TDM. |
 | I2C `0x50` | TAC5301 | **TCPC node removed** from DT510 DTS — address free for TAC5301 when Tier C2 enables it |
 | Charger | BQ25792 @ `0x6B` | **DT enabled** — kernel charger driver pending suitable upstream/kernel version |
-| HDMI | LT9611 (`0x72` 8-bit → `0x39` 7-bit) | **19 November:** reported crystal resistor fix; Linux console confirmed on 698. U-Boot splash packaging repair and experiment removal are local, not deployed; HDMI audio physically unconnected |
+| HDMI | LT9611 (`0x72` 8-bit → `0x39` 7-bit) | **Build 718 deployed/tested:** U-Boot splash, retained Linux display and accelerated Weston. Alex reports a possible residual handover blackout; deferred investigation and qualification remain open. HDMI audio unconnected |
 | Ethernet | KSZ9896 RGMII | `fec1` disabled |
 | SE050 | I2C4 `0x48` | **OpTEE/Sentai-aligned** — see [`DT510-SE050.md`](DT510-SE050.md); optional explicit DT child |
 | CAN | MCP2518xx, ECSPI2 | `&ecspi2` disabled — enable for CAN (no XM125 on DT510) |
