@@ -137,25 +137,38 @@ def start():
     runtime.current_pr(github, binding, number, head, base)
     runtime.verify_live_service(binding, workload, 'preloop-review-trigger.yml')
     run_url = 'https://github.com/' + binding['repository'] + '/actions/runs/' + os.environ['GITHUB_RUN_ID']
+    gate = None
     if permit is None and binding.get('publication_merge_gate'):
-        runtime.merge_check(github, binding, head, run_url)
-    execution = runtime.preloop('/flows/' + binding['flow_id'] + '/trigger', token,
-                                'POST', {'pr_number': number, 'head_sha': head})
-    require(all(execution.get(key) == intent[key] for key in
-                ['flow_id', 'project_id', 'repository_identifier', 'pr_number', 'head_sha', 'base_sha']),
-            'Native controller accepted a different review')
-    require(permit is None or execution.get('id') != permit['source_execution_id'],
-            'Diagnostic trigger returned the original execution; do not retry blindly')
-    receipt = {**intent, 'execution_id': execution['id']}
-    runtime.write_receipt(Path(os.environ['RUNNER_TEMP']) / 'preloop-trigger', receipt)
-    runtime.output(execution_id=execution['id'])
-    runtime.current_pr(github, binding, number, head, base)
-    run_url = 'https://github.com/' + binding['repository'] + '/actions/runs/' + os.environ['GITHUB_RUN_ID']
-    if permit is None and not binding.get('publication_merge_gate'):
-        runtime.commit_status(github, binding, head, 'pending', run_url,
-                              'Native review accepted; awaiting authenticated completion.')
-    elif permit is not None:
-        print('Diagnostic only: no PR status or review publication is permitted.')
+        gate = runtime.merge_check(github, binding, head, run_url)
+    try:
+        execution = runtime.preloop('/flows/' + binding['flow_id'] + '/trigger', token,
+                                    'POST', {'pr_number': number, 'head_sha': head})
+        require(all(execution.get(key) == intent[key] for key in
+                    ['flow_id', 'project_id', 'repository_identifier', 'pr_number', 'head_sha', 'base_sha']),
+                'Native controller accepted a different review')
+        require(permit is None or execution.get('id') != permit['source_execution_id'],
+                'Diagnostic trigger returned the original execution; do not retry blindly')
+        receipt = {**intent, 'execution_id': execution['id']}
+        runtime.write_receipt(Path(os.environ['RUNNER_TEMP']) / 'preloop-trigger', receipt)
+        runtime.output(execution_id=execution['id'])
+        runtime.current_pr(github, binding, number, head, base)
+        if permit is None and not binding.get('publication_merge_gate'):
+            runtime.commit_status(github, binding, head, 'pending', run_url,
+                                  'Native review accepted; awaiting authenticated completion.')
+        elif permit is not None:
+            print('Diagnostic only: no PR status or review publication is permitted.')
+    except Exception:
+        if gate is not None:
+            try:
+                runtime.fail_merge_check(github, binding, head, os.environ['GITHUB_RUN_ID'], prior=gate)
+            except Exception as cleanup_error:
+                try:
+                    runtime.write_receipt(Path(os.environ['RUNNER_TEMP']) / 'preloop-trigger-cleanup',
+                        dict(check_id=gate['id'], head_sha=head,
+                             failure_correction_confirmed=False, error_type=type(cleanup_error).__name__))
+                except Exception:
+                    pass
+        raise
 
 
 def startup():

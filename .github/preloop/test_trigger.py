@@ -127,6 +127,39 @@ class TriggerTests(unittest.TestCase):
             trigger.start()
         self.assertEqual(self.calls, [])
 
+    def assert_launch_failure_cleanup(self, phase):
+        self.binding['publication_merge_gate'] = copy.deepcopy(runtime.trust.MERGE_GATE)
+        self.store_intent()
+        gate = dict(id=123, head_sha='a' * 40, external_id='briar-preloop-merge:10')
+        runtime.merge_check.return_value = gate
+        if phase == 'request':
+            fault = patch.object(runtime, 'preloop', side_effect=OSError('Synthetic trigger failure'))
+        elif phase == 'response':
+            self.detail['head_sha'] = 'b' * 40
+            fault = patch.object(runtime, 'output')
+        elif phase == 'receipt':
+            fault = patch.object(runtime, 'write_receipt', side_effect=OSError('Synthetic receipt failure'))
+        else:
+            fault = patch.object(runtime, 'current_pr', side_effect=[None, InvalidReview('PR changed')])
+        with fault, patch.object(runtime, 'fail_merge_check') as cleanup:
+            with self.assertRaises((OSError, InvalidReview)):
+                trigger.start()
+            cleanup.assert_called_once()
+            self.assertEqual(cleanup.call_args.args[2:], ('a' * 40, '10'))
+            self.assertEqual(cleanup.call_args.kwargs, {'prior': gate})
+
+    def test_native_trigger_failure_completes_owned_gate_failure(self):
+        self.assert_launch_failure_cleanup('request')
+
+    def test_trigger_response_mismatch_completes_owned_gate_failure(self):
+        self.assert_launch_failure_cleanup('response')
+
+    def test_trigger_receipt_failure_completes_owned_gate_failure(self):
+        self.assert_launch_failure_cleanup('receipt')
+
+    def test_post_launch_pr_change_completes_owned_gate_failure(self):
+        self.assert_launch_failure_cleanup('current_pr')
+
     def test_workflow_observes_startup_even_when_launch_step_failed_after_acceptance(self):
         workflow = Path(__file__).resolve().parents[1] / 'workflows/preloop-review-trigger.yml'
         self.assertIn("      - name: Validate native startup once\n"

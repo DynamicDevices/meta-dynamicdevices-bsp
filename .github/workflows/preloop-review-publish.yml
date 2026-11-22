@@ -111,11 +111,19 @@ jobs:
         run: python3 -I -B .github/preloop/bootstrap.py publisher publish
       - name: Preserve actual publication receipt
         id: publication_receipt
-        if: always()
+        if: always() && steps.publish.outputs.terminal_replay != 'true'
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6, Node24
         with:
           name: preloop-publication-${{ needs.authenticate.outputs.execution_id }}
           path: ${{ runner.temp }}/preloop-publication/receipt.json
+          if-no-files-found: error
+          retention-days: 31
+      - name: Preserve verified terminal replay
+        if: steps.publish.outputs.terminal_replay == 'true'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6, Node24
+        with:
+          name: preloop-terminal-replay-${{ needs.authenticate.outputs.execution_id }}
+          path: ${{ runner.temp }}/preloop-terminal-replay/receipt.json
           if-no-files-found: error
           retention-days: 31
       - name: Preserve publication failure for recovery

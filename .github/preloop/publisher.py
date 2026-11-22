@@ -184,6 +184,30 @@ def publish():
     if retained:
         runtime.verify_retained_check(intents[0], binding, eid, proof['claim_sha256'])
         runtime.verify_check_url(intents[0], binding, run_url)
+    if intents and intents[0].get('status') == 'completed' and not retained:
+        terminal = intents[0]
+        if terminal.get('conclusion') == 'success':
+            require(proof['state'] == 'success' and len(matching) == 1 and
+                    matching[0].get('body') == body, 'Terminal publication differs from this result')
+            if binding.get('publication_finalizer'):
+                producers = re.findall(r'<!-- briar-preloop-finalized:([1-9][0-9]*):[1-9][0-9]*:' +
+                    re.escape(proof['claim_sha256']) + r' -->', terminal.get('output', {}).get('text') or '')
+            else:
+                producers = re.findall(re.escape('https://github.com/' + binding['repository'] +
+                    '/actions/runs/') + r'([1-9][0-9]*)', terminal.get('output', {}).get('summary') or '')
+            require(len(producers) == 1, 'Missing unique terminal publication producer')
+            accepted = runtime.completed_publication(github, binding, producers[0], eid, number, head, base)
+            require(all(accepted.get(key) is True for key in
+                        ['delivery_verified', 'actions_run_verified', 'actions_check_verified', 'review_approved']),
+                    'Existing terminal publication is not verified approval')
+            # No check/status reset, no resend, and no new producer receipt.
+            runtime.write_receipt(Path(os.environ['RUNNER_TEMP']) / 'preloop-terminal-replay',
+                dict(execution_id=eid, pr_number=number, head_sha=head, base_sha=base,
+                     original_publisher_run_id=producers[0]))
+            runtime.output(terminal_replay='true')
+            return 0
+        require(terminal.get('conclusion') == 'failure' and existing is not None,
+                'Completed failed publication needs explicit signed recovery')
     # This genuine check is created by the actual trusted Actions publisher,
     # tied to the reviewed SHA and workflow run, never by a desktop status script.
     if not intents:

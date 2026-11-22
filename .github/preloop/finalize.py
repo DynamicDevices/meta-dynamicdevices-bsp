@@ -24,6 +24,20 @@ def producer(github, binding):
     rows = runtime.github_pages(github, '/repos/' + binding['repository'] +
                                 '/actions/runs/' + str(run_id) + '/artifacts', 'artifacts')
     publications = [row for row in rows if re.fullmatch('preloop-publication-[0-9a-f-]{36}', row.get('name', ''))]
+    replays = [row for row in rows if re.fullmatch('preloop-terminal-replay-[0-9a-f-]{36}', row.get('name', ''))]
+    if replays:
+        require(len(replays) == 1 and not publications and not replays[0].get('expired'),
+                'Ambiguous terminal replay')
+        replay = runtime.artifact(github, binding, replays[0]['name'],
+                                  'preloop-review-publish.yml', run_id=str(run_id))
+        require(replays[0]['name'] == 'preloop-terminal-replay-' + replay['execution_id'] and
+                replay['original_publisher_run_id'] != str(run_id), 'Invalid terminal replay identity')
+        accepted = runtime.completed_publication(github, binding, replay['original_publisher_run_id'],
+            replay['execution_id'], replay['pr_number'], replay['head_sha'], replay['base_sha'])
+        require(all(accepted.get(key) is True for key in
+                    ['delivery_verified', 'actions_run_verified', 'actions_check_verified', 'review_approved']),
+                'Terminal replay has no verified original approval')
+        return None
     require(len(publications) == 1 and not publications[0].get('expired'),
             'Missing unique durable publication receipt')
     eid = publications[0]['name'].removeprefix('preloop-publication-')
@@ -48,6 +62,51 @@ def producer(github, binding):
     require(evidence['publication_receipt'] == receipt, 'Producer receipt changed')
     publisher.no_supersession(binding, os.environ['PRELOOP_CI_TOKEN'], completion)
     return str(run_id), receipt, completion
+
+
+def producer_or_fail(github, binding):
+    """On producer failure, fail only a target proved by wake + trigger artifacts."""
+    try:
+        return producer(github, binding)
+    except Exception:
+        if binding.get('publication_merge_gate'):
+            report = dict(failure_correction_confirmed=False)
+            try:
+                event = json.loads(Path(os.environ['GITHUB_EVENT_PATH']).read_text())
+                hinted = event.get('workflow_run', {})
+                run_id = hinted.get('id')
+                require(os.environ['GITHUB_EVENT_NAME'] == 'workflow_run' and
+                        event.get('action') == 'completed' and
+                        event.get('repository', {}).get('id') == binding['repository_id'] and
+                        type(run_id) is int and run_id > 0 and hinted.get('path', '').split('@')[0] ==
+                        '.github/workflows/preloop-review-publish.yml', 'Wrong failed producer event')
+                rows = runtime.github_pages(github, '/repos/' + binding['repository'] +
+                    '/actions/runs/' + str(run_id) + '/artifacts', 'artifacts')
+                wakes = [row for row in rows if re.fullmatch('preloop-wake-[0-9a-f-]{36}', row.get('name', ''))]
+                require(len(wakes) == 1 and not wakes[0].get('expired'), 'Missing authenticated failure wake')
+                wake = runtime.artifact(github, binding, wakes[0]['name'],
+                    'preloop-review-publish.yml', run_id=str(run_id), allow_failed=True)
+                completion = wake['completion']
+                eid = completion['execution_id']
+                require(wakes[0]['name'] == 'preloop-wake-' + eid, 'Wrong failure wake identity')
+                trigger = runtime.artifact(github, binding, 'preloop-trigger-' + eid,
+                    'preloop-review-trigger.yml', allow_failed=True)
+                require(not trigger.get('diagnostic_rerun') and all(
+                    trigger.get(key) == completion.get(key) for key in
+                    ['execution_id', 'pr_number', 'head_sha', 'base_sha']), 'Wrong failure trigger identity')
+                number, head, base = (completion[key] for key in ['pr_number', 'head_sha', 'base_sha'])
+                runtime.current_pr(github, binding, number, head, base)
+                publisher.no_supersession(binding, os.environ['PRELOOP_CI_TOKEN'], completion)
+                runtime.fail_merge_check(github, binding, head, trigger['trigger_run_id'])
+                report['failure_correction_confirmed'] = True
+            except Exception as cleanup_error:
+                report['error_type'] = type(cleanup_error).__name__
+            try:
+                runtime.write_receipt(Path(os.environ['RUNNER_TEMP']) /
+                                      'preloop-finalize-preparation-failure', report)
+            except Exception:
+                pass
+        raise
 
 
 def intent_name(run_id, receipt):
@@ -109,7 +168,11 @@ def cleanup_failed_release(github, binding, receipt, completion, run_id, marker,
 
 def prepare():
     binding, _, github = runtime.context(WORKFLOW)
-    run_id, receipt, completion = producer(github, binding)
+    prepared = producer_or_fail(github, binding)
+    if prepared is None:
+        runtime.output(terminal_replay='true')
+        return
+    run_id, receipt, completion = prepared
     require(os.environ.get('GITHUB_RUN_ATTEMPT') == '1', 'Finalization retry requires reconciliation')
     name = intent_name(run_id, receipt)
     previous = runtime.github_pages(github, '/repos/' + binding['repository'] +
@@ -124,7 +187,10 @@ def prepare():
 def release():
     binding, _, github = runtime.context(WORKFLOW)
     require(os.environ.get('GITHUB_RUN_ATTEMPT') == '1', 'Finalization retry requires reconciliation')
-    run_id, receipt, completion = producer(github, binding)
+    prepared = producer_or_fail(github, binding)
+    if prepared is None:
+        return
+    run_id, receipt, completion = prepared
     name = intent_name(run_id, receipt)
     current = os.environ['GITHUB_RUN_ID']
     rows = runtime.github_pages(github, '/repos/' + binding['repository'] +
@@ -171,6 +237,14 @@ def release():
                 github, binding, receipt, completion, run_id, marker, run_url)
         except Exception as cleanup_failure:
             report['cleanup'] = dict(unconfirmed=type(cleanup_failure).__name__)
+        if binding.get('publication_merge_gate'):
+            try:
+                runtime.current_pr(github, binding, number, head, base)
+                publisher.no_supersession(binding, os.environ['PRELOOP_CI_TOKEN'], completion)
+                runtime.fail_merge_check(github, binding, head, receipt['trigger_run_id'])
+                report['merge_cleanup'] = 'failure_confirmed'
+            except Exception as cleanup_failure:
+                report['merge_cleanup'] = dict(unconfirmed=type(cleanup_failure).__name__)
         try:
             runtime.write_receipt(Path(os.environ['RUNNER_TEMP']) / 'preloop-finalize-failure', report)
         except Exception as evidence_failure:
@@ -206,13 +280,16 @@ def accept():
     require(run.get('id') == finalizer_id and run.get('repository', {}).get('id') == binding['repository_id'] and
             run.get('path', '').split('@')[0] == '.github/workflows/' + WORKFLOW and
             run.get('head_branch') == binding['default_branch'] and run.get('event') == 'workflow_run' and
-            run.get('status') == 'completed' and run.get('conclusion') == 'success' and
-            run.get('run_attempt') == 1, 'Finalizer did not complete successfully')
+            run.get('status') == 'completed' and
+            run.get('conclusion') in ['success', 'failure', 'cancelled', 'timed_out',
+                                     'action_required', 'neutral', 'skipped', 'startup_failure', 'stale'] and
+            run.get('run_attempt') == 1, 'Finalizer is not an authenticated terminal attempt')
     rows = runtime.github_pages(github, root + '/actions/runs/' + str(finalizer_id) + '/artifacts', 'artifacts')
     intents = [row for row in rows if re.fullmatch(
         r'preloop-finalize-[0-9a-f-]{36}-[1-9][0-9]*', row.get('name', ''))]
     require(len(intents) == 1 and not intents[0].get('expired'), 'Missing unique finalization intent')
-    intent = runtime.artifact(github, binding, intents[0]['name'], WORKFLOW, run_id=str(finalizer_id))
+    intent = runtime.artifact(github, binding, intents[0]['name'], WORKFLOW,
+                              run_id=str(finalizer_id), allow_failed=True)
     receipt, completion = intent['publication_receipt'], intent['completion']
     publisher_id = intent['publisher_run_id']
     require(intent.get('finalizer_run_id') == str(finalizer_id) and
@@ -222,13 +299,28 @@ def accept():
             completion.get('status') == 'SUCCEEDED' and completion.get('result_ready') is True,
             'Finalization completion binding changed')
     eid, number, head, base = (completion[k] for k in ['execution_id', 'pr_number', 'head_sha', 'base_sha'])
-    proof = runtime.completed_publication(github, binding, publisher_id, eid, number, head, base)
-    require(all(proof.get(k) is True for k in
-                ['delivery_verified', 'actions_run_verified', 'actions_check_verified', 'review_approved']) and
-            proof.get('finalizer_run_id') == str(finalizer_id) and proof.get('review_state') == 'success',
-            'Completed review does not admit merging')
     publisher.no_supersession(binding, os.environ['PRELOOP_CI_TOKEN'], completion)
     runtime.current_pr(github, binding, number, head, base)
+    if run['conclusion'] != 'success':
+        runtime.fail_merge_check(github, binding, head, receipt['trigger_run_id'])
+        return
+    try:
+        proof = runtime.completed_publication(github, binding, publisher_id, eid, number, head, base)
+        require(all(proof.get(k) is True for k in
+                    ['delivery_verified', 'actions_run_verified', 'actions_check_verified', 'review_approved']) and
+                proof.get('finalizer_run_id') == str(finalizer_id) and proof.get('review_state') == 'success',
+                'Completed review does not admit merging')
+    except Exception:
+        try:
+            runtime.fail_merge_check(github, binding, head, receipt['trigger_run_id'])
+        except Exception as cleanup_failure:
+            try:
+                runtime.write_receipt(Path(os.environ['RUNNER_TEMP']) / 'preloop-merge-rejected',
+                    dict(head_sha=head, trigger_run_id=receipt['trigger_run_id'],
+                         failure_correction_confirmed=False, error_type=type(cleanup_failure).__name__))
+            except Exception:
+                pass
+        raise
     run_url = 'https://github.com/' + binding['repository'] + '/actions/runs/' + os.environ['GITHUB_RUN_ID']
     runtime.merge_check(github, binding, head, run_url, trigger_run_id=receipt['trigger_run_id'])
 

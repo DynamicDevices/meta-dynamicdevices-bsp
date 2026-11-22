@@ -194,6 +194,29 @@ GitHub's native auto-merge still requires applicable CI.
 Enable this route only with exact signed `publication_merge_gate` admission,
 the fourth workflow in live-revocation bindings and actual required-check rules.
 
+Merge-gate admission also requires the exact signed finalizer configuration;
+a gate-only binding is rejected before pending-check creation. A failed native
+launch, returned revision mismatch, receipt write, or post-launch PR validation
+attempts failure-only correction of the already confirmed trigger-owned gate.
+If a successful merge-check PATCH is followed by a response/readback failure,
+the runtime corrects the exact pre-release check ID to failure before propagating
+the error. It never targets a different check based on a failed readback.
+
+Completed finalizer events are processed for success AND failure. A rejected
+review, unsuccessful finalizer or failed acceptance completes the authenticated
+trigger-owned gate with failure. Preparation failures recover a failure target
+only from matching authenticated wake and trigger artifacts. Missing proof,
+supersession, unavailable APIs or interrupted processes can prevent cleanup;
+unconfirmed correction stays recorded as such, never as verified completion.
+Failure cleanup without pre-release ownership proof cannot downgrade an
+already approved gate. There is no atomic GitHub write/read guarantee.
+
+A duplicate completion after approval revalidates the original completed
+publication and returns without rewriting its check or status. A separate
+terminal-replay artifact lets finalization skip that duplicate without creating
+a new release intent. An existing failed check requires explicit signed recovery
+before reset; automatic replay is not recovery authority.
+
 Commit-status publication performs one POST and independent combined/list
 readbacks. If exactly one endpoint lacks the posted ID or shows an older ID,
 while the other proves the exact write, it may perform one additional list then

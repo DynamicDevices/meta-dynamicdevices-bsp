@@ -148,8 +148,10 @@ def context(workflow):
             relative = path.removeprefix('/repos/' + repository + '/')
             allowed = ((workflow != 'preloop-review-merge.yml' and method == 'POST' and
                         re.fullmatch('statuses/[0-9a-f]{40}', relative)) or
-                       (workflow == 'preloop-review-trigger.yml' and method == 'POST' and
-                        relative == 'check-runs') or
+                       (workflow == 'preloop-review-trigger.yml' and
+                        ((method == 'POST' and relative == 'check-runs') or
+                         (method == 'PATCH' and re.fullmatch('check-runs/[1-9][0-9]*', relative)
+                          and body == {'status': 'completed', 'conclusion': 'failure'}))) or
                        (workflow == 'preloop-review-merge.yml' and method == 'PATCH' and
                         re.fullmatch('check-runs/[1-9][0-9]*', relative)) or
                        (workflow == 'preloop-review-finalize.yml' and method == 'PATCH' and
@@ -160,6 +162,7 @@ def context(workflow):
                          (method == 'PATCH' and re.fullmatch('check-runs/[1-9][0-9]*', relative)))))
             require(allowed, 'GitHub operation outside review/status publication')
             if workflow == 'preloop-review-trigger.yml' and relative == 'check-runs':
+                trust.workload_events(binding, 'preloop-review-merge.yml')
                 require(binding.get('publication_merge_gate') == trust.MERGE_GATE and
                         type(body) is dict and
                         set(body) == {'name', 'external_id', 'details_url', 'status', 'head_sha'} and
@@ -179,6 +182,7 @@ def merge_check(github, binding, head, run_url, *, trigger_run_id=None):
     """Create a pending app-bound gate, or complete that exact trigger's check."""
     require(binding.get('publication_merge_gate') == trust.MERGE_GATE,
             'Merge check not explicitly admitted')
+    trust.workload_events(binding, 'preloop-review-merge.yml')
     require(type(head) is str and re.fullmatch('[0-9a-f]{40}', head), 'Invalid merge check commit')
     run_id = os.environ['GITHUB_RUN_ID']
     expected_url = 'https://github.com/' + binding['repository'] + '/actions/runs/' + run_id
@@ -208,9 +212,29 @@ def merge_check(github, binding, head, run_url, *, trigger_run_id=None):
                          '/actions/runs/' + trigger_id)
         body.update(conclusion='success', output=dict(title='Completed Preloop delivery verified',
                     summary='Exact review, finalizer and bot publication verified.'))
-        posted = github(root + '/check-runs/' + str(prior['id']), 'PATCH', body)
-        require(type(posted) is dict and posted.get('id') == prior['id'],
-                'Merge check update changed identity')
+        try:
+            posted = github(root + '/check-runs/' + str(prior['id']), 'PATCH', body)
+            require(type(posted) is dict and posted.get('id') == prior['id'],
+                    'Merge check update changed identity')
+            observed = github(root + '/check-runs/' + str(prior['id']))
+            verify_merge_identity(observed, head, external)
+            require(observed['id'] == prior['id'] and observed.get('status') == 'completed' and
+                    observed.get('conclusion') == 'success', 'Merge check readback changed')
+            verify_check_url(observed, binding, run_url)
+            return observed
+        except Exception:
+            # The PATCH may have succeeded even if its response/readback failed.
+            # Correct only the check whose identity was verified BEFORE release.
+            try:
+                fail_merge_check(github, binding, head, trigger_id, prior=prior)
+            except Exception as cleanup_error:
+                try:
+                    write_receipt(Path(os.environ['RUNNER_TEMP']) / 'preloop-merge-cleanup',
+                        dict(check_id=prior['id'], head_sha=head, trigger_run_id=trigger_id,
+                             failure_correction_confirmed=False, error_type=type(cleanup_error).__name__))
+                except Exception:
+                    pass
+            raise
     require(type(posted) is dict and type(posted.get('id')) is int and posted['id'] > 0,
             'Malformed posted merge check')
     observed = github(root + '/check-runs/' + str(posted['id']))
@@ -223,6 +247,43 @@ def merge_check(github, binding, head, run_url, *, trigger_run_id=None):
     verify_check_url(observed, binding, run_url)
     # A check from a different app, even with the same name, cannot satisfy
     # the signed app-pinned required-check configuration.
+    return observed
+
+
+def verify_merge_identity(check, head, external):
+    require(type(check) is dict and type(check.get('id')) is int and check['id'] > 0 and
+            check.get('head_sha') == head and check.get('name') == 'Preloop merge gate' and
+            check.get('external_id') == external and
+            check.get('app', {}).get('id') == 15368 and
+            check.get('app', {}).get('slug') == 'github-actions',
+            'Wrong trigger-owned merge check identity')
+
+
+def fail_merge_check(github, binding, head, trigger_run_id, *, prior=None):
+    """Failure-only correction; never turn an unknown or different check green."""
+    trust.workload_events(binding, 'preloop-review-merge.yml')
+    require(type(head) is str and re.fullmatch('[0-9a-f]{40}', head) and
+            type(trigger_run_id) is str and re.fullmatch('[1-9][0-9]*', trigger_run_id),
+            'Invalid failure target')
+    root = '/repos/' + binding['repository']
+    external = 'briar-preloop-merge:' + trigger_run_id
+    if prior is None:
+        rows = github_pages(github, root + '/commits/' + head +
+                            '/check-runs?check_name=Preloop%20merge%20gate&filter=all', 'check_runs')
+        owned = [row for row in rows if row.get('external_id') == external and
+                 row.get('app', {}).get('id') == 15368]
+        require(len(owned) == 1, 'Missing unique merge failure target')
+        prior = owned[0]
+        require(prior.get('status') == 'in_progress' or
+                prior.get('status') == 'completed' and prior.get('conclusion') == 'failure',
+                'Failure cleanup cannot downgrade an already approved gate')
+    verify_merge_identity(prior, head, external)
+    path = root + '/check-runs/' + str(prior['id'])
+    github(path, 'PATCH', {'status': 'completed', 'conclusion': 'failure'})
+    observed = github(path)
+    verify_merge_identity(observed, head, external)
+    require(observed['id'] == prior['id'] and observed.get('status') == 'completed' and
+            observed.get('conclusion') == 'failure', 'Merge failure correction unconfirmed')
     return observed
 
 

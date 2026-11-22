@@ -12,7 +12,10 @@ from review_contract import InvalidReview
 class MergeCheckTests(unittest.TestCase):
     def setUp(self):
         self.binding = dict(repository='example/repository',
-                            publication_merge_gate=copy.deepcopy(trust.MERGE_GATE))
+                            publication_merge_gate=copy.deepcopy(trust.MERGE_GATE),
+                            publication_finalizer=dict(explicit_posture_approval=True,
+                                workflow_path='.github/workflows/preloop-review-finalize.yml',
+                                event='workflow_run', producer_path='.github/workflows/preloop-review-publish.yml'))
         self.head = 'a' * 40
         self.url = 'https://github.com/example/repository/actions/runs/14'
         self.prior = dict(id=123, name='Preloop merge gate', head_sha=self.head,
@@ -70,6 +73,36 @@ class MergeCheckTests(unittest.TestCase):
             self.mutate = lambda row, key=key, value=value: dict(row, **{key: value})
             with self.subTest(key=key, value=value), self.assertRaises(InvalidReview):
                 self.finish()
+            self.assertEqual(self.writes[-1][2], {'status': 'completed', 'conclusion': 'failure'})
+            self.assertEqual(self.observed['conclusion'], 'failure')
+
+    def test_successful_patch_then_lost_readback_corrects_exact_check_to_failure(self):
+        first = True
+        def readback(value):
+            nonlocal first
+            if first:
+                first = False
+                raise OSError('Synthetic readback failure')
+            return value
+        self.mutate = readback
+        with self.assertRaises(OSError):
+            self.finish()
+        self.assertEqual([row[2]['conclusion'] for row in self.writes], ['success', 'failure'])
+        self.assertTrue(all(row[0].endswith('/check-runs/123') for row in self.writes))
+        self.assertEqual(self.observed['conclusion'], 'failure')
+
+    def test_gate_without_exact_finalizer_cannot_create_pending_check(self):
+        for value in [None, {}, {'explicit_posture_approval': True}]:
+            self.binding['publication_finalizer'] = value
+            with self.subTest(value=value), self.assertRaises(InvalidReview):
+                runtime.merge_check(self.github, self.binding, self.head, self.url)
+        self.assertEqual(self.writes, [])
+
+    def test_late_failure_without_pre_release_proof_cannot_downgrade_success(self):
+        self.prior.update(status='completed', conclusion='success')
+        with patch.object(runtime, 'github_pages', return_value=[self.prior]), self.assertRaises(InvalidReview):
+            runtime.fail_merge_check(self.github, self.binding, self.head, '10')
+        self.assertEqual(self.writes, [])
 
     def test_merge_context_never_uses_spoofable_status_even_with_signed_admission(self):
         with self.assertRaises(InvalidReview):

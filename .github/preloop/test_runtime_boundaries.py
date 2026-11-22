@@ -64,6 +64,9 @@ class RuntimeBoundaryTests(unittest.TestCase):
 
     def test_trigger_can_create_only_its_pending_app_check_not_success(self):
         self.binding['publication_merge_gate'] = runtime.trust.MERGE_GATE
+        self.binding['publication_finalizer'] = dict(explicit_posture_approval=True,
+            workflow_path='.github/workflows/preloop-review-finalize.yml', event='workflow_run',
+            producer_path='.github/workflows/preloop-review-publish.yml')
         body = dict(name='Preloop merge gate', external_id='briar-preloop-merge:12',
                     details_url='https://github.com/example/repository/actions/runs/12',
                     status='in_progress', head_sha='a' * 40)
@@ -91,6 +94,22 @@ class RuntimeBoundaryTests(unittest.TestCase):
                 with self.subTest(target=target), self.assertRaises(InvalidReview):
                     github('/repos/example/repository/' + target, 'POST', {})
             request.assert_not_called()
+
+    def test_trigger_can_only_patch_checks_to_failure_not_success(self):
+        with patch.object(runtime.trust, 'load_authority', return_value=self.binding), \
+             patch.object(runtime.trust, 'verify_workload', return_value={'workflow_sha': 'a' * 40}), \
+             patch.object(runtime.trust, 'verify_sources'), \
+             patch.object(runtime, 'verify_live_service'), \
+             patch.object(runtime.trust, 'request') as request:
+            _, _, github = runtime.context('preloop-review-trigger.yml')
+            path = '/repos/example/repository/check-runs/123'
+            for body in [dict(status='completed', conclusion='success'), dict(status='in_progress'),
+                         dict(status='completed', conclusion='failure', name='another check')]:
+                with self.subTest(body=body), self.assertRaises(InvalidReview):
+                    github(path, 'PATCH', body)
+            request.assert_not_called()
+            github(path, 'PATCH', dict(status='completed', conclusion='failure'))
+            request.assert_called_once()
 
     def artifact(self, auth_success=True, branch='main', event='repository_dispatch', expired=False):
         row = dict(id=1, name='preloop-wake-execution', expired=expired, workflow_run={'id': 10})

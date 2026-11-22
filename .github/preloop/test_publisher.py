@@ -170,7 +170,6 @@ class PublisherTests(unittest.TestCase):
         self.normalize_check_url = True
         self.binding['publication_finalizer'] = {'explicit_posture_approval': True}
         self.assertEqual(self.run_publisher(), 0)
-        self.checks[0].update(status='completed', conclusion='failure')
         with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, GITHUB_RUN_ID='13', RUNNER_TEMP=folder):
             self.assertEqual(self.run_publisher(), 0)
         self.assertEqual(len(self.reviews), 1)
@@ -242,7 +241,7 @@ class PublisherTests(unittest.TestCase):
         self.checks[0].update(status='completed', conclusion='failure')
         self.preserve_old_conclusion = True
         with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, GITHUB_RUN_ID='13', RUNNER_TEMP=folder):
-            with self.assertRaisesRegex(InvalidReview, 'Review check readback mismatch'):
+            with self.assertRaisesRegex(InvalidReview, 'explicit signed recovery'):
                 self.run_publisher()
             self.assertFalse((Path(folder) / 'preloop-publication/receipt.json').exists())
         self.assertEqual(len(self.reviews), 1)
@@ -601,6 +600,9 @@ class PublisherTests(unittest.TestCase):
     def test_native_stopped_and_timeout_results_are_errors_never_green(self):
         for state in ['STOPPED', 'TIMEOUT']:
             with self.subTest(state=state):
+                self.reviews.clear()
+                self.checks.clear()
+                self.statuses.clear()
                 self.detail['status'] = self.completion['status'] = state
                 self.assertEqual(self.run_publisher(), 1)
                 self.assertEqual(self.statuses[0]['state'], 'error')
@@ -640,7 +642,10 @@ class PublisherTests(unittest.TestCase):
         self.run_publisher()
         # A fresh publisher job has a new workspace; keep only the fake remote records.
         (Path(self.temp.name) / 'preloop-publication/receipt.json').unlink()
-        self.assertEqual(self.run_publisher(), 0)
+        with patch.object(publisher.runtime, 'completed_publication', return_value=dict(
+                delivery_verified=True, actions_run_verified=True, actions_check_verified=True,
+                review_approved=True)), patch.object(publisher.runtime, 'output'):
+            self.assertEqual(self.run_publisher(), 0)
         self.assertEqual(len(self.reviews), 1)
         self.assertEqual(len(self.checks), 1)
 
@@ -649,11 +654,43 @@ class PublisherTests(unittest.TestCase):
         (Path(self.temp.name) / 'preloop-publication/receipt.json').unlink()
         self.completion['event_id'] = 'a34ad8f4-e998-4223-8d44-be3e30781216'
         os.environ['GITHUB_RUN_ID'] = '13'
-        self.assertEqual(self.run_publisher(), 0)
+        with patch.object(publisher.runtime, 'completed_publication', return_value=dict(
+                delivery_verified=True, actions_run_verified=True, actions_check_verified=True,
+                review_approved=True)), patch.object(publisher.runtime, 'output'):
+            self.assertEqual(self.run_publisher(), 0)
         self.assertEqual(len(self.reviews), 1)
         self.assertEqual(len(self.checks), 1)
         self.assertEqual(sum(path.endswith('/reviews') and method == 'POST'
                              for path, method, _ in self.calls), 1)
+
+    def test_finalized_success_replay_never_resets_check_or_status(self):
+        self.binding['publication_finalizer'] = {'explicit_posture_approval': True}
+        self.assertEqual(self.run_publisher(), 0)
+        check = self.checks[0]
+        claim = check['external_id'].split(':', 1)[1]
+        check.update(status='completed', conclusion='success')
+        check['output']['text'] += '\n<!-- briar-preloop-finalized:12:14:' + claim + ' -->'
+        self.statuses[0]['state'] = 'success'
+        checks, statuses = copy.deepcopy(self.checks), copy.deepcopy(self.statuses)
+        writes = len([row for row in self.calls if row[1] != 'GET'])
+        with patch.dict(os.environ, GITHUB_RUN_ID='15'), \
+             patch.object(publisher.runtime, 'completed_publication', return_value=dict(
+                delivery_verified=True, actions_run_verified=True, actions_check_verified=True,
+                review_approved=True)) as accepted, patch.object(publisher.runtime, 'output') as output:
+            self.assertEqual(self.run_publisher(), 0)
+            self.assertEqual(accepted.call_args.args[2], '12')
+            output.assert_called_once_with(terminal_replay='true')
+        self.assertEqual(self.checks, checks)
+        self.assertEqual(self.statuses, statuses)
+        self.assertEqual(len([row for row in self.calls if row[1] != 'GET']), writes)
+
+    def test_unverified_terminal_replay_cannot_reset_or_correct_existing_success(self):
+        self.assertEqual(self.run_publisher(), 0)
+        checks = copy.deepcopy(self.checks)
+        with patch.object(publisher.runtime, 'completed_publication', return_value={}), \
+             self.assertRaises(InvalidReview):
+            self.run_publisher()
+        self.assertEqual(self.checks, checks)
 
     def test_changed_result_for_published_execution_refuses_all_writes(self):
         self.run_publisher()

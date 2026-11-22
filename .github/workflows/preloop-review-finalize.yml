@@ -54,6 +54,7 @@ jobs:
           PRELOOP_CI_TOKEN: ${{ secrets.PRELOOP_CI_TOKEN }}
         run: python3 -I -B .github/preloop/bootstrap.py finalize prepare
       - name: Preserve finalization intent
+        if: steps.prepare.outputs.terminal_replay != 'true'
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6, Node24
         with:
           name: ${{ steps.prepare.outputs.intent_name }}
@@ -62,6 +63,7 @@ jobs:
           retention-days: 31
       - name: Finalize owned review gate
         id: release
+        if: steps.prepare.outputs.terminal_replay != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           PRELOOP_CI_TOKEN: ${{ secrets.PRELOOP_CI_TOKEN }}

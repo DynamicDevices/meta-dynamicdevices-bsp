@@ -35,6 +35,7 @@ class MergeGateTests(unittest.TestCase):
         self.proof = dict(delivery_verified=True, actions_run_verified=True,
             actions_check_verified=True, review_approved=True, review_state='success', finalizer_run_id='13')
         self.calls = []
+        self.failures = []
         env = patch.dict(os.environ, GITHUB_EVENT_NAME='workflow_run',
             GITHUB_EVENT_PATH=str(self.event_path), GITHUB_RUN_ID='14', GITHUB_RUN_ATTEMPT='1',
             PRELOOP_CI_TOKEN='synthetic')
@@ -51,6 +52,7 @@ class MergeGateTests(unittest.TestCase):
              patch.object(finalize.publisher, 'no_supersession',
                           side_effect=InvalidReview('Newer execution') if stale else None), \
              patch.object(runtime, 'current_pr') as current, \
+             patch.object(runtime, 'fail_merge_check', side_effect=lambda *a, **kw: self.failures.append((a, kw))), \
              patch.object(runtime, 'merge_check', side_effect=lambda *a, **kw: self.calls.append((a, kw))):
             finalize.accept()
             current.assert_called_once()
@@ -64,8 +66,7 @@ class MergeGateTests(unittest.TestCase):
         self.assertEqual(args[2], 'a' * 40)
 
     def test_running_failed_cancelled_or_retried_finalizer_cannot_release(self):
-        for field, value in [('status', 'in_progress'), ('conclusion', 'failure'),
-                             ('conclusion', 'cancelled'), ('conclusion', None), ('run_attempt', 2),
+        for field, value in [('status', 'in_progress'), ('conclusion', None), ('run_attempt', 2),
                              ('head_branch', 'feature'), ('event', 'push'), ('id', 99),
                              ('repository', {'id': 99})]:
             before = copy.deepcopy(self.run)
@@ -74,6 +75,28 @@ class MergeGateTests(unittest.TestCase):
                 self.execute()
             self.assertEqual(self.calls, [])
             self.run = before
+
+    def test_failed_cancelled_or_timed_out_finalizer_completes_gate_failure(self):
+        for conclusion in ['failure', 'cancelled', 'timed_out']:
+            self.run['conclusion'] = conclusion
+            self.execute()
+        self.assertEqual(self.calls, [])
+        self.assertEqual(len(self.failures), 3)
+        self.assertTrue(all(call[0][2:] == ('a' * 40, '10') for call in self.failures))
+
+    def test_changes_requested_review_completes_gate_failure(self):
+        self.receipt['state'] = 'failure'
+        self.proof.update(review_state='failure', review_approved=False, actions_check_verified=False)
+        with self.assertRaises(InvalidReview):
+            self.execute()
+        self.assertEqual(self.calls, [])
+        self.assertEqual(len(self.failures), 1)
+
+    def test_failed_finalizer_workflow_is_not_filtered_out(self):
+        workflow = (Path(__file__).resolve().parents[1] /
+                    'workflows/preloop-review-merge.yml').read_text()
+        self.assertNotIn("github.event.workflow_run.conclusion == 'success'", workflow)
+        self.assertIn('types: [completed]', workflow)
 
     def test_partial_green_does_not_replace_actual_finalizer_completion(self):
         self.run.update(status='in_progress', conclusion=None)
