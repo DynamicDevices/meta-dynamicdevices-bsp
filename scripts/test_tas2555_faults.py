@@ -57,8 +57,9 @@ static int fake_read(struct tas2555_priv *p, unsigned int reg, unsigned int *val
     (void)p;
     ++reads;
     if ((int)reads == fail_read) return -EIO;
-    assert(reg == (reads == 1 ? 104U : 108U));
+    assert(reg == (reads == 1 ? 108U : 104U));
     *value = reg == 104 ? flags104 : flags108;
+    if (reg == 104) flags104 = 0; /* Real sticky faults clear on read. */
     return 0;
 }
 static int fake_write(struct tas2555_priv *p, unsigned int reg, unsigned int value) {
@@ -105,6 +106,11 @@ int main(void) {
         assert(tas2555_get_errcode(&p,&result)==-EIO);
         assert(result==0xdeadbeef && p.mnErrorCode==TAS2555_ERROR_I2CIO);
         assert(reads==(unsigned int)failure && writes==0 && shutdowns==0);
+        assert(flags104==8); /* Failed status reads must not consume faults. */
+        fail_read=0; reads=0;
+        assert(tas2555_get_errcode(&p,&result)==0);
+        assert(result==(TAS2555_ERROR_I2CIO|TAS2555_ERROR_BROWNOUT));
+        assert(shutdowns==1 && flags104==0 && p.mnErrorCode==0);
         reset(8,0); fail_read=failure; v.value.integer.value[0]=12345;
         assert(tas2555_errcode_get(&k,&v)==-EIO);
         assert(v.value.integer.value[0]==12345);

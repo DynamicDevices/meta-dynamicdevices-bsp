@@ -4,8 +4,8 @@ R104 contains sticky DAC/amplifier faults; R108 contains DSP interrupt
 outputs. Do not overwrite R104 before decoding its bits. In particular,
 R108 bit 3 is reserved and is not a brownout indicator.
 
-Stop decoding if either register read fails, preserving accumulated software
-errors for a later successful read. Return read errors through the ALSA
+Read DSP flags first so a failed R108 read cannot discard a clear-on-read
+R104 fault. Preserve accumulated software errors on failed reads. Return errors through the ALSA
 TAS_Status getter rather than reporting an apparently successful query.
 Keep existing fault-response actions and protection settings unchanged.
 
@@ -28,24 +28,22 @@ diff --git a/tas2555-codec.c b/tas2555-codec.c
 diff --git a/tas2555-core.c b/tas2555-core.c
 --- a/tas2555-core.c
 +++ b/tas2555-core.c
-@@ -391,11 +391,19 @@ int tas2555_get_errcode(struct tas2555_priv *pTAS2555, unsigned int *pErrCode)
+@@ -391,11 +391,17 @@ int tas2555_get_errcode(struct tas2555_priv *pTAS2555, unsigned int *pErrCode)
  {
  	unsigned int errcode = 0;
  	unsigned int nValue = 0;
 +	unsigned int nDspFlags = 0;
  	int nResult = 0;
  
++	/* A failed DSP read must not discard a clear-on-read R104 fault. */
++	nResult = pTAS2555->read(pTAS2555, TAS2555_FLAGS_2, &nDspFlags);
++	if (nResult < 0)
++		return nResult;
  	nResult = pTAS2555->read(pTAS2555, TAS2555_FLAGS_1, &nValue);
 +	if (nResult < 0)
 +		return nResult;
  	if (nResult >= 0) {
 -		nResult = pTAS2555->read(pTAS2555, TAS2555_FLAGS_2, &nValue);
-+		/* R104 contains fault bits; R108 contains DSP interrupt outputs.
-+		 * Reading the latter acknowledges it, but must not replace R104.
-+		 */
-+		nResult = pTAS2555->read(pTAS2555, TAS2555_FLAGS_2, &nDspFlags);
-+		if (nResult < 0)
-+			return nResult;
  
  		if (nValue & 0x04) {
  			errcode |= TAS2555_ERROR_CLKPRESENT;
